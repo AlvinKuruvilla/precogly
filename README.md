@@ -21,8 +21,13 @@ Say you are a bank, if you choose PCI-DSS and DORA as the frameworks for your or
 
 ## What is the tech stack for Precogly?
 
-- **Backend** - Django with PostgreSQL
-- **Frontend** - ReactJS
+- **Backend** - Django + DRF
+- **Database** - PostgreSQL
+- **Frontend** - ReactJS + Vite
+- **Canvas Editor** - React Flow
+- **State/Data Fetching** TanStack Query
+- **Routing** React Router
+- **UI Components** shadcn/ui
 
 ### Why did you choose Django?
 
