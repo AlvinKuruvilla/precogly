@@ -1,51 +1,45 @@
-# Precogly
+# Precogly README
 
 ## What is Precogly?
 
-Precogly is an open-source threat modeling platform purpose-built for compliance. :contentReference[oaicite:0]{index=0}
+Precogly is an open-source threat modeling platform purpose-built for compliance.
 
 ## Why should I care about Precogly?
 
-Precogly is **compliance-aware**.
+### What does "compliance-aware" mean?
 
-If you are a bank and choose frameworks like **PCI-DSS (Payment Card Industry Data Security Standard)** and **DORA (Digital Operational Resilience Act)**, the controls and countermeasures surfaced later are mapped directly to those frameworks—making audit readiness explicit and demonstrable. :contentReference[oaicite:1]{index=1}
+Say you are a bank, if you choose PCI-DSS and DORA as the frameworks for your org initially, the controls and countermeasures that show up later on will be mapped to these controls enabling you to demonstrate audit readiness.
 
-## What is the tech stack?
+## Feature Comparison
 
-- **Backend:** Django + PostgreSQL
-- **Frontend:** ReactJS :contentReference[oaicite:2]{index=2}
+| Feature                                            | Open Source Tools | Commercial Tools | Precogly |
+| -------------------------------------------------- | ----------------- | ---------------- | -------- |
+| Threat Modeling                                    | ✅                | ✅               | ✅       |
+| Open source                                        | ✅                | ❌               | ✅       |
+| Enterprise support (multi-user, integrations etc.) | ❌                | ✅               | ✅       |
+| Compliance-aware                                   | ❌                | ✅               | ✅       |
 
-## Why Django?
+## What is the tech stack for Precogly?
 
-- Powerful Object-Relational Mapping (ORM), migrations, and admin for complex compliance workflows
-- Strong defaults for authentication, authorization, and auditability
-- Python integrates cleanly with agentic AI and automation pipelines
-- Mature ecosystem (20+ years) :contentReference[oaicite:3]{index=3}
+- **Backend** - Django with PostgreSQL
+- **Frontend** - ReactJS
 
-## Why ReactJS?
+### Why did you choose Django?
 
-- Ideal for canvas-heavy user interfaces (DFDs, modeling views)
-- Best-in-class libraries for graphs, collaboration, and enterprise UI patterns :contentReference[oaicite:4]{index=4}
+- Django's ORM, migrations, and admin panel lets us model complex compliance, threat, and audit workflows quickly and safely.
+- Django has strong, opinionated defaults for authentication, authorization, and auditability - critical for an enterprise-class product.
+- Python integrates easily with agentic AI and future automation pipelines.
+- Ecosystem maturity - Django is over 20 years old.
 
-## Open Source vs Commercial Comparison
+### Why did you choose ReactJS?
 
-| Feature                                       | Open Source Tools | Commercial Tools | Precogly |
-| --------------------------------------------- | ----------------- | ---------------- | -------- | ------------------------------------- |
-| Threat Modeling                               | ✅                | ✅               | ✅       |
-| Open Source                                   | ✅                | ❌               | ✅       |
-| Enterprise Support (multi-user, integrations) | ❌                | ✅               | ✅       |
-| Compliance-aware                              | ❌                | ✅               | ✅       | :contentReference[oaicite:5]{index=5} |
+- Supports canvas-heavy UI like DFDs.
+- Best-in-class libraries for graphs, collaboration, and enterprise UI patterns.
 
-## What is the workflow?
+## What is the workflow of Precogly?
 
-See the workflow diagram in the documentation. :contentReference[oaicite:6]{index=6}
+Check out this [image](precogly-workflows.png).
 
-## Getting Started
+## How do I get started?
 
-1. Clone the repository
-2. Start the Django backend
-3. Start the React frontend
-4. Start hacking
-
-Questions or issues?  
-📧 **vikramsnarayan@gmail.com** :contentReference[oaicite:7]{index=7}
+Clone the repo. Start the Django backend. Start the React frontend. Start hacking! If you run into issues, email me - vikramsnarayan@gmail.com
