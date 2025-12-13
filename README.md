@@ -38,7 +38,7 @@ Say you are a bank, if you choose PCI-DSS and DORA as the frameworks for your or
 
 ## What is the workflow of Precogly?
 
-Check out this [image](precogly-workflows.png).
+Check out this ![image](precogly-workflows.png)
 
 ## How do I get started?
 
