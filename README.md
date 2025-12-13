@@ -6,10 +6,6 @@ Precogly is an open-source threat modeling platform purpose-built for compliance
 
 ## Why should I care about Precogly?
 
-### What does "compliance-aware" mean?
-
-Say you are a bank, if you choose PCI-DSS and DORA as the frameworks for your org initially, the controls and countermeasures that show up later on will be mapped to these controls enabling you to demonstrate audit readiness.
-
 ## Feature Comparison
 
 | Feature                                            | Open Source Tools | Commercial Tools | Precogly |
@@ -18,6 +14,10 @@ Say you are a bank, if you choose PCI-DSS and DORA as the frameworks for your or
 | Open source                                        | ✅                | ❌               | ✅       |
 | Enterprise support (multi-user, integrations etc.) | ❌                | ✅               | ✅       |
 | Compliance-aware                                   | ❌                | ✅               | ✅       |
+
+### What does "compliance-aware" mean?
+
+Say you are a bank, if you choose PCI-DSS and DORA as the frameworks for your org initially, the controls and countermeasures that show up later on will be mapped to these controls enabling you to demonstrate audit readiness.
 
 ## What is the tech stack for Precogly?
 
