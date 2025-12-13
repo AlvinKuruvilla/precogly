@@ -3,6 +3,7 @@ import { Layout } from '@/components/layout'
 import {
   Dashboard,
   ThreatModels,
+  CreateThreatModel,
   Frameworks,
   TechComponents,
   ThreatLibraries,
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'threat-models', element: <ThreatModels /> },
+      { path: 'threat-models/new', element: <CreateThreatModel /> },
       { path: 'frameworks', element: <Frameworks /> },
       { path: 'tech-components', element: <TechComponents /> },
       { path: 'threat-libraries', element: <ThreatLibraries /> },

@@ -3,7 +3,53 @@ import { http, HttpResponse } from 'msw'
 // Base API URL - will match your Django backend later
 const API_BASE = '/api'
 
-// Mock data
+// Mock data - Systems/CMDB entities
+const systems = [
+  {
+    id: '1',
+    name: 'AWS Serverless System',
+    type: 'system',
+    description: 'Lambda, API Gateway, DynamoDB stack',
+    environment: 'production',
+  },
+  {
+    id: '2',
+    name: 'Mobile Payments System',
+    type: 'system',
+    description: 'Mobile payment processing infrastructure',
+    environment: 'production',
+  },
+  {
+    id: '3',
+    name: 'Customer Data Lake',
+    type: 'system',
+    description: 'S3-based data lake for analytics',
+    environment: 'production',
+  },
+  {
+    id: '4',
+    name: 'Identity Provider',
+    type: 'system',
+    description: 'OAuth/OIDC identity management',
+    environment: 'production',
+  },
+  {
+    id: '5',
+    name: 'Order Processing Pipeline',
+    type: 'process',
+    description: 'End-to-end order fulfillment process',
+    environment: 'production',
+  },
+  {
+    id: '6',
+    name: 'Customer Onboarding Flow',
+    type: 'process',
+    description: 'New customer registration and KYC process',
+    environment: 'production',
+  },
+]
+
+// Mock data - Threat Models
 const threatModels = [
   {
     id: '1',
@@ -123,5 +169,10 @@ export const handlers = [
       { id: '5', name: 'CRA', description: 'Cyber Resilience Act' },
       { id: '6', name: 'GDPR', description: 'General Data Protection Regulation' },
     ])
+  }),
+
+  // Get systems/CMDB entities
+  http.get(`${API_BASE}/systems`, () => {
+    return HttpResponse.json(systems)
   }),
 ]
