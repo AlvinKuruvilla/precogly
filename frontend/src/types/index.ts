@@ -2,6 +2,9 @@ export type ThreatModelStatus = 'in_progress' | 'pending_review' | 'approved'
 export type Criticality = 'low' | 'medium' | 'high' | 'critical'
 export type SystemType = 'system' | 'process'
 
+// Re-export diagram types
+export * from './diagram'
+
 export interface ThreatModel {
   id: string
   name: string

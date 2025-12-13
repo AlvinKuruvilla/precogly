@@ -1,6 +1,8 @@
 export { Dashboard } from './Dashboard'
 export { ThreatModels } from './ThreatModels'
+export { ThreatModelDetail } from './ThreatModelDetail'
 export { CreateThreatModel } from './CreateThreatModel'
+export { DFDEditor } from './DFDEditor'
 export { Frameworks } from './Frameworks'
 export { TechComponents } from './TechComponents'
 export { ThreatLibraries } from './ThreatLibraries'

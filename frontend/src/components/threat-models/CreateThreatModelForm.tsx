@@ -84,8 +84,8 @@ export function CreateThreatModelForm() {
     }
 
     try {
-      await createMutation.mutateAsync(input)
-      navigate('/')
+      const newThreatModel = await createMutation.mutateAsync(input)
+      navigate(`/threat-models/${newThreatModel.id}`)
     } catch (error) {
       console.error('Failed to create threat model:', error)
     }

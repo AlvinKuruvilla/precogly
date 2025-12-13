@@ -1,0 +1,51 @@
+import { memo } from 'react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { cn } from '@/lib/utils'
+import type { ActorNodeData } from '@/types'
+
+export const ActorNode = memo(function ActorNode({
+  data,
+  selected,
+}: NodeProps<ActorNodeData>) {
+  const isNewlyInserted = data.isNewlyInserted
+
+  return (
+    <>
+      {/* Handles for connections from all sides */}
+      <Handle type="target" position={Position.Top} className="!bg-green-500" />
+      <Handle type="target" position={Position.Left} className="!bg-green-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-green-500" />
+      <Handle type="source" position={Position.Right} className="!bg-green-500" />
+
+      <div
+        className={cn(
+          'flex flex-col items-center p-3 rounded-lg bg-green-50 border-2 min-w-[80px] transition-all',
+          selected ? 'border-green-500 shadow-md' : 'border-green-200',
+          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2'
+        )}
+      >
+        {/* Stick figure */}
+        <div className="flex flex-col items-center mb-2">
+          {/* Head */}
+          <div className="w-5 h-5 rounded-full border-2 border-green-600 bg-green-100" />
+          {/* Body */}
+          <div className="w-0.5 h-4 bg-green-600" />
+          {/* Arms */}
+          <div className="relative -mt-3">
+            <div className="absolute w-6 h-0.5 bg-green-600 -left-3" />
+          </div>
+          {/* Legs */}
+          <div className="flex mt-1">
+            <div className="w-0.5 h-4 bg-green-600 rotate-[20deg] origin-top" />
+            <div className="w-0.5 h-4 bg-green-600 -rotate-[20deg] origin-top -ml-0.5" />
+          </div>
+        </div>
+
+        {/* Label */}
+        <span className="font-medium text-sm text-green-900 text-center">
+          {data.label}
+        </span>
+      </div>
+    </>
+  )
+})
