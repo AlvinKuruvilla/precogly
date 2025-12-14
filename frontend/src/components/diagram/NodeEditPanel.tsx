@@ -142,11 +142,11 @@ export const NodeEditPanel = memo(function NodeEditPanel({
               <TechnologyCombobox
                 value={(node.data as { technology?: string }).technology || ''}
                 onChange={(value) => updateNodeData({ technology: value })}
-                filterCategory={node.type === 'datastore' ? 'database' : undefined}
+                filterNodeType={node.type as 'process' | 'datastore'}
                 placeholder={
                   node.type === 'datastore'
-                    ? 'Select database...'
-                    : 'Select technology...'
+                    ? 'Select storage/database...'
+                    : 'Select compute/backend...'
                 }
               />
             </div>
@@ -214,8 +214,8 @@ export const NodeEditPanel = memo(function NodeEditPanel({
               <TechnologyCombobox
                 value={(node.data as { technology?: string }).technology || ''}
                 onChange={(value) => updateNodeData({ technology: value })}
-                filterCategory="infrastructure"
-                placeholder="Select infrastructure..."
+                filterNodeType="trustBoundary"
+                placeholder="Select networking/security..."
               />
             </div>
           </>
@@ -223,6 +223,16 @@ export const NodeEditPanel = memo(function NodeEditPanel({
 
         {node.type === 'systemBoundary' && (
           <>
+            <div className="space-y-2">
+              <Label>Technology</Label>
+              <TechnologyCombobox
+                value={(node.data as { technology?: string }).technology || ''}
+                onChange={(value) => updateNodeData({ technology: value })}
+                filterNodeType="systemBoundary"
+                placeholder="Select infrastructure..."
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="node-owner">Owner</Label>
               <Input

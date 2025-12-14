@@ -18,9 +18,11 @@ import {
 import {
   TECHNOLOGIES,
   TECHNOLOGY_CATEGORIES,
+  NODE_TYPE_CATEGORIES,
   searchTechnologies,
   type Technology,
   type TechnologyCategory,
+  type DiagramNodeType,
 } from '@/lib/technology-registry'
 
 interface TechnologyComboboxProps {
@@ -28,6 +30,7 @@ interface TechnologyComboboxProps {
   onChange: (value: string) => void
   placeholder?: string
   filterCategory?: TechnologyCategory
+  filterNodeType?: DiagramNodeType
   allowCustom?: boolean
   className?: string
 }
@@ -37,15 +40,23 @@ export function TechnologyCombobox({
   onChange,
   placeholder = 'Select technology...',
   filterCategory,
+  filterNodeType,
   allowCustom = true,
   className,
 }: TechnologyComboboxProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Determine which categories to filter by
+  const filterCategories = useMemo(() => {
+    if (filterCategory) return [filterCategory]
+    if (filterNodeType) return NODE_TYPE_CATEGORIES[filterNodeType] || []
+    return null
+  }, [filterCategory, filterNodeType])
+
   // Group technologies by category
   const groupedTechnologies = useMemo(() => {
-    const filtered = searchTechnologies(searchQuery, filterCategory)
+    const filtered = searchTechnologies(searchQuery, filterCategories || undefined)
 
     const groups: Record<TechnologyCategory, Technology[]> = {} as Record<TechnologyCategory, Technology[]>
 
@@ -57,7 +68,7 @@ export function TechnologyCombobox({
     }
 
     return groups
-  }, [searchQuery, filterCategory])
+  }, [searchQuery, filterCategories])
 
   // Find current selection
   const selectedTech = TECHNOLOGIES.find(
