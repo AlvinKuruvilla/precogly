@@ -47,6 +47,11 @@ export const NodeEditPanel = memo(function NodeEditPanel({
   const typeConfig = nodeTypeConfig[node.type as DiagramNodeType]
   const Icon = typeConfig?.icon || Cog
 
+  // Find parent node if exists
+  const parentNode = node.parentId
+    ? (getNodes() as DiagramNode[]).find((n) => n.id === node.parentId)
+    : null
+
   const updateNodeData = (updates: Partial<DiagramNode['data']>) => {
     setNodes((nodes) =>
       nodes.map((n) =>
@@ -240,13 +245,30 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           </>
         )}
 
+        {/* Parent info */}
+        {parentNode && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Contained In</Label>
+              <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                {parentNode.type === 'trustBoundary' ? (
+                  <Shield className="h-4 w-4 text-orange-600" />
+                ) : (
+                  <Box className="h-4 w-4 text-slate-600" />
+                )}
+                <span className="text-sm font-medium">{parentNode.data.label}</span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Node info */}
         <Separator />
 
         <div className="space-y-1 text-xs text-muted-foreground">
           <div>ID: {node.id}</div>
           <div>Type: {node.type}</div>
-          {node.parentId && <div>Parent: {node.parentId}</div>}
         </div>
       </div>
 
