@@ -14,7 +14,7 @@ import {
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Clock, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Clock, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -56,12 +56,18 @@ function DFDEditorContent() {
     onNodesChange,
     onEdgesChange,
     saveNow,
+    updateTitle,
     hasUnsavedChanges,
     lastSaved,
   } = useDiagramState({
     diagramId: diagramId || '',
     autoSaveInterval: 30000,
   })
+
+  // State for editable title
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState('')
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   // Parent relationship detection
   const { updateParentRelationships } = useParentRelationships()
@@ -186,6 +192,34 @@ function DFDEditorContent() {
     return `Saved ${Math.floor(diff / 3600)}h ago`
   }
 
+  // Handle title editing
+  const handleTitleClick = useCallback(() => {
+    if (diagram) {
+      setTitleValue(diagram.title)
+      setIsEditingTitle(true)
+      setTimeout(() => titleInputRef.current?.select(), 0)
+    }
+  }, [diagram])
+
+  const handleTitleSave = useCallback(async () => {
+    const trimmedTitle = titleValue.trim()
+    if (trimmedTitle && trimmedTitle !== diagram?.title) {
+      await updateTitle(trimmedTitle)
+    }
+    setIsEditingTitle(false)
+  }, [titleValue, diagram?.title, updateTitle])
+
+  const handleTitleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleTitleSave()
+      } else if (e.key === 'Escape') {
+        setIsEditingTitle(false)
+      }
+    },
+    [handleTitleSave]
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
@@ -216,7 +250,26 @@ function DFDEditorContent() {
             <span className="text-sm">Back</span>
           </Link>
           <div>
-            <h1 className="font-semibold">{diagram.title}</h1>
+            {isEditingTitle ? (
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                onBlur={handleTitleSave}
+                onKeyDown={handleTitleKeyDown}
+                className="font-semibold bg-transparent border-b-2 border-primary outline-none px-0 py-0 min-w-[200px]"
+                autoFocus
+              />
+            ) : (
+              <button
+                onClick={handleTitleClick}
+                className="flex items-center gap-2 group text-left"
+              >
+                <h1 className="font-semibold">{diagram.title}</h1>
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            )}
             <p className="text-xs text-muted-foreground">
               Data Flow Diagram
             </p>

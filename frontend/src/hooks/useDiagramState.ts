@@ -27,6 +27,7 @@ interface UseDiagramStateReturn {
   onNodesChange: (changes: NodeChange<DiagramNode>[]) => void
   onEdgesChange: (changes: EdgeChange<DataFlowEdge>[]) => void
   saveNow: () => Promise<void>
+  updateTitle: (title: string) => Promise<void>
 
   // State
   hasUnsavedChanges: boolean
@@ -57,6 +58,21 @@ async function saveDiagram(
   })
   if (!response.ok) {
     throw new Error('Failed to save diagram')
+  }
+  return response.json()
+}
+
+async function updateDiagramTitle(
+  diagramId: string,
+  title: string
+): Promise<Diagram> {
+  const response = await fetch(`/api/diagrams/${diagramId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  })
+  if (!response.ok) {
+    throw new Error('Failed to update diagram title')
   }
   return response.json()
 }
@@ -96,6 +112,14 @@ export function useDiagramState({
       queryClient.setQueryData(['diagram', diagramId], updatedDiagram)
       setHasUnsavedChanges(false)
       setLastSaved(new Date())
+    },
+  })
+
+  // Title update mutation
+  const titleMutation = useMutation({
+    mutationFn: (title: string) => updateDiagramTitle(diagramId, title),
+    onSuccess: (updatedDiagram) => {
+      queryClient.setQueryData(['diagram', diagramId], updatedDiagram)
     },
   })
 
@@ -152,6 +176,11 @@ export function useDiagramState({
     await saveMutation.mutateAsync({ nodes, edges })
   }, [nodes, edges, saveMutation])
 
+  // Update title function
+  const updateTitle = useCallback(async (title: string) => {
+    await titleMutation.mutateAsync(title)
+  }, [titleMutation])
+
   // Warn before leaving with unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -178,6 +207,7 @@ export function useDiagramState({
     onNodesChange: handleNodesChange,
     onEdgesChange: handleEdgesChange,
     saveNow,
+    updateTitle,
     hasUnsavedChanges,
     lastSaved,
   }
