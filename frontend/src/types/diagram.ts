@@ -88,6 +88,8 @@ export interface BaseNodeData {
   label: string
   description?: string
   isNewlyInserted?: boolean
+  lockAnimationKey?: number     // Timestamp to trigger lock animation (child locked into parent)
+  receiveChildAnimationKey?: number  // Timestamp to trigger animation (boundary received a child)
 }
 
 export interface ProcessNodeData extends BaseNodeData {

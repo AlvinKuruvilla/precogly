@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { cn } from '@/lib/utils'
 import type { ActorNodeData } from '@/types'
@@ -8,6 +8,16 @@ export const ActorNode = memo(function ActorNode({
   selected,
 }: NodeProps<ActorNodeData>) {
   const isNewlyInserted = data.isNewlyInserted
+  const [showLockAnimation, setShowLockAnimation] = useState(false)
+
+  // Trigger lock animation when lockAnimationKey changes (new timestamp = new animation)
+  useEffect(() => {
+    if (data.lockAnimationKey) {
+      setShowLockAnimation(true)
+      const timer = setTimeout(() => setShowLockAnimation(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [data.lockAnimationKey])
 
   return (
     <>
@@ -21,7 +31,8 @@ export const ActorNode = memo(function ActorNode({
         className={cn(
           'flex flex-col items-center p-3 rounded-lg bg-green-50 border-2 min-w-[80px] transition-all',
           selected ? 'border-green-500 shadow-md' : 'border-green-200',
-          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2'
+          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2',
+          showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
         )}
       >
         {/* Stick figure */}

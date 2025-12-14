@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
 import { Box, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,16 @@ export const SystemBoundaryNode = memo(function SystemBoundaryNode({
 }: NodeProps<SystemBoundaryNodeData>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showLockAnimation, setShowLockAnimation] = useState(false)
+
+  // Trigger lock animation when receiveChildAnimationKey changes (new timestamp = new animation)
+  useEffect(() => {
+    if (data.receiveChildAnimationKey) {
+      setShowLockAnimation(true)
+      const timer = setTimeout(() => setShowLockAnimation(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [data.receiveChildAnimationKey])
   const { getNodes, setNodes, setEdges, getEdges } = useReactFlow()
 
   const handleDelete = () => {
@@ -85,7 +95,8 @@ export const SystemBoundaryNode = memo(function SystemBoundaryNode({
         className={cn(
           'w-full h-full rounded-lg border-2 border-solid bg-slate-50/50 transition-all',
           selected ? 'border-slate-500' : 'border-slate-300',
-          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2'
+          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2',
+          showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
         )}
       >
         {/* Label badge at top-left */}

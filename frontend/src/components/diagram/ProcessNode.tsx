@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,16 @@ export const ProcessNode = memo(function ProcessNode({
   selected,
 }: NodeProps<ProcessNodeData>) {
   const isNewlyInserted = data.isNewlyInserted
+  const [showLockAnimation, setShowLockAnimation] = useState(false)
+
+  // Trigger lock animation when lockAnimationKey changes (new timestamp = new animation)
+  useEffect(() => {
+    if (data.lockAnimationKey) {
+      setShowLockAnimation(true)
+      const timer = setTimeout(() => setShowLockAnimation(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [data.lockAnimationKey])
 
   return (
     <>
@@ -23,7 +33,8 @@ export const ProcessNode = memo(function ProcessNode({
         className={cn(
           'px-4 py-3 rounded-lg bg-blue-50 border-2 min-w-[120px] transition-all',
           selected ? 'border-blue-500 shadow-md' : 'border-blue-200',
-          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2'
+          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2',
+          showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
         )}
       >
         <div className="flex items-center gap-2">

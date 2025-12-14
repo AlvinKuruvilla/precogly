@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react'
 import { Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,16 @@ export const TrustBoundaryNode = memo(function TrustBoundaryNode({
 }: NodeProps<TrustBoundaryNodeData>) {
   const isNewlyInserted = data.isNewlyInserted
   const trustConfig = TRUST_LEVEL_CONFIG[data.trustLevel] || TRUST_LEVEL_CONFIG.internal
+  const [showLockAnimation, setShowLockAnimation] = useState(false)
+
+  // Trigger lock animation when receiveChildAnimationKey changes (new timestamp = new animation)
+  useEffect(() => {
+    if (data.receiveChildAnimationKey) {
+      setShowLockAnimation(true)
+      const timer = setTimeout(() => setShowLockAnimation(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [data.receiveChildAnimationKey])
 
   return (
     <>
@@ -34,7 +44,8 @@ export const TrustBoundaryNode = memo(function TrustBoundaryNode({
       <div
         className={cn(
           'w-full h-full rounded-lg border-2 border-dashed transition-all',
-          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2'
+          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2',
+          showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
         )}
         style={{
           backgroundColor: trustConfig.color,

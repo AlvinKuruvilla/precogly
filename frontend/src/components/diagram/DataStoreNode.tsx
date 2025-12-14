@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,16 @@ export const DataStoreNode = memo(function DataStoreNode({
   selected,
 }: NodeProps<DataStoreNodeData>) {
   const isNewlyInserted = data.isNewlyInserted
+  const [showLockAnimation, setShowLockAnimation] = useState(false)
+
+  // Trigger lock animation when lockAnimationKey changes (new timestamp = new animation)
+  useEffect(() => {
+    if (data.lockAnimationKey) {
+      setShowLockAnimation(true)
+      const timer = setTimeout(() => setShowLockAnimation(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [data.lockAnimationKey])
 
   return (
     <>
@@ -22,7 +32,8 @@ export const DataStoreNode = memo(function DataStoreNode({
       <div
         className={cn(
           'relative min-w-[120px] transition-all',
-          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg'
+          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg',
+          showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2 rounded-lg'
         )}
       >
         {/* Cylinder shape using CSS */}

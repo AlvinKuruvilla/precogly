@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import type { DiagramNode } from '@/types'
 
 interface BoundingBox {
@@ -8,108 +8,125 @@ interface BoundingBox {
   height: number
 }
 
-interface UseParentRelationshipsReturn {
-  updateParentRelationships: (
-    nodes: DiagramNode[],
-    setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>
-  ) => void
-  findParentBoundary: (
-    node: DiagramNode,
-    boundaries: DiagramNode[]
-  ) => DiagramNode | null
-}
-
-/**
- * Gets the bounding box of a node in absolute (flow) coordinates.
- * For child nodes, converts relative position to absolute.
- */
-function getAbsoluteBoundingBox(
+// -----------------------------------------------------------------------------
+// 1. Recursive Helper: Get True Absolute Position
+// -----------------------------------------------------------------------------
+function getAbsolutePosition(
   node: DiagramNode,
-  allNodes: DiagramNode[]
-): BoundingBox {
+  nodesMap: Map<string, DiagramNode>
+): { x: number; y: number } {
   let x = node.position.x
   let y = node.position.y
+  let currentParentId = node.parentId
 
-  // If node has a parent, add parent's position
-  if (node.parentId) {
-    const parent = allNodes.find((n) => n.id === node.parentId)
+  // Traverse up the tree to sum up all offsets
+  let iterations = 0
+  while (currentParentId) {
+    iterations++
+    if (iterations > 100) break
+    const parent = nodesMap.get(currentParentId)
     if (parent) {
       x += parent.position.x
       y += parent.position.y
+      currentParentId = parent.parentId
+    } else {
+      break
     }
   }
 
-  // Get dimensions from style or use defaults
-  const width = (node.style?.width as number) || node.measured?.width || 150
-  const height = (node.style?.height as number) || node.measured?.height || 60
+  return { x, y }
+}
+
+function getAbsoluteBoundingBox(
+  node: DiagramNode,
+  nodesMap: Map<string, DiagramNode>
+): BoundingBox {
+  const { x, y } = getAbsolutePosition(node, nodesMap)
+
+  // Prefer measured dimensions (actual rendered size) over style (may be stale/default)
+  // This is important for resized boundaries where style might not be updated
+  const width = node.measured?.width || (node.style?.width as number) || (node as any).width || 150
+  const height = node.measured?.height || (node.style?.height as number) || (node as any).height || 60
 
   return { x, y, width, height }
 }
 
-/**
- * Checks if node A is fully contained within node B
- */
-function isContainedIn(nodeBox: BoundingBox, boundaryBox: BoundingBox): boolean {
-  // Add some padding to make it easier to drop nodes into boundaries
-  const padding = 10
+// -----------------------------------------------------------------------------
+// 2. Helper: Cycle Detection
+// Prevent nesting a node into one of its own descendants
+// -----------------------------------------------------------------------------
+function isDescendant(
+  potentialParentId: string,
+  nodeId: string,
+  nodesMap: Map<string, DiagramNode>
+): boolean {
+  let currentId: string | undefined = potentialParentId
+  let iterations = 0
 
-  return (
-    nodeBox.x >= boundaryBox.x + padding &&
-    nodeBox.y >= boundaryBox.y + padding &&
-    nodeBox.x + nodeBox.width <= boundaryBox.x + boundaryBox.width - padding &&
-    nodeBox.y + nodeBox.height <= boundaryBox.y + boundaryBox.height - padding
-  )
+  while (currentId) {
+    iterations++
+    if (iterations > 100) return true // Assume cycle to prevent issues
+    if (currentId === nodeId) return true
+    const node = nodesMap.get(currentId)
+    currentId = node?.parentId
+  }
+  return false
 }
 
-/**
- * Checks if node center is within a boundary
- */
-function isCenterInBoundary(nodeBox: BoundingBox, boundaryBox: BoundingBox): boolean {
-  const nodeCenterX = nodeBox.x + nodeBox.width / 2
-  const nodeCenterY = nodeBox.y + nodeBox.height / 2
+// -----------------------------------------------------------------------------
+// 3. Helper: Get node depth (number of ancestors)
+// -----------------------------------------------------------------------------
+function getDepth(node: DiagramNode, nodesMap: Map<string, DiagramNode>): number {
+  let depth = 0
+  let parentId = node.parentId
+  let iterations = 0
 
-  return (
-    nodeCenterX >= boundaryBox.x &&
-    nodeCenterX <= boundaryBox.x + boundaryBox.width &&
-    nodeCenterY >= boundaryBox.y &&
-    nodeCenterY <= boundaryBox.y + boundaryBox.height
-  )
+  while (parentId) {
+    iterations++
+    if (iterations > 100) break
+    depth++
+    const parent = nodesMap.get(parentId)
+    parentId = parent?.parentId
+  }
+  return depth
 }
 
-export function useParentRelationships(): UseParentRelationshipsReturn {
-  // Track previous parent assignments to avoid unnecessary updates
-  const previousParentsRef = useRef<Map<string, string | undefined>>(new Map())
-
-  /**
-   * Find the best parent boundary for a node.
-   * If multiple boundaries overlap, choose the smallest one (most specific).
-   */
+export function useParentRelationships() {
   const findParentBoundary = useCallback(
     (node: DiagramNode, allNodes: DiagramNode[]): DiagramNode | null => {
-      // Boundaries can't have parents (for now)
-      if (node.type === 'trustBoundary' || node.type === 'systemBoundary') {
-        return null
-      }
+      // Create a map for fast O(1) lookups during recursion
+      const nodesMap = new Map(allNodes.map((n) => [n.id, n]))
 
+      // Filter valid candidates (Boundaries only)
       const boundaries = allNodes.filter(
         (n) =>
           (n.type === 'trustBoundary' || n.type === 'systemBoundary') &&
           n.id !== node.id
       )
 
-      if (boundaries.length === 0) return null
-
-      const nodeBox = getAbsoluteBoundingBox(node, allNodes)
+      const nodeBox = getAbsoluteBoundingBox(node, nodesMap)
       let bestMatch: DiagramNode | null = null
       let bestArea = Infinity
 
       for (const boundary of boundaries) {
-        const boundaryBox = getAbsoluteBoundingBox(boundary, allNodes)
+        // Cycle Check: Skip if the boundary is actually inside the node we are dragging
+        if (isDescendant(boundary.id, node.id, nodesMap)) continue
 
-        // Check if node center is in boundary (more lenient than full containment)
-        if (isCenterInBoundary(nodeBox, boundaryBox)) {
+        const boundaryBox = getAbsoluteBoundingBox(boundary, nodesMap)
+
+        // Check Intersection (Center method is good for UX)
+        const nodeCenterX = nodeBox.x + nodeBox.width / 2
+        const nodeCenterY = nodeBox.y + nodeBox.height / 2
+
+        const isInside =
+          nodeCenterX >= boundaryBox.x &&
+          nodeCenterX <= boundaryBox.x + boundaryBox.width &&
+          nodeCenterY >= boundaryBox.y &&
+          nodeCenterY <= boundaryBox.y + boundaryBox.height
+
+        if (isInside) {
           const area = boundaryBox.width * boundaryBox.height
-          // Prefer smaller (more specific) boundaries
+          // Specificity: Always pick the smallest parent that fits
           if (area < bestArea) {
             bestArea = area
             bestMatch = boundary
@@ -122,87 +139,138 @@ export function useParentRelationships(): UseParentRelationshipsReturn {
     []
   )
 
-  /**
-   * Update parent relationships for all nodes after a drag operation
-   */
   const updateParentRelationships = useCallback(
     (
-      nodes: DiagramNode[],
+      _nodes: DiagramNode[],
       setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>
     ) => {
       setNodes((currentNodes) => {
         let hasChanges = false
-        const newParents = new Map<string, string | undefined>()
+        const boundariesReceivingChildren = new Set<string>()
+
+        // Track new parent assignments to prevent circular references in same update
+        const newParentAssignments = new Map<string, string | undefined>()
+
+        // Build a live map that we update as we process nodes
+        // This ensures child nodes see their parent's updated state
+        const liveNodesMap = new Map(currentNodes.map((n) => [n.id, n]))
 
         const updatedNodes = currentNodes.map((node) => {
-          // Skip boundaries themselves
-          if (node.type === 'trustBoundary' || node.type === 'systemBoundary') {
-            newParents.set(node.id, undefined)
-            return node
-          }
+          // If node already has a parent, check if it should be preserved
+          // Only preserve if: parent exists, is a boundary, AND child is still inside parent bounds
+          if (node.parentId) {
+            const currentParent = liveNodesMap.get(node.parentId)
+            if (currentParent && (currentParent.type === 'trustBoundary' || currentParent.type === 'systemBoundary')) {
+              const nodeBox = getAbsoluteBoundingBox(node, liveNodesMap)
+              const parentBox = getAbsoluteBoundingBox(currentParent, liveNodesMap)
 
-          const newParent = findParentBoundary(node, currentNodes)
-          const newParentId = newParent?.id
+              const nodeCenterX = nodeBox.x + nodeBox.width / 2
+              const nodeCenterY = nodeBox.y + nodeBox.height / 2
 
-          newParents.set(node.id, newParentId)
+              const stillInside =
+                nodeCenterX >= parentBox.x &&
+                nodeCenterX <= parentBox.x + parentBox.width &&
+                nodeCenterY >= parentBox.y &&
+                nodeCenterY <= parentBox.y + parentBox.height
 
-          // Check if parent changed
-          if (node.parentId !== newParentId) {
-            hasChanges = true
-
-            // Calculate new position relative to new parent (or absolute if no parent)
-            let newPosition = { ...node.position }
-
-            if (node.parentId && !newParentId) {
-              // Moving out of a parent - convert to absolute position
-              const oldParent = currentNodes.find((n) => n.id === node.parentId)
-              if (oldParent) {
-                newPosition = {
-                  x: node.position.x + oldParent.position.x,
-                  y: node.position.y + oldParent.position.y,
+              if (stillInside) {
+                // Parent still exists, is valid, and child is still inside - keep the relationship
+                newParentAssignments.set(node.id, node.parentId)
+                // Clear extent if it was set (to allow free dragging)
+                if (node.extent) {
+                  hasChanges = true
+                  return { ...node, extent: undefined }
                 }
-              }
-            } else if (!node.parentId && newParentId && newParent) {
-              // Moving into a parent - convert to relative position
-              newPosition = {
-                x: node.position.x - newParent.position.x,
-                y: node.position.y - newParent.position.y,
-              }
-            } else if (node.parentId && newParentId && node.parentId !== newParentId && newParent) {
-              // Moving between parents - convert through absolute
-              const oldParent = currentNodes.find((n) => n.id === node.parentId)
-              if (oldParent) {
-                const absoluteX = node.position.x + oldParent.position.x
-                const absoluteY = node.position.y + oldParent.position.y
-                newPosition = {
-                  x: absoluteX - newParent.position.x,
-                  y: absoluteY - newParent.position.y,
-                }
+                return node
               }
             }
+          }
 
+          // Use liveNodesMap (which has updated nodes) for parent detection
+          const allNodesForSearch = Array.from(liveNodesMap.values())
+          const newParent = findParentBoundary(node, allNodesForSearch)
+          let newParentId = newParent?.id
+
+          // Check if the potential parent is already assigned as a child of this node
+          // in this same update pass (prevents A→B and B→A circular reference)
+          if (newParentId && newParentAssignments.get(newParentId) === node.id) {
+            newParentId = undefined // Don't assign, would create cycle
+          }
+
+          // Record this assignment for future cycle checks in same pass
+          newParentAssignments.set(node.id, newParentId)
+
+          // If nothing changed, return original reference
+          if (node.parentId === newParentId) return node
+
+          hasChanges = true
+
+          // Track boundaries receiving new children for animation
+          if (newParentId && node.parentId !== newParentId) {
+            boundariesReceivingChildren.add(newParentId)
+          }
+
+          // Coordinate Transformation
+          // Calculate absolute position first, then convert to relative if there's a new parent
+          const absPos = getAbsolutePosition(node, liveNodesMap)
+          let newPos = { x: absPos.x, y: absPos.y }
+
+          if (newParentId && newParent) {
+            const parentAbsPos = getAbsolutePosition(newParent, liveNodesMap)
+            newPos = {
+              x: absPos.x - parentAbsPos.x,
+              y: absPos.y - parentAbsPos.y,
+            }
+          }
+
+          const updatedNode = {
+            ...node,
+            parentId: newParentId,
+            position: newPos,
+            extent: undefined, // Allow free dragging, parent relationship managed by position
+            data: {
+              ...node.data,
+              // Trigger lock animation when entering a parent
+              lockAnimationKey: newParentId ? Date.now() + Math.random() : undefined,
+            },
+          }
+
+          // Update liveNodesMap so subsequent nodes see this node's new state
+          liveNodesMap.set(node.id, updatedNode)
+
+          return updatedNode
+        })
+
+        if (!hasChanges) return currentNodes
+
+        // Update boundaries that received children (for receive animation)
+        const finalNodes = updatedNodes.map((node) => {
+          if (
+            (node.type === 'trustBoundary' || node.type === 'systemBoundary') &&
+            boundariesReceivingChildren.has(node.id)
+          ) {
             return {
               ...node,
-              parentId: newParentId,
-              position: newPosition,
-              extent: newParentId ? 'parent' as const : undefined,
+              data: {
+                ...node.data,
+                receiveChildAnimationKey: Date.now() + Math.random(),
+              },
             }
           }
-
           return node
         })
 
-        // Update ref for next comparison
-        previousParentsRef.current = newParents
+        // Topological Sort: Parents must be before children in the array
+        // This ensures proper z-indexing and React Flow rendering order
+        const updatedNodesMap = new Map(finalNodes.map((n) => [n.id, n]))
 
-        return hasChanges ? updatedNodes : currentNodes
+        return [...finalNodes].sort(
+          (a, b) => getDepth(a, updatedNodesMap) - getDepth(b, updatedNodesMap)
+        )
       })
     },
     [findParentBoundary]
   )
 
-  return {
-    updateParentRelationships,
-    findParentBoundary,
-  }
+  return { updateParentRelationships, findParentBoundary }
 }

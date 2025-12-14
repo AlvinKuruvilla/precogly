@@ -92,7 +92,7 @@ function DFDEditorContent() {
 
   // Handle node drag end - update parent relationships
   const handleNodeDragStop: NodeDragHandler<DiagramNode> = useCallback(
-    (_event, _node, _nodes) => {
+    () => {
       updateParentRelationships(nodes, setNodes)
     },
     [nodes, setNodes, updateParentRelationships]
