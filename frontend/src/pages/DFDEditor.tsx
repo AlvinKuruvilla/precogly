@@ -4,9 +4,7 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   Panel,
-  useReactFlow,
   ReactFlowProvider,
   ConnectionMode,
   type Connection,
@@ -384,25 +382,6 @@ function DFDEditorContent() {
 
             <Background gap={15} size={1} />
             <Controls />
-            <MiniMap
-              nodeStrokeColor={(n) => {
-                if (n.type === 'actor') return '#16a34a'
-                if (n.type === 'process') return '#2563eb'
-                if (n.type === 'datastore') return '#9333ea'
-                if (n.type === 'trustBoundary') return '#ea580c'
-                if (n.type === 'systemBoundary') return '#475569'
-                return '#64748b'
-              }}
-              nodeColor={(n) => {
-                if (n.type === 'actor') return '#dcfce7'
-                if (n.type === 'process') return '#dbeafe'
-                if (n.type === 'datastore') return '#f3e8ff'
-                if (n.type === 'trustBoundary') return '#ffedd5'
-                if (n.type === 'systemBoundary') return '#f1f5f9'
-                return '#f8fafc'
-              }}
-              maskColor="rgba(0,0,0,0.1)"
-            />
 
             {/* Connection mode indicator */}
             {connectionMode && (
