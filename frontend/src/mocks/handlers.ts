@@ -3,8 +3,35 @@ import { http, HttpResponse } from 'msw'
 // Base API URL - will match your Django backend later
 const API_BASE = '/api'
 
-// Mock data - Diagrams
-const diagrams = [
+// ============ localStorage Persistence ============
+// This keeps mock data alive across HMR reloads during development.
+// Delete this entire section (and handlers.ts) when real backend is ready.
+
+const STORAGE_KEYS = {
+  diagrams: 'precogly_mock_diagrams',
+  threatModels: 'precogly_mock_threatModels',
+} as const
+
+function loadFromStorage<T>(key: string, defaultValue: T): T {
+  try {
+    const stored = localStorage.getItem(key)
+    return stored ? JSON.parse(stored) : defaultValue
+  } catch {
+    return defaultValue
+  }
+}
+
+function saveToStorage<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch (e) {
+    console.warn('Failed to save mock data to localStorage:', e)
+  }
+}
+
+// ============ Default Mock Data ============
+
+const DEFAULT_DIAGRAMS = [
   {
     id: 'diagram-1',
     threatModelId: '1',
@@ -283,8 +310,7 @@ const systems = [
   },
 ]
 
-// Mock data - Threat Models
-const threatModels = [
+const DEFAULT_THREAT_MODELS = [
   {
     id: '1',
     name: 'Payment Processing System',
@@ -353,6 +379,10 @@ const threatModels = [
   },
 ]
 
+// ============ Initialize from localStorage or defaults ============
+const diagrams = loadFromStorage(STORAGE_KEYS.diagrams, DEFAULT_DIAGRAMS)
+const threatModels = loadFromStorage(STORAGE_KEYS.threatModels, DEFAULT_THREAT_MODELS)
+
 export const handlers = [
   // Dashboard stats
   http.get(`${API_BASE}/dashboard/stats`, () => {
@@ -392,6 +422,7 @@ export const handlers = [
     }
     // Add to mock data so subsequent GETs can find it
     threatModels.push(newModel as typeof threatModels[0])
+    saveToStorage(STORAGE_KEYS.threatModels, threatModels)
     return HttpResponse.json(newModel, { status: 201 })
   }),
 
@@ -447,6 +478,7 @@ export const handlers = [
     }
     // Add to mock data so subsequent GETs can find it
     diagrams.push(newDiagram as typeof diagrams[0])
+    saveToStorage(STORAGE_KEYS.diagrams, diagrams)
     return HttpResponse.json(newDiagram, { status: 201 })
   }),
 
@@ -454,15 +486,17 @@ export const handlers = [
   http.patch(`${API_BASE}/diagrams/:id`, async ({ params, request }) => {
     const { id } = params
     const body = (await request.json()) as Record<string, unknown>
-    const diagram = diagrams.find((d) => d.id === id || d.slug === id)
-    if (!diagram) {
+    const index = diagrams.findIndex((d) => d.id === id || d.slug === id)
+    if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
     const updated = {
-      ...diagram,
+      ...diagrams[index],
       ...body,
       updatedAt: new Date().toISOString(),
     }
+    diagrams[index] = updated as typeof diagrams[0]
+    saveToStorage(STORAGE_KEYS.diagrams, diagrams)
     return HttpResponse.json(updated)
   }),
 
@@ -473,6 +507,8 @@ export const handlers = [
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
+    diagrams.splice(index, 1)
+    saveToStorage(STORAGE_KEYS.diagrams, diagrams)
     return new HttpResponse(null, { status: 204 })
   }),
 
