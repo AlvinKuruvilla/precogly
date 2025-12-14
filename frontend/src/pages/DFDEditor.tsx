@@ -56,6 +56,8 @@ function DFDEditorContent() {
     onEdgesChange,
     saveNow,
     updateTitle,
+    // Undo feature - remove this line to disable undo functionality
+    undo,
     hasUnsavedChanges,
     lastSaved,
   } = useDiagramState({
@@ -181,6 +183,8 @@ function DFDEditorContent() {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSave: saveNow,
+    // Undo feature - remove this line to disable undo functionality
+    onUndo: undo,
     enabled: true,
   })
 
