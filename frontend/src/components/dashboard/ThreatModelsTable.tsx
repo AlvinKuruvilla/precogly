@@ -16,18 +16,22 @@ interface ThreatModelsTableProps {
   isLoading?: boolean
 }
 
-const statusConfig = {
-  in_progress: { label: 'In Progress', variant: 'outline' as const },
-  pending_review: { label: 'Pending Review', variant: 'secondary' as const },
-  approved: { label: 'Approved', variant: 'default' as const },
+const statusConfig: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' }> = {
+  in_progress: { label: 'In Progress', variant: 'outline' },
+  pending_review: { label: 'Pending Review', variant: 'secondary' },
+  approved: { label: 'Approved', variant: 'default' },
 }
 
-const criticalityConfig = {
+const defaultStatus = { label: 'Unknown', variant: 'outline' as const }
+
+const criticalityConfig: Record<string, { label: string; className: string }> = {
   low: { label: 'Low', className: 'bg-gray-100 text-gray-800 hover:bg-gray-100' },
   medium: { label: 'Medium', className: 'bg-blue-100 text-blue-800 hover:bg-blue-100' },
   high: { label: 'High', className: 'bg-orange-100 text-orange-800 hover:bg-orange-100' },
   critical: { label: 'Critical', className: 'bg-red-100 text-red-800 hover:bg-red-100' },
 }
+
+const defaultCriticality = { label: 'Not Set', className: 'bg-gray-50 text-gray-500 hover:bg-gray-50' }
 
 export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTableProps) {
   const navigate = useNavigate()
@@ -70,27 +74,43 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
           >
             <TableCell className="font-medium">{model.name}</TableCell>
             <TableCell>
-              <Badge variant={statusConfig[model.status].variant}>
-                {statusConfig[model.status].label}
-              </Badge>
+              {(() => {
+                const config = model.status ? statusConfig[model.status] : defaultStatus
+                return (
+                  <Badge variant={config?.variant || defaultStatus.variant}>
+                    {config?.label || defaultStatus.label}
+                  </Badge>
+                )
+              })()}
             </TableCell>
             <TableCell>
-              <Badge className={criticalityConfig[model.criticality].className}>
-                {criticalityConfig[model.criticality].label}
-              </Badge>
+              {(() => {
+                const config = model.criticality ? criticalityConfig[model.criticality] : defaultCriticality
+                return (
+                  <Badge className={config?.className || defaultCriticality.className}>
+                    {config?.label || defaultCriticality.label}
+                  </Badge>
+                )
+              })()}
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
-                {model.frameworks.map((framework) => (
-                  <Badge key={framework} variant="outline" className="text-xs">
-                    {framework}
-                  </Badge>
-                ))}
+                {model.frameworks?.length ? (
+                  model.frameworks.map((framework) => (
+                    <Badge key={framework} variant="outline" className="text-xs">
+                      {framework}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-sm">—</span>
+                )}
               </div>
             </TableCell>
-            <TableCell>{model.owner}</TableCell>
+            <TableCell>{model.owner || '—'}</TableCell>
             <TableCell className="text-muted-foreground">
-              {formatDistanceToNow(new Date(model.updatedAt), { addSuffix: true })}
+              {model.updatedAt
+                ? formatDistanceToNow(new Date(model.updatedAt), { addSuffix: true })
+                : '—'}
             </TableCell>
           </TableRow>
         ))}
