@@ -30,6 +30,7 @@ import { TemplateBrowser } from '@/components/diagram/TemplateBrowser'
 import { useDiagramState } from '@/hooks/useDiagramState'
 import { useParentRelationships } from '@/hooks/useParentRelationships'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useThreatModel } from '@/api/threat-models'
 import type { DiagramNode, DataFlowEdge } from '@/types'
 
 function DFDEditorContent() {
@@ -68,6 +69,9 @@ function DFDEditorContent() {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch threat model for name display
+  const { data: threatModel } = useThreatModel(threatModelId || '')
 
   // Parent relationship detection
   const { updateParentRelationships } = useParentRelationships()
@@ -271,7 +275,7 @@ function DFDEditorContent() {
               </button>
             )}
             <p className="text-xs text-muted-foreground">
-              Data Flow Diagram
+              {threatModel?.name ? `${threatModel.name}` : 'Data Flow Diagram'}
             </p>
           </div>
         </div>
