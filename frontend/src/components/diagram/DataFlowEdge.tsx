@@ -19,6 +19,7 @@ export const DataFlowEdge = memo(function DataFlowEdge({
   targetPosition,
   data,
   selected,
+  animated,
 }: EdgeProps<DataFlowEdgeData>) {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -39,13 +40,15 @@ export const DataFlowEdge = memo(function DataFlowEdge({
         className={cn(
           'transition-all',
           selected ? '!stroke-blue-500' : '!stroke-gray-400',
-          isNewlyInserted && '!stroke-green-500'
+          isNewlyInserted && '!stroke-green-500',
+          animated && 'react-flow__edge-animated'
         )}
         style={{
           strokeWidth: selected ? 2.5 : 2,
+          strokeDasharray: animated ? 5 : 0,
           filter: isNewlyInserted ? 'drop-shadow(0 0 3px rgb(34 197 94))' : undefined,
         }}
-        markerEnd="url(#arrow)"
+        markerEnd={selected ? 'url(#arrow-selected)' : 'url(#arrow)'}
       />
 
       {/* Edge labels - only show when selected or has important data */}

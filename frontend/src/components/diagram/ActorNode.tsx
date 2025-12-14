@@ -21,11 +21,9 @@ export const ActorNode = memo(function ActorNode({
 
   return (
     <>
-      {/* Handles for connections from all sides */}
-      <Handle type="target" position={Position.Top} className="!bg-green-500" />
-      <Handle type="target" position={Position.Left} className="!bg-green-500" />
-      <Handle type="source" position={Position.Bottom} className="!bg-green-500" />
-      <Handle type="source" position={Position.Right} className="!bg-green-500" />
+      {/* Left = inbound data flows, Right = outbound data flows */}
+      <Handle type="target" position={Position.Left} className="!bg-green-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Right} className="!bg-green-500 !w-3 !h-3" />
 
       <div
         className={cn(

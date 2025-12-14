@@ -108,6 +108,7 @@ function DFDEditorContent() {
         source: connection.source,
         target: connection.target,
         type: 'dataFlow',
+        animated: true,
         data: {
           label: '',
           encrypted: false,
@@ -289,12 +290,41 @@ function DFDEditorContent() {
             connectionMode={ConnectionMode.Loose}
             defaultEdgeOptions={{
               type: 'dataFlow',
+              animated: true,
             }}
             fitView
             snapToGrid
             snapGrid={[15, 15]}
             deleteKeyCode={null} // We handle delete in useKeyboardShortcuts
           >
+            {/* SVG Definitions for edge markers */}
+            <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+              <defs>
+                <marker
+                  id="arrow"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
+                </marker>
+                <marker
+                  id="arrow-selected"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+                </marker>
+              </defs>
+            </svg>
+
             <Background gap={15} size={1} />
             <Controls />
             <MiniMap
