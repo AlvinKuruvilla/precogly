@@ -2,8 +2,8 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { DataStoreNodeData } from '@/types'
-import { DATA_SENSITIVITY_CONFIG } from '@/types'
+import type { DataStoreNodeData } from '../../types'
+import { DATA_SENSITIVITY_CONFIG } from '../../types'
 
 export const DataStoreNode = memo(function DataStoreNode({
   data,

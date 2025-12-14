@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import type { SystemBoundaryNodeData, DiagramNode } from '@/types'
+import type { SystemBoundaryNodeData, DiagramNode } from '../../types'
 
 // Need to add AlertDialog component
 export const SystemBoundaryNode = memo(function SystemBoundaryNode({

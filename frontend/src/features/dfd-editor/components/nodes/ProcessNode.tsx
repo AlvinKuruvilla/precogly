@@ -2,8 +2,8 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ProcessNodeData } from '@/types'
-import { DATA_SENSITIVITY_CONFIG } from '@/types'
+import type { ProcessNodeData } from '../../types'
+import { DATA_SENSITIVITY_CONFIG } from '../../types'
 
 export const ProcessNode = memo(function ProcessNode({
   data,

@@ -2,8 +2,8 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react'
 import { Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { TrustBoundaryNodeData } from '@/types'
-import { TRUST_LEVEL_CONFIG } from '@/types'
+import type { TrustBoundaryNodeData } from '../../types'
+import { TRUST_LEVEL_CONFIG } from '../../types'
 
 export const TrustBoundaryNode = memo(function TrustBoundaryNode({
   data,

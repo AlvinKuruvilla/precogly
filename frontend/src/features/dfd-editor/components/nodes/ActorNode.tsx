@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { cn } from '@/lib/utils'
-import type { ActorNodeData } from '@/types'
+import type { ActorNodeData } from '../../types'
 
 export const ActorNode = memo(function ActorNode({
   data,

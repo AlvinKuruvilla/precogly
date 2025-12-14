@@ -13,14 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { TechnologyCombobox } from '@/components/ui/technology-combobox'
+import { TechnologyCombobox } from '../technology-combobox'
 import type {
   DiagramNode,
   DiagramNodeType,
   TrustLevel,
   DataSensitivity,
-} from '@/types'
-import { TRUST_LEVEL_CONFIG, DATA_SENSITIVITY_CONFIG } from '@/types'
+} from '../../types'
+import { TRUST_LEVEL_CONFIG, DATA_SENSITIVITY_CONFIG } from '../../types'
 
 interface NodeEditPanelProps {
   node: DiagramNode

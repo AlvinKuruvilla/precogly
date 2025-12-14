@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { DiagramTemplate, DiagramNode, DataFlowEdge } from '@/types'
+import type { DiagramTemplate, DiagramNode, DataFlowEdge } from '../types'
 
 interface TemplateBrowserProps {
   open: boolean

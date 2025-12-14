@@ -13,8 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { DataFlowEdge, Protocol, DataClassification } from '@/types'
-import { PROTOCOLS, DATA_CLASSIFICATIONS } from '@/types'
+import type { DataFlowEdge, Protocol, DataClassification } from '../../types'
+import { PROTOCOLS, DATA_CLASSIFICATIONS } from '../../types'
 
 interface EdgeEditPanelProps {
   edge: DataFlowEdge

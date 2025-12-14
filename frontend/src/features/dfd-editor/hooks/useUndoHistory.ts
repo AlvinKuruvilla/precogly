@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useRef } from 'react'
-import type { DiagramNode, DataFlowEdge } from '@/types'
+import type { DiagramNode, DataFlowEdge } from '../types'
 
 interface HistoryState {
   nodes: DiagramNode[]

@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import type { DiagramNode, DataFlowEdge } from '@/types'
+import type { DiagramNode, DataFlowEdge } from '../types'
 
 interface UseKeyboardShortcutsOptions {
   onSave?: () => void

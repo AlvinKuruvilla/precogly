@@ -23,7 +23,7 @@ import {
   type Technology,
   type TechnologyCategory,
   type DiagramNodeType,
-} from '@/lib/technology-registry'
+} from '../lib/technology-registry'
 
 interface TechnologyComboboxProps {
   value: string

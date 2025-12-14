@@ -2,8 +2,8 @@ export type ThreatModelStatus = 'in_progress' | 'pending_review' | 'approved'
 export type Criticality = 'low' | 'medium' | 'high' | 'critical'
 export type SystemType = 'system' | 'process'
 
-// Re-export diagram types
-export * from './diagram'
+// Re-export diagram types from DFD editor feature
+export * from '@/features/dfd-editor/types'
 
 export interface ThreatModel {
   id: string

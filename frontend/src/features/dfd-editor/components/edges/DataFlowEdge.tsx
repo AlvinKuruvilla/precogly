@@ -7,7 +7,7 @@ import {
 } from '@xyflow/react'
 import { Lock, Unlock, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { DataFlowEdgeData } from '@/types'
+import type { DataFlowEdgeData } from '../../types'
 
 export const DataFlowEdge = memo(function DataFlowEdge({
   id,

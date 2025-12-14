@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { DiagramNodeType } from '@/types'
+import type { DiagramNodeType } from '../types'
 
 interface DiagramToolbarProps {
   connectionMode: boolean

@@ -20,16 +20,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { nodeTypes, edgeTypes } from '@/components/diagram'
-import { DiagramToolbar } from '@/components/diagram/DiagramToolbar'
-import { NodeEditPanel } from '@/components/diagram/NodeEditPanel'
-import { EdgeEditPanel } from '@/components/diagram/EdgeEditPanel'
-import { TemplateBrowser } from '@/components/diagram/TemplateBrowser'
-import { useDiagramState } from '@/hooks/useDiagramState'
-import { useParentRelationships } from '@/hooks/useParentRelationships'
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useThreatModel } from '@/api/threat-models'
-import type { DiagramNode, DataFlowEdge } from '@/types'
+// DFD Editor internal imports
+import { nodeTypes, edgeTypes } from './components'
+import { DiagramToolbar } from './components/DiagramToolbar'
+import { NodeEditPanel } from './components/panels/NodeEditPanel'
+import { EdgeEditPanel } from './components/panels/EdgeEditPanel'
+import { TemplateBrowser } from './components/TemplateBrowser'
+import { useDiagramState } from './hooks/useDiagramState'
+import { useParentRelationships } from './hooks/useParentRelationships'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import type { DiagramNode, DataFlowEdge } from './types'
 
 function DFDEditorContent() {
   const { diagramId, id: threatModelId } = useParams<{ id: string; diagramId: string }>()

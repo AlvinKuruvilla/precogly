@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { DiagramNode } from '@/types'
+import type { DiagramNode } from '../types'
 
 interface BoundingBox {
   x: number
