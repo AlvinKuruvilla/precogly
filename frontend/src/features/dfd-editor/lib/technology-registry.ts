@@ -1,3 +1,5 @@
+import type { DiagramNodeType } from '../types'
+
 export interface Technology {
   id: string
   name: string
@@ -22,8 +24,6 @@ export type TechnologyCategory =
   | 'other'
 
 // Map diagram node types to relevant technology categories
-export type DiagramNodeType = 'process' | 'datastore' | 'actor' | 'trustBoundary' | 'systemBoundary'
-
 export const NODE_TYPE_CATEGORIES: Record<DiagramNodeType, TechnologyCategory[]> = {
   datastore: ['database', 'storage', 'cache'],
   process: ['compute', 'backend', 'messaging'],

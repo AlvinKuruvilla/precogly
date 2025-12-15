@@ -22,8 +22,8 @@ import {
   searchTechnologies,
   type Technology,
   type TechnologyCategory,
-  type DiagramNodeType,
 } from '../lib/technology-registry'
+import type { DiagramNodeType } from '../types'
 
 interface TechnologyComboboxProps {
   value: string

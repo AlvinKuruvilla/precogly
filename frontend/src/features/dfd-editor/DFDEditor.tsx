@@ -8,7 +8,6 @@ import {
   ReactFlowProvider,
   ConnectionMode,
   type Connection,
-  type NodeDragHandler,
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -102,7 +101,7 @@ function DFDEditorContent() {
   }, [])
 
   // Handle node drag end - update parent relationships
-  const handleNodeDragStop: NodeDragHandler<DiagramNode> = useCallback(
+  const handleNodeDragStop = useCallback(
     () => {
       updateParentRelationships(nodes, setNodes)
     },

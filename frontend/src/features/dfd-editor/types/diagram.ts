@@ -90,6 +90,7 @@ export interface BaseNodeData {
   isNewlyInserted?: boolean
   lockAnimationKey?: number     // Timestamp to trigger lock animation (child locked into parent)
   receiveChildAnimationKey?: number  // Timestamp to trigger animation (boundary received a child)
+  [key: string]: unknown  // Required for React Flow's Node<T> constraint
 }
 
 export interface ProcessNodeData extends BaseNodeData {
@@ -132,6 +133,7 @@ export interface DataFlowEdgeData {
   encrypted?: boolean
   authenticated?: boolean
   isNewlyInserted?: boolean
+  [key: string]: unknown  // Required for React Flow's Edge<T> constraint
 }
 
 // Type aliases for React Flow nodes/edges with our data

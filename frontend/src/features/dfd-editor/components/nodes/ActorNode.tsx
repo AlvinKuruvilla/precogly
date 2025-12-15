@@ -1,12 +1,14 @@
 import { memo, useEffect, useState } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { cn } from '@/lib/utils'
 import type { ActorNodeData } from '../../types'
+
+type ActorNodeType = Node<ActorNodeData, 'actor'>
 
 export const ActorNode = memo(function ActorNode({
   data,
   selected,
-}: NodeProps<ActorNodeData>) {
+}: NodeProps<ActorNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 

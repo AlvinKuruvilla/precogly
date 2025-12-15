@@ -35,8 +35,7 @@ export function useKeyboardShortcuts({
   onDuplicate,
   enabled = true,
 }: UseKeyboardShortcutsOptions = {}) {
-  const { getNodes, getEdges, setNodes, setEdges, getViewport, setViewport } =
-    useReactFlow()
+  const { getNodes, getEdges, setNodes, setEdges } = useReactFlow()
 
   // Default delete handler
   const handleDelete = useCallback(() => {

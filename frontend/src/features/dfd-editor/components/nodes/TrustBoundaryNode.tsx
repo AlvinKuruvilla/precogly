@@ -1,14 +1,16 @@
 import { memo, useEffect, useState } from 'react'
-import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react'
+import { Handle, Position, NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import { Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TrustBoundaryNodeData } from '../../types'
 import { TRUST_LEVEL_CONFIG } from '../../types'
 
+type TrustBoundaryNodeType = Node<TrustBoundaryNodeData, 'trustBoundary'>
+
 export const TrustBoundaryNode = memo(function TrustBoundaryNode({
   data,
   selected,
-}: NodeProps<TrustBoundaryNodeData>) {
+}: NodeProps<TrustBoundaryNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const trustConfig = TRUST_LEVEL_CONFIG[data.trustLevel] || TRUST_LEVEL_CONFIG.internal
   const [showLockAnimation, setShowLockAnimation] = useState(false)

@@ -82,13 +82,13 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">From:</span>
             <span className="font-medium">
-              {sourceNode?.data?.label || edge.source}
+              {String(sourceNode?.data?.label || edge.source)}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">To:</span>
             <span className="font-medium">
-              {targetNode?.data?.label || edge.target}
+              {String(targetNode?.data?.label || edge.target)}
             </span>
           </div>
         </div>

@@ -3,11 +3,14 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  type Edge,
   type EdgeProps,
 } from '@xyflow/react'
 import { Lock, Unlock, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DataFlowEdgeData } from '../../types'
+
+type DataFlowEdgeType = Edge<DataFlowEdgeData, 'dataFlow'>
 
 export const DataFlowEdge = memo(function DataFlowEdge({
   id,
@@ -20,7 +23,7 @@ export const DataFlowEdge = memo(function DataFlowEdge({
   data,
   selected,
   animated,
-}: EdgeProps<DataFlowEdgeData>) {
+}: EdgeProps<DataFlowEdgeType>) {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,

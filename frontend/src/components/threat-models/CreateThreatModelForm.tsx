@@ -46,7 +46,9 @@ export function CreateThreatModelForm() {
   const [selectedSystems, setSelectedSystems] = useState<string[]>([])
   const [selectedModels, setSelectedModels] = useState<string[]>([])
 
-  const isLoading = frameworksLoading || systemsLoading || modelsLoading
+  // Combined loading state (available for future use)
+  const _isLoading = frameworksLoading || systemsLoading || modelsLoading
+  void _isLoading
 
   const toggleFramework = (frameworkName: string) => {
     setSelectedFrameworks((prev) =>

@@ -9,14 +9,67 @@
 export { DFDEditor } from './DFDEditor'
 export { DFDEditor as default } from './DFDEditor'
 
-// Components
-export * from './components'
+// Components (explicit exports to avoid name collision with types)
+export {
+  nodeTypes,
+  edgeTypes,
+  DiagramToolbar,
+  TemplateBrowser,
+  TechnologyCombobox,
+  ProcessNode,
+  DataStoreNode,
+  ActorNode,
+  TrustBoundaryNode,
+  SystemBoundaryNode,
+  DataFlowEdge,
+  NodeEditPanel,
+  EdgeEditPanel,
+} from './components'
 
 // Hooks
 export * from './hooks'
 
-// Types
-export * from './types'
+// Types (use 'export type' for type-only exports)
+export type {
+  DiagramNodeType,
+  TrustLevel,
+  DataClassification,
+  Protocol,
+  DataSensitivity,
+  BaseNodeData,
+  ProcessNodeData,
+  DataStoreNodeData,
+  ActorNodeData,
+  TrustBoundaryNodeData,
+  SystemBoundaryNodeData,
+  DiagramNodeData,
+  DataFlowEdgeData,
+  DiagramNode,
+  DataFlowEdge as DataFlowEdgeType,
+  CanvasData,
+  DiagramType,
+  ThreatFramework,
+  Diagram,
+  CreateDiagramInput,
+  TemplateCategory,
+  DFDTemplate,
+  CreateTemplateInput,
+  ClipboardData,
+} from './types'
+
+export {
+  TRUST_LEVEL_CONFIG,
+  DATA_CLASSIFICATIONS,
+  PROTOCOLS,
+  DATA_SENSITIVITY_CONFIG,
+  TEMPLATE_CATEGORIES,
+  isProcessNode,
+  isDataStoreNode,
+  isActorNode,
+  isTrustBoundaryNode,
+  isSystemBoundaryNode,
+  isBoundaryNode,
+} from './types'
 
 // Lib utilities
 export * from './lib'

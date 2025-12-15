@@ -69,7 +69,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   onConnectionModeChange,
   onOpenTemplates,
 }: DiagramToolbarProps) {
-  const { addNodes, getNodes, screenToFlowPosition } = useReactFlow()
+  const { addNodes, getNodes } = useReactFlow()
 
   const handleAddNode = (type: DiagramNodeType) => {
     const nodes = getNodes()

@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import { Handle, Position, NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
+import { Handle, Position, NodeResizer, useReactFlow, type Node, type NodeProps } from '@xyflow/react'
 import { Box, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -15,12 +15,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import type { SystemBoundaryNodeData, DiagramNode } from '../../types'
 
+type SystemBoundaryNodeType = Node<SystemBoundaryNodeData, 'systemBoundary'>
+
 // Need to add AlertDialog component
 export const SystemBoundaryNode = memo(function SystemBoundaryNode({
   id,
   data,
   selected,
-}: NodeProps<SystemBoundaryNodeData>) {
+}: NodeProps<SystemBoundaryNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
@@ -38,9 +40,6 @@ export const SystemBoundaryNode = memo(function SystemBoundaryNode({
   const handleDelete = () => {
     const nodes = getNodes() as DiagramNode[]
     const edges = getEdges()
-
-    // Find child nodes (nodes whose parentId is this boundary)
-    const childNodes = nodes.filter((n) => n.parentId === id)
 
     // Convert children to root nodes with absolute positions
     const updatedNodes = nodes

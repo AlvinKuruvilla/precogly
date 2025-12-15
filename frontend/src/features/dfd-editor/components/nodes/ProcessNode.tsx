@@ -1,14 +1,16 @@
 import { memo, useEffect, useState } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProcessNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
 
+type ProcessNodeType = Node<ProcessNodeData, 'process'>
+
 export const ProcessNode = memo(function ProcessNode({
   data,
   selected,
-}: NodeProps<ProcessNodeData>) {
+}: NodeProps<ProcessNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 

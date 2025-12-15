@@ -42,7 +42,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
   node,
   onClose,
 }: NodeEditPanelProps) {
-  const { setNodes, getNodes, getEdges, setEdges } = useReactFlow()
+  const { setNodes, getNodes, setEdges } = useReactFlow()
 
   const typeConfig = nodeTypeConfig[node.type as DiagramNodeType]
   const Icon = typeConfig?.icon || Cog
@@ -62,7 +62,6 @@ export const NodeEditPanel = memo(function NodeEditPanel({
 
   const handleDelete = () => {
     const nodes = getNodes() as DiagramNode[]
-    const edges = getEdges()
 
     // For boundary nodes, convert children to root nodes
     if (node.type === 'trustBoundary' || node.type === 'systemBoundary') {
