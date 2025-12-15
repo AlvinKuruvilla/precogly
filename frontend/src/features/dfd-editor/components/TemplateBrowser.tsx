@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, LayoutTemplate, Plus, Loader2 } from 'lucide-react'
+import { Search, LayoutTemplate, Loader2, User } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,15 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { DiagramTemplate, DiagramNode, DataFlowEdge } from '../types'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { DFDTemplate, DiagramNode, DataFlowEdge, TemplateCategory } from '../types'
+import { TEMPLATE_CATEGORIES } from '../types'
 
 interface TemplateBrowserProps {
   open: boolean
@@ -20,12 +28,20 @@ interface TemplateBrowserProps {
   onInsert: (nodes: DiagramNode[], edges: DataFlowEdge[]) => void
 }
 
-async function fetchTemplates(): Promise<DiagramTemplate[]> {
-  const response = await fetch('/api/templates')
+type SortOption = 'popular' | 'newest' | 'name'
+type FilterOption = 'all' | TemplateCategory
+
+async function fetchTemplates(): Promise<DFDTemplate[]> {
+  const response = await fetch('/api/dfd-templates')
   if (!response.ok) {
     throw new Error('Failed to fetch templates')
   }
   return response.json()
+}
+
+// Get display label for category
+function getCategoryLabel(category: TemplateCategory): string {
+  return TEMPLATE_CATEGORIES.find((c) => c.value === category)?.label || category
 }
 
 export function TemplateBrowser({
@@ -34,7 +50,8 @@ export function TemplateBrowser({
   onInsert,
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState<DiagramTemplate | null>(null)
+  const [sortBy, setSortBy] = useState<SortOption>('popular')
+  const [filterBy, setFilterBy] = useState<FilterOption>('all')
 
   const {
     data: templates,
@@ -46,43 +63,63 @@ export function TemplateBrowser({
     enabled: open,
   })
 
-  // Filter templates by search query
-  const filteredTemplates = templates?.filter((template) => {
-    const query = searchQuery.toLowerCase()
-    return (
-      template.name.toLowerCase().includes(query) ||
-      template.description.toLowerCase().includes(query) ||
-      template.tags.some((tag) => tag.toLowerCase().includes(query))
-    )
-  })
+  // FIX: Wrap filter/sort in useMemo for performance
+  const filteredTemplates = useMemo(() => {
+    if (!templates) return []
 
-  const handleInsert = () => {
-    if (!selectedTemplate) return
+    return templates
+      .filter((template) => {
+        // Search filter
+        const query = searchQuery.toLowerCase()
+        const matchesSearch =
+          !query ||
+          template.name.toLowerCase().includes(query) ||
+          template.description.toLowerCase().includes(query) ||
+          template.tags.some((tag) => tag.toLowerCase().includes(query))
 
-    const nodes = selectedTemplate.canvasData.nodes as DiagramNode[]
-    const edges = selectedTemplate.canvasData.edges as DataFlowEdge[]
+        // Category filter
+        const matchesCategory = filterBy === 'all' || template.category === filterBy
 
+        return matchesSearch && matchesCategory
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'popular':
+            return b.useCount - a.useCount
+          case 'newest':
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          case 'name':
+            return a.name.localeCompare(b.name)
+          default:
+            return 0
+        }
+      })
+  }, [templates, searchQuery, filterBy, sortBy])
+
+  const handleInsert = (template: DFDTemplate) => {
+    const nodes = template.templateData.nodes as DiagramNode[]
+    const edges = template.templateData.edges as DataFlowEdge[]
     onInsert(nodes, edges)
-    setSelectedTemplate(null)
     setSearchQuery('')
+    setFilterBy('all')
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-xl">
             <LayoutTemplate className="h-5 w-5" />
-            DFD Templates
+            Choose a Template
           </DialogTitle>
           <DialogDescription>
             Browse and insert pre-built diagram templates to accelerate your threat modeling
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          {/* Search */}
-          <div className="relative">
+        {/* Search and Sort row */}
+        <div className="flex gap-4 items-center">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search templates..."
@@ -91,125 +128,119 @@ export function TemplateBrowser({
               className="pl-10"
             />
           </div>
+          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="popular">Most Popular</SelectItem>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem value="name">Name A-Z</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-          {/* Content */}
-          <div className="flex gap-4 min-h-[400px]">
-            {/* Template list */}
-            <ScrollArea className="flex-1 border rounded-lg">
-              {isLoading && (
-                <div className="flex items-center justify-center h-full p-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              )}
+        {/* Filter tabs - FIX: Use static categories for stable UI */}
+        <div className="flex gap-1 flex-wrap border-b pb-2">
+          <Button
+            variant={filterBy === 'all' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setFilterBy('all')}
+            className="h-8"
+          >
+            All Templates
+          </Button>
+          {TEMPLATE_CATEGORIES.map(({ value, label }) => (
+            <Button
+              key={value}
+              variant={filterBy === value ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setFilterBy(value)}
+              className="h-8"
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
 
-              {isError && (
-                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
-                  Failed to load templates
-                </div>
-              )}
+        {/* Template grid */}
+        <ScrollArea className="flex-1 -mx-2 px-2">
+          {isLoading && (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
 
-              {!isLoading && !isError && filteredTemplates?.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full p-8 text-muted-foreground">
-                  <LayoutTemplate className="h-12 w-12 mb-2 opacity-50" />
-                  <p>No templates found</p>
-                </div>
-              )}
+          {isError && (
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              Failed to load templates
+            </div>
+          )}
 
-              {!isLoading && !isError && filteredTemplates && (
-                <div className="p-2 space-y-2">
-                  {filteredTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      className={`w-full p-3 text-left rounded-lg border transition-colors ${
-                        selectedTemplate?.id === template.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-transparent hover:bg-muted'
-                      }`}
-                      onClick={() => setSelectedTemplate(template)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h4 className="font-medium">{template.name}</h4>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {template.description}
-                          </p>
-                        </div>
-                        {template.isPublic && (
-                          <Badge variant="secondary" className="shrink-0">
-                            Public
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {template.tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        {template.canvasData.nodes.length} nodes •{' '}
-                        {template.canvasData.edges.length} connections
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+          {!isLoading && !isError && filteredTemplates.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+              <LayoutTemplate className="h-12 w-12 mb-2 opacity-50" />
+              <p>No templates found</p>
+            </div>
+          )}
 
-            {/* Preview panel */}
-            <div className="w-80 border rounded-lg p-4 flex flex-col">
-              {selectedTemplate ? (
-                <>
-                  <h3 className="font-semibold mb-2">{selectedTemplate.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {selectedTemplate.description}
-                  </p>
-
-                  <div className="flex-1 bg-muted/30 rounded-lg p-4 mb-4">
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">
-                      Components
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      {Object.entries(
-                        selectedTemplate.canvasData.nodes.reduce(
-                          (acc, node) => {
-                            const type = (node as DiagramNode).type || 'unknown'
-                            acc[type] = (acc[type] || 0) + 1
-                            return acc
-                          },
-                          {} as Record<string, number>
-                        )
-                      ).map(([type, count]) => (
-                        <div key={type} className="flex justify-between">
-                          <span className="capitalize">{type.replace(/([A-Z])/g, ' $1').trim()}</span>
-                          <span className="text-muted-foreground">{count}</span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between pt-2 border-t mt-2">
-                        <span>Data Flows</span>
-                        <span className="text-muted-foreground">
-                          {selectedTemplate.canvasData.edges.length}
-                        </span>
-                      </div>
-                    </div>
+          {!isLoading && !isError && filteredTemplates.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+              {filteredTemplates.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => handleInsert(template)}
+                  // FIX: Add flex flex-col w-full h-full for proper button sizing
+                  className="flex flex-col w-full h-full text-left p-4 border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors group"
+                >
+                  {/* Header: Title + Category (stacked) */}
+                  <div className="w-full mb-2">
+                    <h3 className="font-semibold text-sm leading-tight group-hover:text-primary mb-1">
+                      {template.name}
+                    </h3>
+                    <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
+                      {getCategoryLabel(template.category)}
+                    </Badge>
                   </div>
 
-                  <Button onClick={handleInsert} className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Insert Template
-                  </Button>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <LayoutTemplate className="h-12 w-12 mb-2 opacity-50" />
-                  <p className="text-sm text-center">
-                    Select a template to preview its components
+                  {/* Description - FIX: flex-1 pushes footer to bottom */}
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">
+                    {template.description}
                   </p>
-                </div>
-              )}
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1 mb-3 w-full">
+                    {template.tags.slice(0, 3).map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs font-normal">
+                        {tag}
+                      </Badge>
+                    ))}
+                    {template.tags.length > 3 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{template.tags.length - 3} more
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Footer: Author + Usage - FIX: mt-auto ensures it stays at bottom */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground w-full mt-auto">
+                    <span className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {template.createdBy}
+                    </span>
+                    <span>Used {template.useCount}x</span>
+                  </div>
+                </button>
+              ))}
             </div>
-          </div>
+          )}
+        </ScrollArea>
+
+        {/* Footer */}
+        <div className="flex justify-end pt-2 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
