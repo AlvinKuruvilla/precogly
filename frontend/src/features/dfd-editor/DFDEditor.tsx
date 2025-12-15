@@ -355,6 +355,8 @@ function DFDEditorContent() {
             fitView
             snapToGrid
             snapGrid={[15, 15]}
+            minZoom={0.1}
+            maxZoom={4}
             deleteKeyCode={null} // We handle delete in useKeyboardShortcuts
           >
             {/* SVG Definitions for edge markers */}
