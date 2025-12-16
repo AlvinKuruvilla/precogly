@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { User, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate } from 'lucide-react'
+import { User, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -16,6 +16,7 @@ interface DiagramToolbarProps {
   connectionMode: boolean
   onConnectionModeChange: (enabled: boolean) => void
   onOpenTemplates: () => void
+  onOpenThreatAnalysis: () => void
 }
 
 interface ToolbarButtonConfig {
@@ -68,6 +69,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   connectionMode,
   onConnectionModeChange,
   onOpenTemplates,
+  onOpenThreatAnalysis,
 }: DiagramToolbarProps) {
   const { addNodes, getNodes } = useReactFlow()
 
@@ -183,6 +185,29 @@ export const DiagramToolbar = memo(function DiagramToolbar({
             <p className="font-medium">DFD Templates</p>
             <p className="text-xs text-muted-foreground">
               Browse and insert pre-built diagram templates
+            </p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="h-8 mx-2" />
+
+        {/* Threat Analysis button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-2"
+              onClick={onOpenThreatAnalysis}
+            >
+              <ShieldAlert className="h-4 w-4" />
+              <span className="hidden sm:inline">Analyze Threats</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="font-medium">Analyze Threats & Countermeasures</p>
+            <p className="text-xs text-muted-foreground">
+              Review and manage threats based on your diagram components
             </p>
           </TooltipContent>
         </Tooltip>
