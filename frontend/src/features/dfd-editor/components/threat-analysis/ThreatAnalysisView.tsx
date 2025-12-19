@@ -1,58 +1,71 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ComponentView } from './ComponentView'
 import { TableView } from './TableView'
-import type { DiagramNode, CanvasData } from '../../types'
+import type { DiagramNode, DataFlowEdge, CanvasData } from '../../types'
 import type {
   ComponentThreat,
   ComponentThreatCountermeasure,
   CountermeasureStatus,
 } from '../../types/threat-analysis'
-import { getThreatById, THREAT_DEFINITIONS } from '../../lib/threat-registry'
+import { getThreatById, THREAT_DEFINITIONS, getThreatsForDataFlowByProperties } from '../../lib/threat-registry'
 import {
   getCountermeasuresForThreat,
   getCountermeasureById,
 } from '../../lib/countermeasure-registry'
 import { getTechnologyById, TECHNOLOGIES, type TechnologyCategory } from '../../lib/technology-registry'
 
+// LocalStorage key prefix for persisting threat selections
+const THREAT_STORAGE_KEY_PREFIX = 'precogly_threats_'
+
 /**
- * Try to find a technology by ID first, then by name match
+ * Load saved threats from localStorage
  */
-function findTechnology(techValue: string | undefined) {
-  if (!techValue) return null
-
-  // First try exact ID match
-  const byId = getTechnologyById(techValue)
-  if (byId) return byId
-
-  // Then try name match (case-insensitive)
-  const normalizedValue = techValue.toLowerCase()
-  const byName = TECHNOLOGIES.find(
-    (t) => t.name.toLowerCase() === normalizedValue ||
-           t.name.toLowerCase().includes(normalizedValue) ||
-           normalizedValue.includes(t.name.toLowerCase())
-  )
-  if (byName) return byName
-
+function loadThreatsFromStorage(diagramId: string): ComponentThreat[] | null {
+  try {
+    const stored = localStorage.getItem(`${THREAT_STORAGE_KEY_PREFIX}${diagramId}`)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch (e) {
+    console.error('Failed to load threats from storage:', e)
+  }
   return null
 }
 
 /**
- * Infer a technology category from node type and technology string
+ * Save threats to localStorage
+ */
+function saveThreatsToStorage(diagramId: string, threats: ComponentThreat[]): void {
+  try {
+    localStorage.setItem(`${THREAT_STORAGE_KEY_PREFIX}${diagramId}`, JSON.stringify(threats))
+  } catch (e) {
+    console.error('Failed to save threats to storage:', e)
+  }
+}
+
+/**
+ * Infer technology category from node type and technology string
  */
 function inferTechnologyCategory(
   nodeType: string,
   techValue: string | undefined
 ): TechnologyCategory | null {
-  // Try to match from technology registry first
-  const tech = findTechnology(techValue)
-  if (tech) return tech.category
-
-  // Infer from common keywords in technology string
   if (techValue) {
-    const lower = techValue.toLowerCase()
+    const byId = getTechnologyById(techValue)
+    if (byId) return byId.category
+
+    const normalizedValue = techValue.toLowerCase()
+    const byName = TECHNOLOGIES.find(
+      (t) => t.name.toLowerCase() === normalizedValue ||
+             t.name.toLowerCase().includes(normalizedValue) ||
+             normalizedValue.includes(t.name.toLowerCase())
+    )
+    if (byName) return byName.category
+
+    const lower = normalizedValue
     if (lower.includes('database') || lower.includes('sql') || lower.includes('db') || lower.includes('postgres') || lower.includes('mysql') || lower.includes('mongo')) return 'database'
     if (lower.includes('redis') || lower.includes('cache') || lower.includes('memcache')) return 'cache'
     if (lower.includes('s3') || lower.includes('blob') || lower.includes('storage')) return 'storage'
@@ -63,7 +76,6 @@ function inferTechnologyCategory(
     if (lower.includes('kafka') || lower.includes('queue') || lower.includes('sqs') || lower.includes('pubsub') || lower.includes('event')) return 'messaging'
   }
 
-  // Default category based on node type
   if (nodeType === 'datastore') return 'database'
   if (nodeType === 'process') return 'backend'
 
@@ -77,40 +89,103 @@ interface ThreatAnalysisViewProps {
   diagramTitle: string
   canvasData: CanvasData
   onBack: () => void
+  backLabel?: string
 }
 
 /**
- * Initialize threats and countermeasures for components based on their technologies
+ * Initialize threats for a diagram - loads from localStorage if available,
+ * otherwise auto-creates all applicable threats for each component and data flow
  */
 function initializeThreatsForDiagram(
   diagramId: string,
-  nodes: DiagramNode[]
+  nodes: DiagramNode[],
+  edges: DataFlowEdge[]
 ): ComponentThreat[] {
+  // Try to load saved threats from localStorage
+  const savedThreats = loadThreatsFromStorage(diagramId)
+
+  // Check if we need to add data flow threats to existing saved threats
+  if (savedThreats) {
+    // Get edge IDs that already have threats
+    const edgeIdsWithThreats = new Set(
+      savedThreats
+        .filter((t) => edges.some((e) => e.id === t.componentId))
+        .map((t) => t.componentId)
+    )
+
+    // Find edges that don't have any threats yet
+    const edgesWithoutThreats = edges.filter((e) => !edgeIdsWithThreats.has(e.id))
+
+    // If all edges have threats, return saved threats as-is
+    if (edgesWithoutThreats.length === 0) {
+      return savedThreats
+    }
+
+    // Add threats for edges that don't have any
+    const timestamp = new Date().toISOString()
+    const newDataFlowThreats: ComponentThreat[] = []
+
+    edgesWithoutThreats.forEach((edge) => {
+      const edgeData = edge.data || {}
+      const dataFlowThreats = getThreatsForDataFlowByProperties({
+        protocol: edgeData.protocol,
+        encrypted: edgeData.encrypted,
+        authenticated: edgeData.authenticated,
+      })
+
+      dataFlowThreats.forEach((threatDef) => {
+        const componentThreatId = `ct-${edge.id}-${threatDef.id}`
+        const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
+
+        const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map((cmDef) => ({
+          id: `ctcm-${componentThreatId}-${cmDef.id}`,
+          countermeasureId: cmDef.id,
+          componentThreatId,
+          status: cmDef.isPlatformLevel ? 'platform' : 'gap' as CountermeasureStatus,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        }))
+
+        newDataFlowThreats.push({
+          id: componentThreatId,
+          diagramId,
+          componentId: edge.id,
+          threatId: threatDef.id,
+          dismissed: false,
+          countermeasures,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+      })
+    })
+
+    // Merge saved threats with new data flow threats
+    return [...savedThreats, ...newDataFlowThreats]
+  }
+
+  // Auto-create all applicable threats for each component and data flow
   const componentThreats: ComponentThreat[] = []
   const timestamp = new Date().toISOString()
 
-  // Get all process and datastore components (they can all have threats)
-  const analyzableComponents = nodes.filter((node) =>
+  // Process nodes (components)
+  const analyzableNodes = nodes.filter((node) =>
     node.type === 'process' || node.type === 'datastore'
   )
 
-  analyzableComponents.forEach((node) => {
+  analyzableNodes.forEach((node) => {
     const techValue = (node.data as { technology?: string }).technology
-
-    // Infer the technology category from the node type and any technology string
     const category = inferTechnologyCategory(node.type as string, techValue)
 
     if (!category) return
 
-    // Find threats applicable to this category
-    const applicableThreats = THREAT_DEFINITIONS.filter((threat) =>
-      threat.applicableTechCategories.includes(category)
-    )
+    // Get component threats (those without applicableElementTypes or with 'component')
+    const applicableThreats = THREAT_DEFINITIONS.filter((threat) => {
+      const elementTypes = threat.applicableElementTypes || ['component']
+      return elementTypes.includes('component') && threat.applicableTechCategories.includes(category)
+    })
 
     applicableThreats.forEach((threatDef) => {
       const componentThreatId = `ct-${node.id}-${threatDef.id}`
-
-      // Get countermeasures for this threat
       const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
 
       const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map((cmDef) => ({
@@ -135,6 +210,42 @@ function initializeThreatsForDiagram(
     })
   })
 
+  // Process edges (data flows) - filter threats based on edge properties
+  edges.forEach((edge) => {
+    // Get data flow properties from edge data
+    const edgeData = edge.data || {}
+    const dataFlowThreats = getThreatsForDataFlowByProperties({
+      protocol: edgeData.protocol,
+      encrypted: edgeData.encrypted,
+      authenticated: edgeData.authenticated,
+    })
+
+    dataFlowThreats.forEach((threatDef) => {
+      const componentThreatId = `ct-${edge.id}-${threatDef.id}`
+      const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
+
+      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map((cmDef) => ({
+        id: `ctcm-${componentThreatId}-${cmDef.id}`,
+        countermeasureId: cmDef.id,
+        componentThreatId,
+        status: cmDef.isPlatformLevel ? 'platform' : 'gap' as CountermeasureStatus,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }))
+
+      componentThreats.push({
+        id: componentThreatId,
+        diagramId,
+        componentId: edge.id, // Using edge.id as componentId for data flows
+        threatId: threatDef.id,
+        dismissed: false,
+        countermeasures,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+    })
+  })
+
   return componentThreats
 }
 
@@ -143,23 +254,35 @@ export function ThreatAnalysisView({
   diagramTitle,
   canvasData,
   onBack,
+  backLabel = 'Back',
 }: ThreatAnalysisViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('component')
 
-  // Initialize component threats from diagram data
+  // Initialize component threats from diagram data (loads from localStorage)
   const [componentThreats, setComponentThreats] = useState<ComponentThreat[]>(() =>
-    initializeThreatsForDiagram(diagramId, canvasData.nodes)
+    initializeThreatsForDiagram(diagramId, canvasData.nodes, canvasData.edges)
   )
+
+  // Persist threats to localStorage when they change
+  useEffect(() => {
+    saveThreatsToStorage(diagramId, componentThreats)
+  }, [diagramId, componentThreats])
 
   // Selected component and threat for drill-down
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null)
 
-  // Get components that have threats (i.e., have technology assigned)
-  const componentsWithThreats = useMemo(() => {
-    const componentIds = new Set(componentThreats.map((ct) => ct.componentId))
-    return canvasData.nodes.filter((node) => componentIds.has(node.id))
-  }, [canvasData.nodes, componentThreats])
+  // Get all analyzable components (process and datastore nodes)
+  const analyzableComponents = useMemo(() => {
+    return canvasData.nodes.filter((node) =>
+      node.type === 'process' || node.type === 'datastore'
+    )
+  }, [canvasData.nodes])
+
+  // Get all data flows (edges)
+  const dataFlows = useMemo(() => {
+    return canvasData.edges
+  }, [canvasData.edges])
 
   // Get threats for selected component
   const threatsForSelectedComponent = useMemo(() => {
@@ -175,12 +298,16 @@ export function ThreatAnalysisView({
     return componentThreats.find((ct) => ct.id === selectedThreatId) || null
   }, [componentThreats, selectedThreatId])
 
-  // Auto-select first component if none selected
+  // Auto-select first component or data flow if none selected
   useMemo(() => {
-    if (!selectedComponentId && componentsWithThreats.length > 0) {
-      setSelectedComponentId(componentsWithThreats[0].id)
+    if (!selectedComponentId) {
+      if (analyzableComponents.length > 0) {
+        setSelectedComponentId(analyzableComponents[0].id)
+      } else if (dataFlows.length > 0) {
+        setSelectedComponentId(dataFlows[0].id)
+      }
     }
-  }, [selectedComponentId, componentsWithThreats])
+  }, [selectedComponentId, analyzableComponents, dataFlows])
 
   // Auto-select first threat when component changes
   useMemo(() => {
@@ -194,9 +321,9 @@ export function ThreatAnalysisView({
     }
   }, [selectedComponentId, threatsForSelectedComponent, selectedThreatId])
 
-  // Update countermeasure status
+  // Update countermeasure status (with optional notes for waiver reason)
   const handleCountermeasureStatusChange = useCallback(
-    (componentThreatId: string, countermeasureId: string, status: CountermeasureStatus) => {
+    (componentThreatId: string, countermeasureId: string, status: CountermeasureStatus, notes?: string) => {
       setComponentThreats((prev) =>
         prev.map((ct) => {
           if (ct.id !== componentThreatId) return ct
@@ -208,6 +335,8 @@ export function ThreatAnalysisView({
               return {
                 ...cm,
                 status,
+                // Update notes if provided (for waiver reason)
+                ...(notes !== undefined && { notes }),
                 updatedAt: new Date().toISOString(),
               }
             }),
@@ -290,6 +419,16 @@ export function ThreatAnalysisView({
     )
   }, [])
 
+  // Restore dismissed threat
+  const handleRestoreThreat = useCallback((componentThreatId: string) => {
+    setComponentThreats((prev) =>
+      prev.map((ct) => {
+        if (ct.id !== componentThreatId) return ct
+        return { ...ct, dismissed: false, updatedAt: new Date().toISOString() }
+      })
+    )
+  }, [])
+
   // Add custom countermeasure
   const handleAddCustomCountermeasure = useCallback(
     (componentThreatId: string, countermeasureId: string) => {
@@ -348,7 +487,7 @@ export function ThreatAnalysisView({
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack} className="gap-1">
             <ChevronLeft className="h-4 w-4" />
-            Back to DFD
+            {backLabel}
           </Button>
           <div className="h-6 w-px bg-border" />
           <h1 className="font-semibold">
@@ -388,7 +527,8 @@ export function ThreatAnalysisView({
         {viewMode === 'component' ? (
           <ComponentView
             canvasData={canvasData}
-            componentsWithThreats={componentsWithThreats}
+            analyzableComponents={analyzableComponents}
+            dataFlows={dataFlows}
             componentThreats={componentThreats}
             selectedComponentId={selectedComponentId}
             selectedThreatId={selectedThreatId}
@@ -399,6 +539,7 @@ export function ThreatAnalysisView({
             onAssignOwner={handleAssignOwner}
             onAddCustomThreat={handleAddCustomThreat}
             onDismissThreat={handleDismissThreat}
+            onRestoreThreat={handleRestoreThreat}
             onAddCustomCountermeasure={handleAddCustomCountermeasure}
             onRemoveCountermeasure={handleRemoveCountermeasure}
           />

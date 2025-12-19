@@ -26,7 +26,6 @@ import { DiagramToolbar } from './components/DiagramToolbar'
 import { NodeEditPanel } from './components/panels/NodeEditPanel'
 import { EdgeEditPanel } from './components/panels/EdgeEditPanel'
 import { TemplateBrowser } from './components/TemplateBrowser'
-import { ThreatAnalysisView } from './components/threat-analysis'
 import { useDiagramState } from './hooks/useDiagramState'
 import { useParentRelationships } from './hooks/useParentRelationships'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -42,7 +41,6 @@ function DFDEditorContent() {
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<DataFlowEdge | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
-  const [showThreatAnalysis, setShowThreatAnalysis] = useState(false)
 
   // Diagram state management
   const {
@@ -325,117 +323,108 @@ function DFDEditorContent() {
         </div>
       </div>
 
-      {/* Main content - conditionally show Threat Analysis or DFD Canvas */}
-      {showThreatAnalysis ? (
-        <ThreatAnalysisView
-          diagramId={diagramId || ''}
-          diagramTitle={diagram.title}
-          canvasData={{ nodes, edges }}
-          onBack={() => setShowThreatAnalysis(false)}
-        />
-      ) : (
-        <>
-          {/* Toolbar - only show when in DFD editing mode */}
-          <DiagramToolbar
-            connectionMode={connectionMode}
-            onConnectionModeChange={setConnectionMode}
-            onOpenTemplates={() => setShowTemplates(true)}
-            onOpenThreatAnalysis={() => setShowThreatAnalysis(true)}
+      {/* Toolbar */}
+      <DiagramToolbar
+        connectionMode={connectionMode}
+        onConnectionModeChange={setConnectionMode}
+        onOpenTemplates={() => setShowTemplates(true)}
+        onOpenThreatAnalysis={() => navigate(
+          `/threat-models/${threatModelId}/diagrams/${diagramId}/threats`,
+          { state: { fromDFD: true } }
+        )}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Canvas */}
+        <div className="flex-1" ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={handleConnect}
+            onNodeClick={handleNodeClick}
+            onEdgeClick={handleEdgeClick}
+            onPaneClick={handlePaneClick}
+            onNodeDragStop={handleNodeDragStop}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            connectionMode={ConnectionMode.Loose}
+            defaultEdgeOptions={{
+              type: 'dataFlow',
+              animated: true,
+            }}
+            fitView
+            snapToGrid
+            snapGrid={[15, 15]}
+            minZoom={0.1}
+            maxZoom={4}
+            deleteKeyCode={null} // We handle delete in useKeyboardShortcuts
+          >
+            {/* SVG Definitions for edge markers */}
+            <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+              <defs>
+                <marker
+                  id="arrow"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
+                </marker>
+                <marker
+                  id="arrow-selected"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+                </marker>
+              </defs>
+            </svg>
+
+            <Background gap={15} size={1} />
+            <Controls />
+
+            {/* Connection mode indicator */}
+            {connectionMode && (
+              <Panel position="top-center">
+                <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                  Click and drag from a node to create a connection
+                </div>
+              </Panel>
+            )}
+          </ReactFlow>
+        </div>
+
+        {/* Edit Panel */}
+        {currentSelectedNode && (
+          <NodeEditPanel
+            node={currentSelectedNode}
+            onClose={() => setSelectedNode(null)}
           />
+        )}
+        {currentSelectedEdge && (
+          <EdgeEditPanel
+            edge={currentSelectedEdge}
+            onClose={() => setSelectedEdge(null)}
+          />
+        )}
+      </div>
 
-          <div className="flex flex-1 overflow-hidden">
-            {/* Canvas */}
-            <div className="flex-1" ref={reactFlowWrapper}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={handleConnect}
-                onNodeClick={handleNodeClick}
-                onEdgeClick={handleEdgeClick}
-                onPaneClick={handlePaneClick}
-                onNodeDragStop={handleNodeDragStop}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                connectionMode={ConnectionMode.Loose}
-                defaultEdgeOptions={{
-                  type: 'dataFlow',
-                  animated: true,
-                }}
-                fitView
-                snapToGrid
-                snapGrid={[15, 15]}
-                minZoom={0.1}
-                maxZoom={4}
-                deleteKeyCode={null} // We handle delete in useKeyboardShortcuts
-              >
-                {/* SVG Definitions for edge markers */}
-                <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-                  <defs>
-                    <marker
-                      id="arrow"
-                      viewBox="0 0 10 10"
-                      refX="8"
-                      refY="5"
-                      markerWidth="6"
-                      markerHeight="6"
-                      orient="auto-start-reverse"
-                    >
-                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
-                    </marker>
-                    <marker
-                      id="arrow-selected"
-                      viewBox="0 0 10 10"
-                      refX="8"
-                      refY="5"
-                      markerWidth="6"
-                      markerHeight="6"
-                      orient="auto-start-reverse"
-                    >
-                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
-                    </marker>
-                  </defs>
-                </svg>
-
-                <Background gap={15} size={1} />
-                <Controls />
-
-                {/* Connection mode indicator */}
-                {connectionMode && (
-                  <Panel position="top-center">
-                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                      Click and drag from a node to create a connection
-                    </div>
-                  </Panel>
-                )}
-              </ReactFlow>
-            </div>
-
-            {/* Edit Panel */}
-            {currentSelectedNode && (
-              <NodeEditPanel
-                node={currentSelectedNode}
-                onClose={() => setSelectedNode(null)}
-              />
-            )}
-            {currentSelectedEdge && (
-              <EdgeEditPanel
-                edge={currentSelectedEdge}
-                onClose={() => setSelectedEdge(null)}
-              />
-            )}
-          </div>
-
-          {/* Template Browser Dialog */}
-          {showTemplates && (
-            <TemplateBrowser
-              open={showTemplates}
-              onOpenChange={setShowTemplates}
-              onInsert={handleInsertTemplate}
-            />
-          )}
-        </>
+      {/* Template Browser Dialog */}
+      {showTemplates && (
+        <TemplateBrowser
+          open={showTemplates}
+          onOpenChange={setShowTemplates}
+          onInsert={handleInsertTemplate}
+        />
       )}
     </div>
   )

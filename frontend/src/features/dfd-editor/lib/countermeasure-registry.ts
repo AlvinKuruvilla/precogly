@@ -375,6 +375,373 @@ export const COUNTERMEASURE_DEFINITIONS: CountermeasureDefinition[] = [
       { standard: 'NIST', reference: 'PR.AC-5' },
     ],
   },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - ENCRYPTION
+  // ===========================================
+  {
+    id: 'cm-df-tls',
+    name: 'TLS Encryption',
+    description: 'Use TLS 1.2 or higher for all data in transit with strong cipher suites',
+    mitigatesThreatIds: [
+      'threat-df-mitm',
+      'threat-df-eavesdropping',
+      'threat-df-plaintext-credentials',
+      'threat-df-session-hijacking',
+      'threat-df-cookie-hijacking',
+      'threat-df-sql-connection-exposure',
+      'threat-df-sql-query-interception',
+    ],
+    strideCategories: ['tampering', 'information_disclosure', 'spoofing'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '4.1' },
+      { standard: 'NIST', reference: 'SC-8' },
+      { standard: 'GDPR', reference: 'Art. 32' },
+    ],
+  },
+  {
+    id: 'cm-df-mutual-tls',
+    name: 'Mutual TLS (mTLS)',
+    description: 'Implement mutual TLS authentication to verify both client and server identities',
+    mitigatesThreatIds: [
+      'threat-df-mitm',
+      'threat-df-unauthorized-access',
+      'threat-df-replay',
+      'threat-df-cert-validation-bypass',
+      'threat-df-grpc-metadata-tampering',
+    ],
+    strideCategories: ['spoofing', 'tampering'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '4.1' },
+      { standard: 'NIST', reference: 'SC-8' },
+    ],
+  },
+  {
+    id: 'cm-df-hsts',
+    name: 'HTTP Strict Transport Security',
+    description: 'Enable HSTS to prevent protocol downgrade attacks and force HTTPS connections',
+    mitigatesThreatIds: [
+      'threat-df-ssl-stripping',
+      'threat-df-cookie-hijacking',
+    ],
+    strideCategories: ['tampering', 'spoofing'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A02:2021' },
+      { standard: 'PCI-DSS', reference: '4.1' },
+    ],
+  },
+  {
+    id: 'cm-df-cert-pinning',
+    name: 'Certificate Pinning',
+    description: 'Pin server certificates to prevent MITM attacks with forged certificates',
+    mitigatesThreatIds: [
+      'threat-df-cert-validation-bypass',
+      'threat-df-mitm',
+    ],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A02:2021' },
+      { standard: 'NIST', reference: 'SC-17' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - AUTHENTICATION
+  // ===========================================
+  {
+    id: 'cm-df-api-authentication',
+    name: 'API Authentication',
+    description: 'Authenticate all API calls using tokens, API keys, or certificates',
+    mitigatesThreatIds: [
+      'threat-df-unauthorized-access',
+      'threat-df-data-injection',
+    ],
+    strideCategories: ['spoofing', 'tampering'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A07:2021' },
+      { standard: 'PCI-DSS', reference: '8.3' },
+    ],
+  },
+  {
+    id: 'cm-df-message-signing',
+    name: 'Message Signing',
+    description: 'Sign messages with digital signatures to ensure integrity and authenticity',
+    mitigatesThreatIds: [
+      'threat-df-data-injection',
+      'threat-df-mitm',
+      'threat-df-replay',
+      'threat-df-message-poisoning',
+    ],
+    strideCategories: ['tampering', 'spoofing'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '3.4' },
+      { standard: 'NIST', reference: 'SC-13' },
+    ],
+  },
+  {
+    id: 'cm-df-replay-protection',
+    name: 'Replay Attack Protection',
+    description: 'Use nonces, timestamps, or sequence numbers to prevent replay attacks',
+    mitigatesThreatIds: [
+      'threat-df-replay',
+      'threat-df-message-replay',
+    ],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'NIST', reference: 'SC-23' },
+      { standard: 'OWASP', reference: 'A07:2021' },
+    ],
+  },
+  {
+    id: 'cm-df-channel-binding',
+    name: 'Channel Binding',
+    description: 'Bind authentication tokens to the TLS channel to prevent token theft',
+    mitigatesThreatIds: [
+      'threat-df-mitm',
+      'threat-df-replay',
+      'threat-df-session-hijacking',
+    ],
+    strideCategories: ['spoofing', 'tampering'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'NIST', reference: 'SC-23' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - HTTP SPECIFIC
+  // ===========================================
+  {
+    id: 'cm-df-cors-policy',
+    name: 'Strict CORS Policy',
+    description: 'Configure restrictive CORS policies to prevent cross-origin attacks',
+    mitigatesThreatIds: [
+      'threat-df-cors-misconfiguration',
+      'threat-df-cswsh',
+    ],
+    strideCategories: ['information_disclosure', 'spoofing'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A05:2021' },
+    ],
+  },
+  {
+    id: 'cm-df-secure-headers',
+    name: 'Security Headers',
+    description: 'Implement security headers (X-Frame-Options, CSP, X-Content-Type-Options)',
+    mitigatesThreatIds: [
+      'threat-df-http-header-injection',
+      'threat-df-http-response-splitting',
+    ],
+    strideCategories: ['tampering'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A05:2021' },
+      { standard: 'PCI-DSS', reference: '6.5.10' },
+    ],
+  },
+  {
+    id: 'cm-df-secure-cookies',
+    name: 'Secure Cookie Attributes',
+    description: 'Set Secure, HttpOnly, and SameSite attributes on all session cookies',
+    mitigatesThreatIds: [
+      'threat-df-cookie-hijacking',
+      'threat-df-session-hijacking',
+    ],
+    strideCategories: ['spoofing', 'information_disclosure'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A07:2021' },
+      { standard: 'PCI-DSS', reference: '6.5.10' },
+    ],
+  },
+  {
+    id: 'cm-df-input-encoding',
+    name: 'Input/Output Encoding',
+    description: 'Properly encode inputs and outputs to prevent injection attacks',
+    mitigatesThreatIds: [
+      'threat-df-http-header-injection',
+      'threat-df-http-response-splitting',
+    ],
+    strideCategories: ['tampering'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A03:2021' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - WEBSOCKET
+  // ===========================================
+  {
+    id: 'cm-df-websocket-origin',
+    name: 'WebSocket Origin Validation',
+    description: 'Validate Origin header on WebSocket handshakes to prevent CSWSH attacks',
+    mitigatesThreatIds: [
+      'threat-df-cswsh',
+    ],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A07:2021' },
+    ],
+  },
+  {
+    id: 'cm-df-websocket-auth',
+    name: 'WebSocket Authentication',
+    description: 'Authenticate WebSocket connections and validate messages',
+    mitigatesThreatIds: [
+      'threat-df-cswsh',
+      'threat-df-websocket-injection',
+    ],
+    strideCategories: ['spoofing', 'tampering'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A07:2021' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - MESSAGE QUEUES
+  // ===========================================
+  {
+    id: 'cm-df-queue-auth',
+    name: 'Message Queue Authentication',
+    description: 'Require authentication for all queue publish and subscribe operations',
+    mitigatesThreatIds: [
+      'threat-df-unauthorized-subscription',
+      'threat-df-message-poisoning',
+    ],
+    strideCategories: ['spoofing', 'information_disclosure'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '8.3' },
+      { standard: 'SOC2', reference: 'CC6.1' },
+    ],
+  },
+  {
+    id: 'cm-df-queue-acl',
+    name: 'Queue Access Control Lists',
+    description: 'Implement fine-grained ACLs to restrict topic/queue access per client',
+    mitigatesThreatIds: [
+      'threat-df-unauthorized-subscription',
+      'threat-df-message-poisoning',
+    ],
+    strideCategories: ['information_disclosure', 'tampering'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '7.1' },
+      { standard: 'SOC2', reference: 'CC6.1' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - gRPC
+  // ===========================================
+  {
+    id: 'cm-df-grpc-interceptors',
+    name: 'gRPC Interceptors',
+    description: 'Use gRPC interceptors to validate metadata and enforce security policies',
+    mitigatesThreatIds: [
+      'threat-df-grpc-metadata-tampering',
+    ],
+    strideCategories: ['tampering'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'OWASP', reference: 'A04:2021' },
+    ],
+  },
+  {
+    id: 'cm-df-grpc-reflection-disable',
+    name: 'Disable gRPC Reflection',
+    description: 'Disable gRPC reflection in production to prevent service enumeration',
+    mitigatesThreatIds: [
+      'threat-df-grpc-reflection',
+    ],
+    strideCategories: ['information_disclosure'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A05:2021' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - TCP/UDP
+  // ===========================================
+  {
+    id: 'cm-df-tcp-randomization',
+    name: 'TCP Sequence Randomization',
+    description: 'Use strong randomization for TCP initial sequence numbers',
+    mitigatesThreatIds: [
+      'threat-df-tcp-session-hijacking',
+    ],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'NIST', reference: 'SC-7' },
+    ],
+  },
+  {
+    id: 'cm-df-source-validation',
+    name: 'Source Address Validation',
+    description: 'Implement ingress filtering to prevent IP spoofing attacks',
+    mitigatesThreatIds: [
+      'threat-df-udp-spoofing',
+      'threat-df-udp-amplification',
+    ],
+    strideCategories: ['spoofing', 'denial_of_service'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'NIST', reference: 'SC-7' },
+    ],
+  },
+  {
+    id: 'cm-df-response-rate-limit',
+    name: 'Response Rate Limiting',
+    description: 'Limit UDP response rates to prevent amplification attacks',
+    mitigatesThreatIds: [
+      'threat-df-udp-amplification',
+    ],
+    strideCategories: ['denial_of_service'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'NIST', reference: 'SC-5' },
+    ],
+  },
+
+  // ===========================================
+  // DATA FLOW COUNTERMEASURES - GENERAL
+  // ===========================================
+  {
+    id: 'cm-df-traffic-encryption',
+    name: 'Traffic Padding/Encryption',
+    description: 'Use traffic padding or encrypted tunnels to prevent traffic analysis',
+    mitigatesThreatIds: ['threat-df-traffic-analysis'],
+    strideCategories: ['information_disclosure'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'NIST', reference: 'SC-8' },
+    ],
+  },
+  {
+    id: 'cm-df-rate-limiting',
+    name: 'Data Flow Rate Limiting',
+    description: 'Implement rate limiting and throttling on data channels',
+    mitigatesThreatIds: ['threat-df-dos'],
+    strideCategories: ['denial_of_service'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A04:2021' },
+      { standard: 'DORA', reference: 'Art. 9' },
+    ],
+  },
 ]
 
 /**

@@ -9,6 +9,7 @@ import {
   TechComponents,
   ThreatLibraries,
   DFDEditor,
+  ThreatAnalysisPage,
 } from '@/pages'
 
 export const router = createBrowserRouter([
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
       { path: 'threat-models/new', element: <CreateThreatModel /> },
       { path: 'threat-models/:id', element: <ThreatModelDetail /> },
       { path: 'threat-models/:id/diagrams/:diagramId', element: <DFDEditor /> },
+      { path: 'threat-models/:id/diagrams/:diagramId/threats', element: <ThreatAnalysisPage /> },
       { path: 'frameworks', element: <Frameworks /> },
       { path: 'tech-components', element: <TechComponents /> },
       { path: 'threat-libraries', element: <ThreatLibraries /> },

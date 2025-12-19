@@ -1,4 +1,22 @@
 import type { TechnologyCategory } from './technology-registry'
+import type { Protocol } from '../types/diagram'
+
+/**
+ * Element types that threats can apply to
+ */
+export type ThreatElementType = 'component' | 'dataflow'
+
+/**
+ * Data flow conditions for threat applicability
+ */
+export interface DataFlowConditions {
+  // Protocols this threat applies to (if empty/undefined, applies to all)
+  protocols?: Protocol[]
+  // If true, threat only applies when data flow is NOT encrypted
+  requiresUnencrypted?: boolean
+  // If true, threat only applies when data flow is NOT authenticated
+  requiresUnauthenticated?: boolean
+}
 
 /**
  * STRIDE Threat Categories
@@ -67,10 +85,15 @@ export interface ThreatDefinition {
   name: string
   description: string
   strideCategory: STRIDECategory
-  // Technology categories this threat applies to
+  // Element types this threat applies to (component, dataflow, or both)
+  // Defaults to ['component'] if not specified
+  applicableElementTypes?: ThreatElementType[]
+  // Technology categories this threat applies to (for components)
   applicableTechCategories: TechnologyCategory[]
   // Specific technology IDs this threat is especially relevant for (optional)
   applicableTechIds?: string[]
+  // Conditions for data flow threats (protocol, encryption, authentication)
+  dataFlowConditions?: DataFlowConditions
 }
 
 /**
@@ -310,6 +333,337 @@ export const THREAT_DEFINITIONS: ThreatDefinition[] = [
     strideCategory: 'elevation_of_privilege',
     applicableTechCategories: ['auth', 'infrastructure'],
   },
+
+  // ===========================================
+  // DATA FLOW THREATS - GENERIC (All protocols)
+  // ===========================================
+  {
+    id: 'threat-df-dos',
+    name: 'Data Flow Denial of Service',
+    description: 'An attacker could flood the data channel to disrupt communication between components',
+    strideCategory: 'denial_of_service',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+  },
+  {
+    id: 'threat-df-traffic-analysis',
+    name: 'Traffic Analysis',
+    description: 'Traffic patterns could reveal sensitive information about system behavior even if data is encrypted',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+  },
+  {
+    id: 'threat-df-replay',
+    name: 'Replay Attack',
+    description: 'An attacker could capture and replay valid data transmissions to perform unauthorized actions',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - UNENCRYPTED PROTOCOLS
+  // ===========================================
+  {
+    id: 'threat-df-plaintext-credentials',
+    name: 'Plaintext Credential Interception',
+    description: 'Credentials transmitted in cleartext can be intercepted by network attackers using packet sniffing',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      requiresUnencrypted: true,
+    },
+  },
+  {
+    id: 'threat-df-session-hijacking',
+    name: 'Session Token Theft',
+    description: 'Session tokens sent over unencrypted connections can be stolen and used to impersonate users',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      requiresUnencrypted: true,
+    },
+  },
+  {
+    id: 'threat-df-eavesdropping',
+    name: 'Data Eavesdropping',
+    description: 'Sensitive data transmitted without encryption can be intercepted and read by attackers',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      requiresUnencrypted: true,
+    },
+  },
+  {
+    id: 'threat-df-mitm',
+    name: 'Man-in-the-Middle Attack',
+    description: 'An attacker can intercept and modify data in transit when encryption is not used',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      requiresUnencrypted: true,
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - UNAUTHENTICATED FLOWS
+  // ===========================================
+  {
+    id: 'threat-df-unauthorized-access',
+    name: 'Unauthorized Data Access',
+    description: 'Without authentication, any party can send or receive data on this channel',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      requiresUnauthenticated: true,
+    },
+  },
+  {
+    id: 'threat-df-data-injection',
+    name: 'Malicious Data Injection',
+    description: 'Without authentication, attackers can inject malicious data into the communication channel',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      requiresUnauthenticated: true,
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - HTTP SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-http-header-injection',
+    name: 'HTTP Header Injection',
+    description: 'Attackers could inject malicious HTTP headers to manipulate requests or responses',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['HTTP', 'HTTPS'],
+    },
+  },
+  {
+    id: 'threat-df-cors-misconfiguration',
+    name: 'CORS Misconfiguration Exploitation',
+    description: 'Overly permissive CORS policies could allow malicious websites to access sensitive API data',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['HTTP', 'HTTPS'],
+    },
+  },
+  {
+    id: 'threat-df-cookie-hijacking',
+    name: 'Cookie Hijacking',
+    description: 'Session cookies transmitted over HTTP can be stolen via network sniffing or XSS attacks',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['HTTP'],
+      requiresUnencrypted: true,
+    },
+  },
+  {
+    id: 'threat-df-http-response-splitting',
+    name: 'HTTP Response Splitting',
+    description: 'Attackers could inject CRLF characters to split HTTP responses and inject malicious content',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['HTTP', 'HTTPS'],
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - HTTPS/TLS SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-ssl-stripping',
+    name: 'SSL Stripping Attack',
+    description: 'Attacker downgrades HTTPS to HTTP to intercept traffic if HSTS is not properly configured',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['HTTPS'],
+    },
+  },
+  {
+    id: 'threat-df-cert-validation-bypass',
+    name: 'Certificate Validation Bypass',
+    description: 'Improper certificate validation could allow attackers to perform MITM attacks with fake certificates',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['HTTPS', 'gRPC'],
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - WEBSOCKET SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-cswsh',
+    name: 'Cross-Site WebSocket Hijacking',
+    description: 'Malicious websites could establish WebSocket connections using victim credentials if origin validation is weak',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['WebSocket'],
+    },
+  },
+  {
+    id: 'threat-df-websocket-injection',
+    name: 'WebSocket Frame Injection',
+    description: 'Attackers could inject malicious frames into WebSocket communications to manipulate application state',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['WebSocket'],
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - MESSAGE QUEUE SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-unauthorized-subscription',
+    name: 'Unauthorized Topic Subscription',
+    description: 'Attackers could subscribe to message topics to receive sensitive data intended for other consumers',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['MQTT', 'AMQP'],
+    },
+  },
+  {
+    id: 'threat-df-message-poisoning',
+    name: 'Message Queue Poisoning',
+    description: 'Attackers could publish malicious messages to queues to disrupt consumers or trigger vulnerabilities',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['MQTT', 'AMQP'],
+    },
+  },
+  {
+    id: 'threat-df-message-replay',
+    name: 'Message Replay Attack',
+    description: 'Captured messages could be replayed to duplicate transactions or commands',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['MQTT', 'AMQP'],
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - SQL SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-sql-connection-exposure',
+    name: 'Database Connection String Exposure',
+    description: 'Database credentials in connection strings could be intercepted if transmitted insecurely',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['SQL'],
+      requiresUnencrypted: true,
+    },
+  },
+  {
+    id: 'threat-df-sql-query-interception',
+    name: 'SQL Query Interception',
+    description: 'Unencrypted database queries could expose sensitive data and query patterns to network attackers',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['SQL'],
+      requiresUnencrypted: true,
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - gRPC SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-grpc-metadata-tampering',
+    name: 'gRPC Metadata Tampering',
+    description: 'Attackers could modify gRPC metadata headers to bypass authentication or authorization checks',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['gRPC'],
+    },
+  },
+  {
+    id: 'threat-df-grpc-reflection',
+    name: 'gRPC Reflection Abuse',
+    description: 'Enabled gRPC reflection could expose service definitions to attackers for reconnaissance',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['gRPC'],
+    },
+  },
+
+  // ===========================================
+  // DATA FLOW THREATS - TCP/UDP SPECIFIC
+  // ===========================================
+  {
+    id: 'threat-df-tcp-session-hijacking',
+    name: 'TCP Session Hijacking',
+    description: 'Attackers could predict TCP sequence numbers to hijack established connections',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['TCP'],
+    },
+  },
+  {
+    id: 'threat-df-udp-spoofing',
+    name: 'UDP Packet Spoofing',
+    description: 'UDP lacks connection state, making it trivial to spoof source addresses for attacks',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['UDP'],
+    },
+  },
+  {
+    id: 'threat-df-udp-amplification',
+    name: 'UDP Amplification Attack',
+    description: 'Attackers could abuse UDP services to amplify DDoS attacks against third parties',
+    strideCategory: 'denial_of_service',
+    applicableElementTypes: ['dataflow'],
+    applicableTechCategories: [],
+    dataFlowConditions: {
+      protocols: ['UDP'],
+    },
+  },
 ]
 
 /**
@@ -367,4 +721,85 @@ export function getSuggestedThreatsForComponent(
   }
 
   return Array.from(threats)
+}
+
+/**
+ * Get threats applicable to data flows (all data flow threats)
+ */
+export function getThreatsForDataFlow(): ThreatDefinition[] {
+  return THREAT_DEFINITIONS.filter((threat) =>
+    threat.applicableElementTypes?.includes('dataflow')
+  )
+}
+
+/**
+ * Data flow properties for threat filtering
+ */
+export interface DataFlowProperties {
+  protocol?: Protocol
+  encrypted?: boolean
+  authenticated?: boolean
+}
+
+/**
+ * Get threats applicable to a specific data flow based on its properties
+ */
+export function getThreatsForDataFlowByProperties(
+  properties: DataFlowProperties
+): ThreatDefinition[] {
+  const { protocol, encrypted, authenticated } = properties
+
+  return THREAT_DEFINITIONS.filter((threat) => {
+    // Must be a data flow threat
+    if (!threat.applicableElementTypes?.includes('dataflow')) {
+      return false
+    }
+
+    const conditions = threat.dataFlowConditions
+
+    // If no conditions, threat applies to all data flows
+    if (!conditions) {
+      return true
+    }
+
+    // Check protocol condition
+    if (conditions.protocols && conditions.protocols.length > 0) {
+      // If threat specifies protocols, the data flow must use one of them
+      if (!protocol || !conditions.protocols.includes(protocol)) {
+        return false
+      }
+    }
+
+    // Check encryption condition
+    if (conditions.requiresUnencrypted === true) {
+      // Threat only applies to unencrypted flows
+      // If encrypted is true, this threat doesn't apply
+      if (encrypted === true) {
+        return false
+      }
+    }
+
+    // Check authentication condition
+    if (conditions.requiresUnauthenticated === true) {
+      // Threat only applies to unauthenticated flows
+      // If authenticated is true, this threat doesn't apply
+      if (authenticated === true) {
+        return false
+      }
+    }
+
+    return true
+  })
+}
+
+/**
+ * Check if a threat applies to a specific element type
+ */
+export function isThreatApplicableToElementType(
+  threat: ThreatDefinition,
+  elementType: ThreatElementType
+): boolean {
+  // If applicableElementTypes is not specified, defaults to 'component' only
+  const types = threat.applicableElementTypes || ['component']
+  return types.includes(elementType)
 }
