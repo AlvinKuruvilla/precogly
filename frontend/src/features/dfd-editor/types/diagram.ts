@@ -8,7 +8,7 @@ export type DiagramNodeType =
   | 'trustBoundary'
   | 'systemBoundary'
 
-// Trust Levels for Trust Boundaries
+// Trust Levels for Trust Boundaries (legacy, kept for backward compatibility)
 export type TrustLevel =
   | 'internet'
   | 'trusted_partner'
@@ -23,6 +23,66 @@ export const TRUST_LEVEL_CONFIG: Record<
   trusted_partner: { label: 'Trusted Partner', color: 'rgba(234, 179, 8, 0.1)', borderColor: '#eab308' },
   private_secured: { label: 'Private/Secured', color: 'rgba(59, 130, 246, 0.1)', borderColor: '#3b82f6' },
   internal: { label: 'Internal', color: 'rgba(34, 197, 94, 0.1)', borderColor: '#22c55e' },
+}
+
+// Trust Boundary Types - Zone demarcations only
+export type TrustBoundaryType =
+  | 'zone_internet'
+  | 'zone_dmz'
+  | 'zone_internal'
+  | 'zone_restricted'
+
+// Trust Boundary Zone Types - Conceptual zone names for the Name dropdown
+export type TrustBoundaryZoneType =
+  | 'internal'
+  | 'external'
+  | 'dmz'
+  | 'partner'
+
+export const TRUST_BOUNDARY_ZONE_TYPES: { value: TrustBoundaryZoneType; label: string; description: string }[] = [
+  { value: 'internal', label: 'Internal', description: 'Trusted internal network or zone' },
+  { value: 'external', label: 'External', description: 'Untrusted external network (internet-facing)' },
+  { value: 'dmz', label: 'DMZ', description: 'Demilitarized zone between trusted and untrusted networks' },
+  { value: 'partner', label: 'Partner Network', description: 'Semi-trusted partner or third-party network' },
+]
+
+export interface TrustBoundaryConfig {
+  label: string
+  icon: string
+  color: string
+  borderColor: string
+  description: string
+}
+
+export const TRUST_BOUNDARY_TYPE_CONFIG: Record<TrustBoundaryType, TrustBoundaryConfig> = {
+  zone_internet: {
+    label: 'Internet/Public Zone',
+    icon: 'globe',
+    color: 'rgba(239, 68, 68, 0.1)',
+    borderColor: '#ef4444',
+    description: 'Untrusted external network',
+  },
+  zone_dmz: {
+    label: 'DMZ',
+    icon: 'shield-half',
+    color: 'rgba(249, 115, 22, 0.1)',
+    borderColor: '#f97316',
+    description: 'Demilitarized zone between external and internal networks',
+  },
+  zone_internal: {
+    label: 'Internal Network',
+    icon: 'building',
+    color: 'rgba(34, 197, 94, 0.1)',
+    borderColor: '#22c55e',
+    description: 'Trusted internal network',
+  },
+  zone_restricted: {
+    label: 'Restricted Zone',
+    icon: 'lock',
+    color: 'rgba(139, 92, 246, 0.1)',
+    borderColor: '#8b5cf6',
+    description: 'Highly restricted, sensitive systems',
+  },
 }
 
 // Data Classification for edges
@@ -108,7 +168,11 @@ export interface ActorNodeData extends BaseNodeData {
 }
 
 export interface TrustBoundaryNodeData extends BaseNodeData {
-  trustLevel: TrustLevel
+  // Zone type for the trust boundary
+  boundaryType?: TrustBoundaryType
+  // Legacy trust level (kept for backward compatibility)
+  trustLevel?: TrustLevel
+  // Technology implementing this zone (e.g., AWS VPC, Azure VNet)
   technology?: string
 }
 
@@ -133,6 +197,11 @@ export interface DataFlowEdgeData {
   encrypted?: boolean
   authenticated?: boolean
   isNewlyInserted?: boolean
+  // Trust boundary crossing
+  crossesBoundaryId?: string           // ID of the boundary this flow crosses
+  crossesBoundaryLabel?: string        // Label of the boundary (for display)
+  crossesBoundaryType?: TrustBoundaryType  // Type of the boundary
+  crossesBoundaryIds?: string[]        // For flows crossing multiple boundaries
   [key: string]: unknown  // Required for React Flow's Edge<T> constraint
 }
 

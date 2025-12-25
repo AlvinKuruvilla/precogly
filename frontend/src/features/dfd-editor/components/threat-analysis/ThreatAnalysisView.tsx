@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ComponentView } from './ComponentView'
 import { TableView } from './TableView'
-import type { DiagramNode, DataFlowEdge, CanvasData } from '../../types'
+import type { DiagramNode, DataFlowEdge, CanvasData, TrustBoundaryNodeData } from '../../types'
 import type {
   ComponentThreat,
   ComponentThreatCountermeasure,
   CountermeasureStatus,
 } from '../../types/threat-analysis'
-import { getThreatById, THREAT_DEFINITIONS, getThreatsForDataFlowByProperties } from '../../lib/threat-registry'
+import { getThreatById, THREAT_DEFINITIONS, getThreatsForDataFlowByProperties, getThreatsForTrustBoundary } from '../../lib/threat-registry'
 import {
   getCountermeasuresForThreat,
   getCountermeasureById,
@@ -88,6 +88,7 @@ interface ThreatAnalysisViewProps {
   diagramId: string
   diagramTitle: string
   canvasData: CanvasData
+  selectedFrameworks?: string[]
   onBack: () => void
   backLabel?: string
 }
@@ -167,7 +168,7 @@ function initializeThreatsForDiagram(
   const componentThreats: ComponentThreat[] = []
   const timestamp = new Date().toISOString()
 
-  // Process nodes (components)
+  // Process nodes (components - process and datastore)
   const analyzableNodes = nodes.filter((node) =>
     node.type === 'process' || node.type === 'datastore'
   )
@@ -210,6 +211,44 @@ function initializeThreatsForDiagram(
     })
   })
 
+  // Process trust boundary nodes
+  const trustBoundaryNodes = nodes.filter((node) => node.type === 'trustBoundary')
+
+  trustBoundaryNodes.forEach((node) => {
+    const boundaryData = node.data as TrustBoundaryNodeData
+    const boundaryType = boundaryData.boundaryType
+
+    // Only generate threats for boundaries with a boundaryType set
+    if (!boundaryType) return
+
+    const applicableThreats = getThreatsForTrustBoundary(boundaryType)
+
+    applicableThreats.forEach((threatDef) => {
+      const componentThreatId = `ct-${node.id}-${threatDef.id}`
+      const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
+
+      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map((cmDef) => ({
+        id: `ctcm-${componentThreatId}-${cmDef.id}`,
+        countermeasureId: cmDef.id,
+        componentThreatId,
+        status: cmDef.isPlatformLevel ? 'platform' : 'gap' as CountermeasureStatus,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }))
+
+      componentThreats.push({
+        id: componentThreatId,
+        diagramId,
+        componentId: node.id,
+        threatId: threatDef.id,
+        dismissed: false,
+        countermeasures,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+    })
+  })
+
   // Process edges (data flows) - filter threats based on edge properties
   edges.forEach((edge) => {
     // Get data flow properties from edge data
@@ -224,14 +263,16 @@ function initializeThreatsForDiagram(
       const componentThreatId = `ct-${edge.id}-${threatDef.id}`
       const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
 
-      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map((cmDef) => ({
-        id: `ctcm-${componentThreatId}-${cmDef.id}`,
-        countermeasureId: cmDef.id,
-        componentThreatId,
-        status: cmDef.isPlatformLevel ? 'platform' : 'gap' as CountermeasureStatus,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }))
+      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map((cmDef) => {
+        return {
+          id: `ctcm-${componentThreatId}-${cmDef.id}`,
+          countermeasureId: cmDef.id,
+          componentThreatId,
+          status: cmDef.isPlatformLevel ? 'platform' : 'gap' as CountermeasureStatus,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        }
+      })
 
       componentThreats.push({
         id: componentThreatId,
@@ -253,6 +294,7 @@ export function ThreatAnalysisView({
   diagramId,
   diagramTitle,
   canvasData,
+  selectedFrameworks = [],
   onBack,
   backLabel = 'Back',
 }: ThreatAnalysisViewProps) {
@@ -279,6 +321,11 @@ export function ThreatAnalysisView({
     )
   }, [canvasData.nodes])
 
+  // Get all trust boundaries (for threat analysis)
+  const trustBoundaries = useMemo(() => {
+    return canvasData.nodes.filter((node) => node.type === 'trustBoundary')
+  }, [canvasData.nodes])
+
   // Get all data flows (edges)
   const dataFlows = useMemo(() => {
     return canvasData.edges
@@ -298,16 +345,18 @@ export function ThreatAnalysisView({
     return componentThreats.find((ct) => ct.id === selectedThreatId) || null
   }, [componentThreats, selectedThreatId])
 
-  // Auto-select first component or data flow if none selected
+  // Auto-select first component, trust boundary, or data flow if none selected
   useMemo(() => {
     if (!selectedComponentId) {
       if (analyzableComponents.length > 0) {
         setSelectedComponentId(analyzableComponents[0].id)
+      } else if (trustBoundaries.length > 0) {
+        setSelectedComponentId(trustBoundaries[0].id)
       } else if (dataFlows.length > 0) {
         setSelectedComponentId(dataFlows[0].id)
       }
     }
-  }, [selectedComponentId, analyzableComponents, dataFlows])
+  }, [selectedComponentId, analyzableComponents, trustBoundaries, dataFlows])
 
   // Auto-select first threat when component changes
   useMemo(() => {
@@ -528,8 +577,10 @@ export function ThreatAnalysisView({
           <ComponentView
             canvasData={canvasData}
             analyzableComponents={analyzableComponents}
+            trustBoundaries={trustBoundaries}
             dataFlows={dataFlows}
             componentThreats={componentThreats}
+            selectedFrameworks={selectedFrameworks}
             selectedComponentId={selectedComponentId}
             selectedThreatId={selectedThreatId}
             selectedComponentThreat={selectedComponentThreat}

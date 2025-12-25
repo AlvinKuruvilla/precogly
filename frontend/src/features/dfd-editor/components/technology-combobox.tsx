@@ -19,6 +19,7 @@ import {
   TECHNOLOGIES,
   TECHNOLOGY_CATEGORIES,
   NODE_TYPE_CATEGORIES,
+  TRUST_BOUNDARY_TECHNOLOGY_IDS,
   searchTechnologies,
   type Technology,
   type TechnologyCategory,
@@ -56,7 +57,12 @@ export function TechnologyCombobox({
 
   // Group technologies by category
   const groupedTechnologies = useMemo(() => {
-    const filtered = searchTechnologies(searchQuery, filterCategories || undefined)
+    let filtered = searchTechnologies(searchQuery, filterCategories || undefined)
+
+    // For trust boundaries, filter to only boundary-defining technologies
+    if (filterNodeType === 'trustBoundary') {
+      filtered = filtered.filter((tech) => TRUST_BOUNDARY_TECHNOLOGY_IDS.includes(tech.id))
+    }
 
     const groups: Record<TechnologyCategory, Technology[]> = {} as Record<TechnologyCategory, Technology[]>
 
@@ -68,7 +74,7 @@ export function TechnologyCombobox({
     }
 
     return groups
-  }, [searchQuery, filterCategories])
+  }, [searchQuery, filterCategories, filterNodeType])
 
   // Find current selection
   const selectedTech = TECHNOLOGIES.find(

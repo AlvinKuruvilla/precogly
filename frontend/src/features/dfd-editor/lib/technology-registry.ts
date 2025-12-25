@@ -21,16 +21,51 @@ export type TechnologyCategory =
   | 'monitoring'
   | 'compute'
   | 'networking'
+  | 'security'
   | 'other'
 
 // Map diagram node types to relevant technology categories
 export const NODE_TYPE_CATEGORIES: Record<DiagramNodeType, TechnologyCategory[]> = {
   datastore: ['database', 'storage', 'cache'],
-  process: ['compute', 'backend', 'messaging'],
+  process: ['compute', 'backend', 'messaging', 'security'],
   actor: [], // Actors typically don't have technologies
-  trustBoundary: ['networking', 'infrastructure', 'auth'],
+  trustBoundary: ['networking'], // Will be further filtered by TRUST_BOUNDARY_TECHNOLOGY_IDS
   systemBoundary: ['infrastructure', 'networking'],
 }
+
+// Technology IDs that are appropriate for Trust Boundaries
+// These define network boundaries/segments, NOT components that sit at boundaries
+export const TRUST_BOUNDARY_TECHNOLOGY_IDS: string[] = [
+  // AWS VPCs and Subnets
+  'aws-vpc',
+  'aws-subnet-public',
+  'aws-subnet-private',
+  'aws-privatelink',
+  'aws-transit-gateway',
+
+  // Azure VNets and Subnets
+  'azure-vnet',
+  'azure-subnet',
+  'azure-private-endpoint',
+  'azure-virtual-wan',
+
+  // GCP VPCs and Subnets
+  'gcp-vpc',
+  'gcp-subnet',
+  'gcp-private-service-connect',
+  'gcp-network-connectivity',
+
+  // Generic Network Boundaries
+  'vlan',
+  'network-segment',
+  'dmz-network',
+
+  // Container/Kubernetes Boundaries
+  'k8s-namespace',
+  'k8s-network-policy',
+  'docker-network',
+  'service-mesh',
+]
 
 export const TECHNOLOGY_CATEGORIES: Record<TechnologyCategory, { label: string; color: string }> = {
   database: { label: 'Database', color: '#9333ea' },
@@ -44,6 +79,7 @@ export const TECHNOLOGY_CATEGORIES: Record<TechnologyCategory, { label: string; 
   monitoring: { label: 'Monitoring', color: '#64748b' },
   compute: { label: 'Compute', color: '#0d9488' },
   networking: { label: 'Networking', color: '#c026d3' },
+  security: { label: 'Security Control', color: '#3b82f6' },
   other: { label: 'Other', color: '#475569' },
 }
 
@@ -181,8 +217,12 @@ export const TECHNOLOGIES: Technology[] = [
   // NETWORKING (for TrustBoundary nodes)
   // ===========================================
 
-  // AWS Networking
+  // AWS Networking - Zone Infrastructure
   { id: 'aws-vpc', name: 'AWS VPC', category: 'networking', vendor: 'aws', description: 'Virtual private cloud' },
+  { id: 'aws-subnet-public', name: 'AWS Public Subnet', category: 'networking', vendor: 'aws', description: 'Public subnet with internet access' },
+  { id: 'aws-subnet-private', name: 'AWS Private Subnet', category: 'networking', vendor: 'aws', description: 'Private subnet without internet access' },
+  { id: 'aws-privatelink', name: 'AWS PrivateLink', category: 'networking', vendor: 'aws', description: 'Private connectivity to services' },
+  { id: 'aws-transit-gateway', name: 'AWS Transit Gateway', category: 'networking', vendor: 'aws', description: 'Network transit hub' },
   { id: 'aws-alb', name: 'AWS ALB', category: 'networking', vendor: 'aws', description: 'Application load balancer' },
   { id: 'aws-nlb', name: 'AWS NLB', category: 'networking', vendor: 'aws', description: 'Network load balancer' },
   { id: 'aws-cloudfront', name: 'AWS CloudFront', category: 'networking', vendor: 'aws', description: 'CDN' },
@@ -191,8 +231,11 @@ export const TECHNOLOGIES: Technology[] = [
   { id: 'aws-shield', name: 'AWS Shield', category: 'networking', vendor: 'aws', description: 'DDoS protection' },
   { id: 'aws-route53', name: 'AWS Route 53', category: 'networking', vendor: 'aws', description: 'DNS service' },
 
-  // Azure Networking
+  // Azure Networking - Zone Infrastructure
   { id: 'azure-vnet', name: 'Azure Virtual Network', category: 'networking', vendor: 'azure', description: 'Virtual network' },
+  { id: 'azure-subnet', name: 'Azure Subnet', category: 'networking', vendor: 'azure', description: 'Network subnet' },
+  { id: 'azure-private-endpoint', name: 'Azure Private Endpoint', category: 'networking', vendor: 'azure', description: 'Private connectivity to services' },
+  { id: 'azure-virtual-wan', name: 'Azure Virtual WAN', category: 'networking', vendor: 'azure', description: 'Network transit hub' },
   { id: 'azure-appgw', name: 'Azure Application Gateway', category: 'networking', vendor: 'azure', description: 'Load balancer + WAF' },
   { id: 'azure-frontdoor', name: 'Azure Front Door', category: 'networking', vendor: 'azure', description: 'Global load balancer + CDN' },
   { id: 'azure-apim', name: 'Azure API Management', category: 'networking', vendor: 'azure', description: 'API gateway' },
@@ -200,14 +243,24 @@ export const TECHNOLOGIES: Technology[] = [
   { id: 'azure-ddos', name: 'Azure DDoS Protection', category: 'networking', vendor: 'azure', description: 'DDoS protection' },
   { id: 'azure-firewall', name: 'Azure Firewall', category: 'networking', vendor: 'azure', description: 'Cloud firewall' },
 
-  // GCP Networking
+  // GCP Networking - Zone Infrastructure
   { id: 'gcp-vpc', name: 'GCP VPC', category: 'networking', vendor: 'gcp', description: 'Virtual private cloud' },
+  { id: 'gcp-subnet', name: 'GCP Subnet', category: 'networking', vendor: 'gcp', description: 'Network subnet' },
+  { id: 'gcp-private-service-connect', name: 'GCP Private Service Connect', category: 'networking', vendor: 'gcp', description: 'Private connectivity to services' },
+  { id: 'gcp-network-connectivity', name: 'GCP Network Connectivity Center', category: 'networking', vendor: 'gcp', description: 'Network hub' },
   { id: 'gcp-lb', name: 'GCP Cloud Load Balancing', category: 'networking', vendor: 'gcp', description: 'Load balancer' },
   { id: 'gcp-cdn', name: 'GCP Cloud CDN', category: 'networking', vendor: 'gcp', description: 'Content delivery network' },
   { id: 'gcp-armor', name: 'GCP Cloud Armor', category: 'networking', vendor: 'gcp', description: 'WAF + DDoS protection' },
   { id: 'gcp-apigee', name: 'GCP Apigee', category: 'networking', vendor: 'gcp', description: 'API management' },
 
-  // Generic Networking
+  // Generic Networking - Zone Infrastructure
+  { id: 'vlan', name: 'VLAN', category: 'networking', vendor: 'generic', description: 'Virtual LAN network segment' },
+  { id: 'network-segment', name: 'Network Segment', category: 'networking', vendor: 'generic', description: 'Physical or logical network segment' },
+  { id: 'dmz-network', name: 'DMZ Network', category: 'networking', vendor: 'generic', description: 'Demilitarized zone network' },
+  { id: 'k8s-namespace', name: 'Kubernetes Namespace', category: 'networking', vendor: 'generic', description: 'Kubernetes namespace isolation' },
+  { id: 'k8s-network-policy', name: 'Kubernetes Network Policy', category: 'networking', vendor: 'generic', description: 'Pod network isolation' },
+  { id: 'docker-network', name: 'Docker Network', category: 'networking', vendor: 'generic', description: 'Container network' },
+  { id: 'service-mesh', name: 'Service Mesh', category: 'networking', vendor: 'generic', description: 'Microservices network layer' },
   { id: 'nginx', name: 'NGINX', category: 'networking', vendor: 'generic', description: 'Web server / reverse proxy' },
   { id: 'cloudflare', name: 'Cloudflare', category: 'networking', vendor: 'generic', description: 'CDN + security' },
   { id: 'kong', name: 'Kong', category: 'networking', vendor: 'generic', description: 'API gateway' },
@@ -253,6 +306,74 @@ export const TECHNOLOGIES: Technology[] = [
   { id: 'prometheus', name: 'Prometheus', category: 'monitoring', vendor: 'generic', description: 'Metrics monitoring' },
   { id: 'grafana', name: 'Grafana', category: 'monitoring', vendor: 'generic', description: 'Observability platform' },
   { id: 'splunk', name: 'Splunk', category: 'monitoring', vendor: 'generic', description: 'Log analysis' },
+
+  // ===========================================
+  // SECURITY CONTROLS (for Process nodes modeling security infrastructure)
+  // ===========================================
+
+  // Firewalls
+  { id: 'aws-network-firewall', name: 'AWS Network Firewall', category: 'security', vendor: 'aws', description: 'Managed network firewall' },
+  { id: 'azure-firewall', name: 'Azure Firewall', category: 'security', vendor: 'azure', description: 'Cloud-native network firewall' },
+  { id: 'gcp-cloud-firewall', name: 'GCP Cloud Firewall', category: 'security', vendor: 'gcp', description: 'Network firewall rules' },
+  { id: 'palo-alto', name: 'Palo Alto Networks', category: 'security', vendor: 'generic', description: 'Next-gen firewall' },
+  { id: 'fortinet', name: 'Fortinet FortiGate', category: 'security', vendor: 'generic', description: 'Network firewall' },
+  { id: 'cisco-asa', name: 'Cisco ASA', category: 'security', vendor: 'generic', description: 'Adaptive security appliance' },
+  { id: 'iptables', name: 'iptables/nftables', category: 'security', vendor: 'generic', description: 'Linux firewall' },
+
+  // Web Application Firewalls (WAF)
+  { id: 'aws-waf', name: 'AWS WAF', category: 'security', vendor: 'aws', description: 'Web application firewall' },
+  { id: 'azure-waf', name: 'Azure WAF', category: 'security', vendor: 'azure', description: 'Web application firewall' },
+  { id: 'gcp-cloud-armor', name: 'GCP Cloud Armor', category: 'security', vendor: 'gcp', description: 'DDoS and WAF protection' },
+  { id: 'cloudflare-waf', name: 'Cloudflare WAF', category: 'security', vendor: 'generic', description: 'Web application firewall' },
+  { id: 'imperva-waf', name: 'Imperva WAF', category: 'security', vendor: 'generic', description: 'Web application firewall' },
+  { id: 'modsecurity', name: 'ModSecurity', category: 'security', vendor: 'generic', description: 'Open source WAF' },
+
+  // API Gateways
+  { id: 'aws-api-gateway', name: 'AWS API Gateway', category: 'security', vendor: 'aws', description: 'API management and security' },
+  { id: 'azure-api-mgmt', name: 'Azure API Management', category: 'security', vendor: 'azure', description: 'API gateway and management' },
+  { id: 'gcp-api-gateway', name: 'GCP API Gateway', category: 'security', vendor: 'gcp', description: 'API gateway' },
+  { id: 'kong', name: 'Kong Gateway', category: 'security', vendor: 'generic', description: 'API gateway and service mesh' },
+  { id: 'apigee', name: 'Apigee', category: 'security', vendor: 'gcp', description: 'API management platform' },
+  { id: 'nginx-plus', name: 'NGINX Plus', category: 'security', vendor: 'generic', description: 'API gateway and load balancer' },
+
+  // VPN Gateways
+  { id: 'aws-vpn', name: 'AWS VPN', category: 'security', vendor: 'aws', description: 'Site-to-site and client VPN' },
+  { id: 'azure-vpn-gateway', name: 'Azure VPN Gateway', category: 'security', vendor: 'azure', description: 'VPN connectivity' },
+  { id: 'gcp-cloud-vpn', name: 'GCP Cloud VPN', category: 'security', vendor: 'gcp', description: 'VPN connectivity' },
+  { id: 'openvpn', name: 'OpenVPN', category: 'security', vendor: 'generic', description: 'Open source VPN' },
+  { id: 'wireguard', name: 'WireGuard', category: 'security', vendor: 'generic', description: 'Modern VPN protocol' },
+
+  // IDS/IPS
+  { id: 'aws-guardduty', name: 'AWS GuardDuty', category: 'security', vendor: 'aws', description: 'Threat detection service' },
+  { id: 'azure-defender', name: 'Microsoft Defender', category: 'security', vendor: 'azure', description: 'Cloud security' },
+  { id: 'gcp-security-command', name: 'GCP Security Command Center', category: 'security', vendor: 'gcp', description: 'Security management' },
+  { id: 'snort', name: 'Snort', category: 'security', vendor: 'generic', description: 'Open source IDS/IPS' },
+  { id: 'suricata', name: 'Suricata', category: 'security', vendor: 'generic', description: 'Network threat detection' },
+
+  // DDoS Protection
+  { id: 'aws-shield', name: 'AWS Shield', category: 'security', vendor: 'aws', description: 'DDoS protection' },
+  { id: 'azure-ddos', name: 'Azure DDoS Protection', category: 'security', vendor: 'azure', description: 'DDoS mitigation' },
+  { id: 'cloudflare-ddos', name: 'Cloudflare DDoS Protection', category: 'security', vendor: 'generic', description: 'DDoS mitigation' },
+  { id: 'akamai-ddos', name: 'Akamai DDoS Protection', category: 'security', vendor: 'generic', description: 'DDoS mitigation' },
+
+  // HSM / Key Management
+  { id: 'aws-cloudhsm', name: 'AWS CloudHSM', category: 'security', vendor: 'aws', description: 'Hardware security module' },
+  { id: 'aws-kms', name: 'AWS KMS', category: 'security', vendor: 'aws', description: 'Key management service' },
+  { id: 'azure-keyvault', name: 'Azure Key Vault', category: 'security', vendor: 'azure', description: 'Key and secret management' },
+  { id: 'azure-hsm', name: 'Azure Dedicated HSM', category: 'security', vendor: 'azure', description: 'Hardware security module' },
+  { id: 'gcp-kms', name: 'GCP Cloud KMS', category: 'security', vendor: 'gcp', description: 'Key management service' },
+  { id: 'hashicorp-vault', name: 'HashiCorp Vault', category: 'security', vendor: 'generic', description: 'Secrets management' },
+
+  // Bastion Hosts / Secure Access
+  { id: 'aws-ssm', name: 'AWS Systems Manager', category: 'security', vendor: 'aws', description: 'Secure instance access' },
+  { id: 'azure-bastion', name: 'Azure Bastion', category: 'security', vendor: 'azure', description: 'Secure RDP/SSH access' },
+  { id: 'gcp-iap', name: 'GCP Identity-Aware Proxy', category: 'security', vendor: 'gcp', description: 'Secure application access' },
+
+  // Reverse Proxies
+  { id: 'nginx', name: 'NGINX', category: 'security', vendor: 'generic', description: 'Reverse proxy and web server' },
+  { id: 'haproxy', name: 'HAProxy', category: 'security', vendor: 'generic', description: 'Load balancer and proxy' },
+  { id: 'envoy', name: 'Envoy Proxy', category: 'security', vendor: 'generic', description: 'Service mesh proxy' },
+  { id: 'traefik', name: 'Traefik', category: 'security', vendor: 'generic', description: 'Cloud-native reverse proxy' },
 ]
 
 /**
@@ -291,7 +412,15 @@ export function getTechnologiesForNodeType(
 ): Technology[] {
   const categories = NODE_TYPE_CATEGORIES[nodeType]
   if (!categories || categories.length === 0) return []
-  return searchTechnologies(query || '', categories)
+
+  const results = searchTechnologies(query || '', categories)
+
+  // For trust boundaries, filter to only boundary-defining technologies
+  if (nodeType === 'trustBoundary') {
+    return results.filter((tech) => TRUST_BOUNDARY_TECHNOLOGY_IDS.includes(tech.id))
+  }
+
+  return results
 }
 
 /**

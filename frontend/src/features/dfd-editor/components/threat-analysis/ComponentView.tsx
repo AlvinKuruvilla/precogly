@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -30,7 +30,8 @@ const TEAM_MEMBERS = [
 ]
 
 type TeamMember = typeof TEAM_MEMBERS[number]
-import type { DiagramNode, DataFlowEdge, CanvasData } from '../../types'
+import type { DiagramNode, DataFlowEdge, CanvasData, TrustBoundaryNodeData } from '../../types'
+import { TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
 import type {
   ComponentThreat,
   CountermeasureStatus,
@@ -48,6 +49,7 @@ import {
 import {
   getCountermeasureById,
   getCountermeasuresForThreat,
+  SECURITY_STANDARDS,
 } from '../../lib/countermeasure-registry'
 import { getTechnologyById } from '../../lib/technology-registry'
 
@@ -220,8 +222,10 @@ function WaiverReasonInput({
 interface ComponentViewProps {
   canvasData: CanvasData
   analyzableComponents: DiagramNode[]
+  trustBoundaries: DiagramNode[]
   dataFlows: DataFlowEdge[]
   componentThreats: ComponentThreat[]
+  selectedFrameworks: string[]
   selectedComponentId: string | null
   selectedThreatId: string | null
   selectedComponentThreat: ComponentThreat | null
@@ -354,8 +358,10 @@ function CountermeasureStatusButtons({
 export function ComponentView({
   canvasData,
   analyzableComponents,
+  trustBoundaries,
   dataFlows,
   componentThreats,
+  selectedFrameworks,
   selectedComponentId,
   selectedThreatId,
   selectedComponentThreat,
@@ -389,6 +395,11 @@ export function ComponentView({
     if (!selectedComponentId) return null
     return dataFlows.find((e) => e.id === selectedComponentId) || null
   }, [dataFlows, selectedComponentId])
+
+  const selectedTrustBoundary = useMemo(() => {
+    if (!selectedComponentId) return null
+    return trustBoundaries.find((n) => n.id === selectedComponentId) || null
+  }, [trustBoundaries, selectedComponentId])
 
   // Helper to get source and target node labels for a data flow
   const getDataFlowLabels = (edge: DataFlowEdge) => {
@@ -479,10 +490,11 @@ export function ComponentView({
 
         {/* Components list header */}
         <div className="px-3 py-2 border-b">
-          <div className="font-medium">Components & Data Flows</div>
+          <div className="font-medium">Components & Boundaries</div>
           <div className="text-xs text-muted-foreground">
             {analyzableComponents.length} components &nbsp;|&nbsp;{' '}
-            {dataFlows.length} data flows &nbsp;|&nbsp;{' '}
+            {trustBoundaries.length} boundaries &nbsp;|&nbsp;{' '}
+            {dataFlows.length} flows &nbsp;|&nbsp;{' '}
             {componentThreats.filter((t) => !t.dismissed).length} threats
           </div>
           {(() => {
@@ -580,6 +592,81 @@ export function ComponentView({
               )
             })}
 
+            {/* Trust Boundaries section */}
+            {trustBoundaries.length > 0 && (
+              <>
+                <div className="pt-3 pb-1 px-2 border-t mt-2">
+                  <span className="text-xs font-medium text-muted-foreground">Trust Boundaries</span>
+                </div>
+                {trustBoundaries.map((node) => {
+                  const summary = getComponentThreatSummary(node.id, componentThreats)
+                  const isSelected = node.id === selectedComponentId
+                  const boundaryData = node.data as TrustBoundaryNodeData
+                  const boundaryConfig = boundaryData.boundaryType
+                    ? TRUST_BOUNDARY_TYPE_CONFIG[boundaryData.boundaryType]
+                    : null
+
+                  return (
+                    <button
+                      key={node.id}
+                      onClick={() => onSelectComponent(node.id)}
+                      className={cn(
+                        'w-full text-left p-2 rounded-md transition-colors',
+                        isSelected
+                          ? 'bg-slate-100 border border-slate-300'
+                          : 'hover:bg-slate-50'
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Shield
+                            className="h-4 w-4 flex-shrink-0"
+                            style={{ color: boundaryConfig?.borderColor || '#64748b' }}
+                          />
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {String(node.data.label)}
+                            </div>
+                            {boundaryConfig && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                {boundaryConfig.label}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {summary.exposed > 0 ? (
+                          <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
+                            {summary.exposed} exposed
+                          </Badge>
+                        ) : summary.addressable > 0 ? (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
+                            {summary.addressable} in progress
+                          </Badge>
+                        ) : summary.total > 0 ? (
+                          <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                            No threats
+                          </span>
+                        ) : null}
+                      </div>
+                      {summary.total > 0 && (
+                        <div className="flex items-center gap-1 mt-1 ml-6">
+                          <span
+                            className={cn(
+                              'w-2 h-2 rounded-full',
+                              summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
+                            )}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {summary.total}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </>
+            )}
+
             {/* Data Flows section */}
             {dataFlows.length > 0 && (
               <>
@@ -665,12 +752,14 @@ export function ComponentView({
           <div className="text-xs text-muted-foreground">
             {selectedComponent
               ? String(selectedComponent.data.label)
-              : selectedDataFlow
-                ? (() => {
-                    const { sourceLabel, targetLabel } = getDataFlowLabels(selectedDataFlow)
-                    return selectedDataFlow.data?.label || `${sourceLabel} → ${targetLabel}`
-                  })()
-                : 'Select a component or data flow'}
+              : selectedTrustBoundary
+                ? String(selectedTrustBoundary.data.label)
+                : selectedDataFlow
+                  ? (() => {
+                      const { sourceLabel, targetLabel } = getDataFlowLabels(selectedDataFlow)
+                      return selectedDataFlow.data?.label || `${sourceLabel} → ${targetLabel}`
+                    })()
+                  : 'Select a component, boundary, or data flow'}
           </div>
         </div>
 
@@ -874,6 +963,29 @@ export function ComponentView({
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {cmDef.description}
                         </div>
+                        {/* Standard badges - filtered by selected frameworks */}
+                        {(() => {
+                          const filteredStandards = cmDef.standards.filter(
+                            (s) => selectedFrameworks.includes(s.standard)
+                          )
+                          if (filteredStandards.length === 0) return null
+                          return (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {filteredStandards.map((s) => (
+                                <span
+                                  key={`${s.standard}-${s.reference}`}
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                                  title={SECURITY_STANDARDS[s.standard]?.description}
+                                >
+                                  {s.standard}
+                                  {s.reference && (
+                                    <span className="ml-0.5 text-slate-500">{s.reference}</span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
                     <Button
@@ -895,6 +1007,24 @@ export function ComponentView({
                       ) : (
                         <span>{cm.owner}</span>
                       )}
+                    </div>
+                  )}
+
+                  {/* Provided by boundary badge */}
+                  {cm.providedByBoundaryId && (
+                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
+                      <Shield className="h-3 w-3" />
+                      <span>
+                        Provided by{' '}
+                        <span className="font-medium">
+                          {(() => {
+                            const boundary = canvasData.nodes.find((n) => n.id === cm.providedByBoundaryId)
+                            if (!boundary) return 'boundary'
+                            const boundaryData = boundary.data as TrustBoundaryNodeData
+                            return String(boundaryData.label || 'boundary')
+                          })()}
+                        </span>
+                      </span>
                     </div>
                   )}
 

@@ -6,9 +6,10 @@ import {
   type Edge,
   type EdgeProps,
 } from '@xyflow/react'
-import { Lock, Unlock, ShieldCheck } from 'lucide-react'
+import { Lock, Unlock, ShieldCheck, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DataFlowEdgeData } from '../../types'
+import { TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
 
 type DataFlowEdgeType = Edge<DataFlowEdgeData, 'dataFlow'>
 
@@ -125,6 +126,22 @@ export const DataFlowEdge = memo(function DataFlowEdge({
                   <ShieldCheck className="h-3 w-3" />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Zone boundary crossing indicator */}
+          {data?.crossesBoundaryId && data?.crossesBoundaryType && (
+            <div
+              className="px-2 py-0.5 rounded text-xs flex items-center gap-1 whitespace-nowrap border"
+              style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: TRUST_BOUNDARY_TYPE_CONFIG[data.crossesBoundaryType]?.borderColor || '#64748b',
+                color: TRUST_BOUNDARY_TYPE_CONFIG[data.crossesBoundaryType]?.borderColor || '#64748b',
+              }}
+              title={`Crosses ${data.crossesBoundaryLabel || 'zone'} (${TRUST_BOUNDARY_TYPE_CONFIG[data.crossesBoundaryType]?.label || 'Unknown'})`}
+            >
+              <Shield className="h-3 w-3" />
+              <span className="font-medium">{data.crossesBoundaryLabel || 'Zone'}</span>
             </div>
           )}
         </div>

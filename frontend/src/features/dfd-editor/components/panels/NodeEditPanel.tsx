@@ -18,9 +18,15 @@ import type {
   DiagramNode,
   DiagramNodeType,
   TrustLevel,
+  TrustBoundaryType,
   DataSensitivity,
 } from '../../types'
-import { TRUST_LEVEL_CONFIG, DATA_SENSITIVITY_CONFIG } from '../../types'
+import {
+  TRUST_LEVEL_CONFIG,
+  DATA_SENSITIVITY_CONFIG,
+  TRUST_BOUNDARY_TYPE_CONFIG,
+  TRUST_BOUNDARY_ZONE_TYPES,
+} from '../../types'
 
 interface NodeEditPanelProps {
   node: DiagramNode
@@ -112,12 +118,32 @@ export const NodeEditPanel = memo(function NodeEditPanel({
         {/* Common fields */}
         <div className="space-y-2">
           <Label htmlFor="node-label">Name</Label>
-          <Input
-            id="node-label"
-            value={node.data.label || ''}
-            onChange={(e) => updateNodeData({ label: e.target.value })}
-            placeholder="Enter name..."
-          />
+          {node.type === 'trustBoundary' ? (
+            <Select
+              value={node.data.label || ''}
+              onValueChange={(value) => updateNodeData({ label: value })}
+            >
+              <SelectTrigger id="node-label">
+                <SelectValue placeholder="Select zone type..." />
+              </SelectTrigger>
+              <SelectContent>
+                {TRUST_BOUNDARY_ZONE_TYPES.map((zone) => (
+                  <SelectItem key={zone.value} value={zone.label}>
+                    <div className="flex flex-col">
+                      <span>{zone.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              id="node-label"
+              value={node.data.label || ''}
+              onChange={(e) => updateNodeData({ label: e.target.value })}
+              placeholder="Enter name..."
+            />
+          )}
         </div>
 
         <div className="space-y-2">
@@ -182,31 +208,69 @@ export const NodeEditPanel = memo(function NodeEditPanel({
         {node.type === 'trustBoundary' && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="node-trustLevel">Trust Level</Label>
+              <Label htmlFor="node-boundaryType">Boundary Type</Label>
               <Select
-                value={(node.data as { trustLevel?: TrustLevel }).trustLevel || 'internal'}
+                value={(node.data as { boundaryType?: TrustBoundaryType }).boundaryType || ''}
                 onValueChange={(value) =>
-                  updateNodeData({ trustLevel: value as TrustLevel })
+                  updateNodeData({ boundaryType: value as TrustBoundaryType })
                 }
               >
-                <SelectTrigger id="node-trustLevel">
-                  <SelectValue placeholder="Select trust level..." />
+                <SelectTrigger id="node-boundaryType">
+                  <SelectValue placeholder="Select boundary type..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(TRUST_LEVEL_CONFIG).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: config.borderColor }}
-                        />
-                        {config.label}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {(Object.keys(TRUST_BOUNDARY_TYPE_CONFIG) as TrustBoundaryType[]).map((type) => {
+                    const config = TRUST_BOUNDARY_TYPE_CONFIG[type]
+                    return (
+                      <SelectItem key={type} value={type}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: config.borderColor }}
+                          />
+                          {config.label}
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
+              {(node.data as { boundaryType?: TrustBoundaryType }).boundaryType && (
+                <p className="text-xs text-muted-foreground">
+                  {TRUST_BOUNDARY_TYPE_CONFIG[(node.data as { boundaryType: TrustBoundaryType }).boundaryType]?.description}
+                </p>
+              )}
             </div>
+
+            {/* Legacy trust level (for backward compatibility) */}
+            {!(node.data as { boundaryType?: TrustBoundaryType }).boundaryType && (
+              <div className="space-y-2">
+                <Label htmlFor="node-trustLevel">Trust Level (Legacy)</Label>
+                <Select
+                  value={(node.data as { trustLevel?: TrustLevel }).trustLevel || 'internal'}
+                  onValueChange={(value) =>
+                    updateNodeData({ trustLevel: value as TrustLevel })
+                  }
+                >
+                  <SelectTrigger id="node-trustLevel">
+                    <SelectValue placeholder="Select trust level..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TRUST_LEVEL_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: config.borderColor }}
+                          />
+                          {config.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Technology</Label>

@@ -1,10 +1,10 @@
 import type { TechnologyCategory } from './technology-registry'
-import type { Protocol } from '../types/diagram'
+import type { Protocol, TrustBoundaryType } from '../types/diagram'
 
 /**
  * Element types that threats can apply to
  */
-export type ThreatElementType = 'component' | 'dataflow'
+export type ThreatElementType = 'component' | 'dataflow' | 'trustBoundary'
 
 /**
  * Data flow conditions for threat applicability
@@ -85,7 +85,7 @@ export interface ThreatDefinition {
   name: string
   description: string
   strideCategory: STRIDECategory
-  // Element types this threat applies to (component, dataflow, or both)
+  // Element types this threat applies to (component, dataflow, trustBoundary)
   // Defaults to ['component'] if not specified
   applicableElementTypes?: ThreatElementType[]
   // Technology categories this threat applies to (for components)
@@ -94,6 +94,8 @@ export interface ThreatDefinition {
   applicableTechIds?: string[]
   // Conditions for data flow threats (protocol, encryption, authentication)
   dataFlowConditions?: DataFlowConditions
+  // Trust boundary types this threat applies to (for trustBoundary element type)
+  applicableBoundaryTypes?: TrustBoundaryType[]
 }
 
 /**
@@ -664,6 +666,222 @@ export const THREAT_DEFINITIONS: ThreatDefinition[] = [
       protocols: ['UDP'],
     },
   },
+
+  // ===========================================
+  // TRUST BOUNDARY THREATS - ZONES (Demarcation)
+  // ===========================================
+  {
+    id: 'threat-tb-zone-undefined',
+    name: 'Undefined Trust Boundary',
+    description: 'Unclear or undocumented trust boundaries lead to security gaps',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['trustBoundary'],
+    applicableTechCategories: [],
+    applicableBoundaryTypes: ['zone_internet', 'zone_dmz', 'zone_internal', 'zone_restricted'],
+  },
+  {
+    id: 'threat-tb-zone-lateral',
+    name: 'Lateral Movement Risk',
+    description: 'Once inside a zone, attackers may move freely without additional controls',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['trustBoundary'],
+    applicableTechCategories: [],
+    applicableBoundaryTypes: ['zone_dmz', 'zone_internal', 'zone_restricted'],
+  },
+
+  // ===========================================
+  // SECURITY CONTROL THREATS (for Process nodes with security technology)
+  // ===========================================
+
+  // General Security Control Threats
+  {
+    id: 'threat-sec-misconfiguration',
+    name: 'Security Control Misconfiguration',
+    description: 'Incorrectly configured security controls may fail to protect or block legitimate traffic',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+  },
+  {
+    id: 'threat-sec-bypass',
+    name: 'Security Control Bypass',
+    description: 'Attackers may find ways to bypass security controls through protocol tunneling or rule gaps',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+  },
+  {
+    id: 'threat-sec-default-creds',
+    name: 'Default Credentials',
+    description: 'Security control using default or weak administrative credentials',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+  },
+  {
+    id: 'threat-sec-unpatched',
+    name: 'Unpatched Security Control',
+    description: 'Security control running outdated firmware/software with known vulnerabilities',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+  },
+  {
+    id: 'threat-sec-missing-logging',
+    name: 'Insufficient Security Logging',
+    description: 'Security control not logging events, hindering incident detection and forensics',
+    strideCategory: 'repudiation',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+  },
+  {
+    id: 'threat-sec-overly-permissive',
+    name: 'Overly Permissive Rules',
+    description: 'Rules allowing more traffic than necessary increase attack surface',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+  },
+
+  // WAF-specific Threats
+  {
+    id: 'threat-sec-waf-bypass',
+    name: 'WAF Rule Bypass',
+    description: 'Attackers may craft malformed requests that bypass WAF detection rules',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-waf', 'azure-waf', 'gcp-cloud-armor', 'cloudflare-waf', 'imperva-waf', 'modsecurity'],
+  },
+  {
+    id: 'threat-sec-waf-dos',
+    name: 'WAF Resource Exhaustion',
+    description: 'Complex rule processing may be exploited to cause WAF performance degradation',
+    strideCategory: 'denial_of_service',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-waf', 'azure-waf', 'gcp-cloud-armor', 'cloudflare-waf', 'imperva-waf', 'modsecurity'],
+  },
+
+  // API Gateway-specific Threats
+  {
+    id: 'threat-sec-apigw-auth-bypass',
+    name: 'API Gateway Auth Bypass',
+    description: 'Authentication enforcement may be bypassed through header manipulation or endpoint misconfiguration',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-api-gateway', 'azure-api-mgmt', 'gcp-api-gateway', 'kong', 'apigee', 'nginx-plus'],
+  },
+  {
+    id: 'threat-sec-apigw-rate-limit',
+    name: 'Rate Limit Bypass',
+    description: 'Rate limiting may be bypassed through IP rotation, header spoofing, or distributed requests',
+    strideCategory: 'denial_of_service',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-api-gateway', 'azure-api-mgmt', 'gcp-api-gateway', 'kong', 'apigee', 'nginx-plus'],
+  },
+  {
+    id: 'threat-sec-apigw-key-leakage',
+    name: 'API Key Leakage',
+    description: 'API keys may be exposed in logs, error messages, or responses',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-api-gateway', 'azure-api-mgmt', 'gcp-api-gateway', 'kong', 'apigee'],
+  },
+
+  // VPN-specific Threats
+  {
+    id: 'threat-sec-vpn-weak-auth',
+    name: 'Weak VPN Authentication',
+    description: 'VPN may use weak authentication methods or be vulnerable to credential attacks',
+    strideCategory: 'spoofing',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-vpn', 'azure-vpn-gateway', 'gcp-cloud-vpn', 'openvpn', 'wireguard'],
+  },
+  {
+    id: 'threat-sec-vpn-split-tunnel',
+    name: 'Split Tunneling Risk',
+    description: 'Split tunneling configuration may allow traffic to bypass security controls',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-vpn', 'azure-vpn-gateway', 'gcp-cloud-vpn', 'openvpn', 'wireguard'],
+  },
+
+  // IDS/IPS-specific Threats
+  {
+    id: 'threat-sec-ids-evasion',
+    name: 'IDS/IPS Evasion',
+    description: 'Attackers may use fragmentation, encoding, or timing attacks to evade detection',
+    strideCategory: 'tampering',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-guardduty', 'azure-defender', 'gcp-security-command', 'snort', 'suricata'],
+  },
+  {
+    id: 'threat-sec-ids-alert-fatigue',
+    name: 'Alert Fatigue',
+    description: 'High volume of false positives may cause real alerts to be ignored',
+    strideCategory: 'repudiation',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-guardduty', 'azure-defender', 'gcp-security-command', 'snort', 'suricata'],
+  },
+
+  // HSM-specific Threats
+  {
+    id: 'threat-sec-hsm-key-extraction',
+    name: 'Key Extraction Attempt',
+    description: 'Attackers may attempt to extract cryptographic keys through side-channel attacks',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-cloudhsm', 'aws-kms', 'azure-keyvault', 'azure-hsm', 'gcp-kms', 'hashicorp-vault'],
+  },
+  {
+    id: 'threat-sec-hsm-access',
+    name: 'Key Management Access Control',
+    description: 'Weak access controls may allow unauthorized cryptographic operations',
+    strideCategory: 'elevation_of_privilege',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-cloudhsm', 'aws-kms', 'azure-keyvault', 'azure-hsm', 'gcp-kms', 'hashicorp-vault'],
+  },
+
+  // DDoS Protection-specific Threats
+  {
+    id: 'threat-sec-ddos-bypass',
+    name: 'DDoS Protection Bypass',
+    description: 'Attackers may find origin IP or use application-layer attacks to bypass DDoS protection',
+    strideCategory: 'denial_of_service',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['aws-shield', 'azure-ddos', 'gcp-cloud-armor', 'cloudflare-ddos', 'akamai-ddos'],
+  },
+
+  // Proxy/Load Balancer Threats
+  {
+    id: 'threat-sec-tls-misconfig',
+    name: 'TLS Misconfiguration',
+    description: 'Proxy may be configured with weak cipher suites or outdated TLS versions',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['nginx', 'nginx-plus', 'haproxy', 'envoy', 'traefik'],
+  },
+  {
+    id: 'threat-sec-health-exposure',
+    name: 'Health Check Endpoint Exposure',
+    description: 'Health check endpoints may leak internal information or be accessible externally',
+    strideCategory: 'information_disclosure',
+    applicableElementTypes: ['component'],
+    applicableTechCategories: ['security'],
+    applicableTechIds: ['nginx', 'nginx-plus', 'haproxy', 'envoy', 'traefik', 'kong'],
+  },
 ]
 
 /**
@@ -802,4 +1020,25 @@ export function isThreatApplicableToElementType(
   // If applicableElementTypes is not specified, defaults to 'component' only
   const types = threat.applicableElementTypes || ['component']
   return types.includes(elementType)
+}
+
+/**
+ * Get threats applicable to a trust boundary based on its type
+ */
+export function getThreatsForTrustBoundary(
+  boundaryType: TrustBoundaryType | undefined
+): ThreatDefinition[] {
+  if (!boundaryType) return []
+
+  return THREAT_DEFINITIONS.filter((threat) => {
+    // Must be a trust boundary threat
+    if (!threat.applicableElementTypes?.includes('trustBoundary')) {
+      return false
+    }
+    // If applicable boundary types are specified, check if this type matches
+    if (threat.applicableBoundaryTypes && threat.applicableBoundaryTypes.length > 0) {
+      return threat.applicableBoundaryTypes.includes(boundaryType)
+    }
+    return false
+  })
 }

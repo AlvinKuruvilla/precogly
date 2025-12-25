@@ -13,8 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { DataFlowEdge, Protocol, DataClassification } from '../../types'
-import { PROTOCOLS, DATA_CLASSIFICATIONS } from '../../types'
+import type {
+  DataFlowEdge,
+  Protocol,
+  DataClassification,
+  DiagramNode,
+  TrustBoundaryNodeData,
+} from '../../types'
+import { PROTOCOLS, DATA_CLASSIFICATIONS, TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
 
 interface EdgeEditPanelProps {
   edge: DataFlowEdge
@@ -198,6 +204,75 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
             </Label>
           </div>
         </div>
+
+        <Separator />
+
+        {/* Boundary Crossing */}
+        {(() => {
+          const trustBoundaries = (nodes as DiagramNode[]).filter(
+            (n) => n.type === 'trustBoundary'
+          )
+          if (trustBoundaries.length === 0) return null
+
+          return (
+            <div className="space-y-2">
+              <Label htmlFor="edge-boundary">Crosses Boundary</Label>
+              <Select
+                value={edge.data?.crossesBoundaryId || 'none'}
+                onValueChange={(value) => {
+                  if (value === 'none') {
+                    updateEdgeData({
+                      crossesBoundaryId: undefined,
+                      crossesBoundaryLabel: undefined,
+                      crossesBoundaryType: undefined,
+                    })
+                  } else {
+                    const selectedBoundaryNode = trustBoundaries.find((b) => b.id === value)
+                    const selectedData = selectedBoundaryNode?.data as TrustBoundaryNodeData | undefined
+                    updateEdgeData({
+                      crossesBoundaryId: value,
+                      crossesBoundaryLabel: selectedData?.label ? String(selectedData.label) : undefined,
+                      crossesBoundaryType: selectedData?.boundaryType,
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger id="edge-boundary">
+                  <SelectValue placeholder="Select boundary..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">None</span>
+                  </SelectItem>
+                  {trustBoundaries.map((boundary) => {
+                    const data = boundary.data as TrustBoundaryNodeData
+                    const config = data.boundaryType
+                      ? TRUST_BOUNDARY_TYPE_CONFIG[data.boundaryType]
+                      : null
+                    return (
+                      <SelectItem key={boundary.id} value={boundary.id}>
+                        <div className="flex items-center gap-2">
+                          {config && (
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: config.borderColor }}
+                            />
+                          )}
+                          <span>{String(boundary.data.label)}</span>
+                          {config && (
+                            <span className="text-xs text-muted-foreground">
+                              ({config.label})
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        })()}
 
         {/* Edge info */}
         <Separator />

@@ -3,12 +3,20 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThreatAnalysisView } from '@/features/dfd-editor/components/threat-analysis'
-import type { Diagram } from '@/types'
+import type { Diagram, ThreatModel } from '@/types'
 
 async function fetchDiagram(diagramId: string): Promise<Diagram> {
   const response = await fetch(`/api/diagrams/${diagramId}`)
   if (!response.ok) {
     throw new Error('Failed to fetch diagram')
+  }
+  return response.json()
+}
+
+async function fetchThreatModel(threatModelId: string): Promise<ThreatModel> {
+  const response = await fetch(`/api/threat-models/${threatModelId}`)
+  if (!response.ok) {
+    throw new Error('Failed to fetch threat model')
   }
   return response.json()
 }
@@ -23,13 +31,25 @@ export function ThreatAnalysisPage() {
 
   const {
     data: diagram,
-    isLoading,
-    isError,
+    isLoading: isDiagramLoading,
+    isError: isDiagramError,
   } = useQuery({
     queryKey: ['diagram', diagramId],
     queryFn: () => fetchDiagram(diagramId!),
     enabled: !!diagramId,
   })
+
+  const {
+    data: threatModel,
+    isLoading: isThreatModelLoading,
+  } = useQuery({
+    queryKey: ['threatModel', threatModelId],
+    queryFn: () => fetchThreatModel(threatModelId!),
+    enabled: !!threatModelId,
+  })
+
+  const isLoading = isDiagramLoading || isThreatModelLoading
+  const isError = isDiagramError
 
   const handleBack = () => {
     if (cameFromDFD) {
@@ -69,6 +89,7 @@ export function ThreatAnalysisPage() {
           nodes: diagram.canvasData?.nodes || [],
           edges: diagram.canvasData?.edges || [],
         }}
+        selectedFrameworks={threatModel?.frameworks || []}
         onBack={handleBack}
         backLabel={cameFromDFD ? 'Back to DFD' : 'Back to Threat Model'}
       />

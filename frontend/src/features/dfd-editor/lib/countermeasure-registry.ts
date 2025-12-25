@@ -742,6 +742,318 @@ export const COUNTERMEASURE_DEFINITIONS: CountermeasureDefinition[] = [
       { standard: 'DORA', reference: 'Art. 9' },
     ],
   },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - FIREWALL
+  // ===========================================
+  {
+    id: 'cm-tb-rule-review',
+    name: 'Regular Rule Review',
+    description: 'Periodic review and audit of firewall rules to remove unnecessary permissions',
+    mitigatesThreatIds: ['threat-tb-firewall-misconfig', 'threat-tb-overly-permissive'],
+    strideCategories: ['tampering', 'elevation_of_privilege'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '1.1.7' },
+      { standard: 'NIST', reference: 'CM-7' },
+    ],
+  },
+  {
+    id: 'cm-tb-change-management',
+    name: 'Change Management Process',
+    description: 'Formal change management for security control configuration changes',
+    mitigatesThreatIds: ['threat-tb-firewall-misconfig', 'threat-tb-waf-bypass'],
+    strideCategories: ['tampering'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '1.1.1' },
+      { standard: 'SOC2', reference: 'CC8.1' },
+    ],
+  },
+  {
+    id: 'cm-tb-default-deny',
+    name: 'Default Deny Policy',
+    description: 'Implement default-deny rules, explicitly allowing only required traffic',
+    mitigatesThreatIds: ['threat-tb-overly-permissive', 'threat-tb-firewall-bypass'],
+    strideCategories: ['elevation_of_privilege'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '1.2.1' },
+      { standard: 'NIST', reference: 'SC-7' },
+    ],
+  },
+  {
+    id: 'cm-tb-credential-mgmt',
+    name: 'Security Control Credential Management',
+    description: 'Change default credentials, enforce strong passwords, use MFA for admin access',
+    mitigatesThreatIds: ['threat-tb-default-creds'],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '2.1' },
+      { standard: 'NIST', reference: 'IA-5' },
+    ],
+  },
+  {
+    id: 'cm-tb-patch-mgmt',
+    name: 'Security Control Patching',
+    description: 'Regular patching and updates for security control firmware/software',
+    mitigatesThreatIds: ['threat-tb-unpatched'],
+    strideCategories: ['elevation_of_privilege'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '6.2' },
+      { standard: 'NIST', reference: 'SI-2' },
+    ],
+  },
+  {
+    id: 'cm-tb-boundary-logging',
+    name: 'Boundary Traffic Logging',
+    description: 'Enable comprehensive logging of traffic and events at security boundaries',
+    mitigatesThreatIds: ['threat-tb-missing-logging', 'threat-tb-ids-alert-fatigue'],
+    strideCategories: ['repudiation'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '10.1' },
+      { standard: 'SOC2', reference: 'CC7.2' },
+    ],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - WAF
+  // ===========================================
+  {
+    id: 'cm-tb-managed-rules',
+    name: 'Managed Rule Sets',
+    description: 'Use vendor-managed or OWASP rule sets with regular updates',
+    mitigatesThreatIds: ['threat-tb-waf-bypass', 'threat-tb-waf-false-negative'],
+    strideCategories: ['tampering'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A03:2021' },
+    ],
+  },
+  {
+    id: 'cm-tb-waf-learning',
+    name: 'WAF Learning Mode',
+    description: 'Use learning/training mode to tune rules before enforcement',
+    mitigatesThreatIds: ['threat-tb-waf-false-negative'],
+    strideCategories: ['tampering'],
+    isPlatformLevel: false,
+    standards: [],
+  },
+  {
+    id: 'cm-tb-request-limits',
+    name: 'Request Size Limits',
+    description: 'Configure request size and complexity limits to prevent resource exhaustion',
+    mitigatesThreatIds: ['threat-tb-waf-dos'],
+    strideCategories: ['denial_of_service'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A04:2021' },
+    ],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - API GATEWAY
+  // ===========================================
+  {
+    id: 'cm-tb-apigw-auth-enforcement',
+    name: 'Strict Auth Enforcement',
+    description: 'Enforce authentication on all endpoints, validate tokens server-side',
+    mitigatesThreatIds: ['threat-tb-apigw-auth-bypass'],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A07:2021' },
+      { standard: 'PCI-DSS', reference: '8.3' },
+    ],
+  },
+  {
+    id: 'cm-tb-distributed-rate-limit',
+    name: 'Distributed Rate Limiting',
+    description: 'Implement rate limiting across multiple dimensions (IP, user, API key)',
+    mitigatesThreatIds: ['threat-tb-apigw-rate-limit-bypass'],
+    strideCategories: ['denial_of_service'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'OWASP', reference: 'A04:2021' },
+    ],
+  },
+  {
+    id: 'cm-tb-key-redaction',
+    name: 'API Key Redaction',
+    description: 'Redact API keys from logs, errors, and responses',
+    mitigatesThreatIds: ['threat-tb-apigw-key-leakage'],
+    strideCategories: ['information_disclosure'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '3.4' },
+    ],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - TLS/LOAD BALANCER
+  // ===========================================
+  {
+    id: 'cm-tb-tls-config',
+    name: 'Strong TLS Configuration',
+    description: 'Use TLS 1.2+, disable weak ciphers, enable PFS',
+    mitigatesThreatIds: ['threat-tb-lb-tls-misconfig'],
+    strideCategories: ['information_disclosure'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '4.1' },
+      { standard: 'NIST', reference: 'SC-8' },
+    ],
+  },
+  {
+    id: 'cm-tb-health-security',
+    name: 'Health Check Security',
+    description: 'Restrict health check endpoints to internal access, minimize information disclosure',
+    mitigatesThreatIds: ['threat-tb-lb-health-exposure'],
+    strideCategories: ['information_disclosure'],
+    isPlatformLevel: false,
+    standards: [],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - VPN
+  // ===========================================
+  {
+    id: 'cm-tb-vpn-mfa',
+    name: 'VPN Multi-Factor Authentication',
+    description: 'Require MFA for all VPN connections',
+    mitigatesThreatIds: ['threat-tb-vpn-weak-auth'],
+    strideCategories: ['spoofing'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '8.3' },
+      { standard: 'NIST', reference: 'IA-2' },
+    ],
+  },
+  {
+    id: 'cm-tb-full-tunnel',
+    name: 'Full Tunnel VPN',
+    description: 'Use full tunnel mode to route all traffic through VPN when connected',
+    mitigatesThreatIds: ['threat-tb-vpn-split-tunnel'],
+    strideCategories: ['elevation_of_privilege'],
+    isPlatformLevel: true,
+    standards: [],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - IDS/IPS
+  // ===========================================
+  {
+    id: 'cm-tb-ids-tuning',
+    name: 'IDS/IPS Tuning',
+    description: 'Regular tuning of signatures and thresholds to reduce false positives',
+    mitigatesThreatIds: ['threat-tb-ids-evasion', 'threat-tb-ids-alert-fatigue'],
+    strideCategories: ['tampering', 'repudiation'],
+    isPlatformLevel: false,
+    standards: [],
+  },
+  {
+    id: 'cm-tb-ids-protocol-analysis',
+    name: 'Protocol Analysis',
+    description: 'Enable deep protocol analysis to detect evasion techniques',
+    mitigatesThreatIds: ['threat-tb-ids-evasion'],
+    strideCategories: ['tampering'],
+    isPlatformLevel: true,
+    standards: [],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - BASTION HOST
+  // ===========================================
+  {
+    id: 'cm-tb-bastion-hardening',
+    name: 'Bastion Host Hardening',
+    description: 'Minimal software, restricted access, regular patching, no persistent storage',
+    mitigatesThreatIds: ['threat-tb-bastion-compromise'],
+    strideCategories: ['elevation_of_privilege'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'NIST', reference: 'CM-7' },
+    ],
+  },
+  {
+    id: 'cm-tb-session-recording',
+    name: 'Session Recording',
+    description: 'Record all administrative sessions through bastion for audit',
+    mitigatesThreatIds: ['threat-tb-bastion-audit'],
+    strideCategories: ['repudiation'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '10.2' },
+    ],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - HSM
+  // ===========================================
+  {
+    id: 'cm-tb-hsm-access-control',
+    name: 'HSM Access Control',
+    description: 'Implement strict role-based access control for HSM operations',
+    mitigatesThreatIds: ['threat-tb-hsm-access-control', 'threat-tb-hsm-key-extraction'],
+    strideCategories: ['elevation_of_privilege', 'information_disclosure'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'PCI-DSS', reference: '3.5' },
+    ],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - DDOS
+  // ===========================================
+  {
+    id: 'cm-tb-ddos-origin-protection',
+    name: 'Origin Protection',
+    description: 'Hide origin IPs and use always-on protection for critical services',
+    mitigatesThreatIds: ['threat-tb-ddos-bypass'],
+    strideCategories: ['denial_of_service'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'DORA', reference: 'Art. 9' },
+    ],
+  },
+  {
+    id: 'cm-tb-ddos-cost-management',
+    name: 'DDoS Cost Management',
+    description: 'Set spending limits and alerts for cloud-based DDoS protection services',
+    mitigatesThreatIds: ['threat-tb-ddos-cost'],
+    strideCategories: ['denial_of_service'],
+    isPlatformLevel: true,
+    standards: [],
+  },
+
+  // ===========================================
+  // TRUST BOUNDARY COUNTERMEASURES - ZONES
+  // ===========================================
+  {
+    id: 'cm-tb-zone-documentation',
+    name: 'Trust Boundary Documentation',
+    description: 'Document all trust boundaries, their purpose, and security requirements',
+    mitigatesThreatIds: ['threat-tb-zone-undefined'],
+    strideCategories: ['elevation_of_privilege'],
+    isPlatformLevel: false,
+    standards: [
+      { standard: 'PCI-DSS', reference: '1.1.2' },
+    ],
+  },
+  {
+    id: 'cm-tb-micro-segmentation',
+    name: 'Micro-Segmentation',
+    description: 'Implement micro-segmentation within zones to limit lateral movement',
+    mitigatesThreatIds: ['threat-tb-zone-lateral'],
+    strideCategories: ['elevation_of_privilege'],
+    isPlatformLevel: true,
+    standards: [
+      { standard: 'NIST', reference: 'SC-7' },
+    ],
+  },
 ]
 
 /**
@@ -791,3 +1103,4 @@ export function getPlatformCountermeasures(): CountermeasureDefinition[] {
 export function getApplicationCountermeasures(): CountermeasureDefinition[] {
   return COUNTERMEASURE_DEFINITIONS.filter((cm) => !cm.isPlatformLevel)
 }
+

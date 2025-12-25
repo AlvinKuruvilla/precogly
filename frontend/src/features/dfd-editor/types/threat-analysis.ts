@@ -81,6 +81,8 @@ export interface ComponentThreatCountermeasure {
   owner?: string
   // Notes or justification (especially for waived)
   notes?: string
+  // If this countermeasure is provided by a trust boundary (for data flows)
+  providedByBoundaryId?: string
   // Timestamps
   createdAt: string
   updatedAt: string
