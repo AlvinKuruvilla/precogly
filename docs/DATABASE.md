@@ -3,14 +3,46 @@ erDiagram
 %% ========================================
 %% PRECOGLY THREAT MODELING SCHEMA
 %% ========================================
+%% NOTE: User FK references point to Django's auth.User model
+%% (not defined here - managed by Django auth system)
+%% Single-org deployments create one Organization record;
+%% multi-tenant SaaS uses multiple.
+
+    %% ===== ORGANIZATIONS (Multi-tenancy) =====
+    Organizations {
+        int id PK
+        string Name
+        string Domain
+        string Plan "Free/Pro/Enterprise"
+        date CreatedDate
+    }
+
+    OrganizationMembers {
+        int id PK
+        int OrganizationID FK
+        int UserID FK "Django User"
+        string Role "Admin/SecurityTeam/Champion/Viewer"
+        date JoinedDate
+    }
 
     %% ===== CORE SYSTEM ENTITIES =====
     Orgsystems {
         int id PK
+        int OrganizationID FK
         string Name
         string Owner
         string Criticality
         string LifecycleState "Dev/Prod/Decom"
+    }
+
+    IntegrationSources {
+        int id PK
+        string Name "e.g. Main App Repo"
+        string Type "GitHub/CSPM/Terraform/SBOM/Manual"
+        string ConnectionDetails "repo URL, account ID, etc."
+        string Status "Active/Inactive/Error"
+        date LastSyncDate
+        int OrgsystemID FK
     }
 
     TrustBoundaries {
@@ -18,10 +50,12 @@ erDiagram
         string Name
         int TrustLevel "0-100"
         string Description
+        int ParentBoundaryID FK "nullable - for nested zones"
     }
 
-    ComponentDefinitions {
+    ComponentLibrary {
         int id PK
+        int OrganizationID FK "nullable - null means global/shared"
         string Name
         string Category "Process/Store/External"
         string Type
@@ -32,8 +66,9 @@ erDiagram
         int id PK
         string Name
         int OrgsystemID FK
-        int DefinitionID FK
+        int ComponentLibraryID FK
         int TrustBoundaryID FK "Security zone"
+        int SourceIntegrationID FK "nullable - discovery source"
     }
 
     %% ===== DATA CLASSIFICATION (CIA Triad) =====
@@ -67,20 +102,26 @@ erDiagram
     DataFlowAssets {
         int DataFlowID FK
         int DataAssetID FK
-        boolean IsEncrypted
+        string ProtectionMethod "Encrypted/Masked/Tokenized/Hashed/None"
+        string EncryptionType "nullable - TLS/AES-256/etc."
+        string Format "JSON/XML/Binary/CSV"
+        string Sensitivity "nullable - overrides DataAsset if set"
     }
 
     %% ===== THREAT CATALOG (Library) =====
-    Threats {
+    ThreatLibrary {
         int id PK
+        int OrganizationID FK "nullable - null means global/shared"
         string Name
         string Description
         string STRIDE_Category
+        string Source "STRIDE/CAPEC/OWASP/CWE/Custom"
+        string SourceID "nullable - e.g. CAPEC-66, CWE-89"
     }
 
-    DefinitionThreats {
-        int DefinitionID FK
-        int ThreatID FK
+    ComponentLibraryThreats {
+        int ComponentLibraryID FK
+        int ThreatLibraryID FK
         string DefaultSeverity
         string AppliesTo "Component/Flow/Both"
     }
@@ -89,7 +130,7 @@ erDiagram
     ComponentInstanceThreats {
         int id PK
         int ComponentID FK
-        int ThreatID FK
+        int ThreatLibraryID FK
         string InherentSeverity
         string ResidualSeverity
         string Status "Open/Mitigated/Accepted"
@@ -99,35 +140,42 @@ erDiagram
     DataFlowInstanceThreats {
         int id PK
         int DataFlowID FK
-        int ThreatID FK
+        int ThreatLibraryID FK
         string InherentSeverity
         string ResidualSeverity
         string Status "Open/Mitigated/Accepted"
     }
 
-    %% ===== COUNTERMEASURES & MITIGATIONS =====
-    Countermeasures {
+    %% ===== COUNTERMEASURE LIBRARY =====
+    CountermeasureLibrary {
         int id PK
+        int OrganizationID FK "nullable - null means global/shared"
         string Name
         string Description
         string Type "Technical/Procedural"
         string Cost
     }
 
-    ComponentMitigations {
+    ComponentInstanceCountermeasures {
         int id PK
         int InstanceThreatID FK
-        int CountermeasureID FK
-        string State "Proposed/Implemented"
-        string VerifiedBy
+        int CountermeasureLibraryID FK
+        string Status "Gap/Planned/Verified/Waived"
+        int VerifiedByID FK "Django User who verified"
+        string EvidenceURL "link to PR, ticket, scan result"
+        boolean RequiredForRelease
+        int AssignedOwnerID FK "Django User"
     }
 
-    FlowMitigations {
+    FlowInstanceCountermeasures {
         int id PK
         int FlowThreatID FK
-        int CountermeasureID FK
-        string State "Proposed/Implemented"
-        string VerifiedBy
+        int CountermeasureLibraryID FK
+        string Status "Gap/Planned/Verified/Waived"
+        int VerifiedByID FK "Django User who verified"
+        string EvidenceURL "link to PR, ticket, scan result"
+        boolean RequiredForRelease
+        int AssignedOwnerID FK "Django User"
     }
 
     %% ===== VERIFICATION & TESTING =====
@@ -140,16 +188,28 @@ erDiagram
         string Evidence
     }
 
-    ComponentMitigationTests {
-        int MitigationID FK
+    ComponentInstanceCountermeasureTests {
+        int ComponentInstanceCountermeasureID FK
         int VerificationTestID FK
         date TestedOn
     }
 
-    FlowMitigationTests {
-        int MitigationID FK
+    FlowInstanceCountermeasureTests {
+        int FlowInstanceCountermeasureID FK
         int VerificationTestID FK
         date TestedOn
+    }
+
+    %% ===== PENTEST RECONCILIATION =====
+    PentestFindings {
+        int id PK
+        int ThreatModelID FK
+        string FindingDescription
+        string Severity
+        int MatchedThreatLibraryID FK "nullable - did we predict this?"
+        int MatchedComponentInstanceCountermeasureID FK "nullable - component control that failed"
+        int MatchedFlowInstanceCountermeasureID FK "nullable - flow control that failed"
+        string ReconciliationStatus "Matched/Unpredicted/FalsePositive"
     }
 
     %% ===== COMPLIANCE FRAMEWORKS =====
@@ -167,18 +227,33 @@ erDiagram
         string Description
     }
 
-    CountermeasuresStandards {
-        int CountermeasureID FK
+    CountermeasureLibraryStandards {
+        int CountermeasureLibraryID FK
         int RequirementID FK
         string Sufficiency "Full/Partial"
+    }
+
+    %% ===== DFD TEMPLATES LIBRARY =====
+    DFDTemplatesLibrary {
+        int id PK
+        int OrganizationID FK "nullable - null means global/shared"
+        string Name
+        string Description
+        string Category "WebApp/Microservices/IoT/API/Mobile"
+        string Type "Context/Level1/Level2"
+        int MaintainedByID FK "Django User"
+        date LastUpdated
     }
 
     %% ===== THREAT MODELS & DFDs =====
     ThreatModels {
         int id PK
+        int OrganizationID FK
+        int CreatedByUserID FK "Django User"
         string Name
         string Version
         string Status "Draft/InProgress/Complete"
+        string Trigger "New/Incident/Pentest/Drift/FeatureAddition"
         int PreviousVersionID FK
         date CreatedDate
         date LastModified
@@ -189,12 +264,20 @@ erDiagram
         int OrgsystemID FK
     }
 
+    ThreatModelRelationships {
+        int id PK
+        int SourceThreatModelID FK
+        int TargetThreatModelID FK
+        string RelationType "DependsOn/SubsystemOf/RelatedTo/SupersededBy"
+    }
+
     DFDs {
         int id PK
         string Name
         string Type "Context/Level1/Level2"
         string UpdatedBy
         date LastUpdated
+        int TemplateLibraryID FK "nullable - created from library template"
     }
 
     ThreatModelDFDs {
@@ -211,10 +294,22 @@ erDiagram
     %% RELATIONSHIPS
     %% ========================================
 
+    %% --- Organizations (Multi-tenancy) ---
+    Organizations ||--o{ OrganizationMembers : "has_members"
+    Organizations ||--o{ Orgsystems : "owns"
+    Organizations ||--o{ ThreatModels : "owns"
+    Organizations ||--o{ ComponentLibrary : "customizes"
+    Organizations ||--o{ ThreatLibrary : "customizes"
+    Organizations ||--o{ CountermeasureLibrary : "customizes"
+    Organizations ||--o{ DFDTemplatesLibrary : "customizes"
+
     %% --- Core System Hierarchy ---
     Orgsystems ||--o{ OrgsystemsComponents : "owns"
-    ComponentDefinitions ||--o{ OrgsystemsComponents : "instantiated_as"
+    ComponentLibrary ||--o{ OrgsystemsComponents : "instantiated_as"
     TrustBoundaries ||--o{ OrgsystemsComponents : "contains"
+    TrustBoundaries ||--o| TrustBoundaries : "nested_in"
+    Orgsystems ||--o{ IntegrationSources : "ingests_from"
+    IntegrationSources ||--o{ OrgsystemsComponents : "discovered"
 
     %% --- Data Asset Mapping ---
     OrgsystemsComponents ||--o{ ComponentDataAssets : "stores"
@@ -227,38 +322,47 @@ erDiagram
     DataAssets ||--o{ DataFlowAssets : "flows_through"
 
     %% --- Threat Library (Templates) ---
-    ComponentDefinitions ||--o{ DefinitionThreats : "has_potential"
-    Threats ||--o{ DefinitionThreats : "applies_to_type"
+    ComponentLibrary ||--o{ ComponentLibraryThreats : "has_potential"
+    ThreatLibrary ||--o{ ComponentLibraryThreats : "applies_to_type"
 
     %% --- Component Threat Instances ---
     OrgsystemsComponents ||--o{ ComponentInstanceThreats : "vulnerable_to"
-    Threats ||--o{ ComponentInstanceThreats : "manifests_as"
+    ThreatLibrary ||--o{ ComponentInstanceThreats : "manifests_as"
 
     %% --- Data Flow Threat Instances ---
     DataFlows ||--o{ DataFlowInstanceThreats : "vulnerable_to"
-    Threats ||--o{ DataFlowInstanceThreats : "manifests_as"
+    ThreatLibrary ||--o{ DataFlowInstanceThreats : "manifests_as"
 
-    %% --- Component Mitigations ---
-    ComponentInstanceThreats ||--o{ ComponentMitigations : "mitigated_by"
-    Countermeasures ||--o{ ComponentMitigations : "applied_to"
+    %% --- Component Instance Countermeasures ---
+    ComponentInstanceThreats ||--o{ ComponentInstanceCountermeasures : "mitigated_by"
+    CountermeasureLibrary ||--o{ ComponentInstanceCountermeasures : "applied_to"
 
-    %% --- Flow Mitigations ---
-    DataFlowInstanceThreats ||--o{ FlowMitigations : "mitigated_by"
-    Countermeasures ||--o{ FlowMitigations : "applied_to"
+    %% --- Flow Instance Countermeasures ---
+    DataFlowInstanceThreats ||--o{ FlowInstanceCountermeasures : "mitigated_by"
+    CountermeasureLibrary ||--o{ FlowInstanceCountermeasures : "applied_to"
 
     %% --- Verification Testing ---
-    ComponentMitigations ||--o{ ComponentMitigationTests : "verified_by"
-    FlowMitigations ||--o{ FlowMitigationTests : "verified_by"
-    VerificationTests ||--o{ ComponentMitigationTests : "validates"
-    VerificationTests ||--o{ FlowMitigationTests : "validates"
+    ComponentInstanceCountermeasures ||--o{ ComponentInstanceCountermeasureTests : "verified_by"
+    FlowInstanceCountermeasures ||--o{ FlowInstanceCountermeasureTests : "verified_by"
+    VerificationTests ||--o{ ComponentInstanceCountermeasureTests : "validates"
+    VerificationTests ||--o{ FlowInstanceCountermeasureTests : "validates"
+
+    %% --- Pentest Reconciliation ---
+    ThreatModels ||--o{ PentestFindings : "validated_by"
+    ThreatLibrary ||--o{ PentestFindings : "confirmed_by"
+    ComponentInstanceCountermeasures ||--o{ PentestFindings : "exposed_by"
+    FlowInstanceCountermeasures ||--o{ PentestFindings : "exposed_by"
 
     %% --- Compliance Framework ---
     StandardFrameworks ||--o{ StandardRequirements : "contains"
-    Countermeasures ||--o{ CountermeasuresStandards : "satisfies"
-    StandardRequirements ||--o{ CountermeasuresStandards : "satisfied_by"
+    CountermeasureLibrary ||--o{ CountermeasureLibraryStandards : "satisfies"
+    StandardRequirements ||--o{ CountermeasureLibraryStandards : "satisfied_by"
 
     %% --- Threat Model Workflow ---
     ThreatModels ||--o| ThreatModels : "previous_version"
+    ThreatModels ||--o{ ThreatModelRelationships : "related_from"
+    ThreatModels ||--o{ ThreatModelRelationships : "related_to"
+    DFDTemplatesLibrary ||--o{ DFDs : "instantiated_as"
     ThreatModels ||--o{ ThreatModelOrgsystems : "assesses"
     Orgsystems ||--o{ ThreatModelOrgsystems : "assessed_in"
     ThreatModels ||--o{ ThreatModelDFDs : "visualized_by"
