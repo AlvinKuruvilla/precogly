@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ChevronDown, User, Settings, LogOut, LayoutGrid } from 'lucide-react'
+import { ChevronDown, User, Settings, LogOut, LayoutGrid, Library } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -15,8 +15,13 @@ const navItems = [
   { name: 'Dashboard', href: '/' },
   { name: 'Threat Models', href: '/threat-models' },
   { name: 'Frameworks', href: '/frameworks' },
+]
+
+const libraryItems = [
   { name: 'Tech Components', href: '/tech-components' },
-  { name: 'Threat Libraries', href: '/threat-libraries' },
+  { name: 'Threats', href: '/threat-libraries' },
+  { name: 'Countermeasures', href: '/countermeasures' },
+  { name: 'DFD Templates', href: '/dfd-templates' },
 ]
 
 // Routes where we show minimal navbar (just logo + user menu)
@@ -66,6 +71,30 @@ export function Navbar() {
                 {item.name}
               </Link>
             ))}
+            {/* Libraries Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    'flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    libraryItems.some((item) => location.pathname === item.href)
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  Libraries
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {libraryItems.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link to={item.href}>{item.name}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         )}
 
@@ -76,14 +105,22 @@ export function Navbar() {
         {isMinimalNav && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1">
+              <Button variant="ghost" size="sm" className="h-8 px-2 gap-1">
                 <LayoutGrid className="h-4 w-4" />
-                <span className="hidden sm:inline">Navigate</span>
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {navItems.map((item) => (
+                <DropdownMenuItem key={item.href} asChild>
+                  <Link to={item.href}>{item.name}</Link>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                Libraries
+              </div>
+              {libraryItems.map((item) => (
                 <DropdownMenuItem key={item.href} asChild>
                   <Link to={item.href}>{item.name}</Link>
                 </DropdownMenuItem>
