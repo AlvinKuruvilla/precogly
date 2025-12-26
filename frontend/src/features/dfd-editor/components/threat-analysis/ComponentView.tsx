@@ -481,13 +481,6 @@ export function ComponentView({
     <div className="flex h-full">
       {/* Column 1: Components */}
       <div className="w-64 border-r flex flex-col">
-        {/* Mini-map placeholder */}
-        <div className="p-3 border-b">
-          <div className="aspect-video bg-slate-100 rounded-md flex items-center justify-center text-xs text-muted-foreground">
-            DFD Preview
-          </div>
-        </div>
-
         {/* Components list header */}
         <div className="px-3 py-2 border-b">
           <div className="font-medium">Components & Boundaries</div>

@@ -228,7 +228,7 @@ function DFDEditorContent() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex items-center justify-center h-[calc(100vh-44px)]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
@@ -236,7 +236,7 @@ function DFDEditorContent() {
 
   if (isError || !diagram) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-44px)] gap-4">
         <p className="text-muted-foreground">Failed to load diagram</p>
         <Button onClick={() => navigate(-1)}>Go Back</Button>
       </div>
@@ -244,7 +244,7 @@ function DFDEditorContent() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-[calc(100vh-44px)]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
         <div className="flex items-center gap-4">
@@ -328,10 +328,7 @@ function DFDEditorContent() {
         connectionMode={connectionMode}
         onConnectionModeChange={setConnectionMode}
         onOpenTemplates={() => setShowTemplates(true)}
-        onOpenThreatAnalysis={() => navigate(
-          `/threat-models/${threatModelId}/diagrams/${diagramId}/threats`,
-          { state: { fromDFD: true } }
-        )}
+        onOpenThreatAnalysis={() => navigate(`/threat-models/${threatModelId}`)}
       />
 
       <div className="flex flex-1 overflow-hidden">

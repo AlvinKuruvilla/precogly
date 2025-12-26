@@ -94,8 +94,11 @@ export interface ComponentThreatCountermeasure {
  */
 export interface ComponentThreat {
   id: string
-  // Reference to the diagram
+  // Reference to the diagram (for tracking which DFD this came from)
   diagramId: string
+  // Source diagram info (for aggregated view)
+  sourceDiagramId?: string
+  sourceDiagramTitle?: string
   // Reference to the component (node ID from the DFD)
   componentId: string
   // Reference to threat definition
@@ -226,6 +229,129 @@ export interface ExpandedCountermeasure {
   status: CountermeasureStatus
   owner?: string
   notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ============================================
+// Workspace Types (for aggregated threat analysis)
+// ============================================
+
+/**
+ * Workspace status for threat model review workflow
+ */
+export type WorkspaceStatus = 'draft' | 'in_review' | 'approved' | 'archived'
+
+export const WORKSPACE_STATUS_CONFIG: Record<
+  WorkspaceStatus,
+  { label: string; color: string; bgColor: string }
+> = {
+  draft: { label: 'Draft', color: '#6b7280', bgColor: 'bg-gray-100 text-gray-700' },
+  in_review: { label: 'In Review', color: '#f59e0b', bgColor: 'bg-yellow-100 text-yellow-700' },
+  approved: { label: 'Approved', color: '#22c55e', bgColor: 'bg-green-100 text-green-700' },
+  archived: { label: 'Archived', color: '#6b7280', bgColor: 'bg-gray-100 text-gray-500' },
+}
+
+/**
+ * Version trigger types
+ */
+export type VersionTrigger =
+  | 'initial'
+  | 'incident'
+  | 'new_feature'
+  | 'architecture_change'
+  | 'compliance_review'
+  | 'periodic_review'
+  | 'other'
+
+export const VERSION_TRIGGER_CONFIG: Record<VersionTrigger, { label: string }> = {
+  initial: { label: 'Initial' },
+  incident: { label: 'Incident' },
+  new_feature: { label: 'New Feature' },
+  architecture_change: { label: 'Architecture Change' },
+  compliance_review: { label: 'Compliance Review' },
+  periodic_review: { label: 'Periodic Review' },
+  other: { label: 'Other' },
+}
+
+/**
+ * Version info for threat model
+ */
+export interface ThreatModelVersion {
+  version: number
+  trigger: VersionTrigger
+  notes?: string
+  createdAt: string
+  createdBy?: string
+}
+
+/**
+ * System context configuration
+ */
+export interface SystemContext {
+  description?: string
+  assets?: string[]
+  outOfScopeItems?: string[]
+  integrations?: {
+    github?: boolean
+    jira?: boolean
+    cspm?: boolean
+    sca?: boolean
+  }
+  uploads?: {
+    prd?: string
+    terraform?: string
+  }
+  scopeLocked: boolean
+  scopeLockedAt?: string
+}
+
+/**
+ * Team member reference
+ */
+export interface TeamMember {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  role?: string
+}
+
+/**
+ * Progress checklist item
+ */
+export interface ProgressChecklistItem {
+  id: string
+  label: string
+  checked: boolean
+  autoComputed?: boolean // If true, computed from data rather than manual checkbox
+}
+
+/**
+ * Default progress checklist items
+ */
+export const DEFAULT_PROGRESS_CHECKLIST: Omit<ProgressChecklistItem, 'checked'>[] = [
+  { id: 'assets_defined', label: 'Primary assets defined', autoComputed: false },
+  { id: 'components_identified', label: 'Components identified', autoComputed: true },
+  { id: 'trust_boundaries_identified', label: 'Trust boundaries identified', autoComputed: true },
+  { id: 'data_flows_defined', label: 'Data flows defined', autoComputed: true },
+  { id: 'owners_assigned', label: 'Owners assigned', autoComputed: true },
+  { id: 'threats_linked_components', label: 'Threats linked to components', autoComputed: true },
+  { id: 'threats_linked_flows', label: 'Threats linked to flows', autoComputed: true },
+  { id: 'countermeasures_assigned', label: 'Countermeasures assigned', autoComputed: true },
+]
+
+/**
+ * Aggregated threat analysis state for a threat model (across all diagrams)
+ */
+export interface WorkspaceThreatAnalysis {
+  threatModelId: string
+  componentThreats: ComponentThreat[]
+  status: WorkspaceStatus
+  currentVersion: ThreatModelVersion
+  previousVersions?: ThreatModelVersion[]
+  systemContext: SystemContext
+  progressChecklist: ProgressChecklistItem[]
   createdAt: string
   updatedAt: string
 }
