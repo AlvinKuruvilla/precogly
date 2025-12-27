@@ -1,6 +1,6 @@
 # Library Packs Architecture
 
-> **Last Updated:** December 27, 2025 (Reviewer Feedback Fixes)
+> **Last Updated:** December 27, 2025 (Zombie Record Fix - Partial Unique Constraints)
 
 ## Table of Contents
 
@@ -104,12 +104,12 @@ class ComponentLibrary(TimestampedModel):
 
     # Identifiers
     slug = SlugField(max_length=100)            # e.g., "s3"
-    qualified_slug = CharField(unique=True)     # e.g., "aws-technologies/s3"
+    qualified_slug = CharField(db_index=True)   # e.g., "aws-technologies/s3"
     name = CharField(max_length=255)
 
     # Customization tracking
     customization_status = CharField(choices=['original', 'customized', 'detached'])
-    base_item_qualified_slug = CharField()      # Original item if forked
+    base_item_qualified_slug = CharField(db_index=True)  # Original item if forked
 
     # Backward compatibility
     aliases = ArrayField(CharField())           # Previous slugs
@@ -120,10 +120,20 @@ class ComponentLibrary(TimestampedModel):
 
     # ... other fields
 
+    class Meta:
+        constraints = [
+            # Partial unique constraint: only active records must be unique
+            UniqueConstraint(
+                fields=['qualified_slug'],
+                condition=Q(is_deleted=False),
+                name='unique_active_component_qualified_slug'
+            )
+        ]
+
 # Same pattern applies to:
-# - ThreatLibrary
-# - CountermeasureLibrary
-# - DFDTemplatesLibrary
+# - ThreatLibrary (unique_active_threat_qualified_slug)
+# - CountermeasureLibrary (unique_active_countermeasure_qualified_slug)
+# - DFDTemplatesLibrary (unique_active_dfdtemplate_qualified_slug)
 ```
 
 ---
@@ -338,7 +348,7 @@ def check_dependencies(pack, org):
 
 When a pack is uninstalled, what happens to DFD nodes that reference pack components? Hard delete could break existing diagrams.
 
-### Solution: Soft Delete
+### Solution: Soft Delete with Partial Unique Constraints
 
 Library items use soft delete to preserve historical data:
 
@@ -346,6 +356,28 @@ Library items use soft delete to preserve historical data:
 is_deleted = BooleanField(default=False)
 deleted_at = DateTimeField(null=True)
 ```
+
+### The Zombie Record Trap (and how we avoid it)
+
+**The Problem:** If `qualified_slug` has a simple `unique=True` constraint, and we soft-delete a record, we can't reinstall the same pack because the soft-deleted record still occupies the unique slug.
+
+**The Solution:** PostgreSQL partial unique constraint that only enforces uniqueness on **active** records:
+
+```python
+class Meta:
+    constraints = [
+        models.UniqueConstraint(
+            fields=['qualified_slug'],
+            condition=models.Q(is_deleted=False),
+            name='unique_active_component_qualified_slug'
+        )
+    ]
+```
+
+This allows:
+- Multiple soft-deleted records with the same `qualified_slug`
+- Only ONE active record per `qualified_slug`
+- Reinstalling packs works correctly (soft-delete first, then update or create)
 
 ### Query Patterns
 

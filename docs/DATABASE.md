@@ -17,6 +17,12 @@ erDiagram
 %% - Added aliases for backward compatibility with renamed slugs
 %% - Added soft delete (is_deleted, deleted_at) for deletion cascades
 %% - Added LibraryPackDependency with version constraints
+%%
+%% UPDATED: Dec. 27, 2025 - Zombie Record Fix:
+%% - Changed qualified_slug from unique to partial unique constraint
+%% - Uniqueness only enforced where is_deleted=False
+%% - Allows multiple soft-deleted records with same slug
+%% - Enables pack reinstallation without constraint violations
 
     %% ===== ORGANIZATIONS (Multi-tenancy) =====
     Organizations {
@@ -119,13 +125,13 @@ erDiagram
         int OrganizationID FK "nullable - null means global/shared"
         int SourcePackID FK "nullable - pack this came from"
         string Slug "identifier within pack e.g. 'aws-s3'"
-        string QualifiedSlug UK "nullable - namespace-safe e.g. 'aws-technologies/s3'"
+        string QualifiedSlug "partial UK where is_deleted=false"
         string Name
         string Category "Process/Store/External"
         string ComponentType
         string Provider "AWS/Azure/Internal"
         string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked"
+        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
         array Aliases "previous slugs for backward compat"
         boolean IsDeleted "soft delete flag"
         date DeletedAt "nullable"
@@ -183,14 +189,14 @@ erDiagram
         int OrganizationID FK "nullable - null means global/shared"
         int SourcePackID FK "nullable - pack this came from"
         string Slug "identifier within pack e.g. 'sql-injection'"
-        string QualifiedSlug UK "nullable - namespace-safe e.g. 'owasp-top10/sql-injection'"
+        string QualifiedSlug "partial UK where is_deleted=false"
         string Name
         string Description
         string STRIDE_Category
         string Source "STRIDE/CAPEC/OWASP/CWE/Custom"
         string SourceID "nullable - e.g. CAPEC-66, CWE-89"
         string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked"
+        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
         array Aliases "previous slugs for backward compat"
         boolean IsDeleted "soft delete flag"
         date DeletedAt "nullable"
@@ -229,13 +235,13 @@ erDiagram
         int OrganizationID FK "nullable - null means global/shared"
         int SourcePackID FK "nullable - pack this came from"
         string Slug "identifier within pack e.g. 'encryption-at-rest'"
-        string QualifiedSlug UK "nullable - namespace-safe e.g. 'security-controls/encryption-at-rest'"
+        string QualifiedSlug "partial UK where is_deleted=false"
         string Name
         string Description
         string Type "Technical/Procedural"
         string Cost "Low/Medium/High"
         string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked"
+        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
         array Aliases "previous slugs for backward compat"
         boolean IsDeleted "soft delete flag"
         date DeletedAt "nullable"
@@ -335,7 +341,7 @@ erDiagram
         int OrganizationID FK "nullable - null means global/shared"
         int SourcePackID FK "nullable - pack this came from"
         string Slug "identifier within pack e.g. 'banking-webapp-l1'"
-        string QualifiedSlug UK "nullable - namespace-safe e.g. 'banking-templates/webapp-l1'"
+        string QualifiedSlug "partial UK where is_deleted=false"
         string Name
         string Description
         string Category "WebApp/Microservices/IoT/API/Mobile"
@@ -343,7 +349,7 @@ erDiagram
         int MaintainedByID FK "Django User"
         json CanvasData "ReactFlow JSON structure"
         string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked"
+        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
         array Aliases "previous slugs for backward compat"
         boolean IsDeleted "soft delete flag"
         date DeletedAt "nullable"

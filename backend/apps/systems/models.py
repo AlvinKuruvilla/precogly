@@ -151,9 +151,9 @@ class ComponentLibrary(TimestampedModel):
     )
     qualified_slug = models.CharField(
         max_length=200,
-        unique=True,
         null=True,
         blank=True,
+        db_index=True,
         help_text="Namespace-safe identifier, e.g., 'aws-technologies/s3'",
     )
     name = models.CharField(max_length=255)
@@ -170,6 +170,7 @@ class ComponentLibrary(TimestampedModel):
     base_item_qualified_slug = models.CharField(
         max_length=200,
         blank=True,
+        db_index=True,
         help_text="Original item this was forked/customized from",
     )
 
@@ -188,6 +189,13 @@ class ComponentLibrary(TimestampedModel):
     class Meta:
         verbose_name_plural = "Component libraries"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["qualified_slug"],
+                condition=models.Q(is_deleted=False),
+                name="unique_active_component_qualified_slug",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.category})"

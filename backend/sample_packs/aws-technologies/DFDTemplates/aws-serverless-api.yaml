@@ -1,0 +1,117 @@
+# =============================================================================
+# AWS SERVERLESS API TEMPLATE
+# =============================================================================
+# A typical AWS serverless API architecture using API Gateway, Lambda, and DynamoDB.
+
+template:
+  slug: aws-serverless-api
+  name: "AWS Serverless API (Level 1)"
+  description: "Standard AWS serverless API with API Gateway, Lambda, and DynamoDB"
+  category: api
+  diagram_type: level1
+
+# Node-to-component mappings
+node_components:
+  - node_id: "node-user"
+    component_ref: null
+    label: "User/Client"
+    is_external: true
+
+  - node_id: "node-apigw"
+    component_ref: api-gateway
+    label: "API Gateway"
+
+  - node_id: "node-cognito"
+    component_ref: cognito
+    label: "Cognito"
+
+  - node_id: "node-lambda"
+    component_ref: lambda
+    label: "Lambda Function"
+
+  - node_id: "node-s3"
+    component_ref: s3
+    label: "S3 Bucket"
+
+  - node_id: "node-rds"
+    component_ref: rds
+    label: "RDS Database"
+
+# ReactFlow canvas data
+canvas_data:
+  nodes:
+    - id: "node-user"
+      type: "external"
+      position: { x: 50, y: 200 }
+      data:
+        label: "User/Client"
+
+    - id: "node-apigw"
+      type: "process"
+      position: { x: 200, y: 200 }
+      data:
+        label: "API Gateway"
+
+    - id: "node-cognito"
+      type: "process"
+      position: { x: 200, y: 50 }
+      data:
+        label: "Cognito"
+
+    - id: "node-lambda"
+      type: "process"
+      position: { x: 400, y: 200 }
+      data:
+        label: "Lambda Function"
+
+    - id: "node-s3"
+      type: "datastore"
+      position: { x: 550, y: 100 }
+      data:
+        label: "S3 Bucket"
+
+    - id: "node-rds"
+      type: "datastore"
+      position: { x: 550, y: 300 }
+      data:
+        label: "RDS Database"
+
+  edges:
+    - id: "edge-1"
+      source: "node-user"
+      target: "node-apigw"
+      label: "HTTPS"
+      data:
+        protocol: "HTTPS"
+        port: 443
+
+    - id: "edge-2"
+      source: "node-apigw"
+      target: "node-cognito"
+      label: "Auth"
+      data:
+        protocol: "HTTPS"
+        port: 443
+
+    - id: "edge-3"
+      source: "node-apigw"
+      target: "node-lambda"
+      label: "Invoke"
+      data:
+        protocol: "AWS Internal"
+
+    - id: "edge-4"
+      source: "node-lambda"
+      target: "node-s3"
+      label: "S3 API"
+      data:
+        protocol: "HTTPS"
+        port: 443
+
+    - id: "edge-5"
+      source: "node-lambda"
+      target: "node-rds"
+      label: "SQL/TLS"
+      data:
+        protocol: "PostgreSQL"
+        port: 5432

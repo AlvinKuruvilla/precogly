@@ -1,0 +1,208 @@
+# =============================================================================
+# BASE STRIDE PACK
+# =============================================================================
+# Core STRIDE threat categories - foundational pack for threat modeling.
+
+pack:
+  slug: base-stride
+  name: "Base STRIDE Threats"
+  description: "Core STRIDE threat categories for threat modeling"
+  version: "1.0.0"
+  author: "Precogly Team"
+  pack_type: threat
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - stride
+    - fundamentals
+    - core
+  repository_url: "https://github.com/precogly/packs/base-stride"
+  documentation_url: "https://docs.precogly.dev/packs/base-stride"
+  depends_on: []
+
+# =============================================================================
+# STRIDE THREATS
+# =============================================================================
+
+threats:
+  # Spoofing
+  - slug: identity-spoofing
+    name: "Identity Spoofing"
+    description: "An attacker pretends to be someone or something else to gain unauthorized access"
+    stride_category: spoofing
+    source: stride
+    source_id: "STRIDE-S"
+
+  - slug: credential-theft
+    name: "Credential Theft"
+    description: "Stealing user credentials through phishing, keylogging, or other means"
+    stride_category: spoofing
+    source: stride
+
+  - slug: session-hijacking
+    name: "Session Hijacking"
+    description: "Taking over a user's authenticated session"
+    stride_category: spoofing
+    source: stride
+
+  # Tampering
+  - slug: data-tampering
+    name: "Data Tampering"
+    description: "Malicious modification of data in transit or at rest"
+    stride_category: tampering
+    source: stride
+    source_id: "STRIDE-T"
+
+  - slug: parameter-manipulation
+    name: "Parameter Manipulation"
+    description: "Modifying request parameters to bypass security controls"
+    stride_category: tampering
+    source: stride
+
+  - slug: code-injection
+    name: "Code Injection"
+    description: "Injecting malicious code into application inputs"
+    stride_category: tampering
+    source: stride
+
+  # Repudiation
+  - slug: repudiation-of-actions
+    name: "Repudiation of Actions"
+    description: "User denies performing an action without ability to prove otherwise"
+    stride_category: repudiation
+    source: stride
+    source_id: "STRIDE-R"
+
+  - slug: log-tampering
+    name: "Log Tampering"
+    description: "Modifying or deleting audit logs to hide malicious activity"
+    stride_category: repudiation
+    source: stride
+
+  # Information Disclosure
+  - slug: information-disclosure
+    name: "Information Disclosure"
+    description: "Exposure of sensitive information to unauthorized parties"
+    stride_category: information_disclosure
+    source: stride
+    source_id: "STRIDE-I"
+
+  - slug: data-leakage
+    name: "Data Leakage"
+    description: "Unintended exposure of sensitive data through error messages, logs, or APIs"
+    stride_category: information_disclosure
+    source: stride
+
+  - slug: network-sniffing
+    name: "Network Sniffing"
+    description: "Capturing network traffic to extract sensitive information"
+    stride_category: information_disclosure
+    source: stride
+
+  # Denial of Service
+  - slug: denial-of-service
+    name: "Denial of Service"
+    description: "Making a system or service unavailable to legitimate users"
+    stride_category: denial_of_service
+    source: stride
+    source_id: "STRIDE-D"
+
+  - slug: resource-exhaustion
+    name: "Resource Exhaustion"
+    description: "Consuming system resources to cause service degradation"
+    stride_category: denial_of_service
+    source: stride
+
+  # Elevation of Privilege
+  - slug: elevation-of-privilege
+    name: "Elevation of Privilege"
+    description: "Gaining higher access rights than authorized"
+    stride_category: elevation_of_privilege
+    source: stride
+    source_id: "STRIDE-E"
+
+  - slug: privilege-escalation
+    name: "Privilege Escalation"
+    description: "Exploiting vulnerabilities to gain elevated access"
+    stride_category: elevation_of_privilege
+    source: stride
+
+  - slug: authorization-bypass
+    name: "Authorization Bypass"
+    description: "Circumventing access control mechanisms"
+    stride_category: elevation_of_privilege
+    source: stride
+
+# =============================================================================
+# CORE COUNTERMEASURES
+# =============================================================================
+
+countermeasures:
+  - slug: strong-authentication
+    name: "Strong Authentication"
+    description: "Multi-factor authentication and strong password policies"
+    control_type: technical
+    cost: medium
+    applicable_threats:
+      - identity-spoofing
+      - credential-theft
+      - session-hijacking
+
+  - slug: input-validation
+    name: "Input Validation"
+    description: "Validate and sanitize all user inputs"
+    control_type: technical
+    cost: low
+    applicable_threats:
+      - data-tampering
+      - parameter-manipulation
+      - code-injection
+
+  - slug: encryption-in-transit
+    name: "Encryption in Transit"
+    description: "TLS/SSL encryption for all network communications"
+    control_type: technical
+    cost: low
+    applicable_threats:
+      - network-sniffing
+      - data-tampering
+      - information-disclosure
+
+  - slug: encryption-at-rest
+    name: "Encryption at Rest"
+    description: "Encrypt sensitive data stored in databases and files"
+    control_type: technical
+    cost: medium
+    applicable_threats:
+      - information-disclosure
+      - data-leakage
+
+  - slug: audit-logging
+    name: "Audit Logging"
+    description: "Comprehensive logging of security-relevant events"
+    control_type: technical
+    cost: low
+    applicable_threats:
+      - repudiation-of-actions
+      - log-tampering
+
+  - slug: rate-limiting
+    name: "Rate Limiting"
+    description: "Limit request rates to prevent abuse"
+    control_type: technical
+    cost: low
+    applicable_threats:
+      - denial-of-service
+      - resource-exhaustion
+
+  - slug: access-control
+    name: "Access Control"
+    description: "Role-based access control with least privilege"
+    control_type: technical
+    cost: medium
+    applicable_threats:
+      - elevation-of-privilege
+      - privilege-escalation
+      - authorization-bypass

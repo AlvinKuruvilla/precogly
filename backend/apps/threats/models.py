@@ -57,9 +57,9 @@ class ThreatLibrary(TimestampedModel):
     )
     qualified_slug = models.CharField(
         max_length=200,
-        unique=True,
         null=True,
         blank=True,
+        db_index=True,
         help_text="Namespace-safe identifier, e.g., 'owasp-top10/sql-injection'",
     )
     name = models.CharField(max_length=255)
@@ -81,6 +81,7 @@ class ThreatLibrary(TimestampedModel):
     base_item_qualified_slug = models.CharField(
         max_length=200,
         blank=True,
+        db_index=True,
         help_text="Original item this was forked/customized from",
     )
 
@@ -99,6 +100,13 @@ class ThreatLibrary(TimestampedModel):
     class Meta:
         verbose_name_plural = "Threat library"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["qualified_slug"],
+                condition=models.Q(is_deleted=False),
+                name="unique_active_threat_qualified_slug",
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -187,9 +195,9 @@ class CountermeasureLibrary(TimestampedModel):
     )
     qualified_slug = models.CharField(
         max_length=200,
-        unique=True,
         null=True,
         blank=True,
+        db_index=True,
         help_text="Namespace-safe identifier, e.g., 'security-controls/encryption-at-rest'",
     )
     name = models.CharField(max_length=255)
@@ -212,6 +220,7 @@ class CountermeasureLibrary(TimestampedModel):
     base_item_qualified_slug = models.CharField(
         max_length=200,
         blank=True,
+        db_index=True,
         help_text="Original item this was forked/customized from",
     )
 
@@ -230,6 +239,13 @@ class CountermeasureLibrary(TimestampedModel):
     class Meta:
         verbose_name_plural = "Countermeasure library"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["qualified_slug"],
+                condition=models.Q(is_deleted=False),
+                name="unique_active_countermeasure_qualified_slug",
+            ),
+        ]
 
     def __str__(self):
         return self.name

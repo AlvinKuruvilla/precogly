@@ -54,9 +54,9 @@ class DFDTemplatesLibrary(TimestampedModel):
     )
     qualified_slug = models.CharField(
         max_length=200,
-        unique=True,
         null=True,
         blank=True,
+        db_index=True,
         help_text="Namespace-safe identifier, e.g., 'banking-templates/webapp-l1'",
     )
     name = models.CharField(max_length=255)
@@ -82,6 +82,7 @@ class DFDTemplatesLibrary(TimestampedModel):
     base_item_qualified_slug = models.CharField(
         max_length=200,
         blank=True,
+        db_index=True,
         help_text="Original item this was forked/customized from",
     )
 
@@ -100,6 +101,13 @@ class DFDTemplatesLibrary(TimestampedModel):
     class Meta:
         verbose_name_plural = "DFD templates library"
         ordering = ["category", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["qualified_slug"],
+                condition=models.Q(is_deleted=False),
+                name="unique_active_dfdtemplate_qualified_slug",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.category})"
