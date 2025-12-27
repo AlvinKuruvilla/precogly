@@ -9,6 +9,10 @@ import {
   Frameworks,
   TechComponents,
   ThreatLibraries,
+  Countermeasures,
+  DFDTemplates,
+  Packs,
+  InstalledPacks,
   DFDEditor,
   Login,
 } from '@/pages'
@@ -32,8 +36,12 @@ export const router = createBrowserRouter([
       { path: 'threat-models/:id', element: <ThreatModelDetail /> },
       { path: 'threat-models/:id/diagrams/:diagramId', element: <DFDEditor /> },
       { path: 'frameworks', element: <Frameworks /> },
+      { path: 'packs', element: <Packs /> },
+      { path: 'packs/installed', element: <InstalledPacks /> },
       { path: 'tech-components', element: <TechComponents /> },
       { path: 'threat-libraries', element: <ThreatLibraries /> },
+      { path: 'countermeasures', element: <Countermeasures /> },
+      { path: 'dfd-templates', element: <DFDTemplates /> },
     ],
   },
 ])

@@ -174,10 +174,11 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["name", "description"]
 
     def get_queryset(self):
-        """Get templates accessible to user (global + org-specific)."""
+        """Get templates accessible to user (global + org-specific, excluding deleted)."""
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
 
         return DFDTemplatesLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids)
-        )
+            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
+            is_deleted=False,
+        ).select_related("source_pack")

@@ -20,6 +20,9 @@ from .models import (
 class ThreatLibrarySerializer(serializers.ModelSerializer):
     """Serializer for ThreatLibrary model."""
 
+    source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
+    source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+
     class Meta:
         model = ThreatLibrary
         fields = [
@@ -30,22 +33,31 @@ class ThreatLibrarySerializer(serializers.ModelSerializer):
             "stride_category",
             "source",
             "source_id",
+            "source_pack",
+            "source_pack_name",
+            "source_pack_slug",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
 
 
 class ThreatLibraryListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for threat library listing."""
 
+    source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
+    source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+
     class Meta:
         model = ThreatLibrary
-        fields = ["id", "name", "stride_category", "source"]
+        fields = ["id", "name", "stride_category", "source", "source_pack_name", "source_pack_slug"]
 
 
 class CountermeasureLibrarySerializer(serializers.ModelSerializer):
     """Serializer for CountermeasureLibrary model."""
+
+    source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
+    source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
 
     class Meta:
         model = CountermeasureLibrary
@@ -56,18 +68,24 @@ class CountermeasureLibrarySerializer(serializers.ModelSerializer):
             "description",
             "control_type",
             "cost",
+            "source_pack",
+            "source_pack_name",
+            "source_pack_slug",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
 
 
 class CountermeasureLibraryListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for countermeasure library listing."""
 
+    source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
+    source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+
     class Meta:
         model = CountermeasureLibrary
-        fields = ["id", "name", "control_type", "cost"]
+        fields = ["id", "name", "control_type", "cost", "source_pack_name", "source_pack_slug"]
 
 
 class ComponentLibraryThreatSerializer(serializers.ModelSerializer):

@@ -73,12 +73,13 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
     search_fields = ["name", "component_type"]
 
     def get_queryset(self):
-        """Get global + org-specific component library."""
+        """Get global + org-specific component library (excluding deleted)."""
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
         return ComponentLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids)
-        )
+            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
+            is_deleted=False,
+        ).select_related("source_pack")
 
 
 class OrgsystemComponentViewSet(viewsets.ModelViewSet):

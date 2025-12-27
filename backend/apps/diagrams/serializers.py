@@ -171,6 +171,9 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
 class DFDTemplatesLibrarySerializer(serializers.ModelSerializer):
     """Serializer for DFD templates."""
 
+    source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
+    source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+
     class Meta:
         model = DFDTemplatesLibrary
         fields = [
@@ -181,10 +184,13 @@ class DFDTemplatesLibrarySerializer(serializers.ModelSerializer):
             "diagram_type",
             "canvas_data",
             "organization",
+            "source_pack",
+            "source_pack_name",
+            "source_pack_slug",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
 
 
 class ThreatModelDFDSerializer(serializers.ModelSerializer):

@@ -74,6 +74,9 @@ class TrustBoundarySerializer(serializers.ModelSerializer):
 class ComponentLibrarySerializer(serializers.ModelSerializer):
     """Serializer for ComponentLibrary model."""
 
+    source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
+    source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+
     class Meta:
         model = ComponentLibrary
         fields = [
@@ -83,10 +86,13 @@ class ComponentLibrarySerializer(serializers.ModelSerializer):
             "component_type",
             "provider",
             "organization",
+            "source_pack",
+            "source_pack_name",
+            "source_pack_slug",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
 
 
 class OrgsystemComponentSerializer(serializers.ModelSerializer):

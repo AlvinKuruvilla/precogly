@@ -44,12 +44,13 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return threats accessible to user (global + org-specific)."""
+        """Return threats accessible to user (global + org-specific, excluding deleted)."""
         user = self.request.user
         org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
         return ThreatLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids)
-        ).select_related("organization")
+            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
+            is_deleted=False,
+        ).select_related("organization", "source_pack")
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
@@ -69,12 +70,13 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return countermeasures accessible to user (global + org-specific)."""
+        """Return countermeasures accessible to user (global + org-specific, excluding deleted)."""
         user = self.request.user
         org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
         return CountermeasureLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids)
-        ).select_related("organization")
+            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
+            is_deleted=False,
+        ).select_related("organization", "source_pack")
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
