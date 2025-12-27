@@ -435,11 +435,11 @@ export function ManageDFDsModal({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">
-                        {dfd.title}
+                        {dfd.name || dfd.title}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {dfd.canvasData?.nodes?.length || 0} nodes &bull;{' '}
-                        {dfd.canvasData?.edges?.length || 0} connections
+                        {(dfd.canvas_data?.nodes?.length || dfd.canvasData?.nodes?.length) || 0} nodes &bull;{' '}
+                        {(dfd.canvas_data?.edges?.length || dfd.canvasData?.edges?.length) || 0} connections
                       </div>
                     </div>
                     <div className="flex items-center gap-1">

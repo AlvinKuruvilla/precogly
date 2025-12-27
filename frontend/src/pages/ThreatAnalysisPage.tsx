@@ -4,21 +4,14 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThreatAnalysisView } from '@/features/dfd-editor/components/threat-analysis'
 import type { Diagram, ThreatModel } from '@/types'
+import { api } from '@/lib/api'
 
 async function fetchDiagram(diagramId: string): Promise<Diagram> {
-  const response = await fetch(`/api/diagrams/${diagramId}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch diagram')
-  }
-  return response.json()
+  return api.get<Diagram>(`/diagrams/${diagramId}/`)
 }
 
 async function fetchThreatModel(threatModelId: string): Promise<ThreatModel> {
-  const response = await fetch(`/api/threat-models/${threatModelId}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch threat model')
-  }
-  return response.json()
+  return api.get<ThreatModel>(`/threat-models/${threatModelId}/`)
 }
 
 export function ThreatAnalysisPage() {
@@ -80,14 +73,16 @@ export function ThreatAnalysisPage() {
     )
   }
 
+  const canvasData = diagram.canvas_data || diagram.canvasData
+
   return (
     <div className="h-[calc(100vh-4rem)]">
       <ThreatAnalysisView
         diagramId={diagramId || ''}
-        diagramTitle={diagram.title}
+        diagramTitle={diagram.name || diagram.title || ''}
         canvasData={{
-          nodes: diagram.canvasData?.nodes || [],
-          edges: diagram.canvasData?.edges || [],
+          nodes: canvasData?.nodes || [],
+          edges: canvasData?.edges || [],
         }}
         selectedFrameworks={threatModel?.frameworks || []}
         onBack={handleBack}

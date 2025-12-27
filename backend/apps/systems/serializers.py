@@ -1,0 +1,183 @@
+"""
+Serializers for systems app.
+"""
+
+from rest_framework import serializers
+
+from .models import (
+    ComponentLibrary,
+    DataAsset,
+    DataFlow,
+    IntegrationSource,
+    Orgsystem,
+    OrgsystemComponent,
+    TrustBoundary,
+)
+
+
+class OrgsystemSerializer(serializers.ModelSerializer):
+    """Serializer for Orgsystem model."""
+
+    class Meta:
+        model = Orgsystem
+        fields = [
+            "id",
+            "name",
+            "owner",
+            "criticality",
+            "lifecycle_state",
+            "organization",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class OrgsystemListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for Orgsystem listing."""
+
+    # Map to frontend expected fields
+    type = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    environment = serializers.CharField(source="lifecycle_state")
+
+    class Meta:
+        model = Orgsystem
+        fields = ["id", "name", "type", "description", "environment"]
+
+    def get_type(self, obj):
+        """Return type based on lifecycle state."""
+        return "system"
+
+    def get_description(self, obj):
+        """Return owner as description for now."""
+        return obj.owner or ""
+
+
+class TrustBoundarySerializer(serializers.ModelSerializer):
+    """Serializer for TrustBoundary model."""
+
+    class Meta:
+        model = TrustBoundary
+        fields = [
+            "id",
+            "name",
+            "trust_level",
+            "description",
+            "parent",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ComponentLibrarySerializer(serializers.ModelSerializer):
+    """Serializer for ComponentLibrary model."""
+
+    class Meta:
+        model = ComponentLibrary
+        fields = [
+            "id",
+            "name",
+            "category",
+            "component_type",
+            "provider",
+            "organization",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class OrgsystemComponentSerializer(serializers.ModelSerializer):
+    """Serializer for OrgsystemComponent model."""
+
+    component_library_name = serializers.CharField(
+        source="component_library.name", read_only=True
+    )
+
+    class Meta:
+        model = OrgsystemComponent
+        fields = [
+            "id",
+            "name",
+            "orgsystem",
+            "component_library",
+            "component_library_name",
+            "trust_boundary",
+            "source_integration",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "component_library_name"]
+
+
+class DataAssetSerializer(serializers.ModelSerializer):
+    """Serializer for DataAsset model."""
+
+    class Meta:
+        model = DataAsset
+        fields = [
+            "id",
+            "name",
+            "classification",
+            "confidentiality",
+            "integrity",
+            "availability",
+            "compliance_tags",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DataFlowSerializer(serializers.ModelSerializer):
+    """Serializer for DataFlow model."""
+
+    source_component_name = serializers.CharField(
+        source="source_component.name", read_only=True
+    )
+    dest_component_name = serializers.CharField(
+        source="dest_component.name", read_only=True
+    )
+
+    class Meta:
+        model = DataFlow
+        fields = [
+            "id",
+            "source_component",
+            "source_component_name",
+            "dest_component",
+            "dest_component_name",
+            "protocol",
+            "port",
+            "crosses_trust_boundary",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "source_component_name",
+            "dest_component_name",
+        ]
+
+
+class IntegrationSourceSerializer(serializers.ModelSerializer):
+    """Serializer for IntegrationSource model."""
+
+    class Meta:
+        model = IntegrationSource
+        fields = [
+            "id",
+            "name",
+            "source_type",
+            "connection_details",
+            "status",
+            "last_sync_at",
+            "orgsystem",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]

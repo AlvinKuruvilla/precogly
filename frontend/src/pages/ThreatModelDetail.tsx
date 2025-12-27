@@ -30,6 +30,7 @@ import type { TeamMember, WorkspaceStatus } from '@/features/dfd-editor/types/th
 import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
 
 // Mock team members data (same as in ComponentView)
 const TEAM_MEMBERS: TeamMember[] = [
@@ -46,41 +47,31 @@ const TEAM_MEMBERS: TeamMember[] = [
 ]
 
 async function fetchThreatModel(id: string): Promise<ThreatModel> {
-  const response = await fetch(`/api/threat-models/${id}`)
-  if (!response.ok) throw new Error('Failed to fetch threat model')
-  return response.json()
+  return api.get<ThreatModel>(`/threat-models/${id}/`)
 }
 
 async function fetchDiagrams(threatModelId: string): Promise<Diagram[]> {
-  const response = await fetch(`/api/threat-models/${threatModelId}/diagrams`)
-  if (!response.ok) throw new Error('Failed to fetch diagrams')
-  return response.json()
+  // Get diagrams associated with this threat model via the dfds field
+  const threatModel = await api.get<ThreatModel>(`/threat-models/${threatModelId}/`)
+  return (threatModel.dfds || []) as Diagram[]
 }
 
 async function fetchSystems(): Promise<System[]> {
-  const response = await fetch('/api/systems')
-  if (!response.ok) throw new Error('Failed to fetch systems')
-  return response.json()
+  const response = await api.get<{ results: System[] } | System[]>('/systems/')
+  return Array.isArray(response) ? response : response.results
 }
 
 async function fetchThreatModels(): Promise<ThreatModel[]> {
-  const response = await fetch('/api/threat-models')
-  if (!response.ok) throw new Error('Failed to fetch threat models')
-  return response.json()
+  const response = await api.get<{ results: ThreatModel[] } | ThreatModel[]>('/threat-models/')
+  return Array.isArray(response) ? response : response.results
 }
 
 async function createDiagram(threatModelId: string, title: string): Promise<Diagram> {
-  const response = await fetch('/api/diagrams', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      threatModelId,
-      title,
-      canvasData: { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } },
-    }),
+  return api.post<Diagram>('/diagrams/create_for_threat_model/', {
+    threat_model_id: threatModelId,
+    name: title,
+    canvas_data: { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } },
   })
-  if (!response.ok) throw new Error('Failed to create diagram')
-  return response.json()
 }
 
 type ViewMode = 'component' | 'table'
@@ -193,9 +184,10 @@ export function ThreatModelDetail() {
     const edges: DataFlowEdge[] = []
 
     diagramsToUse.forEach((diagram) => {
-      if (diagram.canvasData) {
-        nodes.push(...(diagram.canvasData.nodes || []))
-        edges.push(...(diagram.canvasData.edges || []))
+      const canvasData = diagram.canvas_data || diagram.canvasData
+      if (canvasData) {
+        nodes.push(...(canvasData.nodes || []))
+        edges.push(...(canvasData.edges || []))
       }
     })
 
@@ -472,7 +464,7 @@ export function ThreatModelDetail() {
                       <option value="">All DFDs</option>
                       {diagrams.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.title}
+                          {d.name || d.title}
                         </option>
                       ))}
                     </select>

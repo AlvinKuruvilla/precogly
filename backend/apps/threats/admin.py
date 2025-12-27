@@ -1,0 +1,69 @@
+from django.contrib import admin
+
+from .models import (
+    ComponentInstanceCountermeasure,
+    ComponentInstanceThreat,
+    ComponentLibraryThreat,
+    CountermeasureLibrary,
+    DataFlowInstanceThreat,
+    FlowInstanceCountermeasure,
+    PentestFinding,
+    ThreatLibrary,
+    VerificationTest,
+)
+
+
+@admin.register(ThreatLibrary)
+class ThreatLibraryAdmin(admin.ModelAdmin):
+    list_display = ["name", "stride_category", "source", "organization"]
+    list_filter = ["stride_category", "source"]
+    search_fields = ["name", "description"]
+
+
+@admin.register(ComponentLibraryThreat)
+class ComponentLibraryThreatAdmin(admin.ModelAdmin):
+    list_display = ["component_library", "threat_library", "default_severity", "applies_to"]
+    list_filter = ["applies_to", "default_severity"]
+
+
+@admin.register(CountermeasureLibrary)
+class CountermeasureLibraryAdmin(admin.ModelAdmin):
+    list_display = ["name", "control_type", "cost", "organization"]
+    list_filter = ["control_type", "cost"]
+    search_fields = ["name", "description"]
+
+
+@admin.register(ComponentInstanceThreat)
+class ComponentInstanceThreatAdmin(admin.ModelAdmin):
+    list_display = ["component", "threat_library", "status", "inherent_severity", "residual_severity"]
+    list_filter = ["status", "inherent_severity"]
+
+
+@admin.register(DataFlowInstanceThreat)
+class DataFlowInstanceThreatAdmin(admin.ModelAdmin):
+    list_display = ["data_flow", "threat_library", "status", "inherent_severity"]
+    list_filter = ["status", "inherent_severity"]
+
+
+@admin.register(ComponentInstanceCountermeasure)
+class ComponentInstanceCountermeasureAdmin(admin.ModelAdmin):
+    list_display = ["instance_threat", "countermeasure_library", "status", "assigned_owner"]
+    list_filter = ["status", "required_for_release"]
+
+
+@admin.register(FlowInstanceCountermeasure)
+class FlowInstanceCountermeasureAdmin(admin.ModelAdmin):
+    list_display = ["flow_threat", "countermeasure_library", "status", "assigned_owner"]
+    list_filter = ["status", "required_for_release"]
+
+
+@admin.register(VerificationTest)
+class VerificationTestAdmin(admin.ModelAdmin):
+    list_display = ["name", "method", "passed", "last_run_at"]
+    list_filter = ["method", "passed"]
+
+
+@admin.register(PentestFinding)
+class PentestFindingAdmin(admin.ModelAdmin):
+    list_display = ["finding_description", "severity", "reconciliation_status", "threat_model"]
+    list_filter = ["reconciliation_status", "severity"]

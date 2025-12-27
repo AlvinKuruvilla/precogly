@@ -216,28 +216,33 @@ export interface CanvasData {
 }
 
 // Diagram entity (separate from ThreatModel)
-export type DiagramType = 'architecture' | 'dataflow' | 'sequence' | 'deployment' | 'network'
+// Note: Frontend uses camelCase aliases but API returns snake_case
+export type DiagramTypeValue = 'context' | 'level1' | 'level2'
 export type ThreatFramework = 'stride' | 'linddun' | 'cia'
 
 export interface Diagram {
   id: string
-  threatModelId: string
-  slug?: string
-  title: string
-  description?: string
-  diagramType: DiagramType
-  threatFramework: ThreatFramework
-  canvasData: CanvasData
-  orderIndex?: number
-  createdAt: string
-  updatedAt: string
+  name: string  // title/name of the diagram
+  diagram_type?: DiagramTypeValue
+  canvas_data?: CanvasData
+  threat_analysis_data?: Record<string, unknown>
+  updated_by?: string
+  updated_by_email?: string
+  created_at?: string
+  updated_at?: string
+  // Legacy frontend fields - kept for compatibility during transition
+  title?: string
+  threatModelId?: string
+  canvasData?: CanvasData
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface CreateDiagramInput {
   threatModelId: string
   title: string
   description?: string
-  diagramType?: DiagramType
+  diagramType?: DiagramTypeValue
   threatFramework?: ThreatFramework
 }
 

@@ -47,7 +47,7 @@ export type {
   DiagramNode,
   DataFlowEdge as DataFlowEdgeType,
   CanvasData,
-  DiagramType,
+  DiagramTypeValue,
   ThreatFramework,
   Diagram,
   CreateDiagramInput,

@@ -311,11 +311,12 @@ export function useWorkspaceThreatAnalysis(
       // Initialize threats for new diagrams
       const newThreats: ComponentThreat[] = []
       newDiagrams.forEach((diagram) => {
+        const canvasData = diagram.canvas_data || diagram.canvasData
         const diagramThreats = initializeThreatsForDiagram(
           diagram.id,
-          diagram.title,
-          diagram.canvasData?.nodes || [],
-          diagram.canvasData?.edges || []
+          diagram.name || diagram.title || '',
+          canvasData?.nodes || [],
+          canvasData?.edges || []
         )
         newThreats.push(...diagramThreats)
       })

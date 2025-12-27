@@ -199,21 +199,23 @@ function DFDEditorContent() {
   }
 
   // Handle title editing
+  const diagramTitle = diagram?.name || diagram?.title || ''
+
   const handleTitleClick = useCallback(() => {
     if (diagram) {
-      setTitleValue(diagram.title)
+      setTitleValue(diagramTitle)
       setIsEditingTitle(true)
       setTimeout(() => titleInputRef.current?.select(), 0)
     }
-  }, [diagram])
+  }, [diagram, diagramTitle])
 
   const handleTitleSave = useCallback(async () => {
     const trimmedTitle = titleValue.trim()
-    if (trimmedTitle && trimmedTitle !== diagram?.title) {
+    if (trimmedTitle && trimmedTitle !== diagramTitle) {
       await updateTitle(trimmedTitle)
     }
     setIsEditingTitle(false)
-  }, [titleValue, diagram?.title, updateTitle])
+  }, [titleValue, diagramTitle, updateTitle])
 
   const handleTitleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -272,7 +274,7 @@ function DFDEditorContent() {
                 onClick={handleTitleClick}
                 className="flex items-center gap-2 group text-left"
               >
-                <h1 className="font-semibold">{diagram.title}</h1>
+                <h1 className="font-semibold">{diagramTitle}</h1>
                 <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             )}

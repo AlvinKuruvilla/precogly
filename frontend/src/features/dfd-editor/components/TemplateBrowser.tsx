@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, LayoutTemplate, Loader2, User } from 'lucide-react'
+import { api } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -32,11 +33,8 @@ type SortOption = 'popular' | 'newest' | 'name'
 type FilterOption = 'all' | TemplateCategory
 
 async function fetchTemplates(): Promise<DFDTemplate[]> {
-  const response = await fetch('/api/dfd-templates')
-  if (!response.ok) {
-    throw new Error('Failed to fetch templates')
-  }
-  return response.json()
+  const response = await api.get<{ results: DFDTemplate[] } | DFDTemplate[]>('/dfd-templates/')
+  return Array.isArray(response) ? response : response.results
 }
 
 // Get display label for category

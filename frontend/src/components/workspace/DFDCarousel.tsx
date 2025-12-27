@@ -65,7 +65,8 @@ export function DFDCarousel({
         <div className="flex gap-2 overflow-x-auto">
           {diagrams.map((diagram) => {
             const isSelected = selectedDiagramId === diagram.id
-            const nodeCount = diagram.canvasData?.nodes?.length || 0
+            const canvasData = diagram.canvas_data || diagram.canvasData
+            const nodeCount = canvasData?.nodes?.length || 0
 
             return (
               <div
@@ -98,7 +99,7 @@ export function DFDCarousel({
                     </div>
                   </div>
                   <span className="text-xs font-medium truncate max-w-[90px]">
-                    {diagram.title}
+                    {diagram.name || diagram.title}
                   </span>
                 </button>
 

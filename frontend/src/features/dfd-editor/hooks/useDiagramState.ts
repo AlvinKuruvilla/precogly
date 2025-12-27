@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { Diagram, DiagramNode, DataFlowEdge } from '../types'
+import { api } from '@/lib/api'
 // Undo feature - remove this import to disable undo functionality
 import { useUndoHistory } from './useUndoHistory'
 
@@ -41,46 +42,26 @@ interface UseDiagramStateReturn {
 }
 
 async function fetchDiagram(diagramId: string): Promise<Diagram> {
-  const response = await fetch(`/api/diagrams/${diagramId}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch diagram')
-  }
-  return response.json()
+  return api.get<Diagram>(`/diagrams/${diagramId}/`)
 }
 
 async function saveDiagram(
   diagramId: string,
   data: { nodes: DiagramNode[]; edges: DataFlowEdge[] }
 ): Promise<Diagram> {
-  const response = await fetch(`/api/diagrams/${diagramId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      canvasData: {
-        nodes: data.nodes,
-        edges: data.edges,
-      },
-    }),
+  return api.patch<Diagram>(`/diagrams/${diagramId}/`, {
+    canvas_data: {
+      nodes: data.nodes,
+      edges: data.edges,
+    },
   })
-  if (!response.ok) {
-    throw new Error('Failed to save diagram')
-  }
-  return response.json()
 }
 
 async function updateDiagramTitle(
   diagramId: string,
   title: string
 ): Promise<Diagram> {
-  const response = await fetch(`/api/diagrams/${diagramId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
-  })
-  if (!response.ok) {
-    throw new Error('Failed to update diagram title')
-  }
-  return response.json()
+  return api.patch<Diagram>(`/diagrams/${diagramId}/`, { name: title })
 }
 
 export function useDiagramState({
@@ -142,9 +123,11 @@ export function useDiagramState({
   // Initialize nodes and edges from fetched diagram
   useEffect(() => {
     if (diagram && !initialLoadRef.current) {
-      setNodes(diagram.canvasData.nodes as DiagramNode[])
-      setEdges(diagram.canvasData.edges as DataFlowEdge[])
-      setLastSaved(new Date(diagram.updatedAt))
+      const canvasData = diagram.canvas_data || diagram.canvasData
+      setNodes((canvasData?.nodes || []) as DiagramNode[])
+      setEdges((canvasData?.edges || []) as DataFlowEdge[])
+      const updatedAt = diagram.updated_at || diagram.updatedAt
+      if (updatedAt) setLastSaved(new Date(updatedAt))
       initialLoadRef.current = true
     }
   }, [diagram])

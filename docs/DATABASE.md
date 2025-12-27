@@ -7,6 +7,16 @@ erDiagram
 %% (not defined here - managed by Django auth system)
 %% Single-org deployments create one Organization record;
 %% multi-tenant SaaS uses multiple.
+%%
+%% UPDATED: Dec. 27, 2025 - Added Library Packs architecture for
+%% modular, installable content bundles.
+%%
+%% UPDATED: Dec. 27, 2025 - Reviewer feedback fixes:
+%% - Added qualified_slug for namespace collision prevention
+%% - Added customization tracking (status, base_item) for update/fork handling
+%% - Added aliases for backward compatibility with renamed slugs
+%% - Added soft delete (is_deleted, deleted_at) for deletion cascades
+%% - Added LibraryPackDependency with version constraints
 
     %% ===== ORGANIZATIONS (Multi-tenancy) =====
     Organizations {
@@ -25,6 +35,56 @@ erDiagram
         date JoinedDate
     }
 
+    %% ===== LIBRARY PACKS (Modular Content) =====
+    %% Packs allow bundling of components, threats, countermeasures,
+    %% and templates for easy installation and management.
+    LibraryPacks {
+        int id PK
+        string Slug UK "unique identifier e.g. 'banking-technologies'"
+        string Name
+        string Description
+        string PackType "technology/threat/countermeasure/compliance/template/full"
+        string Tier "free/premium/enterprise"
+        string Source "official/partner/community/private"
+        string Version "semantic version e.g. '1.2.0'"
+        string Author
+        string RepositoryURL "nullable - GitHub or registry URL"
+        string DocumentationURL "nullable"
+        string IconURL "nullable"
+        array Industries "e.g. ['banking', 'fintech']"
+        array Tags "e.g. ['aws', 'cloud', 'serverless']"
+        json Content "pack content: components, threats, etc."
+        int InstallCount
+        boolean IsPublished
+        date PublishedAt "nullable"
+        int OwnerOrganizationID FK "nullable - for private packs"
+        date CreatedAt
+        date UpdatedAt
+    }
+
+    LibraryPackDependencies {
+        int id PK
+        int PackID FK
+        int DependsOnPackID FK
+        string VersionConstraint "nullable - e.g. '^1.0.0', '>=2.0.0'"
+        boolean IsOptional "default false"
+        date CreatedAt
+        date UpdatedAt
+    }
+
+    OrganizationPackInstallations {
+        int id PK
+        int OrganizationID FK
+        int PackID FK
+        string InstalledVersion
+        string Status "installed/pending_update/failed"
+        int InstalledByID FK "Django User"
+        date InstalledAt
+        date LastUpdatedAt
+        string LicenseKey "nullable - for premium packs"
+        date LicenseExpiresAt "nullable"
+    }
+
     %% ===== CORE SYSTEM ENTITIES =====
     Orgsystems {
         int id PK
@@ -39,7 +99,7 @@ erDiagram
         int id PK
         string Name "e.g. Main App Repo"
         string Type "GitHub/CSPM/Terraform/SBOM/Manual"
-        string ConnectionDetails "repo URL, account ID, etc."
+        json ConnectionDetails "repo URL, account ID, etc."
         string Status "Active/Inactive/Error"
         date LastSyncDate
         int OrgsystemID FK
@@ -47,6 +107,7 @@ erDiagram
 
     TrustBoundaries {
         int id PK
+        int OrganizationID FK "nullable - null means global/shared"
         string Name
         int TrustLevel "0-100"
         string Description
@@ -56,10 +117,18 @@ erDiagram
     ComponentLibrary {
         int id PK
         int OrganizationID FK "nullable - null means global/shared"
+        int SourcePackID FK "nullable - pack this came from"
+        string Slug "identifier within pack e.g. 'aws-s3'"
+        string QualifiedSlug UK "nullable - namespace-safe e.g. 'aws-technologies/s3'"
         string Name
         string Category "Process/Store/External"
-        string Type
+        string ComponentType
         string Provider "AWS/Azure/Internal"
+        string CustomizationStatus "original/customized/detached"
+        string BaseItemQualifiedSlug "nullable - original item if forked"
+        array Aliases "previous slugs for backward compat"
+        boolean IsDeleted "soft delete flag"
+        date DeletedAt "nullable"
     }
 
     OrgsystemsComponents {
@@ -79,7 +148,7 @@ erDiagram
         string Confidentiality "High/Med/Low"
         string Integrity "High/Med/Low"
         string Availability "High/Med/Low"
-        array ComplianceTags
+        json ComplianceTags
     }
 
     ComponentDataAssets {
@@ -112,11 +181,19 @@ erDiagram
     ThreatLibrary {
         int id PK
         int OrganizationID FK "nullable - null means global/shared"
+        int SourcePackID FK "nullable - pack this came from"
+        string Slug "identifier within pack e.g. 'sql-injection'"
+        string QualifiedSlug UK "nullable - namespace-safe e.g. 'owasp-top10/sql-injection'"
         string Name
         string Description
         string STRIDE_Category
         string Source "STRIDE/CAPEC/OWASP/CWE/Custom"
         string SourceID "nullable - e.g. CAPEC-66, CWE-89"
+        string CustomizationStatus "original/customized/detached"
+        string BaseItemQualifiedSlug "nullable - original item if forked"
+        array Aliases "previous slugs for backward compat"
+        boolean IsDeleted "soft delete flag"
+        date DeletedAt "nullable"
     }
 
     ComponentLibraryThreats {
@@ -150,10 +227,24 @@ erDiagram
     CountermeasureLibrary {
         int id PK
         int OrganizationID FK "nullable - null means global/shared"
+        int SourcePackID FK "nullable - pack this came from"
+        string Slug "identifier within pack e.g. 'encryption-at-rest'"
+        string QualifiedSlug UK "nullable - namespace-safe e.g. 'security-controls/encryption-at-rest'"
         string Name
         string Description
         string Type "Technical/Procedural"
-        string Cost
+        string Cost "Low/Medium/High"
+        string CustomizationStatus "original/customized/detached"
+        string BaseItemQualifiedSlug "nullable - original item if forked"
+        array Aliases "previous slugs for backward compat"
+        boolean IsDeleted "soft delete flag"
+        date DeletedAt "nullable"
+    }
+
+    %% M2M: Which threats can this countermeasure mitigate?
+    CountermeasureApplicableThreats {
+        int CountermeasureLibraryID FK
+        int ThreatLibraryID FK
     }
 
     ComponentInstanceCountermeasures {
@@ -181,6 +272,7 @@ erDiagram
     %% ===== VERIFICATION & TESTING =====
     VerificationTests {
         int id PK
+        int OrganizationID FK "nullable - null means global/shared"
         string Name
         string Method "PenTest/Auto/CodeReview"
         date LastRunDate
@@ -189,15 +281,17 @@ erDiagram
     }
 
     ComponentInstanceCountermeasureTests {
+        int id PK
         int ComponentInstanceCountermeasureID FK
         int VerificationTestID FK
-        date TestedOn
+        date TestedAt
     }
 
     FlowInstanceCountermeasureTests {
+        int id PK
         int FlowInstanceCountermeasureID FK
         int VerificationTestID FK
-        date TestedOn
+        date TestedAt
     }
 
     %% ===== PENTEST RECONCILIATION =====
@@ -218,6 +312,7 @@ erDiagram
         string Name
         string Version
         string Issuer
+        string Description
     }
 
     StandardRequirements {
@@ -225,6 +320,7 @@ erDiagram
         int FrameworkID FK
         string SectionCode
         string Description
+        int ParentRequirementID FK "nullable - for hierarchical requirements"
     }
 
     CountermeasureLibraryStandards {
@@ -237,11 +333,20 @@ erDiagram
     DFDTemplatesLibrary {
         int id PK
         int OrganizationID FK "nullable - null means global/shared"
+        int SourcePackID FK "nullable - pack this came from"
+        string Slug "identifier within pack e.g. 'banking-webapp-l1'"
+        string QualifiedSlug UK "nullable - namespace-safe e.g. 'banking-templates/webapp-l1'"
         string Name
         string Description
         string Category "WebApp/Microservices/IoT/API/Mobile"
         string Type "Context/Level1/Level2"
         int MaintainedByID FK "Django User"
+        json CanvasData "ReactFlow JSON structure"
+        string CustomizationStatus "original/customized/detached"
+        string BaseItemQualifiedSlug "nullable - original item if forked"
+        array Aliases "previous slugs for backward compat"
+        boolean IsDeleted "soft delete flag"
+        date DeletedAt "nullable"
         date LastUpdated
     }
 
@@ -251,10 +356,12 @@ erDiagram
         int OrganizationID FK
         int CreatedByUserID FK "Django User"
         string Name
+        string Description
         string Version
-        string Status "Draft/InProgress/Complete"
+        string Status "Draft/InProgress/PendingReview/Approved/Archived"
         string Trigger "New/Incident/Pentest/Drift/FeatureAddition"
-        int PreviousVersionID FK
+        int PreviousVersionID FK "nullable"
+        json WorkspaceData "UI state, progress, system context"
         date CreatedDate
         date LastModified
     }
@@ -275,9 +382,11 @@ erDiagram
         int id PK
         string Name
         string Type "Context/Level1/Level2"
-        string UpdatedBy
-        date LastUpdated
+        int UpdatedByID FK "Django User"
         int TemplateLibraryID FK "nullable - created from library template"
+        json CanvasData "ReactFlow nodes and edges"
+        json ThreatAnalysisData "analysis results"
+        date LastUpdated
     }
 
     ThreatModelDFDs {
@@ -302,6 +411,18 @@ erDiagram
     Organizations ||--o{ ThreatLibrary : "customizes"
     Organizations ||--o{ CountermeasureLibrary : "customizes"
     Organizations ||--o{ DFDTemplatesLibrary : "customizes"
+    Organizations ||--o{ TrustBoundaries : "defines"
+    Organizations ||--o{ VerificationTests : "owns"
+    Organizations ||--o{ OrganizationPackInstallations : "has_installed"
+    Organizations ||--o{ LibraryPacks : "owns_private"
+
+    %% --- Library Packs ---
+    LibraryPacks ||--o{ LibraryPackDependencies : "depends_on"
+    LibraryPacks ||--o{ OrganizationPackInstallations : "installed_by"
+    LibraryPacks ||--o{ ComponentLibrary : "provides"
+    LibraryPacks ||--o{ ThreatLibrary : "provides"
+    LibraryPacks ||--o{ CountermeasureLibrary : "provides"
+    LibraryPacks ||--o{ DFDTemplatesLibrary : "provides"
 
     %% --- Core System Hierarchy ---
     Orgsystems ||--o{ OrgsystemsComponents : "owns"
@@ -324,6 +445,10 @@ erDiagram
     %% --- Threat Library (Templates) ---
     ComponentLibrary ||--o{ ComponentLibraryThreats : "has_potential"
     ThreatLibrary ||--o{ ComponentLibraryThreats : "applies_to_type"
+
+    %% --- Countermeasure to Threat Mapping ---
+    CountermeasureLibrary ||--o{ CountermeasureApplicableThreats : "mitigates"
+    ThreatLibrary ||--o{ CountermeasureApplicableThreats : "mitigated_by"
 
     %% --- Component Threat Instances ---
     OrgsystemsComponents ||--o{ ComponentInstanceThreats : "vulnerable_to"
@@ -355,6 +480,7 @@ erDiagram
 
     %% --- Compliance Framework ---
     StandardFrameworks ||--o{ StandardRequirements : "contains"
+    StandardRequirements ||--o| StandardRequirements : "parent_of"
     CountermeasureLibrary ||--o{ CountermeasureLibraryStandards : "satisfies"
     StandardRequirements ||--o{ CountermeasureLibraryStandards : "satisfied_by"
 

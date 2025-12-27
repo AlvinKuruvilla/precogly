@@ -9,14 +9,21 @@ export interface ThreatModel {
   id: string
   name: string
   description: string
-  criticality: Criticality
+  criticality?: Criticality
   status: ThreatModelStatus
-  frameworks: string[]
-  owner: string
+  frameworks?: string[]
+  owner?: string
   systemIds?: string[]
   referencedModelIds?: string[]
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
+  // Backend snake_case fields
+  created_at?: string
+  updated_at?: string
+  created_by?: string
+  created_by_email?: string
+  workspace_data?: Record<string, unknown>
+  dfds?: Array<{ id: string; name: string; diagram_type?: string; updated_at?: string }>
 }
 
 export interface CreateThreatModelInput {

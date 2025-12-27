@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/layout'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import {
   Dashboard,
   ThreatModels,
@@ -9,12 +10,21 @@ import {
   TechComponents,
   ThreatLibraries,
   DFDEditor,
+  Login,
 } from '@/pages'
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <Login />,
+  },
+  {
     path: '/',
-    element: <Layout />,
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'threat-models', element: <ThreatModels /> },
