@@ -85,6 +85,29 @@ export function useDeleteThreatModel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+      queryClient.invalidateQueries({ queryKey: ['diagrams'] })
     },
+  })
+}
+
+export interface DeletePreviewDFD {
+  id: string
+  name: string
+  node_count: number
+  shared_with?: Array<{ id: string; name: string }>
+}
+
+export interface DeletePreviewResponse {
+  threat_model: { id: string; name: string }
+  dfds_to_delete: DeletePreviewDFD[]
+  dfds_to_preserve: DeletePreviewDFD[]
+  total_dfds: number
+}
+
+export function useDeletePreview(id: string | null) {
+  return useQuery({
+    queryKey: ['threat-model-delete-preview', id],
+    queryFn: () => api.get<DeletePreviewResponse>(`/threat-models/${id}/delete_preview/`),
+    enabled: !!id,
   })
 }

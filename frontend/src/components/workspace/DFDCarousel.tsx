@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LayoutGrid, Plus, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LayoutGrid, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Diagram } from '@/types'
@@ -69,57 +69,36 @@ export function DFDCarousel({
             const nodeCount = canvasData?.nodes?.length || 0
 
             return (
-              <div
+              <button
                 key={diagram.id}
+                onClick={() => onEditDiagram(diagram.id)}
                 className={cn(
-                  'group relative flex flex-col items-center gap-1 px-3 py-2 rounded-md transition-colors min-w-[100px]',
+                  'flex flex-col items-center gap-1 px-3 py-2 rounded-md transition-colors min-w-[100px] cursor-pointer',
                   isSelected
                     ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-muted'
                 )}
+                title={`Open ${diagram.name || diagram.title}`}
               >
-                {/* Click to filter */}
-                <button
-                  onClick={() => onSelectDiagram(diagram.id)}
-                  className="flex flex-col items-center gap-1"
+                <div
+                  className={cn(
+                    'w-16 h-12 rounded border flex items-center justify-center text-xs relative',
+                    isSelected
+                      ? 'bg-primary-foreground/20 border-primary-foreground/30'
+                      : 'bg-background border-border'
+                  )}
                 >
-                  <div
-                    className={cn(
-                      'w-16 h-12 rounded border flex items-center justify-center text-xs relative',
-                      isSelected
-                        ? 'bg-primary-foreground/20 border-primary-foreground/30'
-                        : 'bg-background border-border'
-                    )}
-                  >
-                    <div className="text-center">
-                      <div className="font-medium">{nodeCount}</div>
-                      <div className="text-[10px] opacity-70">
-                        {nodeCount === 1 ? 'node' : 'nodes'}
-                      </div>
+                  <div className="text-center">
+                    <div className="font-medium">{nodeCount}</div>
+                    <div className="text-[10px] opacity-70">
+                      {nodeCount === 1 ? 'node' : 'nodes'}
                     </div>
                   </div>
-                  <span className="text-xs font-medium truncate max-w-[90px]">
-                    {diagram.name || diagram.title}
-                  </span>
-                </button>
-
-                {/* Edit button - appears on hover */}
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className={cn(
-                    'absolute -top-1 -right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
-                    isSelected && 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEditDiagram(diagram.id)
-                  }}
-                  title="Edit DFD"
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-              </div>
+                </div>
+                <span className="text-xs font-medium truncate max-w-[90px]">
+                  {diagram.name || diagram.title}
+                </span>
+              </button>
             )
           })}
         </div>

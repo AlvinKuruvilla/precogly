@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -31,6 +31,8 @@ import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
+import { useDeleteThreatModel } from '@/api/threat-models'
+import { DeleteThreatModelDialog } from '@/components/threat-models'
 
 // Mock team members data (same as in ComponentView)
 const TEAM_MEMBERS: TeamMember[] = [
@@ -82,6 +84,7 @@ export function ThreatModelDetail() {
   const queryClient = useQueryClient()
 
   // View state
+  const [activeTab, setActiveTab] = useState<string>('overview')
   const [viewMode, setViewMode] = useState<ViewMode>('component')
   const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(null)
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
@@ -93,6 +96,10 @@ export function ThreatModelDetail() {
   const [manageThreatModelsModalOpen, setManageThreatModelsModalOpen] = useState(false)
   const [managePeopleModalOpen, setManagePeopleModalOpen] = useState(false)
   const [manageDFDsModalOpen, setManageDFDsModalOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  // Delete mutation
+  const deleteMutation = useDeleteThreatModel()
 
 
   // Data fetching
@@ -243,6 +250,17 @@ export function ThreatModelDetail() {
     console.log('Delete DFD:', diagramId)
   }
 
+  const handleDeleteThreatModel = () => {
+    if (id) {
+      deleteMutation.mutate(id, {
+        onSuccess: () => {
+          setDeleteDialogOpen(false)
+          navigate('/threat-models')
+        },
+      })
+    }
+  }
+
   // Loading state
   if (isLoadingModel) {
     return (
@@ -281,6 +299,8 @@ export function ThreatModelDetail() {
             </Link>
             <span className="text-muted-foreground">/</span>
             <h1 className="font-semibold truncate">{threatModel.name}</h1>
+            <span className="text-muted-foreground">/</span>
+            <span className="text-sm text-muted-foreground">Workspace</span>
           </div>
 
           {/* Right: Status + Version + Actions */}
@@ -353,6 +373,17 @@ export function ThreatModelDetail() {
               <span className="hidden sm:inline">System Context</span>
             </Button>
 
+            {/* Delete button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-3 w-3" />
+              <span className="hidden sm:inline">Delete</span>
+            </Button>
+
             {/* Submit button */}
             {status === 'draft' && (
               <Button
@@ -369,9 +400,10 @@ export function ThreatModelDetail() {
       </div>
 
       {/* Tab-based Content */}
-      <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="border-b bg-muted/30 px-6">
-          <TabsList className="h-12 bg-transparent p-0 gap-4">
+          <div className="flex items-center justify-between">
+            <TabsList className="h-12 bg-transparent p-0 gap-4">
             <TabsTrigger
               value="overview"
               className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
@@ -392,6 +424,7 @@ export function ThreatModelDetail() {
               )}
             </TabsTrigger>
           </TabsList>
+          </div>
         </div>
 
         {/* Overview Tab */}
@@ -422,6 +455,9 @@ export function ThreatModelDetail() {
             components={summaries.componentSummary}
             threats={summaries.threatSummary}
             countermeasures={summaries.countermeasureSummary}
+            onComponentsClick={() => setActiveTab('threats')}
+            onThreatsClick={() => setActiveTab('threats')}
+            onCountermeasuresClick={() => setActiveTab('threats')}
           />
 
           {/* DFD Carousel */}
@@ -596,6 +632,14 @@ export function ThreatModelDetail() {
         dfds={diagrams}
         onCreateDFD={handleCreateDFD}
         onDeleteDFD={handleDeleteDFD}
+      />
+
+      <DeleteThreatModelDialog
+        threatModel={threatModel}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteThreatModel}
+        isDeleting={deleteMutation.isPending}
       />
     </div>
   )

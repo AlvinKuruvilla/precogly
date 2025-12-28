@@ -52,6 +52,90 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         """Set created_by to current user."""
         serializer.save(created_by=self.request.user)
 
+    def perform_destroy(self, instance):
+        """
+        Smart cascade delete: Delete the threat model and any DFDs that would become orphaned.
+
+        A DFD is considered orphaned if it's not associated with any other threat model
+        after this threat model is deleted.
+        """
+        # Get all DFDs associated with this threat model
+        dfd_associations = instance.dfd_associations.select_related("dfd").all()
+        dfds_to_check = [assoc.dfd for assoc in dfd_associations]
+
+        # Find DFDs that would become orphaned (only linked to this threat model)
+        orphaned_dfds = []
+        for dfd in dfds_to_check:
+            # Count how many OTHER threat models this DFD is linked to
+            other_associations_count = ThreatModelDFD.objects.filter(
+                dfd=dfd
+            ).exclude(
+                threat_model=instance
+            ).count()
+
+            if other_associations_count == 0:
+                orphaned_dfds.append(dfd)
+
+        # Delete the threat model first (this cascades to ThreatModelDFD associations)
+        instance.delete()
+
+        # Delete orphaned DFDs
+        for dfd in orphaned_dfds:
+            dfd.delete()
+
+    @action(detail=True, methods=["get"])
+    def delete_preview(self, request, pk=None):
+        """
+        Preview what will be deleted when this threat model is deleted.
+
+        Returns information about DFDs that will be deleted (orphaned) vs preserved (shared).
+        """
+        threat_model = self.get_object()
+
+        # Get all DFDs associated with this threat model
+        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+
+        dfds_to_delete = []
+        dfds_to_preserve = []
+
+        for assoc in dfd_associations:
+            dfd = assoc.dfd
+            canvas_data = dfd.canvas_data or {}
+            node_count = len(canvas_data.get("nodes", []))
+
+            # Count how many OTHER threat models this DFD is linked to
+            other_associations = ThreatModelDFD.objects.filter(
+                dfd=dfd
+            ).exclude(
+                threat_model=threat_model
+            ).select_related("threat_model")
+
+            dfd_info = {
+                "id": str(dfd.id),
+                "name": dfd.name,
+                "node_count": node_count,
+            }
+
+            if other_associations.count() == 0:
+                dfds_to_delete.append(dfd_info)
+            else:
+                # Include names of other threat models that share this DFD
+                dfd_info["shared_with"] = [
+                    {"id": str(a.threat_model.id), "name": a.threat_model.name}
+                    for a in other_associations
+                ]
+                dfds_to_preserve.append(dfd_info)
+
+        return Response({
+            "threat_model": {
+                "id": str(threat_model.id),
+                "name": threat_model.name,
+            },
+            "dfds_to_delete": dfds_to_delete,
+            "dfds_to_preserve": dfds_to_preserve,
+            "total_dfds": len(dfd_associations),
+        })
+
     @action(detail=True, methods=["post"])
     def add_dfd(self, request, pk=None):
         """Add a DFD to this threat model."""

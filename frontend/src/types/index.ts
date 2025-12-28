@@ -1,6 +1,9 @@
 // Re-export pack types
 export * from './packs'
 
+// Re-export compliance types
+export * from './compliance'
+
 // Re-export library types (excludes DFDTemplate to avoid conflict with dfd-editor types)
 export type {
   ComponentLibrary,
@@ -53,11 +56,7 @@ export interface DashboardStats {
   approved: number
 }
 
-export interface Framework {
-  id: string
-  name: string
-  description: string
-}
+// Note: Framework type is now exported from ./compliance with full fields
 
 export interface System {
   id: string

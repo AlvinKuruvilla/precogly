@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
+import { MoreHorizontal, Trash2, ExternalLink } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -9,6 +11,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { DeleteThreatModelDialog } from '@/components/threat-models'
+import { useDeleteThreatModel } from '@/api/threat-models'
 import type { ThreatModel } from '@/types'
 
 interface ThreatModelsTableProps {
@@ -35,6 +47,18 @@ const defaultCriticality = { label: 'Not Set', className: 'bg-gray-50 text-gray-
 
 export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTableProps) {
   const navigate = useNavigate()
+  const [modelToDelete, setModelToDelete] = useState<ThreatModel | null>(null)
+  const deleteMutation = useDeleteThreatModel()
+
+  const handleDelete = () => {
+    if (modelToDelete) {
+      deleteMutation.mutate(modelToDelete.id, {
+        onSuccess: () => {
+          setModelToDelete(null)
+        },
+      })
+    }
+  }
 
   if (isLoading) {
     return (
@@ -63,6 +87,7 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
           <TableHead>Frameworks</TableHead>
           <TableHead>Owner</TableHead>
           <TableHead>Last Updated</TableHead>
+          <TableHead className="w-[50px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -112,9 +137,49 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
                 ? formatDistanceToNow(new Date(model.updatedAt), { addSuffix: true })
                 : '—'}
             </TableCell>
+            <TableCell>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      navigate(`/threat-models/${model.id}`)
+                    }}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setModelToDelete(model)
+                    }}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
+
+      <DeleteThreatModelDialog
+        threatModel={modelToDelete}
+        open={modelToDelete !== null}
+        onOpenChange={(open) => !open && setModelToDelete(null)}
+        onConfirm={handleDelete}
+        isDeleting={deleteMutation.isPending}
+      />
     </Table>
   )
 }
