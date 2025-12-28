@@ -38,13 +38,13 @@ Precogly aims to solve three fundamental challenges in application security:
 | Feature                                                   | Open Source Tools | Commercial Tools | Precogly |
 | --------------------------------------------------------- | ----------------- | ---------------- | -------- |
 | Threat modeling                                           | ✅                | ✅               | ✅       |
-| Open source                                               | ✅                | ❌               | ✅       |
 | Enterprise support (multi-user, integrations etc.)        | ❌                | ✅               | ✅       |
 | Compliance-aware                                          | ❌                | ✅               | ✅       |
-| Auto-ingestion (GitHub, Terraform, CSPM)                  | ❌                | ⚠️ Limited       | ✅       |
-| AI-assisted threat identification                         | ❌                | ⚠️ Limited       | ✅       |
-| Pentest finding reconciliation                            | ❌                | ❌               | ✅       |
+| Auto-ingestion (GitHub, Terraform, CSPM)                  | ❌                | ✅               | ✅       |
+| AI-assisted threat identification                         | ❌                | ✅               | ✅       |
+| Pentest finding reconciliation                            | ❌                | ✅               | ✅       |
 | Pre-built libraries (components, threats, controls, DFDs) | ❌                | ✅               | ✅       |
+| Open source                                               | ✅                | ❌               | ✅       |
 
 ### What does "compliance-aware" mean?
 
