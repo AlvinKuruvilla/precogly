@@ -2,10 +2,13 @@
 Views for threats app.
 """
 
+from django.db import transaction
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, viewsets
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from .models import (
     ComponentInstanceCountermeasure,
@@ -109,6 +112,161 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
     filterset_fields = ["component", "threat_library", "status", "inherent_severity"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
     ordering = ["-inherent_severity"]
+
+    @action(detail=True, methods=["get"])
+    def suggested_countermeasures(self, request, pk=None):
+        """
+        Get suggested countermeasures for this threat instance.
+
+        Queries CountermeasureLibrary.applicable_threats to find countermeasures
+        that can mitigate this threat type.
+
+        Returns:
+            - suggested: countermeasures not yet applied
+            - applied: countermeasures already applied to this threat instance
+        """
+        instance_threat = self.get_object()
+        threat_library = instance_threat.threat_library
+
+        # Get countermeasures applicable to this threat type
+        applicable_countermeasures = CountermeasureLibrary.objects.filter(
+            applicable_threats=threat_library,
+            is_deleted=False,
+        )
+
+        # Get countermeasures already applied to this instance
+        applied_ids = set(
+            instance_threat.countermeasures.values_list(
+                "countermeasure_library_id", flat=True
+            )
+        )
+
+        suggested = []
+        applied = []
+
+        for cm in applicable_countermeasures:
+            if cm.id in applied_ids:
+                applied.append(cm)
+            else:
+                suggested.append(cm)
+
+        return Response({
+            "threat_id": instance_threat.id,
+            "threat_name": threat_library.name,
+            "suggested": CountermeasureLibraryListSerializer(suggested, many=True).data,
+            "applied": CountermeasureLibraryListSerializer(applied, many=True).data,
+            "suggested_count": len(suggested),
+            "applied_count": len(applied),
+        })
+
+    @action(detail=True, methods=["post"])
+    def apply_countermeasure(self, request, pk=None):
+        """
+        Apply a suggested countermeasure to this threat instance.
+
+        Request body:
+            - countermeasure_library_id: ID of the countermeasure to apply
+            - status: optional, defaults to 'gap'
+        """
+        instance_threat = self.get_object()
+        countermeasure_id = request.data.get("countermeasure_library_id")
+
+        if not countermeasure_id:
+            return Response(
+                {"error": "countermeasure_library_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            countermeasure = CountermeasureLibrary.objects.get(
+                id=countermeasure_id, is_deleted=False
+            )
+        except CountermeasureLibrary.DoesNotExist:
+            return Response(
+                {"error": "Countermeasure not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Create or get the instance countermeasure
+        instance_cm, created = ComponentInstanceCountermeasure.objects.get_or_create(
+            instance_threat=instance_threat,
+            countermeasure_library=countermeasure,
+            defaults={
+                "status": request.data.get("status", ComponentInstanceCountermeasure.Status.GAP),
+            },
+        )
+
+        if not created:
+            return Response(
+                {"error": "Countermeasure already applied to this threat"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Recalculate threat status
+        self._recalculate_threat_status(instance_threat)
+
+        return Response({
+            "countermeasure": ComponentInstanceCountermeasureSerializer(instance_cm).data,
+            "message": f"Applied countermeasure '{countermeasure.name}' to threat",
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def recalculate_status(self, request, pk=None):
+        """
+        Recalculate the threat status based on applied countermeasures.
+
+        Status logic:
+            - OPEN: No countermeasures applied OR all countermeasures are gaps
+            - MITIGATED: All countermeasures are verified
+            - OPEN (addressable): Some countermeasures planned/verified but not all
+        """
+        instance_threat = self.get_object()
+        new_status = self._recalculate_threat_status(instance_threat)
+
+        return Response({
+            "threat_id": instance_threat.id,
+            "old_status": instance_threat.status,
+            "new_status": new_status,
+            "message": f"Status updated to {new_status}",
+        })
+
+    def _recalculate_threat_status(self, instance_threat):
+        """
+        Internal method to recalculate threat status.
+
+        Status determination:
+            - MITIGATED: All applicable countermeasures verified OR accepted risk
+            - OPEN: No countermeasures, all gaps, or incomplete mitigation
+        """
+        countermeasures = instance_threat.countermeasures.all()
+
+        if not countermeasures.exists():
+            # No countermeasures = open
+            new_status = ComponentInstanceThreat.Status.OPEN
+        else:
+            statuses = list(countermeasures.values_list("status", flat=True))
+
+            # All verified = mitigated
+            if all(s == ComponentInstanceCountermeasure.Status.VERIFIED for s in statuses):
+                new_status = ComponentInstanceThreat.Status.MITIGATED
+            # All waived = accepted
+            elif all(s == ComponentInstanceCountermeasure.Status.WAIVED for s in statuses):
+                new_status = ComponentInstanceThreat.Status.ACCEPTED
+            # Mix of verified/waived = mitigated (risk accepted for some)
+            elif all(
+                s in [ComponentInstanceCountermeasure.Status.VERIFIED, ComponentInstanceCountermeasure.Status.WAIVED]
+                for s in statuses
+            ):
+                new_status = ComponentInstanceThreat.Status.MITIGATED
+            else:
+                # Gaps or planned = still open
+                new_status = ComponentInstanceThreat.Status.OPEN
+
+        if instance_threat.status != new_status:
+            instance_threat.status = new_status
+            instance_threat.save(update_fields=["status", "updated_at"])
+
+        return new_status
 
 
 class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):

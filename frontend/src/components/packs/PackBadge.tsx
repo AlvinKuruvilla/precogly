@@ -10,7 +10,7 @@ interface PackBadgeProps {
   packSlug?: string | null
 }
 
-export function PackBadge({ packName, packSlug }: PackBadgeProps) {
+export function PackBadge({ packName }: PackBadgeProps) {
   if (!packName) return null
 
   return (

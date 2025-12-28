@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Package, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Package, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useInstalledPacks, useUninstallPack } from '@/api/packs'
+import { useInstalledPacks, useUninstallPack, usePackUsage } from '@/api/packs'
 import type { InstalledPack } from '@/types/packs'
 
 const statusColors: Record<string, string> = {
@@ -38,6 +38,11 @@ export function InstalledPacks() {
   const { data: packs, isLoading } = useInstalledPacks()
   const uninstallMutation = useUninstallPack()
   const [packToUninstall, setPackToUninstall] = useState<InstalledPack | null>(null)
+
+  // Check usage when a pack is selected for uninstall
+  const { data: usageData, isLoading: usageLoading } = usePackUsage(
+    packToUninstall?.id ?? null
+  )
 
   const handleUninstall = async () => {
     if (!packToUninstall) return
@@ -172,16 +177,52 @@ export function InstalledPacks() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Uninstall Pack</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to uninstall{' '}
-              <strong>{packToUninstall?.pack.name}</strong>? This will remove
-              all associated library items from your organization.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Are you sure you want to uninstall{' '}
+                  <strong>{packToUninstall?.pack.name}</strong>?
+                </p>
+
+                {usageLoading ? (
+                  <p className="text-sm text-muted-foreground">Checking usage...</p>
+                ) : usageData?.in_use ? (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-800 dark:text-amber-200">
+                        This pack is in use
+                      </p>
+                      <p className="text-amber-700 dark:text-amber-300 mt-1">
+                        {usageData.usage.component_instances > 0 && (
+                          <span>{usageData.usage.component_instances} component instances, </span>
+                        )}
+                        {usageData.usage.threat_instances > 0 && (
+                          <span>{usageData.usage.threat_instances} threat instances, </span>
+                        )}
+                        {usageData.usage.countermeasure_instances > 0 && (
+                          <span>{usageData.usage.countermeasure_instances} countermeasure instances</span>
+                        )}
+                        {' '}use items from this pack.
+                      </p>
+                      <p className="text-amber-700 dark:text-amber-300 mt-1">
+                        Existing threat models will continue to work, but library items will be hidden.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No threat models are using items from this pack.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleUninstall}
+              disabled={usageLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {uninstallMutation.isPending ? 'Uninstalling...' : 'Uninstall'}

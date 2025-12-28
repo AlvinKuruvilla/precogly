@@ -2,7 +2,7 @@
  * Dialog for confirming pack installation with dependency information.
  */
 
-import { AlertCircle, Check, Package, X } from 'lucide-react'
+import { AlertCircle, Check, Package } from 'lucide-react'
 import {
   Dialog,
   DialogContent,

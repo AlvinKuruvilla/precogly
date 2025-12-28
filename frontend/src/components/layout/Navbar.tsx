@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ChevronDown, User, Settings, LogOut, LayoutGrid, Package } from 'lucide-react'
+import { ChevronDown, User, Settings, LogOut, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,

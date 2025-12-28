@@ -121,6 +121,27 @@ export function useInstallPack() {
 }
 
 /**
+ * Check usage before uninstalling a pack.
+ */
+export function usePackUsage(installationId: number | null) {
+  return useQuery({
+    queryKey: [...packKeys.installed, 'usage', installationId],
+    queryFn: () =>
+      api.get<{
+        pack_name: string
+        usage: {
+          component_instances: number
+          threat_instances: number
+          countermeasure_instances: number
+          total: number
+        }
+        in_use: boolean
+      }>(`/installed-packs/${installationId}/check_usage/`),
+    enabled: installationId !== null,
+  })
+}
+
+/**
  * Uninstall a pack (by installation ID).
  */
 export function useUninstallPack() {

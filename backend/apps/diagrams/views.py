@@ -18,6 +18,7 @@ from .serializers import (
     ThreatModelListSerializer,
     ThreatModelSerializer,
 )
+from .services import get_threat_model_for_dfd, sync_dfd_nodes_to_components
 
 
 class ThreatModelViewSet(viewsets.ModelViewSet):
@@ -97,6 +98,100 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    @action(detail=True, methods=["get"])
+    def threats(self, request, pk=None):
+        """
+        Get all threats for this threat model, aggregated from all DFDs.
+
+        Returns threats with their countermeasures, organized by component.
+        """
+        from apps.systems.models import OrgsystemComponent
+        from apps.threats.models import ComponentInstanceThreat, ComponentInstanceCountermeasure
+        from apps.threats.serializers import (
+            ComponentInstanceThreatSerializer,
+            ComponentInstanceCountermeasureSerializer,
+        )
+
+        threat_model = self.get_object()
+
+        # Get all DFDs for this threat model
+        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+        dfds = [assoc.dfd for assoc in dfd_associations]
+
+        # Build node_id -> component_id mapping from all DFDs
+        node_component_map = {}
+        for dfd in dfds:
+            canvas_data = dfd.canvas_data or {}
+            for node in canvas_data.get("nodes", []):
+                node_id = node.get("id")
+                component_id = node.get("data", {}).get("component_id")
+                if node_id and component_id:
+                    node_component_map[node_id] = {
+                        "component_id": component_id,
+                        "dfd_id": str(dfd.id),
+                        "dfd_name": dfd.name,
+                    }
+
+        # Get all component IDs
+        component_ids = [v["component_id"] for v in node_component_map.values()]
+
+        # Fetch all threats for these components
+        threats = ComponentInstanceThreat.objects.filter(
+            component_id__in=component_ids
+        ).select_related(
+            "component", "threat_library"
+        ).prefetch_related(
+            "countermeasures__countermeasure_library"
+        )
+
+        # Build response with node mapping
+        result = []
+        for threat in threats:
+            # Find which node this component corresponds to
+            node_info = None
+            for node_id, info in node_component_map.items():
+                if info["component_id"] == threat.component_id:
+                    node_info = {"node_id": node_id, **info}
+                    break
+
+            threat_data = {
+                "id": threat.id,
+                "component_id": threat.component_id,
+                "component_name": threat.component.name if threat.component else None,
+                "node_id": node_info["node_id"] if node_info else None,
+                "dfd_id": node_info["dfd_id"] if node_info else None,
+                "dfd_name": node_info["dfd_name"] if node_info else None,
+                "threat_library_id": threat.threat_library_id,
+                "threat_name": threat.threat_library.name if threat.threat_library else None,
+                "threat_description": threat.threat_library.description if threat.threat_library else None,
+                "stride_category": threat.threat_library.stride_category if threat.threat_library else None,
+                "inherent_severity": threat.inherent_severity,
+                "residual_severity": threat.residual_severity,
+                "status": threat.status,
+                "justification": threat.justification,
+                "countermeasures": [
+                    {
+                        "id": cm.id,
+                        "countermeasure_library_id": cm.countermeasure_library_id,
+                        "countermeasure_name": cm.countermeasure_library.name if cm.countermeasure_library else None,
+                        "control_type": cm.countermeasure_library.control_type if cm.countermeasure_library else None,
+                        "status": cm.status,
+                        "evidence_url": cm.evidence_url,
+                        "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                        "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                    }
+                    for cm in threat.countermeasures.all()
+                ],
+            }
+            result.append(threat_data)
+
+        return Response({
+            "threat_model_id": str(threat_model.id),
+            "threats": result,
+            "total_count": len(result),
+            "node_component_map": node_component_map,
+        })
+
 
 class DFDViewSet(viewsets.ModelViewSet):
     """ViewSet for DFD CRUD operations."""
@@ -132,8 +227,15 @@ class DFDViewSet(viewsets.ModelViewSet):
         return DFDSerializer
 
     def perform_update(self, serializer):
-        """Set updated_by to current user."""
-        serializer.save(updated_by=self.request.user)
+        """Set updated_by to current user and sync nodes to components."""
+        dfd = serializer.save(updated_by=self.request.user)
+
+        # Sync DFD nodes to OrgsystemComponent records
+        threat_model = get_threat_model_for_dfd(dfd)
+        if threat_model:
+            sync_result = sync_dfd_nodes_to_components(dfd, threat_model)
+            # Store sync result in response headers for debugging
+            self._sync_result = sync_result
 
     @action(detail=False, methods=["post"])
     def create_for_threat_model(self, request):

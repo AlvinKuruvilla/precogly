@@ -2,10 +2,16 @@
 Views for systems app.
 """
 
+from django.db import transaction
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, viewsets
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
+from apps.threats.serializers import ComponentInstanceThreatSerializer
 
 from .models import (
     ComponentLibrary,
@@ -98,6 +104,61 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
         return OrgsystemComponent.objects.filter(
             orgsystem__organization_id__in=org_ids
         ).select_related("component_library", "trust_boundary")
+
+    @action(detail=True, methods=["post"])
+    def generate_threats(self, request, pk=None):
+        """
+        Auto-generate threats for this component based on its library type.
+
+        Queries ComponentLibraryThreat for threats linked to the component's
+        library entry and creates ComponentInstanceThreat records.
+
+        Returns:
+            - created: list of newly created threat instances
+            - existing: list of threats that already existed
+            - total: total threats now associated with this component
+        """
+        component = self.get_object()
+
+        if not component.component_library:
+            return Response(
+                {"error": "Component has no library type assigned"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get threats linked to this component's library type
+        library_threats = ComponentLibraryThreat.objects.filter(
+            component_library=component.component_library,
+            threat_library__is_deleted=False,
+        ).select_related("threat_library")
+
+        created_threats = []
+        existing_threats = []
+
+        with transaction.atomic():
+            for lib_threat in library_threats:
+                instance_threat, created = ComponentInstanceThreat.objects.get_or_create(
+                    component=component,
+                    threat_library=lib_threat.threat_library,
+                    defaults={
+                        "inherent_severity": lib_threat.default_severity,
+                        "status": ComponentInstanceThreat.Status.OPEN,
+                    },
+                )
+
+                if created:
+                    created_threats.append(instance_threat)
+                else:
+                    existing_threats.append(instance_threat)
+
+        return Response({
+            "created": ComponentInstanceThreatSerializer(created_threats, many=True).data,
+            "existing": ComponentInstanceThreatSerializer(existing_threats, many=True).data,
+            "created_count": len(created_threats),
+            "existing_count": len(existing_threats),
+            "total": len(created_threats) + len(existing_threats),
+            "message": f"Generated {len(created_threats)} new threats, {len(existing_threats)} already existed",
+        })
 
 
 class DataAssetViewSet(viewsets.ModelViewSet):

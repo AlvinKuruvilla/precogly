@@ -1,8 +1,13 @@
 // Re-export pack types
 export * from './packs'
 
-// Re-export library types
-export * from './libraries'
+// Re-export library types (excludes DFDTemplate to avoid conflict with dfd-editor types)
+export type {
+  ComponentLibrary,
+  ThreatLibrary,
+  CountermeasureLibrary,
+  DFDTemplate as LibraryDFDTemplate,
+} from './libraries'
 
 export type ThreatModelStatus = 'in_progress' | 'pending_review' | 'approved'
 export type Criticality = 'low' | 'medium' | 'high' | 'critical'

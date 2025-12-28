@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { PackCard, InstallPackDialog } from '@/components/packs'
 import { usePacks, useInstalledPacks } from '@/api/packs'
-import type { LibraryPackListItem, PackFilters, PackType, PackTier } from '@/types/packs'
+import type { LibraryPackListItem, PackFilters } from '@/types/packs'
 
 export function Packs() {
   const [filters, setFilters] = useState<PackFilters>({})

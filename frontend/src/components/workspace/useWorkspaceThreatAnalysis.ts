@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { Diagram } from '@/types'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type { Diagram, ThreatModel } from '@/types'
 import type {
   ComponentThreat,
   ComponentThreatCountermeasure,
@@ -24,9 +25,9 @@ import {
   type TechnologyCategory,
 } from '@/features/dfd-editor/lib/technology-registry'
 import type { DiagramNode, DataFlowEdge, TrustBoundaryNodeData } from '@/features/dfd-editor/types'
-
-// LocalStorage key prefix for workspace threat analysis
-const WORKSPACE_STORAGE_KEY_PREFIX = 'precogly_workspace_'
+import { useThreatModelThreats, useUpdateCountermeasure } from '@/api/threats'
+import { useUpdateThreatModel } from '@/api/threat-models'
+import { api } from '@/lib/api'
 
 interface WorkspaceThreatAnalysisState {
   threatModelId: string
@@ -36,6 +37,16 @@ interface WorkspaceThreatAnalysisState {
   previousVersions: ThreatModelVersion[]
   systemContext: SystemContext
   progressChecklist: ProgressChecklistItem[]
+}
+
+interface WorkspaceData {
+  status?: WorkspaceStatus
+  currentVersion?: ThreatModelVersion
+  previousVersions?: ThreatModelVersion[]
+  systemContext?: SystemContext
+  progressChecklist?: ProgressChecklistItem[]
+  criticality?: string
+  frameworks?: string[]
 }
 
 function getDefaultState(threatModelId: string): WorkspaceThreatAnalysisState {
@@ -59,26 +70,26 @@ function getDefaultState(threatModelId: string): WorkspaceThreatAnalysisState {
   }
 }
 
-function loadFromStorage(threatModelId: string): WorkspaceThreatAnalysisState | null {
-  try {
-    const stored = localStorage.getItem(`${WORKSPACE_STORAGE_KEY_PREFIX}${threatModelId}`)
-    if (stored) {
-      return JSON.parse(stored)
-    }
-  } catch (e) {
-    console.error('Failed to load workspace state from storage:', e)
-  }
-  return null
-}
+/**
+ * Extract workspace state from backend workspace_data
+ */
+function extractWorkspaceState(
+  workspaceData: WorkspaceData | undefined
+): Partial<WorkspaceThreatAnalysisState> {
+  if (!workspaceData) return {}
 
-function saveToStorage(state: WorkspaceThreatAnalysisState): void {
-  try {
-    localStorage.setItem(
-      `${WORKSPACE_STORAGE_KEY_PREFIX}${state.threatModelId}`,
-      JSON.stringify(state)
-    )
-  } catch (e) {
-    console.error('Failed to save workspace state to storage:', e)
+  return {
+    status: workspaceData.status || 'draft',
+    currentVersion: workspaceData.currentVersion || {
+      version: 1,
+      trigger: 'initial',
+      createdAt: new Date().toISOString(),
+    },
+    previousVersions: workspaceData.previousVersions || [],
+    systemContext: workspaceData.systemContext || { scopeLocked: false },
+    progressChecklist: workspaceData.progressChecklist?.length
+      ? workspaceData.progressChecklist
+      : DEFAULT_PROGRESS_CHECKLIST.map((item) => ({ ...item, checked: false })),
   }
 }
 
@@ -269,23 +280,128 @@ function initializeThreatsForDiagram(
   return componentThreats
 }
 
+/**
+ * Merge backend threats with local threats.
+ * Backend threats take priority; local threats are kept for components not yet synced.
+ */
+function mergeThreats(
+  localThreats: ComponentThreat[],
+  backendThreats: ComponentThreat[]
+): ComponentThreat[] {
+  // Create a map of backend threats by componentId + threatId combination
+  const backendThreatMap = new Map<string, ComponentThreat>()
+  backendThreats.forEach((bt) => {
+    const key = `${bt.componentId}-${bt.threatId}`
+    backendThreatMap.set(key, bt)
+  })
+
+  // Get set of component IDs that have backend threats
+  const backendComponentIds = new Set(backendThreats.map((bt) => bt.componentId))
+
+  // Keep local threats for components not in backend (unsaved components)
+  const localOnlyThreats = localThreats.filter((lt) => {
+    // Keep if this component has no backend threats
+    if (!backendComponentIds.has(lt.componentId)) return true
+    // If component has backend threats, check if this specific threat exists
+    const key = `${lt.componentId}-${lt.threatId}`
+    return !backendThreatMap.has(key)
+  })
+
+  // Combine backend threats (priority) with local-only threats
+  return [...backendThreats, ...localOnlyThreats]
+}
+
 export function useWorkspaceThreatAnalysis(
   threatModelId: string,
   diagrams: Diagram[]
 ) {
-  const [state, setState] = useState<WorkspaceThreatAnalysisState>(() => {
-    const stored = loadFromStorage(threatModelId)
-    return stored || getDefaultState(threatModelId)
+  // Track if we've initialized from backend to avoid overwriting with defaults
+  const hasInitializedFromBackend = useRef(false)
+
+  const [state, setState] = useState<WorkspaceThreatAnalysisState>(() =>
+    getDefaultState(threatModelId)
+  )
+
+  // Fetch threat model for workspace_data
+  const { data: threatModel, isLoading: isLoadingThreatModel } = useQuery({
+    queryKey: ['threat-model', threatModelId],
+    queryFn: () => api.get<ThreatModel>(`/threat-models/${threatModelId}/`),
+    enabled: !!threatModelId,
   })
 
-  // Save to localStorage when state changes
-  useEffect(() => {
-    saveToStorage(state)
-  }, [state])
+  // Fetch threats from backend API
+  const { data: backendThreats, isLoading: isLoadingThreats } = useThreatModelThreats(threatModelId)
 
-  // Sync threats when diagrams change
+  // Backend API mutations
+  const updateCountermeasureMutation = useUpdateCountermeasure()
+  const updateThreatModelMutation = useUpdateThreatModel()
+
+  // Initialize state from backend workspace_data when threat model loads
+  useEffect(() => {
+    if (threatModel?.workspace_data && !hasInitializedFromBackend.current) {
+      hasInitializedFromBackend.current = true
+      const backendState = extractWorkspaceState(threatModel.workspace_data as WorkspaceData)
+      setState((prev) => ({
+        ...prev,
+        ...backendState,
+      }))
+    }
+  }, [threatModel])
+
+  // Debounced save to backend when workspace metadata changes (status, systemContext, etc.)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    // Don't save until we've loaded from backend
+    if (!hasInitializedFromBackend.current) return
+
+    // Clear previous timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Debounce saves to backend (500ms delay)
+    saveTimeoutRef.current = setTimeout(() => {
+      const workspaceData = {
+        status: state.status,
+        currentVersion: state.currentVersion,
+        previousVersions: state.previousVersions,
+        systemContext: state.systemContext,
+        progressChecklist: state.progressChecklist,
+        // Preserve existing fields
+        criticality: (threatModel?.workspace_data as WorkspaceData)?.criticality,
+        frameworks: (threatModel?.workspace_data as WorkspaceData)?.frameworks,
+      }
+
+      updateThreatModelMutation.mutate({
+        id: threatModelId,
+        data: { workspace_data: workspaceData } as Partial<ThreatModel>,
+      })
+    }, 500)
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [state.status, state.systemContext, state.progressChecklist, state.currentVersion, state.previousVersions, threatModelId])
+
+  // Merge backend threats with local state when backend data loads
+  useEffect(() => {
+    if (backendThreats?.componentThreats && backendThreats.componentThreats.length > 0) {
+      setState((prev) => ({
+        ...prev,
+        // Use backend threats, keeping any local threats for unsaved components
+        componentThreats: mergeThreats(prev.componentThreats, backendThreats.componentThreats),
+      }))
+    }
+  }, [backendThreats])
+
+  // Sync threats when diagrams change (fallback for unsaved components)
   useEffect(() => {
     if (!diagrams || diagrams.length === 0) return
+    // Skip if backend threats are loading
+    if (isLoadingThreats) return
 
     setState((prev) => {
       // Get existing diagram IDs that have threats
@@ -308,7 +424,7 @@ export function useWorkspaceThreatAnalysis(
         return prev
       }
 
-      // Initialize threats for new diagrams
+      // Initialize threats for new diagrams (only for components without backend threats)
       const newThreats: ComponentThreat[] = []
       newDiagrams.forEach((diagram) => {
         const canvasData = diagram.canvas_data || diagram.canvasData
@@ -326,7 +442,7 @@ export function useWorkspaceThreatAnalysis(
         componentThreats: [...prev.componentThreats, ...newThreats],
       }
     })
-  }, [diagrams])
+  }, [diagrams, isLoadingThreats])
 
   // Update countermeasure status
   const updateCountermeasureStatus = useCallback(
@@ -336,6 +452,28 @@ export function useWorkspaceThreatAnalysis(
       status: CountermeasureStatus,
       notes?: string
     ) => {
+      // Find the threat to check if it's a backend threat
+      const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+      const countermeasure = threat?.countermeasures.find((cm) => cm.countermeasureId === countermeasureId)
+
+      // If this is a backend threat, also update via API
+      if (threat && countermeasure && countermeasure.id.startsWith('cm-')) {
+        // Extract backend countermeasure ID from the id string (format: "cm-{backendId}")
+        const backendCmId = parseInt(countermeasure.id.replace('cm-', ''), 10)
+        if (!isNaN(backendCmId)) {
+          // Map frontend status to backend status
+          const backendStatus = status === 'platform' ? 'verified' : status
+          updateCountermeasureMutation.mutate({
+            countermeasureId: backendCmId,
+            data: {
+              status: backendStatus as 'gap' | 'planned' | 'verified' | 'waived',
+              ...(notes !== undefined && { evidence_url: notes }),
+            },
+          })
+        }
+      }
+
+      // Update local state immediately for responsiveness
       setState((prev) => ({
         ...prev,
         componentThreats: prev.componentThreats.map((ct) => {
@@ -356,7 +494,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    []
+    [state.componentThreats, updateCountermeasureMutation]
   )
 
   // Assign owner to countermeasure
@@ -483,8 +621,8 @@ export function useWorkspaceThreatAnalysis(
   const summaries = useMemo(() => {
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
-    // Component summary
-    const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
+    // Component summary - handle both snake_case (backend) and camelCase
+    const allNodes = diagrams.flatMap((d) => (d.canvas_data || d.canvasData)?.nodes || [])
     const componentSummary = {
       total: allNodes.filter(
         (n) => n.type === 'process' || n.type === 'datastore' || n.type === 'actor'
@@ -529,8 +667,8 @@ export function useWorkspaceThreatAnalysis(
 
   // Compute auto-checked progress items
   const computedProgressChecklist = useMemo(() => {
-    const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
-    const allEdges = diagrams.flatMap((d) => d.canvasData?.edges || [])
+    const allNodes = diagrams.flatMap((d) => (d.canvas_data || d.canvasData)?.nodes || [])
+    const allEdges = diagrams.flatMap((d) => (d.canvas_data || d.canvasData)?.edges || [])
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
     const hasComponents = allNodes.some(
@@ -590,6 +728,8 @@ export function useWorkspaceThreatAnalysis(
     systemContext: state.systemContext,
     progressChecklist: computedProgressChecklist,
     summaries,
+    isLoading: isLoadingThreats || isLoadingThreatModel,
+    isLoadingThreats,
     updateCountermeasureStatus,
     assignOwner,
     dismissThreat,

@@ -12,8 +12,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.diagrams.models import DFDTemplatesLibrary
-from apps.systems.models import ComponentLibrary
-from apps.threats.models import ComponentLibraryThreat, CountermeasureLibrary, ThreatLibrary
+from apps.systems.models import ComponentLibrary, OrgsystemComponent
+from apps.threats.models import (
+    ComponentInstanceCountermeasure,
+    ComponentInstanceThreat,
+    ComponentLibraryThreat,
+    CountermeasureLibrary,
+    ThreatLibrary,
+)
 
 from .models import LibraryPack, LibraryPackDependency, OrganizationPackInstallation
 from .serializers import (
@@ -235,6 +241,41 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
         return OrganizationPackInstallation.objects.filter(
             organization_id__in=org_ids
         ).select_related("pack", "organization", "installed_by")
+
+    @action(detail=True, methods=["get"])
+    def check_usage(self, request, pk=None):
+        """
+        Check if pack items are in use before uninstalling.
+        Returns counts of instances using this pack's library items.
+        """
+        installation = self.get_object()
+        pack = installation.pack
+
+        # Count instances using this pack's library items
+        component_instances = OrgsystemComponent.objects.filter(
+            component_library__source_pack=pack
+        ).count()
+
+        threat_instances = ComponentInstanceThreat.objects.filter(
+            threat_library__source_pack=pack
+        ).count()
+
+        countermeasure_instances = ComponentInstanceCountermeasure.objects.filter(
+            countermeasure_library__source_pack=pack
+        ).count()
+
+        total_usage = component_instances + threat_instances + countermeasure_instances
+
+        return Response({
+            "pack_name": pack.name,
+            "usage": {
+                "component_instances": component_instances,
+                "threat_instances": threat_instances,
+                "countermeasure_instances": countermeasure_instances,
+                "total": total_usage,
+            },
+            "in_use": total_usage > 0,
+        })
 
     def destroy(self, request, *args, **kwargs):
         """Uninstall a pack (soft-delete library items, remove installation)."""

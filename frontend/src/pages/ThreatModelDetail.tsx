@@ -131,6 +131,7 @@ export function ThreatModelDetail() {
     systemContext,
     progressChecklist,
     summaries,
+    isLoadingThreats,
     updateCountermeasureStatus,
     assignOwner,
     dismissThreat,
@@ -447,7 +448,11 @@ export function ThreatModelDetail() {
 
         {/* Threat Analysis Tab */}
         <TabsContent value="threats" className="flex-1 flex flex-col m-0 min-h-0">
-          {diagrams.length > 0 ? (
+          {isLoadingThreats ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : diagrams.length > 0 ? (
             <>
               {/* DFD Filter + View Toggle Bar */}
               <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 flex-shrink-0">
