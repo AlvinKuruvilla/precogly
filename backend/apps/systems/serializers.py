@@ -81,6 +81,8 @@ class ComponentLibrarySerializer(serializers.ModelSerializer):
         model = ComponentLibrary
         fields = [
             "id",
+            "slug",
+            "qualified_slug",
             "name",
             "category",
             "component_type",
@@ -92,7 +94,14 @@ class ComponentLibrarySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
+        read_only_fields = [
+            "id",
+            "qualified_slug",
+            "created_at",
+            "updated_at",
+            "source_pack_name",
+            "source_pack_slug",
+        ]
 
 
 class OrgsystemComponentSerializer(serializers.ModelSerializer):

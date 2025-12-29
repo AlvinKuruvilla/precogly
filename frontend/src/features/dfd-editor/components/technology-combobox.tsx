@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Check, ChevronsUpDown, Search } from 'lucide-react'
+import { Check, ChevronsUpDown, Search, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,14 +16,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  TECHNOLOGIES,
   TECHNOLOGY_CATEGORIES,
   NODE_TYPE_CATEGORIES,
   TRUST_BOUNDARY_TECHNOLOGY_IDS,
-  searchTechnologies,
   type Technology,
   type TechnologyCategory,
 } from '../lib/technology-registry'
+import { useTechnologies } from '../api/component-library'
 import type { DiagramNodeType } from '../types'
 
 interface TechnologyComboboxProps {
@@ -48,6 +47,9 @@ export function TechnologyCombobox({
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Fetch technologies from installed packs
+  const { technologies, isLoading, isEmpty } = useTechnologies()
+
   // Determine which categories to filter by
   const filterCategories = useMemo(() => {
     if (filterCategory) return [filterCategory]
@@ -55,18 +57,37 @@ export function TechnologyCombobox({
     return null
   }, [filterCategory, filterNodeType])
 
-  // Group technologies by category
-  const groupedTechnologies = useMemo(() => {
-    let filtered = searchTechnologies(searchQuery, filterCategories || undefined)
+  // Filter and search technologies
+  const filteredTechnologies = useMemo(() => {
+    const normalizedQuery = searchQuery.toLowerCase().trim()
+
+    let filtered = technologies.filter((tech) => {
+      // Filter by search query
+      const matchesQuery =
+        !normalizedQuery ||
+        tech.name.toLowerCase().includes(normalizedQuery) ||
+        tech.id.toLowerCase().includes(normalizedQuery) ||
+        tech.description?.toLowerCase().includes(normalizedQuery)
+
+      // Filter by category
+      const matchesCategory = !filterCategories || filterCategories.includes(tech.category)
+
+      return matchesQuery && matchesCategory
+    })
 
     // For trust boundaries, filter to only boundary-defining technologies
     if (filterNodeType === 'trustBoundary') {
       filtered = filtered.filter((tech) => TRUST_BOUNDARY_TECHNOLOGY_IDS.includes(tech.id))
     }
 
+    return filtered
+  }, [technologies, searchQuery, filterCategories, filterNodeType])
+
+  // Group technologies by category
+  const groupedTechnologies = useMemo(() => {
     const groups: Record<TechnologyCategory, Technology[]> = {} as Record<TechnologyCategory, Technology[]>
 
-    for (const tech of filtered) {
+    for (const tech of filteredTechnologies) {
       if (!groups[tech.category]) {
         groups[tech.category] = []
       }
@@ -74,10 +95,10 @@ export function TechnologyCombobox({
     }
 
     return groups
-  }, [searchQuery, filterCategories, filterNodeType])
+  }, [filteredTechnologies])
 
   // Find current selection
-  const selectedTech = TECHNOLOGIES.find(
+  const selectedTech = technologies.find(
     (t) => t.name.toLowerCase() === value.toLowerCase() || t.id === value.toLowerCase()
   )
 
@@ -85,7 +106,7 @@ export function TechnologyCombobox({
   const showCustomOption =
     allowCustom &&
     searchQuery.trim().length > 0 &&
-    !TECHNOLOGIES.some(
+    !technologies.some(
       (t) =>
         t.name.toLowerCase() === searchQuery.toLowerCase() ||
         t.id.toLowerCase() === searchQuery.toLowerCase()
@@ -127,15 +148,29 @@ export function TechnologyCombobox({
             onValueChange={setSearchQuery}
           />
           <CommandList>
-            <CommandEmpty>
-              {showCustomOption ? (
-                <div className="py-2 px-3 text-sm text-muted-foreground">
-                  Press Enter to use "{searchQuery}"
-                </div>
-              ) : (
-                'No technologies found.'
-              )}
-            </CommandEmpty>
+            {/* Loading state */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading technologies...
+              </div>
+            )}
+
+            {/* Empty state - no packs installed */}
+            {!isLoading && isEmpty && (
+              <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+                <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium">No technology packs installed</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Install a technology pack to see available components
+                </p>
+              </div>
+            )}
+
+            {/* No results for search */}
+            {!isLoading && !isEmpty && Object.keys(groupedTechnologies).length === 0 && !showCustomOption && (
+              <CommandEmpty>No technologies found.</CommandEmpty>
+            )}
 
             {/* Custom option */}
             {showCustomOption && (
@@ -155,7 +190,7 @@ export function TechnologyCombobox({
             )}
 
             {/* Grouped technologies */}
-            {Object.entries(groupedTechnologies).map(([category, techs]) => (
+            {!isLoading && Object.entries(groupedTechnologies).map(([category, techs]) => (
               <CommandGroup
                 key={category}
                 heading={TECHNOLOGY_CATEGORIES[category as TechnologyCategory]?.label || category}

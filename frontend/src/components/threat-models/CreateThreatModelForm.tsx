@@ -42,23 +42,23 @@ export function CreateThreatModelForm() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [criticality, setCriticality] = useState<Criticality | ''>('')
-  const [selectedFrameworks, setSelectedFrameworks] = useState<string[]>([])
-  const [selectedSystems, setSelectedSystems] = useState<string[]>([])
-  const [selectedModels, setSelectedModels] = useState<string[]>([])
+  const [selectedFrameworkIds, setSelectedFrameworkIds] = useState<number[]>([])
+  const [selectedSystemIds, setSelectedSystemIds] = useState<number[]>([])
+  const [selectedModelIds, setSelectedModelIds] = useState<number[]>([])
 
   // Combined loading state (available for future use)
   const _isLoading = frameworksLoading || systemsLoading || modelsLoading
   void _isLoading
 
-  const toggleFramework = (frameworkName: string) => {
-    setSelectedFrameworks((prev) =>
-      prev.includes(frameworkName)
-        ? prev.filter((f) => f !== frameworkName)
-        : [...prev, frameworkName]
+  const toggleFramework = (frameworkId: number) => {
+    setSelectedFrameworkIds((prev) =>
+      prev.includes(frameworkId)
+        ? prev.filter((f) => f !== frameworkId)
+        : [...prev, frameworkId]
     )
   }
 
-  // Transform systems to combobox options
+  // Transform systems to combobox options (value as string for combobox, but we'll convert to number)
   const systemOptions = systems.map((system) => ({
     value: system.id,
     label: system.name,
@@ -73,6 +73,16 @@ export function CreateThreatModelForm() {
     description: model.description,
   }))
 
+  // Handler for system selection (converts string IDs to numbers)
+  const handleSystemsChange = (selectedIds: string[]) => {
+    setSelectedSystemIds(selectedIds.map((id) => parseInt(id, 10)))
+  }
+
+  // Handler for referenced models selection (converts string IDs to numbers)
+  const handleModelsChange = (selectedIds: string[]) => {
+    setSelectedModelIds(selectedIds.map((id) => parseInt(id, 10)))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -80,9 +90,9 @@ export function CreateThreatModelForm() {
       name,
       description: description || undefined,
       criticality: criticality || undefined,
-      frameworks: selectedFrameworks.length > 0 ? selectedFrameworks : undefined,
-      systemIds: selectedSystems.length > 0 ? selectedSystems : undefined,
-      referencedModelIds: selectedModels.length > 0 ? selectedModels : undefined,
+      framework_ids: selectedFrameworkIds.length > 0 ? selectedFrameworkIds : undefined,
+      system_ids: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
+      referenced_model_ids: selectedModelIds.length > 0 ? selectedModelIds : undefined,
     }
 
     try {
@@ -168,8 +178,8 @@ export function CreateThreatModelForm() {
                 <div key={framework.id} className="flex items-center space-x-2">
                   <Checkbox
                     id={`framework-${framework.id}`}
-                    checked={selectedFrameworks.includes(framework.name)}
-                    onCheckedChange={() => toggleFramework(framework.name)}
+                    checked={selectedFrameworkIds.includes(framework.id)}
+                    onCheckedChange={() => toggleFramework(framework.id)}
                   />
                   <Label
                     htmlFor={`framework-${framework.id}`}
@@ -201,8 +211,8 @@ export function CreateThreatModelForm() {
           ) : (
             <MultiSelectCombobox
               options={systemOptions}
-              selected={selectedSystems}
-              onChange={setSelectedSystems}
+              selected={selectedSystemIds.map(String)}
+              onChange={handleSystemsChange}
               placeholder="Search and select systems..."
               searchPlaceholder="Search systems..."
               emptyMessage="No systems found."
@@ -232,8 +242,8 @@ export function CreateThreatModelForm() {
           ) : (
             <MultiSelectCombobox
               options={modelOptions}
-              selected={selectedModels}
-              onChange={setSelectedModels}
+              selected={selectedModelIds.map(String)}
+              onChange={handleModelsChange}
               placeholder="Search and select threat models..."
               searchPlaceholder="Search threat models..."
               emptyMessage="No threat models found."

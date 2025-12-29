@@ -75,17 +75,35 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
     serializer_class = ComponentLibrarySerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["category", "provider"]
-    search_fields = ["name", "component_type"]
+    filterset_fields = ["category", "component_type", "provider"]
+    search_fields = ["name", "component_type", "slug"]
 
     def get_queryset(self):
-        """Get global + org-specific component library (excluding deleted)."""
+        """
+        Get components from installed packs for user's organizations.
+
+        Returns components where:
+        - The source_pack is installed for any of the user's organizations, OR
+        - The component is organization-specific (custom), OR
+        - The component is global (no organization, no pack - legacy)
+        """
+        from apps.packs.models import OrganizationPackInstallation
+
         user = self.request.user
-        org_ids = user.organization_memberships.values_list("organization_id", flat=True)
+        org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
+
+        # Get pack IDs that are installed for the user's organizations
+        installed_pack_ids = OrganizationPackInstallation.objects.filter(
+            organization_id__in=org_ids,
+            status=OrganizationPackInstallation.Status.INSTALLED,
+        ).values_list("pack_id", flat=True)
+
         return ComponentLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
+            Q(source_pack_id__in=installed_pack_ids) |  # From installed packs
+            Q(organization_id__in=org_ids) |  # Org-specific custom components
+            Q(organization__isnull=True, source_pack__isnull=True),  # Legacy global
             is_deleted=False,
-        ).select_related("source_pack")
+        ).select_related("source_pack").order_by("name")
 
 
 class OrgsystemComponentViewSet(viewsets.ModelViewSet):

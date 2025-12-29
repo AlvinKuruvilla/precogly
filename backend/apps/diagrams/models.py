@@ -9,6 +9,7 @@ from django.db import models
 from apps.core.models import TimestampedModel
 from apps.organizations.models import Organization
 from apps.systems.models import Orgsystem
+from apps.compliance.models import StandardFramework
 
 
 class DFDTemplatesLibrary(TimestampedModel):
@@ -141,6 +142,12 @@ class ThreatModel(TimestampedModel):
         DRIFT = "drift", "Architecture Drift"
         FEATURE_ADDITION = "feature_addition", "Feature Addition"
 
+    class Criticality(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+        CRITICAL = "critical", "Critical"
+
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -164,6 +171,11 @@ class ThreatModel(TimestampedModel):
         max_length=20,
         choices=Trigger.choices,
         default=Trigger.NEW,
+    )
+    criticality = models.CharField(
+        max_length=20,
+        choices=Criticality.choices,
+        default=Criticality.MEDIUM,
     )
     previous_version = models.ForeignKey(
         "self",
@@ -229,6 +241,27 @@ class ThreatModelRelationship(TimestampedModel):
 
     def __str__(self):
         return f"{self.source_threat_model} {self.relation_type} {self.target_threat_model}"
+
+
+class ThreatModelFramework(models.Model):
+    """Association between threat model and compliance framework."""
+
+    threat_model = models.ForeignKey(
+        ThreatModel,
+        on_delete=models.CASCADE,
+        related_name="framework_associations",
+    )
+    framework = models.ForeignKey(
+        StandardFramework,
+        on_delete=models.CASCADE,
+        related_name="threat_model_associations",
+    )
+
+    class Meta:
+        unique_together = ["threat_model", "framework"]
+
+    def __str__(self):
+        return f"{self.threat_model} - {self.framework}"
 
 
 class DFD(TimestampedModel):

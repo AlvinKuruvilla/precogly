@@ -4,7 +4,15 @@ Serializers for diagrams app.
 
 from rest_framework import serializers
 
-from .models import DFD, DFDTemplatesLibrary, ThreatModel, ThreatModelDFD
+from .models import (
+    DFD,
+    DFDTemplatesLibrary,
+    ThreatModel,
+    ThreatModelDFD,
+    ThreatModelFramework,
+    ThreatModelOrgsystem,
+    ThreatModelRelationship,
+)
 
 
 class DFDSerializer(serializers.ModelSerializer):
@@ -43,6 +51,9 @@ class ThreatModelSerializer(serializers.ModelSerializer):
     created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
     dfds = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
+    frameworks = serializers.SerializerMethodField()
+    system_ids = serializers.SerializerMethodField()
+    referenced_model_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = ThreatModel
@@ -53,6 +64,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "version",
             "status",
             "trigger",
+            "criticality",
             "organization",
             "created_by",
             "created_by_email",
@@ -60,6 +72,9 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "previous_version",
             "workspace_data",
             "dfds",
+            "frameworks",
+            "system_ids",
+            "referenced_model_ids",
             "created_at",
             "updated_at",
         ]
@@ -76,12 +91,29 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             return obj.created_by.email
         return None
 
+    def get_frameworks(self, obj):
+        """Get associated framework names."""
+        associations = obj.framework_associations.select_related("framework").all()
+        return [assoc.framework.name for assoc in associations]
+
+    def get_system_ids(self, obj):
+        """Get associated system IDs."""
+        associations = obj.orgsystem_associations.all()
+        return [str(assoc.orgsystem_id) for assoc in associations]
+
+    def get_referenced_model_ids(self, obj):
+        """Get referenced threat model IDs."""
+        associations = obj.outgoing_relationships.filter(
+            relation_type=ThreatModelRelationship.RelationType.RELATED_TO
+        ).all()
+        return [str(assoc.target_threat_model_id) for assoc in associations]
+
 
 class ThreatModelListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for ThreatModel listing."""
 
     owner = serializers.SerializerMethodField()
-    criticality = serializers.SerializerMethodField()
+    frameworks = serializers.SerializerMethodField()
 
     class Meta:
         model = ThreatModel
@@ -90,8 +122,9 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "status",
-            "owner",
             "criticality",
+            "owner",
+            "frameworks",
             "created_at",
             "updated_at",
         ]
@@ -102,16 +135,28 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
             return obj.created_by.email
         return None
 
-    def get_criticality(self, obj):
-        """Get criticality from workspace_data or default."""
-        return obj.workspace_data.get("criticality", "medium")
+    def get_frameworks(self, obj):
+        """Get associated framework names."""
+        associations = obj.framework_associations.select_related("framework").all()
+        return [assoc.framework.name for assoc in associations]
 
 
 class ThreatModelCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating ThreatModel."""
 
-    criticality = serializers.CharField(write_only=True, required=False, default="medium")
-    frameworks = serializers.ListField(
+    framework_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        default=list,
+    )
+    system_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        default=list,
+    )
+    referenced_model_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
         required=False,
@@ -125,16 +170,20 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "description",
             "organization",
             "criticality",
-            "frameworks",
+            "framework_ids",
+            "system_ids",
+            "referenced_model_ids",
         ]
         extra_kwargs = {
             "organization": {"required": False},
+            "criticality": {"required": False},
         }
 
     def create(self, validated_data):
-        """Create threat model with workspace_data."""
-        criticality = validated_data.pop("criticality", "medium")
-        frameworks = validated_data.pop("frameworks", [])
+        """Create threat model with all relationships."""
+        framework_ids = validated_data.pop("framework_ids", [])
+        system_ids = validated_data.pop("system_ids", [])
+        referenced_model_ids = validated_data.pop("referenced_model_ids", [])
 
         # Set created_by from request user
         user = self.context["request"].user
@@ -150,10 +199,8 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
                     {"organization": "User has no organization membership."}
                 )
 
-        # Initialize workspace_data
+        # Initialize workspace_data (for system context, progress, etc.)
         validated_data["workspace_data"] = {
-            "criticality": criticality,
-            "frameworks": frameworks,
             "systemContext": {
                 "description": "",
                 "assets": [],
@@ -165,7 +212,32 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "progressChecklist": [],
         }
 
-        return super().create(validated_data)
+        # Create the threat model
+        threat_model = super().create(validated_data)
+
+        # Create framework associations
+        for framework_id in framework_ids:
+            ThreatModelFramework.objects.create(
+                threat_model=threat_model,
+                framework_id=framework_id,
+            )
+
+        # Create system associations
+        for system_id in system_ids:
+            ThreatModelOrgsystem.objects.create(
+                threat_model=threat_model,
+                orgsystem_id=system_id,
+            )
+
+        # Create threat model references
+        for ref_model_id in referenced_model_ids:
+            ThreatModelRelationship.objects.create(
+                source_threat_model=threat_model,
+                target_threat_model_id=ref_model_id,
+                relation_type=ThreatModelRelationship.RelationType.RELATED_TO,
+            )
+
+        return threat_model
 
 
 class DFDTemplatesLibrarySerializer(serializers.ModelSerializer):

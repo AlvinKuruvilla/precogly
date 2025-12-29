@@ -27,11 +27,9 @@ export interface ThreatModel {
   status: ThreatModelStatus
   frameworks?: string[]
   owner?: string
-  systemIds?: string[]
-  referencedModelIds?: string[]
-  createdAt?: string
-  updatedAt?: string
   // Backend snake_case fields
+  system_ids?: string[]
+  referenced_model_ids?: string[]
   created_at?: string
   updated_at?: string
   created_by?: string
@@ -44,9 +42,9 @@ export interface CreateThreatModelInput {
   name: string
   description?: string
   criticality?: Criticality
-  frameworks?: string[]
-  systemIds?: string[]
-  referencedModelIds?: string[]
+  framework_ids?: number[]
+  system_ids?: number[]
+  referenced_model_ids?: number[]
 }
 
 export interface DashboardStats {
