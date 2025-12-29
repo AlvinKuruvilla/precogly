@@ -1,0 +1,333 @@
+# =============================================================================
+# AWS Technologies Pack
+# =============================================================================
+# This pack provides AWS service components for threat modeling.
+# Components are "stubs" - they define what services exist, not what can go wrong.
+# Threats should be added via separate threat packs or by extending components.
+# =============================================================================
+
+pack:
+  slug: aws-technologies
+  name: "AWS Technologies"
+  description: "Amazon Web Services cloud components for threat modeling diagrams"
+  version: "1.0.0"
+  author: "Precogly Team"
+  pack_type: technology
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - aws
+    - cloud
+    - infrastructure
+  repository_url: "https://github.com/precogly/precogly"
+  documentation_url: "https://docs.aws.amazon.com/"
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  # ---------------------------------------------------------------------------
+  # DATABASES
+  # ---------------------------------------------------------------------------
+  - slug: rds-postgresql
+    name: "AWS RDS (PostgreSQL)"
+    category: datastore
+    component_type: database
+    description: "Managed PostgreSQL database service"
+
+  - slug: rds-mysql
+    name: "AWS RDS (MySQL)"
+    category: datastore
+    component_type: database
+    description: "Managed MySQL database service"
+
+  - slug: aurora
+    name: "AWS Aurora"
+    category: datastore
+    component_type: database
+    description: "High-performance managed relational database"
+
+  - slug: dynamodb
+    name: "AWS DynamoDB"
+    category: datastore
+    component_type: database
+    description: "Managed NoSQL key-value and document database"
+
+  - slug: redshift
+    name: "AWS Redshift"
+    category: datastore
+    component_type: database
+    description: "Cloud data warehouse for analytics"
+
+  - slug: documentdb
+    name: "AWS DocumentDB"
+    category: datastore
+    component_type: database
+    description: "MongoDB-compatible document database"
+
+  # ---------------------------------------------------------------------------
+  # STORAGE
+  # ---------------------------------------------------------------------------
+  - slug: s3
+    name: "AWS S3"
+    category: datastore
+    component_type: storage
+    description: "Simple Storage Service - object storage"
+
+  - slug: efs
+    name: "AWS EFS"
+    category: datastore
+    component_type: storage
+    description: "Elastic File System - managed NFS"
+
+  - slug: fsx
+    name: "AWS FSx"
+    category: datastore
+    component_type: storage
+    description: "Managed file storage (Windows, Lustre, NetApp, OpenZFS)"
+
+  # ---------------------------------------------------------------------------
+  # CACHE
+  # ---------------------------------------------------------------------------
+  - slug: elasticache-redis
+    name: "AWS ElastiCache (Redis)"
+    category: datastore
+    component_type: cache
+    description: "Managed Redis in-memory cache"
+
+  - slug: elasticache-memcached
+    name: "AWS ElastiCache (Memcached)"
+    category: datastore
+    component_type: cache
+    description: "Managed Memcached in-memory cache"
+
+  # ---------------------------------------------------------------------------
+  # COMPUTE
+  # ---------------------------------------------------------------------------
+  - slug: lambda
+    name: "AWS Lambda"
+    category: process
+    component_type: compute
+    description: "Serverless function execution"
+
+  - slug: ecs
+    name: "AWS ECS"
+    category: process
+    component_type: compute
+    description: "Elastic Container Service - container orchestration"
+
+  - slug: eks
+    name: "AWS EKS"
+    category: process
+    component_type: compute
+    description: "Elastic Kubernetes Service - managed Kubernetes"
+
+  - slug: ec2
+    name: "AWS EC2"
+    category: process
+    component_type: compute
+    description: "Elastic Compute Cloud - virtual servers"
+
+  - slug: fargate
+    name: "AWS Fargate"
+    category: process
+    component_type: compute
+    description: "Serverless container execution"
+
+  - slug: apprunner
+    name: "AWS App Runner"
+    category: process
+    component_type: compute
+    description: "Fully managed container application service"
+
+  - slug: beanstalk
+    name: "AWS Elastic Beanstalk"
+    category: process
+    component_type: compute
+    description: "PaaS for web applications"
+
+  # ---------------------------------------------------------------------------
+  # MESSAGING
+  # ---------------------------------------------------------------------------
+  - slug: sqs
+    name: "AWS SQS"
+    category: process
+    component_type: messaging
+    description: "Simple Queue Service - message queuing"
+
+  - slug: sns
+    name: "AWS SNS"
+    category: process
+    component_type: messaging
+    description: "Simple Notification Service - pub/sub messaging"
+
+  - slug: eventbridge
+    name: "AWS EventBridge"
+    category: process
+    component_type: messaging
+    description: "Serverless event bus"
+
+  - slug: kinesis
+    name: "AWS Kinesis"
+    category: process
+    component_type: messaging
+    description: "Real-time data streaming"
+
+  # ---------------------------------------------------------------------------
+  # NETWORKING
+  # ---------------------------------------------------------------------------
+  - slug: vpc
+    name: "AWS VPC"
+    category: process
+    component_type: networking
+    description: "Virtual Private Cloud - isolated network"
+
+  - slug: subnet-public
+    name: "AWS Public Subnet"
+    category: process
+    component_type: networking
+    description: "Public subnet with internet gateway access"
+
+  - slug: subnet-private
+    name: "AWS Private Subnet"
+    category: process
+    component_type: networking
+    description: "Private subnet without direct internet access"
+
+  - slug: privatelink
+    name: "AWS PrivateLink"
+    category: process
+    component_type: networking
+    description: "Private connectivity to AWS services"
+
+  - slug: transit-gateway
+    name: "AWS Transit Gateway"
+    category: process
+    component_type: networking
+    description: "Network transit hub for VPC interconnection"
+
+  - slug: alb
+    name: "AWS ALB"
+    category: process
+    component_type: networking
+    description: "Application Load Balancer - Layer 7"
+
+  - slug: nlb
+    name: "AWS NLB"
+    category: process
+    component_type: networking
+    description: "Network Load Balancer - Layer 4"
+
+  - slug: cloudfront
+    name: "AWS CloudFront"
+    category: process
+    component_type: networking
+    description: "Content Delivery Network (CDN)"
+
+  - slug: api-gateway
+    name: "AWS API Gateway"
+    category: process
+    component_type: networking
+    description: "Managed API gateway service"
+
+  - slug: route53
+    name: "AWS Route 53"
+    category: process
+    component_type: networking
+    description: "DNS and domain registration service"
+
+  # ---------------------------------------------------------------------------
+  # SECURITY
+  # ---------------------------------------------------------------------------
+  - slug: waf
+    name: "AWS WAF"
+    category: process
+    component_type: security
+    description: "Web Application Firewall"
+
+  - slug: shield
+    name: "AWS Shield"
+    category: process
+    component_type: security
+    description: "DDoS protection service"
+
+  - slug: network-firewall
+    name: "AWS Network Firewall"
+    category: process
+    component_type: security
+    description: "Managed network firewall service"
+
+  - slug: guardduty
+    name: "AWS GuardDuty"
+    category: process
+    component_type: security
+    description: "Threat detection and monitoring"
+
+  - slug: kms
+    name: "AWS KMS"
+    category: process
+    component_type: security
+    description: "Key Management Service - encryption keys"
+
+  - slug: cloudhsm
+    name: "AWS CloudHSM"
+    category: process
+    component_type: security
+    description: "Hardware Security Module"
+
+  - slug: secrets-manager
+    name: "AWS Secrets Manager"
+    category: process
+    component_type: security
+    description: "Secrets storage and rotation"
+
+  - slug: ssm
+    name: "AWS Systems Manager"
+    category: process
+    component_type: security
+    description: "Operations management and secure access"
+
+  - slug: vpn
+    name: "AWS VPN"
+    category: process
+    component_type: security
+    description: "Site-to-site and client VPN"
+
+  # ---------------------------------------------------------------------------
+  # AUTH / IDENTITY
+  # ---------------------------------------------------------------------------
+  - slug: cognito
+    name: "AWS Cognito"
+    category: process
+    component_type: auth
+    description: "User identity and authentication"
+
+  - slug: iam
+    name: "AWS IAM"
+    category: process
+    component_type: auth
+    description: "Identity and Access Management"
+
+  # ---------------------------------------------------------------------------
+  # MONITORING
+  # ---------------------------------------------------------------------------
+  - slug: cloudwatch
+    name: "AWS CloudWatch"
+    category: process
+    component_type: monitoring
+    description: "Monitoring and observability service"
+
+  - slug: xray
+    name: "AWS X-Ray"
+    category: process
+    component_type: monitoring
+    description: "Distributed tracing and analysis"
+
+  - slug: cloudtrail
+    name: "AWS CloudTrail"
+    category: process
+    component_type: monitoring
+    description: "API activity logging and auditing"

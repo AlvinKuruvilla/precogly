@@ -4,7 +4,17 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, Search } from 'lucide-react'
+import {
+  Package,
+  Search,
+  RefreshCw,
+  FolderSync,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Loader2,
+  Eye,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,18 +24,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PackCard, InstallPackDialog } from '@/components/packs'
-import { usePacks, useInstalledPacks } from '@/api/packs'
-import type { LibraryPackListItem, PackFilters } from '@/types/packs'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { PackCard, InstallPackDialog, PreviewPackDialog } from '@/components/packs'
+import {
+  usePacks,
+  useInstalledPacks,
+  useAvailablePacksFromSource,
+  useSyncPacksFromSource,
+  useImportSinglePack,
+} from '@/api/packs'
+import type { LibraryPackListItem, PackFilters, SourcePackInfo } from '@/api/packs'
 
 export function Packs() {
   const [filters, setFilters] = useState<PackFilters>({})
   const [searchInput, setSearchInput] = useState('')
   const [selectedPack, setSelectedPack] = useState<LibraryPackListItem | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [showSourcePacks, setShowSourcePacks] = useState(false)
+  const [syncResult, setSyncResult] = useState<{
+    success: boolean
+    message: string
+  } | null>(null)
+  // Preview state
+  const [previewPackId, setPreviewPackId] = useState<number | null>(null)
+  const [previewPackSlug, setPreviewPackSlug] = useState<string | null>(null)
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
 
-  const { data: packs, isLoading } = usePacks(filters)
+  const { data: packs, isLoading, refetch: refetchPacks } = usePacks(filters)
   const { data: installedPacks } = useInstalledPacks()
+  const {
+    data: sourcePacks,
+    isLoading: isLoadingSource,
+    refetch: refetchSourcePacks,
+  } = useAvailablePacksFromSource()
+  const syncMutation = useSyncPacksFromSource()
+  const importMutation = useImportSinglePack()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,7 +89,50 @@ export function Packs() {
     }))
   }
 
+  const handleSyncFromSource = async () => {
+    setSyncResult(null)
+    try {
+      const result = await syncMutation.mutateAsync({ force: false })
+      setSyncResult({
+        success: true,
+        message: result.message,
+      })
+      // Refresh the packs list
+      refetchPacks()
+      refetchSourcePacks()
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Sync failed',
+      })
+    }
+  }
+
+  const handleImportSingle = async (slug: string) => {
+    try {
+      await importMutation.mutateAsync({ slug, force: false })
+      refetchPacks()
+      refetchSourcePacks()
+    } catch (error) {
+      console.error('Import failed:', error)
+    }
+  }
+
+  const handlePreviewDatabasePack = (pack: LibraryPackListItem) => {
+    setPreviewPackId(pack.id)
+    setPreviewPackSlug(null)
+    setPreviewDialogOpen(true)
+  }
+
+  const handlePreviewSourcePack = (slug: string) => {
+    setPreviewPackId(null)
+    setPreviewPackSlug(slug)
+    setPreviewDialogOpen(true)
+  }
+
   const installedCount = installedPacks?.length ?? 0
+  const packsNotInDb = sourcePacks?.packs.filter((p) => !p.is_in_database) ?? []
+  const packsNeedingUpdate = sourcePacks?.packs.filter((p) => p.needs_update) ?? []
 
   return (
     <div className="space-y-6">
@@ -56,13 +144,116 @@ export function Packs() {
             Browse and install pre-built content packs for your organization.
           </p>
         </div>
-        <Link to="/packs/installed">
-          <Button variant="outline">
-            <Package className="mr-2 h-4 w-4" />
-            Installed ({installedCount})
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowSourcePacks(!showSourcePacks)}
+          >
+            <FolderSync className="mr-2 h-4 w-4" />
+            {showSourcePacks ? 'Hide' : 'Show'} Source Packs
+            {packsNotInDb.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {packsNotInDb.length} new
+              </Badge>
+            )}
           </Button>
-        </Link>
+          <Link to="/packs/installed">
+            <Button variant="outline">
+              <Package className="mr-2 h-4 w-4" />
+              Installed ({installedCount})
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Sync Result Alert */}
+      {syncResult && (
+        <Alert variant={syncResult.success ? 'default' : 'destructive'}>
+          {syncResult.success ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <AlertCircle className="h-4 w-4" />
+          )}
+          <AlertTitle>{syncResult.success ? 'Sync Complete' : 'Sync Failed'}</AlertTitle>
+          <AlertDescription>{syncResult.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Source Packs Section */}
+      {showSourcePacks && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FolderSync className="h-5 w-5" />
+                  Packs from Libraries Folder
+                </CardTitle>
+                <CardDescription>
+                  These packs are available in the libraries/packs directory.
+                  Sync them to make them available for installation.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={handleSyncFromSource}
+                disabled={syncMutation.isPending}
+              >
+                {syncMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Sync All to Database
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingSource ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : sourcePacks && sourcePacks.packs.length > 0 ? (
+              <div className="space-y-4">
+                {/* Summary */}
+                <div className="flex gap-4 text-sm text-muted-foreground">
+                  <span>{sourcePacks.total} packs found</span>
+                  <span>{sourcePacks.in_database} in database</span>
+                  {packsNotInDb.length > 0 && (
+                    <span className="text-orange-600">
+                      {packsNotInDb.length} not imported
+                    </span>
+                  )}
+                  {packsNeedingUpdate.length > 0 && (
+                    <span className="text-blue-600">
+                      {packsNeedingUpdate.length} need update
+                    </span>
+                  )}
+                </div>
+
+                {/* Pack List */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {sourcePacks.packs.map((pack) => (
+                    <SourcePackCard
+                      key={pack.slug}
+                      pack={pack}
+                      onImport={handleImportSingle}
+                      onPreview={handlePreviewSourcePack}
+                      isImporting={
+                        importMutation.isPending &&
+                        importMutation.variables?.slug === pack.slug
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No packs found in the libraries folder.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -132,6 +323,7 @@ export function Packs() {
               key={pack.id}
               pack={pack}
               onInstall={handleInstall}
+              onPreview={handlePreviewDatabasePack}
             />
           ))}
         </div>
@@ -153,6 +345,123 @@ export function Packs() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      {/* Preview Dialog */}
+      <PreviewPackDialog
+        packId={previewPackId}
+        packSlug={previewPackSlug}
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+      />
+    </div>
+  )
+}
+
+/**
+ * Card component for displaying a pack from the source (libraries folder).
+ */
+function SourcePackCard({
+  pack,
+  onImport,
+  onPreview,
+  isImporting,
+}: {
+  pack: SourcePackInfo
+  onImport: (slug: string) => void
+  onPreview: (slug: string) => void
+  isImporting: boolean
+}) {
+  const getStatusBadge = () => {
+    if (pack.is_in_database && !pack.needs_update) {
+      return (
+        <Badge variant="outline" className="text-green-600 border-green-600">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          In Database
+        </Badge>
+      )
+    }
+    if (pack.needs_update) {
+      return (
+        <Badge variant="outline" className="text-blue-600 border-blue-600">
+          <RefreshCw className="mr-1 h-3 w-3" />
+          Update Available
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="text-orange-600 border-orange-600">
+        <AlertCircle className="mr-1 h-3 w-3" />
+        Not Imported
+      </Badge>
+    )
+  }
+
+  const packTypeColors: Record<string, string> = {
+    technology: 'bg-blue-100 text-blue-800',
+    threat: 'bg-red-100 text-red-800',
+    countermeasure: 'bg-green-100 text-green-800',
+    compliance: 'bg-purple-100 text-purple-800',
+    template: 'bg-yellow-100 text-yellow-800',
+    full: 'bg-gray-100 text-gray-800',
+  }
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3">
+      <div className="flex items-start justify-between">
+        <div>
+          <h4 className="font-medium">{pack.name}</h4>
+          <p className="text-sm text-muted-foreground">v{pack.version}</p>
+        </div>
+        {getStatusBadge()}
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        <Badge
+          variant="secondary"
+          className={packTypeColors[pack.pack_type] || 'bg-gray-100'}
+        >
+          {pack.pack_type}
+        </Badge>
+        <Badge variant="secondary">{pack.tier}</Badge>
+      </div>
+
+      <p className="text-sm text-muted-foreground line-clamp-2">
+        {pack.description || 'No description'}
+      </p>
+
+      <div className="flex gap-3 text-xs text-muted-foreground">
+        {pack.component_count > 0 && (
+          <span>{pack.component_count} components</span>
+        )}
+        {pack.threat_count > 0 && <span>{pack.threat_count} threats</span>}
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onPreview(pack.slug)}
+          title="Preview pack contents"
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+        {(!pack.is_in_database || pack.needs_update) && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => onImport(pack.slug)}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-3 w-3" />
+            )}
+            {pack.needs_update ? 'Update' : 'Import'}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

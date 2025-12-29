@@ -1,0 +1,331 @@
+# =============================================================================
+# Azure Technologies Pack
+# =============================================================================
+# This pack provides Microsoft Azure service components for threat modeling.
+# Components are "stubs" - they define what services exist, not what can go wrong.
+# Threats should be added via separate threat packs or by extending components.
+# =============================================================================
+
+pack:
+  slug: azure-technologies
+  name: "Azure Technologies"
+  description: "Microsoft Azure cloud components for threat modeling diagrams"
+  version: "1.0.0"
+  author: "Precogly Team"
+  pack_type: technology
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - azure
+    - microsoft
+    - cloud
+    - infrastructure
+  repository_url: "https://github.com/precogly/precogly"
+  documentation_url: "https://docs.microsoft.com/azure/"
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  # ---------------------------------------------------------------------------
+  # DATABASES
+  # ---------------------------------------------------------------------------
+  - slug: sql-database
+    name: "Azure SQL Database"
+    category: datastore
+    component_type: database
+    description: "Managed SQL Server database service"
+
+  - slug: cosmosdb
+    name: "Azure Cosmos DB"
+    category: datastore
+    component_type: database
+    description: "Globally distributed multi-model database"
+
+  - slug: postgresql
+    name: "Azure Database for PostgreSQL"
+    category: datastore
+    component_type: database
+    description: "Managed PostgreSQL database service"
+
+  - slug: mysql
+    name: "Azure Database for MySQL"
+    category: datastore
+    component_type: database
+    description: "Managed MySQL database service"
+
+  - slug: synapse
+    name: "Azure Synapse Analytics"
+    category: datastore
+    component_type: database
+    description: "Analytics and data warehouse service"
+
+  # ---------------------------------------------------------------------------
+  # STORAGE
+  # ---------------------------------------------------------------------------
+  - slug: blob-storage
+    name: "Azure Blob Storage"
+    category: datastore
+    component_type: storage
+    description: "Object storage for unstructured data"
+
+  - slug: files
+    name: "Azure Files"
+    category: datastore
+    component_type: storage
+    description: "Managed file shares (SMB/NFS)"
+
+  - slug: data-lake
+    name: "Azure Data Lake Storage"
+    category: datastore
+    component_type: storage
+    description: "Big data analytics storage"
+
+  - slug: queue-storage
+    name: "Azure Queue Storage"
+    category: datastore
+    component_type: storage
+    description: "Message queue storage service"
+
+  # ---------------------------------------------------------------------------
+  # CACHE
+  # ---------------------------------------------------------------------------
+  - slug: cache-redis
+    name: "Azure Cache for Redis"
+    category: datastore
+    component_type: cache
+    description: "Managed Redis in-memory cache"
+
+  # ---------------------------------------------------------------------------
+  # COMPUTE
+  # ---------------------------------------------------------------------------
+  - slug: functions
+    name: "Azure Functions"
+    category: process
+    component_type: compute
+    description: "Serverless function execution"
+
+  - slug: aks
+    name: "Azure AKS"
+    category: process
+    component_type: compute
+    description: "Azure Kubernetes Service - managed Kubernetes"
+
+  - slug: app-service
+    name: "Azure App Service"
+    category: process
+    component_type: compute
+    description: "PaaS for web apps and APIs"
+
+  - slug: container-apps
+    name: "Azure Container Apps"
+    category: process
+    component_type: compute
+    description: "Serverless container platform"
+
+  - slug: container-instances
+    name: "Azure Container Instances"
+    category: process
+    component_type: compute
+    description: "Run containers without managing servers"
+
+  - slug: virtual-machines
+    name: "Azure Virtual Machines"
+    category: process
+    component_type: compute
+    description: "IaaS virtual servers"
+
+  - slug: batch
+    name: "Azure Batch"
+    category: process
+    component_type: compute
+    description: "Large-scale parallel batch processing"
+
+  # ---------------------------------------------------------------------------
+  # MESSAGING
+  # ---------------------------------------------------------------------------
+  - slug: service-bus
+    name: "Azure Service Bus"
+    category: process
+    component_type: messaging
+    description: "Enterprise message broker"
+
+  - slug: event-hubs
+    name: "Azure Event Hubs"
+    category: process
+    component_type: messaging
+    description: "Big data streaming platform"
+
+  - slug: event-grid
+    name: "Azure Event Grid"
+    category: process
+    component_type: messaging
+    description: "Event routing service"
+
+  # ---------------------------------------------------------------------------
+  # NETWORKING
+  # ---------------------------------------------------------------------------
+  - slug: vnet
+    name: "Azure Virtual Network"
+    category: process
+    component_type: networking
+    description: "Isolated virtual network"
+
+  - slug: subnet
+    name: "Azure Subnet"
+    category: process
+    component_type: networking
+    description: "Network subnet within VNet"
+
+  - slug: private-endpoint
+    name: "Azure Private Endpoint"
+    category: process
+    component_type: networking
+    description: "Private connectivity to Azure services"
+
+  - slug: virtual-wan
+    name: "Azure Virtual WAN"
+    category: process
+    component_type: networking
+    description: "Network transit hub"
+
+  - slug: application-gateway
+    name: "Azure Application Gateway"
+    category: process
+    component_type: networking
+    description: "Layer 7 load balancer with WAF"
+
+  - slug: front-door
+    name: "Azure Front Door"
+    category: process
+    component_type: networking
+    description: "Global load balancer and CDN"
+
+  - slug: load-balancer
+    name: "Azure Load Balancer"
+    category: process
+    component_type: networking
+    description: "Layer 4 load balancer"
+
+  - slug: traffic-manager
+    name: "Azure Traffic Manager"
+    category: process
+    component_type: networking
+    description: "DNS-based traffic routing"
+
+  - slug: dns
+    name: "Azure DNS"
+    category: process
+    component_type: networking
+    description: "DNS hosting service"
+
+  # ---------------------------------------------------------------------------
+  # SECURITY
+  # ---------------------------------------------------------------------------
+  - slug: waf
+    name: "Azure WAF"
+    category: process
+    component_type: security
+    description: "Web Application Firewall"
+
+  - slug: ddos-protection
+    name: "Azure DDoS Protection"
+    category: process
+    component_type: security
+    description: "DDoS attack mitigation"
+
+  - slug: firewall
+    name: "Azure Firewall"
+    category: process
+    component_type: security
+    description: "Cloud-native network firewall"
+
+  - slug: defender
+    name: "Microsoft Defender for Cloud"
+    category: process
+    component_type: security
+    description: "Cloud security posture management"
+
+  - slug: sentinel
+    name: "Microsoft Sentinel"
+    category: process
+    component_type: security
+    description: "Cloud-native SIEM and SOAR"
+
+  - slug: key-vault
+    name: "Azure Key Vault"
+    category: process
+    component_type: security
+    description: "Secrets, keys, and certificate management"
+
+  - slug: dedicated-hsm
+    name: "Azure Dedicated HSM"
+    category: process
+    component_type: security
+    description: "Hardware Security Module"
+
+  - slug: bastion
+    name: "Azure Bastion"
+    category: process
+    component_type: security
+    description: "Secure RDP/SSH access to VMs"
+
+  - slug: vpn-gateway
+    name: "Azure VPN Gateway"
+    category: process
+    component_type: security
+    description: "Site-to-site and point-to-site VPN"
+
+  # ---------------------------------------------------------------------------
+  # AUTH / IDENTITY
+  # ---------------------------------------------------------------------------
+  - slug: active-directory
+    name: "Microsoft Entra ID"
+    category: process
+    component_type: auth
+    description: "Cloud identity and access management (formerly Azure AD)"
+
+  - slug: ad-b2c
+    name: "Azure AD B2C"
+    category: process
+    component_type: auth
+    description: "Customer identity management"
+
+  - slug: managed-identity
+    name: "Azure Managed Identity"
+    category: process
+    component_type: auth
+    description: "Automatic credential management for Azure resources"
+
+  # ---------------------------------------------------------------------------
+  # MONITORING
+  # ---------------------------------------------------------------------------
+  - slug: monitor
+    name: "Azure Monitor"
+    category: process
+    component_type: monitoring
+    description: "Full-stack monitoring service"
+
+  - slug: app-insights
+    name: "Azure Application Insights"
+    category: process
+    component_type: monitoring
+    description: "Application performance monitoring"
+
+  - slug: log-analytics
+    name: "Azure Log Analytics"
+    category: process
+    component_type: monitoring
+    description: "Log collection and analysis"
+
+  # ---------------------------------------------------------------------------
+  # API MANAGEMENT
+  # ---------------------------------------------------------------------------
+  - slug: api-management
+    name: "Azure API Management"
+    category: process
+    component_type: networking
+    description: "API gateway and developer portal"

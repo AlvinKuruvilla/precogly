@@ -1,0 +1,655 @@
+# =============================================================================
+# Generic Technologies Pack
+# =============================================================================
+# This pack provides vendor-agnostic technology components for threat modeling.
+# Includes open-source software, frameworks, protocols, and self-hosted solutions.
+# Components are "stubs" - they define what services exist, not what can go wrong.
+# Threats should be added via separate threat packs or by extending components.
+# =============================================================================
+
+pack:
+  slug: generic-technologies
+  name: "Generic Technologies"
+  description: "Vendor-agnostic components: open-source, frameworks, and self-hosted solutions"
+  version: "1.0.0"
+  author: "Precogly Team"
+  pack_type: technology
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - generic
+    - open-source
+    - self-hosted
+    - frameworks
+  repository_url: "https://github.com/precogly/precogly"
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  # ---------------------------------------------------------------------------
+  # DATABASES
+  # ---------------------------------------------------------------------------
+  - slug: postgresql
+    name: "PostgreSQL"
+    category: datastore
+    component_type: database
+    description: "Open source relational database"
+
+  - slug: mysql
+    name: "MySQL"
+    category: datastore
+    component_type: database
+    description: "Open source relational database"
+
+  - slug: mariadb
+    name: "MariaDB"
+    category: datastore
+    component_type: database
+    description: "MySQL-compatible open source database"
+
+  - slug: mongodb
+    name: "MongoDB"
+    category: datastore
+    component_type: database
+    description: "NoSQL document database"
+
+  - slug: redis
+    name: "Redis"
+    category: datastore
+    component_type: database
+    description: "In-memory data structure store"
+
+  - slug: elasticsearch
+    name: "Elasticsearch"
+    category: datastore
+    component_type: database
+    description: "Distributed search and analytics engine"
+
+  - slug: cassandra
+    name: "Apache Cassandra"
+    category: datastore
+    component_type: database
+    description: "Distributed wide-column database"
+
+  - slug: mssql
+    name: "SQL Server"
+    category: datastore
+    component_type: database
+    description: "Microsoft relational database"
+
+  - slug: oracle
+    name: "Oracle Database"
+    category: datastore
+    component_type: database
+    description: "Enterprise relational database"
+
+  - slug: couchdb
+    name: "CouchDB"
+    category: datastore
+    component_type: database
+    description: "NoSQL document database with sync"
+
+  - slug: neo4j
+    name: "Neo4j"
+    category: datastore
+    component_type: database
+    description: "Graph database"
+
+  - slug: influxdb
+    name: "InfluxDB"
+    category: datastore
+    component_type: database
+    description: "Time series database"
+
+  # ---------------------------------------------------------------------------
+  # CACHE
+  # ---------------------------------------------------------------------------
+  - slug: redis-cache
+    name: "Redis (Cache)"
+    category: datastore
+    component_type: cache
+    description: "Redis used as cache layer"
+
+  - slug: memcached
+    name: "Memcached"
+    category: datastore
+    component_type: cache
+    description: "Distributed memory caching system"
+
+  - slug: varnish
+    name: "Varnish"
+    category: datastore
+    component_type: cache
+    description: "HTTP accelerator and reverse proxy cache"
+
+  # ---------------------------------------------------------------------------
+  # STORAGE
+  # ---------------------------------------------------------------------------
+  - slug: minio
+    name: "MinIO"
+    category: datastore
+    component_type: storage
+    description: "S3-compatible object storage"
+
+  - slug: ceph
+    name: "Ceph"
+    category: datastore
+    component_type: storage
+    description: "Distributed storage system"
+
+  - slug: nfs
+    name: "NFS"
+    category: datastore
+    component_type: storage
+    description: "Network File System"
+
+  # ---------------------------------------------------------------------------
+  # COMPUTE / CONTAINERS
+  # ---------------------------------------------------------------------------
+  - slug: kubernetes
+    name: "Kubernetes"
+    category: process
+    component_type: compute
+    description: "Container orchestration platform"
+
+  - slug: docker
+    name: "Docker"
+    category: process
+    component_type: compute
+    description: "Container runtime platform"
+
+  - slug: podman
+    name: "Podman"
+    category: process
+    component_type: compute
+    description: "Daemonless container engine"
+
+  - slug: openshift
+    name: "OpenShift"
+    category: process
+    component_type: compute
+    description: "Red Hat Kubernetes distribution"
+
+  - slug: nomad
+    name: "HashiCorp Nomad"
+    category: process
+    component_type: compute
+    description: "Workload orchestrator"
+
+  # ---------------------------------------------------------------------------
+  # BACKEND FRAMEWORKS
+  # ---------------------------------------------------------------------------
+  - slug: nodejs
+    name: "Node.js"
+    category: process
+    component_type: backend
+    description: "JavaScript runtime"
+
+  - slug: python
+    name: "Python"
+    category: process
+    component_type: backend
+    description: "Python application"
+
+  - slug: java
+    name: "Java"
+    category: process
+    component_type: backend
+    description: "Java application"
+
+  - slug: dotnet
+    name: ".NET"
+    category: process
+    component_type: backend
+    description: ".NET application"
+
+  - slug: go
+    name: "Go"
+    category: process
+    component_type: backend
+    description: "Go application"
+
+  - slug: rust
+    name: "Rust"
+    category: process
+    component_type: backend
+    description: "Rust application"
+
+  - slug: ruby
+    name: "Ruby"
+    category: process
+    component_type: backend
+    description: "Ruby application"
+
+  - slug: php
+    name: "PHP"
+    category: process
+    component_type: backend
+    description: "PHP application"
+
+  - slug: spring-boot
+    name: "Spring Boot"
+    category: process
+    component_type: backend
+    description: "Java framework for microservices"
+
+  - slug: django
+    name: "Django"
+    category: process
+    component_type: backend
+    description: "Python web framework"
+
+  - slug: fastapi
+    name: "FastAPI"
+    category: process
+    component_type: backend
+    description: "Python async API framework"
+
+  - slug: flask
+    name: "Flask"
+    category: process
+    component_type: backend
+    description: "Python micro web framework"
+
+  - slug: express
+    name: "Express.js"
+    category: process
+    component_type: backend
+    description: "Node.js web framework"
+
+  - slug: nestjs
+    name: "NestJS"
+    category: process
+    component_type: backend
+    description: "Node.js enterprise framework"
+
+  - slug: rails
+    name: "Ruby on Rails"
+    category: process
+    component_type: backend
+    description: "Ruby web framework"
+
+  - slug: laravel
+    name: "Laravel"
+    category: process
+    component_type: backend
+    description: "PHP web framework"
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND FRAMEWORKS
+  # ---------------------------------------------------------------------------
+  - slug: react
+    name: "React"
+    category: process
+    component_type: frontend
+    description: "JavaScript UI library"
+
+  - slug: angular
+    name: "Angular"
+    category: process
+    component_type: frontend
+    description: "TypeScript web framework"
+
+  - slug: vue
+    name: "Vue.js"
+    category: process
+    component_type: frontend
+    description: "Progressive JavaScript framework"
+
+  - slug: nextjs
+    name: "Next.js"
+    category: process
+    component_type: frontend
+    description: "React framework with SSR"
+
+  - slug: svelte
+    name: "Svelte"
+    category: process
+    component_type: frontend
+    description: "Compiled JavaScript framework"
+
+  # ---------------------------------------------------------------------------
+  # MESSAGING / QUEUES
+  # ---------------------------------------------------------------------------
+  - slug: kafka
+    name: "Apache Kafka"
+    category: process
+    component_type: messaging
+    description: "Distributed event streaming platform"
+
+  - slug: rabbitmq
+    name: "RabbitMQ"
+    category: process
+    component_type: messaging
+    description: "Message broker"
+
+  - slug: activemq
+    name: "Apache ActiveMQ"
+    category: process
+    component_type: messaging
+    description: "Message broker"
+
+  - slug: nats
+    name: "NATS"
+    category: process
+    component_type: messaging
+    description: "Cloud native messaging system"
+
+  - slug: zeromq
+    name: "ZeroMQ"
+    category: process
+    component_type: messaging
+    description: "Distributed messaging library"
+
+  - slug: pulsar
+    name: "Apache Pulsar"
+    category: process
+    component_type: messaging
+    description: "Distributed pub-sub messaging"
+
+  # ---------------------------------------------------------------------------
+  # NETWORKING / LOAD BALANCERS
+  # ---------------------------------------------------------------------------
+  - slug: nginx
+    name: "NGINX"
+    category: process
+    component_type: networking
+    description: "Web server and reverse proxy"
+
+  - slug: haproxy
+    name: "HAProxy"
+    category: process
+    component_type: networking
+    description: "Load balancer and proxy"
+
+  - slug: traefik
+    name: "Traefik"
+    category: process
+    component_type: networking
+    description: "Cloud-native reverse proxy"
+
+  - slug: envoy
+    name: "Envoy Proxy"
+    category: process
+    component_type: networking
+    description: "Service mesh proxy"
+
+  - slug: istio
+    name: "Istio"
+    category: process
+    component_type: networking
+    description: "Service mesh"
+
+  - slug: linkerd
+    name: "Linkerd"
+    category: process
+    component_type: networking
+    description: "Lightweight service mesh"
+
+  - slug: kong
+    name: "Kong"
+    category: process
+    component_type: networking
+    description: "API gateway"
+
+  - slug: cloudflare
+    name: "Cloudflare"
+    category: process
+    component_type: networking
+    description: "CDN and security services"
+
+  - slug: vlan
+    name: "VLAN"
+    category: process
+    component_type: networking
+    description: "Virtual LAN network segment"
+
+  - slug: network-segment
+    name: "Network Segment"
+    category: process
+    component_type: networking
+    description: "Physical or logical network segment"
+
+  - slug: dmz-network
+    name: "DMZ Network"
+    category: process
+    component_type: networking
+    description: "Demilitarized zone network"
+
+  - slug: k8s-namespace
+    name: "Kubernetes Namespace"
+    category: process
+    component_type: networking
+    description: "Kubernetes namespace isolation boundary"
+
+  - slug: k8s-network-policy
+    name: "Kubernetes Network Policy"
+    category: process
+    component_type: networking
+    description: "Pod network isolation rules"
+
+  - slug: docker-network
+    name: "Docker Network"
+    category: process
+    component_type: networking
+    description: "Container network"
+
+  - slug: service-mesh
+    name: "Service Mesh"
+    category: process
+    component_type: networking
+    description: "Microservices network layer"
+
+  # ---------------------------------------------------------------------------
+  # AUTH / IDENTITY
+  # ---------------------------------------------------------------------------
+  - slug: auth0
+    name: "Auth0"
+    category: process
+    component_type: auth
+    description: "Identity platform (SaaS)"
+
+  - slug: okta
+    name: "Okta"
+    category: process
+    component_type: auth
+    description: "Enterprise identity management"
+
+  - slug: keycloak
+    name: "Keycloak"
+    category: process
+    component_type: auth
+    description: "Open source IAM"
+
+  - slug: oauth2
+    name: "OAuth 2.0"
+    category: process
+    component_type: auth
+    description: "Authorization framework"
+
+  - slug: openid-connect
+    name: "OpenID Connect"
+    category: process
+    component_type: auth
+    description: "Identity layer on OAuth 2.0"
+
+  - slug: ldap
+    name: "LDAP"
+    category: process
+    component_type: auth
+    description: "Lightweight Directory Access Protocol"
+
+  - slug: active-directory
+    name: "Active Directory"
+    category: process
+    component_type: auth
+    description: "Microsoft directory service"
+
+  # ---------------------------------------------------------------------------
+  # SECURITY TOOLS
+  # ---------------------------------------------------------------------------
+  - slug: vault
+    name: "HashiCorp Vault"
+    category: process
+    component_type: security
+    description: "Secrets management"
+
+  - slug: openvpn
+    name: "OpenVPN"
+    category: process
+    component_type: security
+    description: "Open source VPN"
+
+  - slug: wireguard
+    name: "WireGuard"
+    category: process
+    component_type: security
+    description: "Modern VPN protocol"
+
+  - slug: pfsense
+    name: "pfSense"
+    category: process
+    component_type: security
+    description: "Open source firewall"
+
+  - slug: modsecurity
+    name: "ModSecurity"
+    category: process
+    component_type: security
+    description: "Open source WAF"
+
+  - slug: snort
+    name: "Snort"
+    category: process
+    component_type: security
+    description: "Network intrusion detection"
+
+  - slug: suricata
+    name: "Suricata"
+    category: process
+    component_type: security
+    description: "Network threat detection engine"
+
+  - slug: ossec
+    name: "OSSEC"
+    category: process
+    component_type: security
+    description: "Host-based intrusion detection"
+
+  - slug: wazuh
+    name: "Wazuh"
+    category: process
+    component_type: security
+    description: "Security monitoring platform"
+
+  # ---------------------------------------------------------------------------
+  # MONITORING / OBSERVABILITY
+  # ---------------------------------------------------------------------------
+  - slug: prometheus
+    name: "Prometheus"
+    category: process
+    component_type: monitoring
+    description: "Metrics and alerting"
+
+  - slug: grafana
+    name: "Grafana"
+    category: process
+    component_type: monitoring
+    description: "Observability dashboards"
+
+  - slug: datadog
+    name: "Datadog"
+    category: process
+    component_type: monitoring
+    description: "Cloud monitoring platform (SaaS)"
+
+  - slug: splunk
+    name: "Splunk"
+    category: process
+    component_type: monitoring
+    description: "Log analysis and SIEM"
+
+  - slug: elk-stack
+    name: "ELK Stack"
+    category: process
+    component_type: monitoring
+    description: "Elasticsearch, Logstash, Kibana"
+
+  - slug: jaeger
+    name: "Jaeger"
+    category: process
+    component_type: monitoring
+    description: "Distributed tracing"
+
+  - slug: zipkin
+    name: "Zipkin"
+    category: process
+    component_type: monitoring
+    description: "Distributed tracing"
+
+  - slug: new-relic
+    name: "New Relic"
+    category: process
+    component_type: monitoring
+    description: "Application performance monitoring"
+
+  - slug: pagerduty
+    name: "PagerDuty"
+    category: process
+    component_type: monitoring
+    description: "Incident management"
+
+  # ---------------------------------------------------------------------------
+  # INFRASTRUCTURE
+  # ---------------------------------------------------------------------------
+  - slug: on-premise
+    name: "On-Premise"
+    category: process
+    component_type: infrastructure
+    description: "On-premise data center"
+
+  - slug: hybrid-cloud
+    name: "Hybrid Cloud"
+    category: process
+    component_type: infrastructure
+    description: "Hybrid cloud infrastructure"
+
+  - slug: terraform
+    name: "Terraform"
+    category: process
+    component_type: infrastructure
+    description: "Infrastructure as Code"
+
+  - slug: ansible
+    name: "Ansible"
+    category: process
+    component_type: infrastructure
+    description: "Configuration management"
+
+  - slug: jenkins
+    name: "Jenkins"
+    category: process
+    component_type: infrastructure
+    description: "CI/CD automation server"
+
+  - slug: gitlab-ci
+    name: "GitLab CI"
+    category: process
+    component_type: infrastructure
+    description: "CI/CD platform"
+
+  - slug: github-actions
+    name: "GitHub Actions"
+    category: process
+    component_type: infrastructure
+    description: "CI/CD automation"
+
+  - slug: argocd
+    name: "Argo CD"
+    category: process
+    component_type: infrastructure
+    description: "GitOps continuous delivery"

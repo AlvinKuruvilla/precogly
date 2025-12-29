@@ -2,7 +2,7 @@
  * Card component for displaying a library pack.
  */
 
-import { Check, Download, Package } from 'lucide-react'
+import { Check, Download, Eye, Package } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import type { LibraryPackListItem } from '@/types/packs'
 interface PackCardProps {
   pack: LibraryPackListItem
   onInstall: (pack: LibraryPackListItem) => void
+  onPreview?: (pack: LibraryPackListItem) => void
   installing?: boolean
 }
 
@@ -27,7 +28,7 @@ const sourceLabels: Record<string, string> = {
   private: 'Private',
 }
 
-export function PackCard({ pack, onInstall, installing }: PackCardProps) {
+export function PackCard({ pack, onInstall, onPreview, installing }: PackCardProps) {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="pb-3">
@@ -75,20 +76,32 @@ export function PackCard({ pack, onInstall, installing }: PackCardProps) {
             {pack.install_count.toLocaleString()}
           </span>
         </div>
-        {pack.is_installed ? (
-          <Button size="sm" variant="ghost" disabled>
-            <Check className="h-4 w-4 mr-1" />
-            Installed
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            onClick={() => onInstall(pack)}
-            disabled={installing}
-          >
-            Install
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {onPreview && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onPreview(pack)}
+              title="Preview pack contents"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )}
+          {pack.is_installed ? (
+            <Button size="sm" variant="ghost" disabled>
+              <Check className="h-4 w-4 mr-1" />
+              Installed
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => onInstall(pack)}
+              disabled={installing}
+            >
+              Install
+            </Button>
+          )}
+        </div>
       </CardFooter>
     </Card>
   )

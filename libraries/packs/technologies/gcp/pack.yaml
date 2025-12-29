@@ -1,0 +1,337 @@
+# =============================================================================
+# GCP Technologies Pack
+# =============================================================================
+# This pack provides Google Cloud Platform service components for threat modeling.
+# Components are "stubs" - they define what services exist, not what can go wrong.
+# Threats should be added via separate threat packs or by extending components.
+# =============================================================================
+
+pack:
+  slug: gcp-technologies
+  name: "GCP Technologies"
+  description: "Google Cloud Platform components for threat modeling diagrams"
+  version: "1.0.0"
+  author: "Precogly Team"
+  pack_type: technology
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - gcp
+    - google
+    - cloud
+    - infrastructure
+  repository_url: "https://github.com/precogly/precogly"
+  documentation_url: "https://cloud.google.com/docs"
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  # ---------------------------------------------------------------------------
+  # DATABASES
+  # ---------------------------------------------------------------------------
+  - slug: cloudsql-postgresql
+    name: "GCP Cloud SQL (PostgreSQL)"
+    category: datastore
+    component_type: database
+    description: "Managed PostgreSQL database service"
+
+  - slug: cloudsql-mysql
+    name: "GCP Cloud SQL (MySQL)"
+    category: datastore
+    component_type: database
+    description: "Managed MySQL database service"
+
+  - slug: firestore
+    name: "GCP Firestore"
+    category: datastore
+    component_type: database
+    description: "Serverless NoSQL document database"
+
+  - slug: bigtable
+    name: "GCP Bigtable"
+    category: datastore
+    component_type: database
+    description: "Wide-column NoSQL database"
+
+  - slug: bigquery
+    name: "GCP BigQuery"
+    category: datastore
+    component_type: database
+    description: "Serverless data warehouse"
+
+  - slug: spanner
+    name: "GCP Cloud Spanner"
+    category: datastore
+    component_type: database
+    description: "Globally distributed relational database"
+
+  - slug: datastore
+    name: "GCP Datastore"
+    category: datastore
+    component_type: database
+    description: "NoSQL document database (legacy mode)"
+
+  # ---------------------------------------------------------------------------
+  # STORAGE
+  # ---------------------------------------------------------------------------
+  - slug: cloud-storage
+    name: "GCP Cloud Storage"
+    category: datastore
+    component_type: storage
+    description: "Object storage service"
+
+  - slug: filestore
+    name: "GCP Filestore"
+    category: datastore
+    component_type: storage
+    description: "Managed NFS file storage"
+
+  - slug: persistent-disk
+    name: "GCP Persistent Disk"
+    category: datastore
+    component_type: storage
+    description: "Block storage for VMs"
+
+  # ---------------------------------------------------------------------------
+  # CACHE
+  # ---------------------------------------------------------------------------
+  - slug: memorystore-redis
+    name: "GCP Memorystore (Redis)"
+    category: datastore
+    component_type: cache
+    description: "Managed Redis in-memory cache"
+
+  - slug: memorystore-memcached
+    name: "GCP Memorystore (Memcached)"
+    category: datastore
+    component_type: cache
+    description: "Managed Memcached in-memory cache"
+
+  # ---------------------------------------------------------------------------
+  # COMPUTE
+  # ---------------------------------------------------------------------------
+  - slug: cloud-functions
+    name: "GCP Cloud Functions"
+    category: process
+    component_type: compute
+    description: "Serverless function execution"
+
+  - slug: cloud-run
+    name: "GCP Cloud Run"
+    category: process
+    component_type: compute
+    description: "Serverless container platform"
+
+  - slug: gke
+    name: "GCP GKE"
+    category: process
+    component_type: compute
+    description: "Google Kubernetes Engine - managed Kubernetes"
+
+  - slug: compute-engine
+    name: "GCP Compute Engine"
+    category: process
+    component_type: compute
+    description: "Virtual machine instances"
+
+  - slug: app-engine
+    name: "GCP App Engine"
+    category: process
+    component_type: compute
+    description: "PaaS for web applications"
+
+  - slug: cloud-build
+    name: "GCP Cloud Build"
+    category: process
+    component_type: compute
+    description: "CI/CD build service"
+
+  # ---------------------------------------------------------------------------
+  # MESSAGING
+  # ---------------------------------------------------------------------------
+  - slug: pubsub
+    name: "GCP Pub/Sub"
+    category: process
+    component_type: messaging
+    description: "Messaging and event ingestion"
+
+  - slug: cloud-tasks
+    name: "GCP Cloud Tasks"
+    category: process
+    component_type: messaging
+    description: "Asynchronous task execution"
+
+  - slug: dataflow
+    name: "GCP Dataflow"
+    category: process
+    component_type: messaging
+    description: "Stream and batch data processing"
+
+  # ---------------------------------------------------------------------------
+  # NETWORKING
+  # ---------------------------------------------------------------------------
+  - slug: vpc
+    name: "GCP VPC"
+    category: process
+    component_type: networking
+    description: "Virtual Private Cloud network"
+
+  - slug: subnet
+    name: "GCP Subnet"
+    category: process
+    component_type: networking
+    description: "Regional subnet within VPC"
+
+  - slug: private-service-connect
+    name: "GCP Private Service Connect"
+    category: process
+    component_type: networking
+    description: "Private connectivity to Google services"
+
+  - slug: network-connectivity
+    name: "GCP Network Connectivity Center"
+    category: process
+    component_type: networking
+    description: "Network hub for hybrid connectivity"
+
+  - slug: cloud-load-balancing
+    name: "GCP Cloud Load Balancing"
+    category: process
+    component_type: networking
+    description: "Global and regional load balancing"
+
+  - slug: cloud-cdn
+    name: "GCP Cloud CDN"
+    category: process
+    component_type: networking
+    description: "Content Delivery Network"
+
+  - slug: cloud-dns
+    name: "GCP Cloud DNS"
+    category: process
+    component_type: networking
+    description: "Managed DNS service"
+
+  - slug: cloud-nat
+    name: "GCP Cloud NAT"
+    category: process
+    component_type: networking
+    description: "Network Address Translation"
+
+  # ---------------------------------------------------------------------------
+  # SECURITY
+  # ---------------------------------------------------------------------------
+  - slug: cloud-armor
+    name: "GCP Cloud Armor"
+    category: process
+    component_type: security
+    description: "DDoS protection and WAF"
+
+  - slug: cloud-firewall
+    name: "GCP Cloud Firewall"
+    category: process
+    component_type: security
+    description: "Network firewall rules"
+
+  - slug: security-command-center
+    name: "GCP Security Command Center"
+    category: process
+    component_type: security
+    description: "Security and risk management"
+
+  - slug: cloud-kms
+    name: "GCP Cloud KMS"
+    category: process
+    component_type: security
+    description: "Key Management Service"
+
+  - slug: secret-manager
+    name: "GCP Secret Manager"
+    category: process
+    component_type: security
+    description: "Secrets storage and management"
+
+  - slug: cloud-hsm
+    name: "GCP Cloud HSM"
+    category: process
+    component_type: security
+    description: "Hardware Security Module"
+
+  - slug: cloud-vpn
+    name: "GCP Cloud VPN"
+    category: process
+    component_type: security
+    description: "Site-to-site VPN connectivity"
+
+  - slug: iap
+    name: "GCP Identity-Aware Proxy"
+    category: process
+    component_type: security
+    description: "Zero-trust access to applications"
+
+  # ---------------------------------------------------------------------------
+  # AUTH / IDENTITY
+  # ---------------------------------------------------------------------------
+  - slug: identity-platform
+    name: "GCP Identity Platform"
+    category: process
+    component_type: auth
+    description: "Customer identity management"
+
+  - slug: iam
+    name: "GCP IAM"
+    category: process
+    component_type: auth
+    description: "Identity and Access Management"
+
+  - slug: workload-identity
+    name: "GCP Workload Identity"
+    category: process
+    component_type: auth
+    description: "Kubernetes workload identity federation"
+
+  # ---------------------------------------------------------------------------
+  # MONITORING
+  # ---------------------------------------------------------------------------
+  - slug: cloud-monitoring
+    name: "GCP Cloud Monitoring"
+    category: process
+    component_type: monitoring
+    description: "Infrastructure and application monitoring"
+
+  - slug: cloud-logging
+    name: "GCP Cloud Logging"
+    category: process
+    component_type: monitoring
+    description: "Log management and analysis"
+
+  - slug: cloud-trace
+    name: "GCP Cloud Trace"
+    category: process
+    component_type: monitoring
+    description: "Distributed tracing"
+
+  - slug: cloud-profiler
+    name: "GCP Cloud Profiler"
+    category: process
+    component_type: monitoring
+    description: "Application performance profiling"
+
+  # ---------------------------------------------------------------------------
+  # API MANAGEMENT
+  # ---------------------------------------------------------------------------
+  - slug: api-gateway
+    name: "GCP API Gateway"
+    category: process
+    component_type: networking
+    description: "Serverless API gateway"
+
+  - slug: apigee
+    name: "GCP Apigee"
+    category: process
+    component_type: networking
+    description: "Full-featured API management platform"

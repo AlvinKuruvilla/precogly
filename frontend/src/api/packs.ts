@@ -21,7 +21,103 @@ export const packKeys = {
   details: () => [...packKeys.all, 'detail'] as const,
   detail: (id: number) => [...packKeys.details(), id] as const,
   dependencies: (id: number) => [...packKeys.all, 'dependencies', id] as const,
+  preview: (id: number) => [...packKeys.all, 'preview', id] as const,
+  previewFromSource: (slug: string) => [...packKeys.all, 'preview-source', slug] as const,
   installed: ['installed-packs'] as const,
+  availableFromSource: ['packs', 'available-from-source'] as const,
+}
+
+// Types for source-based pack operations
+export interface SourcePackInfo {
+  slug: string
+  name: string
+  description: string
+  version: string
+  pack_type: string
+  tier: string
+  source: string
+  author: string
+  industries: string[]
+  tags: string[]
+  path: string
+  is_in_database: boolean
+  database_version: string | null
+  needs_update: boolean
+  component_count: number
+  threat_count: number
+  countermeasure_count: number
+}
+
+export interface AvailablePacksResponse {
+  packs: SourcePackInfo[]
+  total: number
+  in_database: number
+  needs_update: number
+}
+
+export interface ImportResult {
+  success: boolean
+  pack_slug: string
+  pack_name: string
+  version: string
+  message: string
+  components_created: number
+  threats_created: number
+  countermeasures_created: number
+  templates_created: number
+  errors: string[]
+}
+
+export interface SyncFromSourceResponse {
+  results: ImportResult[]
+  summary: {
+    total: number
+    successful: number
+    failed: number
+  }
+  message: string
+}
+
+// Types for pack preview
+export interface PackPreviewComponent {
+  slug: string
+  name: string
+  category: string
+  component_type: string
+  description: string
+}
+
+export interface PackPreviewThreat {
+  slug: string
+  name: string
+  stride_category: string
+  severity: string
+  description: string
+}
+
+export interface PackPreviewCountermeasure {
+  slug: string
+  name: string
+  control_type: string
+  cost: string
+  description: string
+}
+
+export interface PackPreviewResponse {
+  pack: {
+    slug: string
+    name: string
+    description: string
+    version: string
+    pack_type: string
+    tier: string
+    author: string
+    tags: string[]
+    industries: string[]
+  }
+  components: PackPreviewComponent[]
+  threats: PackPreviewThreat[]
+  countermeasures: PackPreviewCountermeasure[]
 }
 
 // Build query string from filters
@@ -154,5 +250,104 @@ export function useUninstallPack() {
       queryClient.invalidateQueries({ queryKey: packKeys.all })
       queryClient.invalidateQueries({ queryKey: packKeys.installed })
     },
+  })
+}
+
+// =============================================================================
+// Source-based pack operations (reading from libraries folder)
+// =============================================================================
+
+/**
+ * Fetch packs available from the libraries folder (source files).
+ * These are packs that exist in the libraries/packs directory,
+ * which may or may not be imported into the database yet.
+ */
+export function useAvailablePacksFromSource() {
+  return useQuery({
+    queryKey: packKeys.availableFromSource,
+    queryFn: () => api.get<AvailablePacksResponse>('/packs/available_from_source/'),
+  })
+}
+
+/**
+ * Sync all packs from the libraries folder to the database.
+ * This imports new packs and optionally updates existing ones.
+ */
+export function useSyncPacksFromSource() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (options: { force?: boolean } = {}) =>
+      api.post<SyncFromSourceResponse>('/packs/sync_from_source/', {
+        force: options.force ?? false,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: packKeys.all })
+      queryClient.invalidateQueries({ queryKey: packKeys.availableFromSource })
+    },
+  })
+}
+
+/**
+ * Import a single pack from the libraries folder by slug.
+ */
+export function useImportSinglePack() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ slug, force = false }: { slug: string; force?: boolean }) =>
+      api.post<ImportResult>('/packs/import_single/', { slug, force }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: packKeys.all })
+      queryClient.invalidateQueries({ queryKey: packKeys.availableFromSource })
+    },
+  })
+}
+
+/**
+ * Install a pack for the user's organization (after it's been imported to DB).
+ * This creates the OrganizationPackInstallation record.
+ */
+export function useInstallPackForOrg() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (packId: number) =>
+      api.post<{ message: string; installation: InstalledPack }>(
+        `/packs/${packId}/install_for_org/`
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: packKeys.all })
+      queryClient.invalidateQueries({ queryKey: packKeys.installed })
+      // Also invalidate component library to refresh available technologies
+      queryClient.invalidateQueries({ queryKey: ['component-library'] })
+    },
+  })
+}
+
+// =============================================================================
+// Pack Preview Hooks
+// =============================================================================
+
+/**
+ * Fetch full pack contents for preview (database packs).
+ */
+export function usePackPreview(id: number | null) {
+  return useQuery({
+    queryKey: packKeys.preview(id!),
+    queryFn: () => api.get<PackPreviewResponse>(`/packs/${id}/preview/`),
+    enabled: id !== null,
+  })
+}
+
+/**
+ * Fetch full pack contents for preview (source packs by slug).
+ */
+export function useSourcePackPreview(slug: string | null) {
+  return useQuery({
+    queryKey: packKeys.previewFromSource(slug!),
+    queryFn: () =>
+      api.get<PackPreviewResponse>(`/packs/preview_from_source/?slug=${slug}`),
+    enabled: slug !== null,
   })
 }

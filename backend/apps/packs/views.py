@@ -2,6 +2,8 @@
 Views for packs app.
 """
 
+from pathlib import Path
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -28,6 +30,14 @@ from .serializers import (
     OrganizationPackInstallationSerializer,
     PackDependencyTreeSerializer,
     PackInstallResponseSerializer,
+)
+from .services import (
+    _restore_library_items,
+    discover_packs_from_source,
+    get_pack_preview_from_database,
+    get_pack_preview_from_source,
+    import_pack_from_path,
+    sync_all_packs_from_source,
 )
 
 
@@ -200,7 +210,23 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def _create_installation(self, org, pack, user):
-        """Create an installation record and increment install count."""
+        """Create an installation record and increment install count.
+
+        Also ensures components exist - if the pack has no components,
+        it will attempt to re-import from source to create them.
+        """
+        # Check if pack has components - if not, try to import from source
+        has_components = ComponentLibrary.objects.filter(source_pack=pack).exists()
+        if not has_components:
+            # Try to find and import from source
+            packs = discover_packs_from_source()
+            pack_info = next((p for p in packs if p.slug == pack.slug), None)
+            if pack_info:
+                # Re-import to create components (force=True to recreate)
+                import_pack_from_path(Path(pack_info.path), force=True)
+                # Refresh pack from DB in case it was updated
+                pack.refresh_from_db()
+
         installation = OrganizationPackInstallation.objects.create(
             organization=org,
             pack=pack,
@@ -213,7 +239,188 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         pack.install_count += 1
         pack.save(update_fields=["install_count"])
 
+        # Restore any soft-deleted library items from previous uninstall
+        _restore_library_items(pack)
+
         return installation
+
+    @action(detail=False, methods=["get"])
+    def available_from_source(self, request):
+        """
+        List packs available in the libraries folder.
+
+        Returns packs found in libraries/packs that can be synced to the database.
+        Includes information about whether each pack is already in the database
+        and if it needs updating.
+        """
+        packs = discover_packs_from_source()
+        return Response({
+            "packs": [p.to_dict() for p in packs],
+            "total": len(packs),
+            "in_database": sum(1 for p in packs if p.is_in_database),
+            "needs_update": sum(1 for p in packs if p.is_in_database and p.database_version != p.version),
+        })
+
+    @action(detail=False, methods=["post"])
+    def sync_from_source(self, request):
+        """
+        Sync packs from the libraries folder to the database.
+
+        This imports/updates all packs found in the libraries/packs directory.
+        Set force=true to reinstall all packs even if they already exist.
+
+        Automatically installs all synced packs for the user's organization.
+        """
+        force = request.data.get("force", False)
+
+        # Get user's organization for auto-install
+        user = request.user
+        org_membership = user.organization_memberships.first()
+        org = org_membership.organization if org_membership else None
+
+        results = sync_all_packs_from_source(
+            force=force,
+            organization=org,
+            installed_by=user,
+        )
+
+        successful = [r for r in results if r.success]
+        failed = [r for r in results if not r.success]
+
+        return Response({
+            "results": [r.to_dict() for r in results],
+            "summary": {
+                "total": len(results),
+                "successful": len(successful),
+                "failed": len(failed),
+            },
+            "message": f"Synced {len(successful)} packs, {len(failed)} failed",
+        })
+
+    @action(detail=False, methods=["post"])
+    def import_single(self, request):
+        """
+        Import a single pack from the libraries folder by slug.
+
+        Provide the pack slug in the request body:
+        {"slug": "aws-technologies", "force": false}
+
+        Automatically installs the pack for the user's organization after import.
+        """
+        slug = request.data.get("slug")
+        force = request.data.get("force", False)
+
+        if not slug:
+            return Response(
+                {"error": "Pack slug is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get user's organization for auto-install
+        user = request.user
+        org_membership = user.organization_memberships.first()
+        org = org_membership.organization if org_membership else None
+
+        # Find the pack in available sources
+        packs = discover_packs_from_source()
+        pack_info = next((p for p in packs if p.slug == slug), None)
+
+        if not pack_info:
+            return Response(
+                {"error": f"Pack '{slug}' not found in libraries folder"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Import the pack and auto-install for user's org
+        result = import_pack_from_path(
+            Path(pack_info.path),
+            organization=org,
+            installed_by=user,
+            force=force,
+        )
+
+        if result.success:
+            return Response(result.to_dict(), status=status.HTTP_201_CREATED)
+        else:
+            return Response(result.to_dict(), status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"])
+    def install_for_org(self, request, pk=None):
+        """
+        Install a pack for the user's organization.
+
+        This creates an OrganizationPackInstallation record linking the pack
+        to the user's organization, making the pack's contents visible to that org.
+        """
+        pack = self.get_object()
+        user = request.user
+
+        # Get user's org
+        org_membership = user.organization_memberships.first()
+        if not org_membership:
+            return Response(
+                {"error": "User must belong to an organization"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        org = org_membership.organization
+
+        # Check if already installed
+        existing = OrganizationPackInstallation.objects.filter(
+            organization=org, pack=pack
+        ).first()
+        if existing:
+            return Response(
+                {"error": f"Pack '{pack.name}' is already installed for your organization"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Create installation
+        installation = self._create_installation(org, pack, user)
+
+        return Response({
+            "message": f"Successfully installed {pack.name} v{pack.version}",
+            "installation": OrganizationPackInstallationSerializer(installation).data,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"])
+    def preview(self, request, pk=None):
+        """
+        Get full pack contents for preview (database packs).
+
+        Returns pack metadata along with all components, threats, and countermeasures.
+        """
+        pack = self.get_object()
+        preview_data = get_pack_preview_from_database(pack)
+        return Response(preview_data)
+
+    @action(detail=False, methods=["get"])
+    def preview_from_source(self, request):
+        """
+        Get full pack contents for preview (source packs by slug).
+
+        Query parameters:
+            slug: The pack slug to preview
+
+        Returns pack metadata along with all components, threats, and countermeasures.
+        """
+        slug = request.query_params.get("slug")
+
+        if not slug:
+            return Response(
+                {"error": "Pack slug is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        preview_data = get_pack_preview_from_source(slug)
+
+        if not preview_data:
+            return Response(
+                {"error": f"Pack '{slug}' not found in libraries folder"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(preview_data)
 
 
 class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
