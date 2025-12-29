@@ -1,6 +1,6 @@
 # Library Packs Architecture
 
-> **Last Updated:** December 27, 2025 (Zombie Record Fix - Partial Unique Constraints)
+> **Last Updated:** December 29, 2025 (Added FAQ section on stub components and compliance linking)
 
 ## Table of Contents
 
@@ -20,6 +20,7 @@
 14. [Onboarding Flow](#onboarding-flow)
 15. [Validation Rules](#validation-rules)
 16. [Error Handling](#error-handling)
+17. [FAQ](#faq)
 
 ---
 
@@ -1136,6 +1137,121 @@ Soft-deleted items:
 │ └─ ai-agents/│     └──────────────┘     └──────────────┘
 └──────────────┘
 ```
+
+---
+
+## FAQ
+
+### Q1: Should technology components without threats/countermeasures be banned?
+
+**No.** Allowing "stub" components (components with metadata but no threats) is essential for three reasons:
+
+#### 1. Architectural Necessity (The "Skeleton" Argument)
+
+A threat model is primarily a diagram of a system. Users often need to model components just to show data flow or connectivity, even if that specific node has no known threats *yet*.
+
+**Example:** If a user needs to draw `Web App → Load Balancer → Database`, they need a "Load Balancer" component. If it's banned because the pack has zero threats defined, the diagram becomes incomplete and unusable.
+
+#### 2. The "Stub" Strategy for Open Source
+
+Since Precogly is open-source, stub components serve as invitations for contribution:
+- If a user sees an empty "Redis" component, they might submit a PR to add threats
+- If the component doesn't exist at all, they assume the platform doesn't support Redis
+
+#### 3. Separation of Concerns
+
+- A **Technology Pack** (like `aws-technologies`) defines *what things are* (icons, names, categories)
+- A **Threat Pack** (like `base-stride`) defines *what can go wrong*
+
+It is valid to have a component that inherits threats from a different pack via the `ComponentLibraryThreat` junction table.
+
+#### Recommendation: Content Maturity Indicators
+
+Instead of banning stub components, use UI indicators to show content completeness:
+
+| Badge | Status | Description |
+|-------|--------|-------------|
+| 🟢 | **Complete** | Has threats + countermeasures + standards mappings |
+| 🟡 | **Partial** | Has some threats, missing countermeasures or mappings |
+| ⚪ | **Stub** | Metadata only, awaiting threat definitions |
+
+---
+
+### Q2: How do we link compliance requirements (e.g., PCI-DSS) to components?
+
+**Short answer:** Through the **Countermeasure** as a bridge. You never link standards directly to components (that would be brittle).
+
+#### The Compliance Chain
+
+```
+Standard Requirement → Countermeasure → Threat → Component
+        ↑                    ↑
+   (compliance pack)    (full/threat pack)
+```
+
+#### Step-by-Step Example
+
+**Step 1: Define the Requirement (in a Compliance Pack)**
+
+The `pci-dss` compliance pack defines frameworks and requirements:
+
+```yaml
+# pci-dss/pack.yaml
+pack:
+  slug: pci-dss
+  pack_type: compliance
+
+frameworks:
+  - slug: pci-dss-v4
+    name: "PCI-DSS v4.0"
+    requirements:
+      - section_code: "3.4"
+        title: "Render PAN unreadable anywhere it is stored"
+      - section_code: "8.3"
+        title: "Implement multi-factor authentication"
+```
+
+**Step 2: Define Component + Threat + Countermeasure (in a Full Pack)**
+
+The `banking-technologies` pack defines the actual implementations:
+
+```yaml
+# banking-technologies/pack.yaml
+components:
+  - slug: customer-database
+    threats:
+      - slug: data-breach
+        countermeasures:
+          - slug: encryption-at-rest  # <-- The Bridge
+```
+
+**Step 3: Create the Link (in the same Full Pack)**
+
+The `standards` section maps countermeasures to requirement IDs:
+
+```yaml
+standards:
+  - countermeasure: encryption-at-rest
+    requirement: pci-dss-3.4    # References external requirement
+    sufficiency: full           # "This control fully satisfies the requirement"
+```
+
+#### Query Logic: "Is my Customer Database PCI compliant?"
+
+When a user asks this question, Precogly executes:
+
+1. **Lookup:** Get `customer-database` component
+2. **Traverse:** Find its threats → Find their countermeasures
+3. **Check:** Does `encryption-at-rest` map to any PCI-DSS requirements?
+4. **Result:** Yes, maps to `pci-dss-3.4` with `sufficiency: full`
+
+#### Why This Design?
+
+| Alternative | Problem |
+|-------------|---------|
+| Link standards directly to components | Brittle - components change, mappings break |
+| Link standards directly to threats | Incomplete - threats describe problems, not solutions |
+| Link standards to countermeasures | Correct - countermeasures are the actual controls that satisfy requirements |
 
 ---
 
