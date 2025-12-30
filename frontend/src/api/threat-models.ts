@@ -93,15 +93,15 @@ export function useDeleteThreatModel() {
 export interface DeletePreviewDFD {
   id: string
   name: string
-  node_count: number
-  shared_with?: Array<{ id: string; name: string }>
+  nodeCount: number
+  sharedWith?: Array<{ id: string; name: string }>
 }
 
 export interface DeletePreviewResponse {
-  threat_model: { id: string; name: string }
-  dfds_to_delete: DeletePreviewDFD[]
-  dfds_to_preserve: DeletePreviewDFD[]
-  total_dfds: number
+  threatModel: { id: string; name: string }
+  dfdsToDelete: DeletePreviewDFD[]
+  dfdsToPreserve: DeletePreviewDFD[]
+  totalDfds: number
 }
 
 export function useDeletePreview(id: string | null) {
@@ -117,20 +117,20 @@ export function useDeletePreview(id: string | null) {
 export interface DFDDeletePreviewOrphanedComponent {
   id: number
   name: string
-  library_name: string | null
+  libraryName: string | null
 }
 
 export interface DFDDeletePreviewResponse {
   dfd: {
     id: string
     name: string
-    node_count: number
-    component_count: number
+    nodeCount: number
+    componentCount: number
   }
-  affected_threat_models: Array<{ id: string; name: string }>
-  is_shared: boolean
-  orphaned_components: DFDDeletePreviewOrphanedComponent[]
-  orphaned_component_count: number
+  affectedThreatModels: Array<{ id: string; name: string }>
+  isShared: boolean
+  orphanedComponents: DFDDeletePreviewOrphanedComponent[]
+  orphanedComponentCount: number
 }
 
 export function useDFDDeletePreview(dfdId: string | null) {
@@ -152,7 +152,7 @@ export function useDeleteDFD() {
   return useMutation({
     mutationFn: ({ dfdId, deleteOrphanedComponents = false }: DeleteDFDOptions) => {
       const params = deleteOrphanedComponents ? '?delete_orphaned_components=true' : ''
-      return api.delete<{ status: string; orphaned_components_deleted: number }>(
+      return api.delete<{ status: string; orphanedComponentsDeleted: number }>(
         `/diagrams/${dfdId}/${params}`
       )
     },

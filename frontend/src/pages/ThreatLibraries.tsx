@@ -43,7 +43,7 @@ export function ThreatLibraries() {
     (t) =>
       t.name.toLowerCase().includes(search.toLowerCase()) ||
       t.description?.toLowerCase().includes(search.toLowerCase()) ||
-      t.stride_category.toLowerCase().includes(search.toLowerCase())
+      t.strideCategory.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -103,10 +103,10 @@ export function ThreatLibraries() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      className={strideCategoryColors[threat.stride_category] || ''}
+                      className={strideCategoryColors[threat.strideCategory] || ''}
                       variant="secondary"
                     >
-                      {strideCategoryLabels[threat.stride_category] || threat.stride_category}
+                      {strideCategoryLabels[threat.strideCategory] || threat.strideCategory}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -114,8 +114,8 @@ export function ThreatLibraries() {
                   </TableCell>
                   <TableCell>
                     <PackBadge
-                      packName={threat.source_pack_name}
-                      packSlug={threat.source_pack_slug}
+                      packName={threat.sourcePackName}
+                      packSlug={threat.sourcePackSlug}
                     />
                   </TableCell>
                 </TableRow>

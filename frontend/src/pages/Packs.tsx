@@ -45,7 +45,8 @@ import {
   useSyncPacksFromSource,
   useImportSinglePack,
 } from '@/api/packs'
-import type { LibraryPackListItem, PackFilters, SourcePackInfo } from '@/api/packs'
+import type { SourcePackInfo } from '@/api/packs'
+import type { LibraryPackListItem, PackFilters } from '@/types/packs'
 
 export function Packs() {
   const [filters, setFilters] = useState<PackFilters>({})
@@ -131,8 +132,8 @@ export function Packs() {
   }
 
   const installedCount = installedPacks?.length ?? 0
-  const packsNotInDb = sourcePacks?.packs.filter((p) => !p.is_in_database) ?? []
-  const packsNeedingUpdate = sourcePacks?.packs.filter((p) => p.needs_update) ?? []
+  const packsNotInDb = sourcePacks?.packs.filter((p) => !p.isInDatabase) ?? []
+  const packsNeedingUpdate = sourcePacks?.packs.filter((p) => p.needsUpdate) ?? []
 
   return (
     <div className="space-y-6">
@@ -217,7 +218,7 @@ export function Packs() {
                 {/* Summary */}
                 <div className="flex gap-4 text-sm text-muted-foreground">
                   <span>{sourcePacks.total} packs found</span>
-                  <span>{sourcePacks.in_database} in database</span>
+                  <span>{sourcePacks.inDatabase} in database</span>
                   {packsNotInDb.length > 0 && (
                     <span className="text-orange-600">
                       {packsNotInDb.length} not imported
@@ -273,8 +274,8 @@ export function Packs() {
         </form>
         <div className="flex gap-2">
           <Select
-            value={filters.pack_type ?? 'all'}
-            onValueChange={(value) => handleFilterChange('pack_type', value)}
+            value={filters.packType ?? 'all'}
+            onValueChange={(value) => handleFilterChange('packType', value)}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Type" />
@@ -332,7 +333,7 @@ export function Packs() {
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No packs found</h3>
           <p className="text-muted-foreground">
-            {filters.search || filters.pack_type || filters.tier
+            {filters.search || filters.packType || filters.tier
               ? 'Try adjusting your search or filters.'
               : 'No library packs are available yet.'}
           </p>
@@ -372,7 +373,7 @@ function SourcePackCard({
   isImporting: boolean
 }) {
   const getStatusBadge = () => {
-    if (pack.is_in_database && !pack.needs_update) {
+    if (pack.isInDatabase && !pack.needsUpdate) {
       return (
         <Badge variant="outline" className="text-green-600 border-green-600">
           <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -380,7 +381,7 @@ function SourcePackCard({
         </Badge>
       )
     }
-    if (pack.needs_update) {
+    if (pack.needsUpdate) {
       return (
         <Badge variant="outline" className="text-blue-600 border-blue-600">
           <RefreshCw className="mr-1 h-3 w-3" />
@@ -418,9 +419,9 @@ function SourcePackCard({
       <div className="flex flex-wrap gap-1">
         <Badge
           variant="secondary"
-          className={packTypeColors[pack.pack_type] || 'bg-gray-100'}
+          className={packTypeColors[pack.packType] || 'bg-gray-100'}
         >
-          {pack.pack_type}
+          {pack.packType}
         </Badge>
         <Badge variant="secondary">{pack.tier}</Badge>
       </div>
@@ -430,10 +431,10 @@ function SourcePackCard({
       </p>
 
       <div className="flex gap-3 text-xs text-muted-foreground">
-        {pack.component_count > 0 && (
-          <span>{pack.component_count} components</span>
+        {pack.componentCount > 0 && (
+          <span>{pack.componentCount} components</span>
         )}
-        {pack.threat_count > 0 && <span>{pack.threat_count} threats</span>}
+        {pack.threatCount > 0 && <span>{pack.threatCount} threats</span>}
       </div>
 
       <div className="flex gap-2">
@@ -445,7 +446,7 @@ function SourcePackCard({
         >
           <Eye className="h-4 w-4" />
         </Button>
-        {(!pack.is_in_database || pack.needs_update) && (
+        {(!pack.isInDatabase || pack.needsUpdate) && (
           <Button
             size="sm"
             variant="outline"
@@ -458,7 +459,7 @@ function SourcePackCard({
             ) : (
               <Download className="mr-2 h-3 w-3" />
             )}
-            {pack.needs_update ? 'Update' : 'Import'}
+            {pack.needsUpdate ? 'Update' : 'Import'}
           </Button>
         )}
       </div>

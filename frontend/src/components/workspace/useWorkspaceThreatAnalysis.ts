@@ -336,11 +336,11 @@ export function useWorkspaceThreatAnalysis(
   const updateCountermeasureMutation = useUpdateCountermeasure()
   const updateThreatModelMutation = useUpdateThreatModel()
 
-  // Initialize state from backend workspace_data when threat model loads
+  // Initialize state from backend workspaceData when threat model loads
   useEffect(() => {
-    if (threatModel?.workspace_data && !hasInitializedFromBackend.current) {
+    if (threatModel?.workspaceData && !hasInitializedFromBackend.current) {
       hasInitializedFromBackend.current = true
-      const backendState = extractWorkspaceState(threatModel.workspace_data as WorkspaceData)
+      const backendState = extractWorkspaceState(threatModel.workspaceData as WorkspaceData)
       setState((prev) => ({
         ...prev,
         ...backendState,
@@ -369,8 +369,8 @@ export function useWorkspaceThreatAnalysis(
         systemContext: state.systemContext,
         progressChecklist: state.progressChecklist,
         // Preserve existing fields
-        criticality: (threatModel?.workspace_data as WorkspaceData)?.criticality,
-        frameworks: (threatModel?.workspace_data as WorkspaceData)?.frameworks,
+        criticality: (threatModel?.workspaceData as WorkspaceData)?.criticality,
+        frameworks: (threatModel?.workspaceData as WorkspaceData)?.frameworks,
       }
 
       updateThreatModelMutation.mutate({
@@ -427,10 +427,10 @@ export function useWorkspaceThreatAnalysis(
       // Initialize threats for new diagrams (only for components without backend threats)
       const newThreats: ComponentThreat[] = []
       newDiagrams.forEach((diagram) => {
-        const canvasData = diagram.canvas_data || diagram.canvasData
+        const canvasData = diagram.canvasData
         const diagramThreats = initializeThreatsForDiagram(
           diagram.id,
-          diagram.name || diagram.title || '',
+          diagram.name || '',
           canvasData?.nodes || [],
           canvasData?.edges || []
         )
@@ -621,8 +621,8 @@ export function useWorkspaceThreatAnalysis(
   const summaries = useMemo(() => {
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
-    // Component summary - handle both snake_case (backend) and camelCase
-    const allNodes = diagrams.flatMap((d) => (d.canvas_data || d.canvasData)?.nodes || [])
+    // Component summary
+    const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
     const componentSummary = {
       total: allNodes.filter(
         (n) => n.type === 'process' || n.type === 'datastore' || n.type === 'actor'
@@ -667,8 +667,8 @@ export function useWorkspaceThreatAnalysis(
 
   // Compute auto-checked progress items
   const computedProgressChecklist = useMemo(() => {
-    const allNodes = diagrams.flatMap((d) => (d.canvas_data || d.canvasData)?.nodes || [])
-    const allEdges = diagrams.flatMap((d) => (d.canvas_data || d.canvasData)?.edges || [])
+    const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
+    const allEdges = diagrams.flatMap((d) => d.canvasData?.edges || [])
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
     const hasComponents = allNodes.some(

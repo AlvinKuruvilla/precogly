@@ -5,64 +5,68 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
+import type { STRIDECategory } from '@/types/domain'
+
+// Backend countermeasure status (uses 'verified', differs from frontend 'platform')
+type BackendCountermeasureStatus = 'gap' | 'planned' | 'verified' | 'waived'
 
 // Types
 export interface ComponentInstanceThreat {
   id: number
   component: number
-  component_name: string
-  threat_library: number
-  threat_name: string
-  stride_category: string
-  inherent_severity: string
-  residual_severity: string
+  componentName: string
+  threatLibrary: number
+  threatName: string
+  strideCategory: STRIDECategory
+  inherentSeverity: string
+  residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
   justification: string
-  created_at: string
-  updated_at: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CountermeasureLibraryItem {
   id: number
   name: string
-  control_type: string
+  controlType: string
   cost: string
-  source_pack_name: string | null
-  source_pack_slug: string | null
+  sourcePackName: string | null
+  sourcePackSlug: string | null
 }
 
 export interface ComponentInstanceCountermeasure {
   id: number
-  instance_threat: number
-  countermeasure_library: number
-  countermeasure_name: string
-  status: 'gap' | 'planned' | 'verified' | 'waived'
-  verified_by: number | null
-  verified_by_email: string | null
-  evidence_url: string
-  required_for_release: boolean
-  assigned_owner: number | null
-  assigned_owner_email: string | null
-  created_at: string
-  updated_at: string
+  instanceThreat: number
+  countermeasureLibrary: number
+  countermeasureName: string
+  status: BackendCountermeasureStatus
+  verifiedBy: number | null
+  verifiedByEmail: string | null
+  evidenceUrl: string
+  requiredForRelease: boolean
+  assignedOwner: number | null
+  assignedOwnerEmail: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface GenerateThreatsResponse {
   created: ComponentInstanceThreat[]
   existing: ComponentInstanceThreat[]
-  created_count: number
-  existing_count: number
+  createdCount: number
+  existingCount: number
   total: number
   message: string
 }
 
 export interface SuggestedCountermeasuresResponse {
-  threat_id: number
-  threat_name: string
+  threatId: number
+  threatName: string
   suggested: CountermeasureLibraryItem[]
   applied: CountermeasureLibraryItem[]
-  suggested_count: number
-  applied_count: number
+  suggestedCount: number
+  appliedCount: number
 }
 
 export interface ApplyCountermeasureResponse {
@@ -71,9 +75,9 @@ export interface ApplyCountermeasureResponse {
 }
 
 export interface RecalculateStatusResponse {
-  threat_id: number
-  old_status: string
-  new_status: string
+  threatId: number
+  oldStatus: string
+  newStatus: string
   message: string
 }
 
@@ -151,7 +155,7 @@ export function useApplyCountermeasure() {
       status?: string
     }) =>
       api.post<ApplyCountermeasureResponse>(`/component-threats/${threatId}/apply_countermeasure/`, {
-        countermeasure_library_id: countermeasureLibraryId,
+        countermeasureLibraryId: countermeasureLibraryId,
         ...(status && { status }),
       }),
     onSuccess: (_, { threatId }) => {
@@ -197,7 +201,7 @@ export function useUpdateThreat() {
 }
 
 /**
- * Update a countermeasure instance (e.g., status, evidence_url).
+ * Update a countermeasure instance (e.g., status, evidenceUrl).
  */
 export function useUpdateCountermeasure() {
   const queryClient = useQueryClient()
@@ -224,10 +228,10 @@ export function useUpdateCountermeasure() {
  * Backend response for threat model threats endpoint.
  */
 export interface ThreatModelThreatsResponse {
-  threat_model_id: string
+  threatModelId: string
   threats: BackendThreat[]
-  total_count: number
-  node_component_map: Record<string, { component_id: number; dfd_id: string; dfd_name: string }>
+  totalCount: number
+  nodeComponentMap: Record<string, { componentId: number; dfdId: string; dfdName: string }>
 }
 
 /**
@@ -235,17 +239,17 @@ export interface ThreatModelThreatsResponse {
  */
 export interface BackendThreat {
   id: number
-  component_id: number
-  component_name: string | null
-  node_id: string | null
-  dfd_id: string | null
-  dfd_name: string | null
-  threat_library_id: number
-  threat_name: string | null
-  threat_description: string | null
-  stride_category: string | null
-  inherent_severity: string
-  residual_severity: string
+  componentId: number
+  componentName: string | null
+  nodeId: string | null
+  dfdId: string | null
+  dfdName: string | null
+  threatLibraryId: number
+  threatName: string | null
+  threatDescription: string | null
+  strideCategory: STRIDECategory | null
+  inherentSeverity: string
+  residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
   justification: string
   countermeasures: BackendCountermeasure[]
@@ -256,13 +260,13 @@ export interface BackendThreat {
  */
 export interface BackendCountermeasure {
   id: number
-  countermeasure_library_id: number
-  countermeasure_name: string | null
-  control_type: string | null
-  status: 'gap' | 'planned' | 'verified' | 'waived'
-  evidence_url: string
-  assigned_owner_email: string | null
-  verified_by_email: string | null
+  countermeasureLibraryId: number
+  countermeasureName: string | null
+  controlType: string | null
+  status: BackendCountermeasureStatus
+  evidenceUrl: string
+  assignedOwnerEmail: string | null
+  verifiedByEmail: string | null
 }
 
 /**
@@ -290,22 +294,22 @@ export function transformBackendThreatsToComponentThreats(
 
     const countermeasures: ComponentThreatCountermeasure[] = bt.countermeasures.map((cm) => ({
       id: `cm-${cm.id}`,
-      countermeasureId: `lib-${cm.countermeasure_library_id}`,
+      countermeasureId: `lib-${cm.countermeasureLibraryId}`,
       componentThreatId,
       status: transformCountermeasureStatus(cm.status),
-      owner: cm.assigned_owner_email || undefined,
-      notes: cm.evidence_url || undefined,
+      owner: cm.assignedOwnerEmail || undefined,
+      notes: cm.evidenceUrl || undefined,
       createdAt: now,
       updatedAt: now,
     }))
 
     return {
       id: componentThreatId,
-      diagramId: bt.dfd_id || '',
-      sourceDiagramId: bt.dfd_id || undefined,
-      sourceDiagramTitle: bt.dfd_name || undefined,
-      componentId: bt.node_id || `component-${bt.component_id}`,
-      threatId: `lib-${bt.threat_library_id}`,
+      diagramId: bt.dfdId || '',
+      sourceDiagramId: bt.dfdId || undefined,
+      sourceDiagramTitle: bt.dfdName || undefined,
+      componentId: bt.nodeId || `component-${bt.componentId}`,
+      threatId: `lib-${bt.threatLibraryId}`,
       dismissed: bt.status === 'accepted',
       notes: bt.justification || undefined,
       countermeasures,
@@ -313,16 +317,16 @@ export function transformBackendThreatsToComponentThreats(
       updatedAt: now,
       // Store backend IDs for API operations
       _backendThreatId: bt.id,
-      _backendComponentId: bt.component_id,
-      _threatName: bt.threat_name,
-      _threatDescription: bt.threat_description,
-      _strideCategory: bt.stride_category,
+      _backendComponentId: bt.componentId,
+      _threatName: bt.threatName,
+      _threatDescription: bt.threatDescription,
+      _strideCategory: bt.strideCategory,
     } as ComponentThreat & {
       _backendThreatId: number
       _backendComponentId: number
       _threatName: string | null
       _threatDescription: string | null
-      _strideCategory: string | null
+      _strideCategory: STRIDECategory | null
     }
   })
 }

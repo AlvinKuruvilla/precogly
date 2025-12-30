@@ -135,7 +135,7 @@ class OrganizationPackInstallation(TimestampedModel):
 
     class Status(models.TextChoices):
         INSTALLED = "installed", "Installed"
-        PENDING_UPDATE = "pending_update", "Update Available"
+        PENDING_UPDATE = "pendingUpdate", "Update Available"
         FAILED = "failed", "Installation Failed"
 
     organization = models.ForeignKey(

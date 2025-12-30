@@ -74,11 +74,11 @@ export function DFDTemplates() {
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
-                    {template.diagram_type}
+                    {template.diagramType}
                   </span>
                   <PackBadge
-                    packName={template.source_pack_name}
-                    packSlug={template.source_pack_slug}
+                    packName={template.sourcePackName}
+                    packSlug={template.sourcePackSlug}
                   />
                 </div>
               </CardContent>

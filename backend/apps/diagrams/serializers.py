@@ -200,16 +200,17 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
                 )
 
         # Initialize workspace_data (for system context, progress, etc.)
+        # Note: Use snake_case here - middleware auto-converts to camelCase for API
         validated_data["workspace_data"] = {
-            "systemContext": {
+            "system_context": {
                 "description": "",
                 "assets": [],
-                "outOfScopeItems": [],
+                "out_of_scope_items": [],
                 "integrations": {},
                 "uploads": {},
-                "scopeLocked": False,
+                "scope_locked": False,
             },
-            "progressChecklist": [],
+            "progress_checklist": [],
         }
 
         # Create the threat model

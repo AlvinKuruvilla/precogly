@@ -74,7 +74,7 @@ export function TemplateBrowser({
       .sort((a, b) => {
         switch (sortBy) {
           case 'newest':
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           case 'name':
             return a.name.localeCompare(b.name)
           default:
@@ -84,7 +84,7 @@ export function TemplateBrowser({
   }, [templates, searchQuery, filterBy, sortBy])
 
   const handleInsert = (template: DFDTemplate) => {
-    const canvasData = template.canvas_data as { nodes?: unknown[]; edges?: unknown[] } | undefined
+    const canvasData = template.canvasData as { nodes?: unknown[]; edges?: unknown[] } | undefined
     const nodes = (canvasData?.nodes ?? []) as DiagramNode[]
     const edges = (canvasData?.edges ?? []) as DataFlowEdge[]
     onInsert(nodes, edges)
@@ -198,14 +198,14 @@ export function TemplateBrowser({
 
                   {/* Footer: Source Pack + Diagram Type */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground w-full mt-auto">
-                    {template.source_pack_name && (
+                    {template.sourcePackName && (
                       <span className="flex items-center gap-1">
                         <Package className="h-3 w-3" />
-                        {template.source_pack_name}
+                        {template.sourcePackName}
                       </span>
                     )}
-                    {template.diagram_type && (
-                      <span>{template.diagram_type}</span>
+                    {template.diagramType && (
+                      <span>{template.diagramType}</span>
                     )}
                   </div>
                 </button>

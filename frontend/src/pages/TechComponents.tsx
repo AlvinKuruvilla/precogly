@@ -81,15 +81,15 @@ export function TechComponents() {
                     <Badge variant="secondary">{component.category}</Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {component.component_type}
+                    {component.componentType}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {component.provider || '—'}
                   </TableCell>
                   <TableCell>
                     <PackBadge
-                      packName={component.source_pack_name}
-                      packSlug={component.source_pack_slug}
+                      packName={component.sourcePackName}
+                      packSlug={component.sourcePackSlug}
                     />
                   </TableCell>
                 </TableRow>

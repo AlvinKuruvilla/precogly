@@ -47,9 +47,9 @@ export function DeleteDFDDialog({
 
   if (!dfdId) return null
 
-  const isShared = preview?.is_shared ?? false
-  const affectedThreatModels = preview?.affected_threat_models ?? []
-  const orphanedComponents = preview?.orphaned_components ?? []
+  const isShared = preview?.isShared ?? false
+  const affectedThreatModels = preview?.affectedThreatModels ?? []
+  const orphanedComponents = preview?.orphanedComponents ?? []
   const hasOrphanedComponents = orphanedComponents.length > 0
 
   return (
@@ -78,11 +78,11 @@ export function DeleteDFDDialog({
                 <div className="text-sm text-gray-700">
                   <div className="flex justify-between">
                     <span>Nodes:</span>
-                    <span className="font-medium">{preview.dfd.node_count}</span>
+                    <span className="font-medium">{preview.dfd.nodeCount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Components:</span>
-                    <span className="font-medium">{preview.dfd.component_count}</span>
+                    <span className="font-medium">{preview.dfd.componentCount}</span>
                   </div>
                 </div>
               </div>
@@ -132,8 +132,8 @@ export function DeleteDFDDialog({
                       <li key={comp.id} className="text-sm text-orange-700 flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
                         {comp.name}
-                        {comp.library_name && (
-                          <span className="text-xs text-orange-500">({comp.library_name})</span>
+                        {comp.libraryName && (
+                          <span className="text-xs text-orange-500">({comp.libraryName})</span>
                         )}
                       </li>
                     ))}

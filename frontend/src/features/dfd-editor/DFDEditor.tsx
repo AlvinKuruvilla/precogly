@@ -204,7 +204,7 @@ function DFDEditorContent() {
   }
 
   // Handle title editing
-  const diagramTitle = diagram?.name || diagram?.title || ''
+  const diagramTitle = diagram?.name || ''
 
   const handleTitleClick = useCallback(() => {
     if (diagram) {

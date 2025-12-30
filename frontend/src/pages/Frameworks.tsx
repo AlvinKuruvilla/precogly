@@ -153,7 +153,7 @@ export function Frameworks() {
                   {topLevelRequirements.map((req) => (
                     <TableRow key={req.id}>
                       <TableCell className="font-mono text-sm font-medium">
-                        {req.section_code}
+                        {req.sectionCode}
                       </TableCell>
                       <TableCell className="text-sm">{req.description}</TableCell>
                     </TableRow>

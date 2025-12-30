@@ -73,7 +73,7 @@ export function PackCard({ pack, onInstall, onPreview, installing }: PackCardPro
           <span className="text-muted-foreground/50">•</span>
           <span className="flex items-center gap-1">
             <Download className="h-3 w-3" />
-            {pack.install_count.toLocaleString()}
+            {pack.installCount.toLocaleString()}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -87,7 +87,7 @@ export function PackCard({ pack, onInstall, onPreview, installing }: PackCardPro
               <Eye className="h-4 w-4" />
             </Button>
           )}
-          {pack.is_installed ? (
+          {pack.isInstalled ? (
             <Button size="sm" variant="ghost" disabled>
               <Check className="h-4 w-4 mr-1" />
               Installed

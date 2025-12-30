@@ -73,13 +73,13 @@ export function ThreatAnalysisPage() {
     )
   }
 
-  const canvasData = diagram.canvas_data || diagram.canvasData
+  const canvasData = diagram.canvasData
 
   return (
     <div className="h-[calc(100vh-4rem)]">
       <ThreatAnalysisView
         diagramId={diagramId || ''}
-        diagramTitle={diagram.name || diagram.title || ''}
+        diagramTitle={diagram.name || ''}
         canvasData={{
           nodes: canvasData?.nodes || [],
           edges: canvasData?.edges || [],

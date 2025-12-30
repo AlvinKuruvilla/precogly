@@ -1,5 +1,20 @@
-// Re-export pack types
-export * from './packs'
+// Re-export domain types (single source of truth)
+export * from './domain'
+
+// Re-export pack types (excluding InstallationStatus which is in domain)
+export {
+  type PackType,
+  type PackTier,
+  type PackSource,
+  type PackDependency,
+  type PackContentSummary,
+  type LibraryPack,
+  type LibraryPackListItem,
+  type InstalledPack,
+  type PackInstallResponse,
+  type PackDependencyCheck,
+  type PackFilters,
+} from './packs'
 
 // Re-export compliance types
 export * from './compliance'
@@ -12,12 +27,11 @@ export type {
   DFDTemplate as LibraryDFDTemplate,
 } from './libraries'
 
-export type ThreatModelStatus = 'in_progress' | 'pending_review' | 'approved'
-export type Criticality = 'low' | 'medium' | 'high' | 'critical'
-export type SystemType = 'system' | 'process'
-
 // Re-export diagram types from DFD editor feature
 export * from '@/features/dfd-editor/types'
+
+// Import types from domain for use in this file
+import type { ThreatModelStatus, Criticality, SystemType } from './domain'
 
 export interface ThreatModel {
   id: string
@@ -27,24 +41,23 @@ export interface ThreatModel {
   status: ThreatModelStatus
   frameworks?: string[]
   owner?: string
-  // Backend snake_case fields
-  system_ids?: string[]
-  referenced_model_ids?: string[]
-  created_at?: string
-  updated_at?: string
-  created_by?: string
-  created_by_email?: string
-  workspace_data?: Record<string, unknown>
-  dfds?: Array<{ id: string; name: string; diagram_type?: string; updated_at?: string }>
+  systemIds?: string[]
+  referencedModelIds?: string[]
+  createdAt?: string
+  updatedAt?: string
+  createdBy?: string
+  createdByEmail?: string
+  workspaceData?: Record<string, unknown>
+  dfds?: Array<{ id: string; name: string; diagramType?: string; updatedAt?: string }>
 }
 
 export interface CreateThreatModelInput {
   name: string
   description?: string
   criticality?: Criticality
-  framework_ids?: number[]
-  system_ids?: number[]
-  referenced_model_ids?: number[]
+  frameworkIds?: number[]
+  systemIds?: number[]
+  referencedModelIds?: number[]
 }
 
 export interface DashboardStats {

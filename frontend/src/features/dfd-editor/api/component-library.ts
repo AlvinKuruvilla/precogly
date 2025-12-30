@@ -80,13 +80,13 @@ export function useComponentLibrary() {
       let url: string | null = '/component-library/'
 
       while (url) {
-        const response = await api.get<PaginatedResponse<ComponentLibraryItem>>(url)
+        const response: PaginatedResponse<ComponentLibraryItem> = await api.get<PaginatedResponse<ComponentLibraryItem>>(url)
         allItems.push(...response.results)
         // Get next page URL - extract just the path after /api
         if (response.next) {
-          const nextUrl = new URL(response.next)
+          const parsedUrl: URL = new URL(response.next)
           // Remove the /api prefix since api.get() adds it
-          url = nextUrl.pathname.replace(/^\/api/, '') + nextUrl.search
+          url = parsedUrl.pathname.replace(/^\/api/, '') + parsedUrl.search
         } else {
           url = null
         }

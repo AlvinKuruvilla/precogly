@@ -2,18 +2,22 @@
  * Type definitions for Library Packs.
  */
 
+import type { InstallationStatus } from './domain'
+
 export type PackType = 'technology' | 'threat' | 'countermeasure' | 'compliance' | 'template' | 'full'
 export type PackTier = 'free' | 'premium' | 'enterprise'
 export type PackSource = 'official' | 'partner' | 'community' | 'private'
-export type InstallationStatus = 'installed' | 'pending_update' | 'failed'
+
+// Re-export InstallationStatus from domain
+export type { InstallationStatus } from './domain'
 
 export interface PackDependency {
   id: number
-  depends_on_pack: number
-  depends_on_pack_name: string
-  depends_on_pack_slug: string
-  version_constraint: string
-  is_optional: boolean
+  dependsOnPack: number
+  dependsOnPackName: string
+  dependsOnPackSlug: string
+  versionConstraint: string
+  isOptional: boolean
 }
 
 export interface PackContentSummary {
@@ -29,24 +33,24 @@ export interface LibraryPack {
   name: string
   description: string
   version: string
-  pack_type: PackType
+  packType: PackType
   tier: PackTier
   source: PackSource
   author: string
-  repository_url?: string
-  documentation_url?: string
-  icon_url?: string
-  install_count: number
+  repositoryUrl?: string
+  documentationUrl?: string
+  iconUrl?: string
+  installCount: number
   industries: string[]
   tags: string[]
-  is_published: boolean
-  published_at?: string
-  is_installed: boolean
-  installed_version?: string
+  isPublished: boolean
+  publishedAt?: string
+  isInstalled: boolean
+  installedVersion?: string
   dependencies?: PackDependency[]
-  content_summary?: PackContentSummary
-  created_at: string
-  updated_at: string
+  contentSummary?: PackContentSummary
+  createdAt: string
+  updatedAt: string
 }
 
 export interface LibraryPackListItem {
@@ -55,51 +59,51 @@ export interface LibraryPackListItem {
   name: string
   description: string
   version: string
-  pack_type: PackType
+  packType: PackType
   tier: PackTier
   source: PackSource
   author: string
-  install_count: number
+  installCount: number
   industries: string[]
   tags: string[]
-  is_installed: boolean
+  isInstalled: boolean
 }
 
 export interface InstalledPack {
   id: number
   organization: number
   pack: LibraryPackListItem
-  installed_version: string
+  installedVersion: string
   status: InstallationStatus
-  installed_by: number
-  installed_by_email: string
-  installed_at: string
-  last_updated_at?: string
-  update_available: boolean
+  installedBy: number
+  installedByEmail: string
+  installedAt: string
+  lastUpdatedAt?: string
+  updateAvailable: boolean
 }
 
 export interface PackInstallResponse {
   installation: InstalledPack
-  dependencies_installed: string[]
+  dependenciesInstalled: string[]
   message: string
 }
 
 export interface PackDependencyCheck {
   pack: LibraryPackListItem
   dependencies: {
-    pack_id: number
+    packId: number
     slug: string
     name: string
     version: string
-    version_constraint: string
-    is_installed: boolean
+    versionConstraint: string
+    isInstalled: boolean
   }[]
-  missing_dependencies: string[]
-  all_satisfied: boolean
+  missingDependencies: string[]
+  allSatisfied: boolean
 }
 
 export interface PackFilters {
-  pack_type?: PackType
+  packType?: PackType
   tier?: PackTier
   source?: PackSource
   industry?: string

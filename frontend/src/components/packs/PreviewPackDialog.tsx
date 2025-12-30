@@ -59,7 +59,7 @@ export function PreviewPackDialog({
                 </Badge>
               </DialogTitle>
               <DialogDescription className="flex items-center gap-2 flex-wrap">
-                <PackTypeBadge type={preview.pack.pack_type} />
+                <PackTypeBadge type={preview.pack.packType} />
                 <TierBadge tier={preview.pack.tier} />
                 {preview.pack.author && (
                   <span className="text-xs">by {preview.pack.author}</span>
@@ -126,9 +126,9 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                           {comp.category}
                         </Badge>
                       )}
-                      {comp.component_type && (
+                      {comp.componentType && (
                         <Badge variant="outline" className="text-xs">
-                          {comp.component_type}
+                          {comp.componentType}
                         </Badge>
                       )}
                     </div>
@@ -159,8 +159,8 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">{threat.name}</span>
                     <div className="flex gap-1">
-                      {threat.stride_category && (
-                        <StrideBadge category={threat.stride_category} />
+                      {threat.strideCategory && (
+                        <StrideBadge category={threat.strideCategory} />
                       )}
                       {threat.severity && (
                         <SeverityBadge severity={threat.severity} />
@@ -193,9 +193,9 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">{cm.name}</span>
                     <div className="flex gap-1">
-                      {cm.control_type && (
+                      {cm.controlType && (
                         <Badge variant="secondary" className="text-xs">
-                          {cm.control_type}
+                          {cm.controlType}
                         </Badge>
                       )}
                       {cm.cost && <CostBadge cost={cm.cost} />}

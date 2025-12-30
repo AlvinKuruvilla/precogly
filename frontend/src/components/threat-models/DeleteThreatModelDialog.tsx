@@ -33,8 +33,8 @@ export function DeleteThreatModelDialog({
 
   if (!threatModel) return null
 
-  const hasOrphanedDFDs = (preview?.dfds_to_delete.length ?? 0) > 0
-  const hasSharedDFDs = (preview?.dfds_to_preserve.length ?? 0) > 0
+  const hasOrphanedDFDs = (preview?.dfdsToDelete.length ?? 0) > 0
+  const hasSharedDFDs = (preview?.dfdsToPreserve.length ?? 0) > 0
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -62,14 +62,14 @@ export function DeleteThreatModelDialog({
                 <div className="rounded-md bg-red-50 border border-red-200 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-red-800 mb-2">
                     <Trash2 className="h-4 w-4" />
-                    DFDs that will be deleted ({preview.dfds_to_delete.length})
+                    DFDs that will be deleted ({preview.dfdsToDelete.length})
                   </div>
                   <ul className="space-y-1">
-                    {preview.dfds_to_delete.map((dfd) => (
+                    {preview.dfdsToDelete.map((dfd) => (
                       <li key={dfd.id} className="text-sm text-red-700 flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                         {dfd.name}
-                        <span className="text-red-500 text-xs">({dfd.node_count} nodes)</span>
+                        <span className="text-red-500 text-xs">({dfd.nodeCount} nodes)</span>
                       </li>
                     ))}
                   </ul>
@@ -81,18 +81,18 @@ export function DeleteThreatModelDialog({
                 <div className="rounded-md bg-green-50 border border-green-200 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-green-800 mb-2">
                     <Shield className="h-4 w-4" />
-                    DFDs that will be preserved ({preview.dfds_to_preserve.length})
+                    DFDs that will be preserved ({preview.dfdsToPreserve.length})
                   </div>
                   <ul className="space-y-1">
-                    {preview.dfds_to_preserve.map((dfd) => (
+                    {preview.dfdsToPreserve.map((dfd) => (
                       <li key={dfd.id} className="text-sm text-green-700">
                         <div className="flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                           {dfd.name}
                         </div>
-                        {dfd.shared_with && dfd.shared_with.length > 0 && (
+                        {dfd.sharedWith && dfd.sharedWith.length > 0 && (
                           <div className="ml-4 text-xs text-green-600">
-                            Shared with: {dfd.shared_with.map(tm => tm.name).join(', ')}
+                            Shared with: {dfd.sharedWith.map(tm => tm.name).join(', ')}
                           </div>
                         )}
                       </li>

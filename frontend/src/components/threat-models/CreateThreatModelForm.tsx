@@ -90,9 +90,9 @@ export function CreateThreatModelForm() {
       name,
       description: description || undefined,
       criticality: criticality || undefined,
-      framework_ids: selectedFrameworkIds.length > 0 ? selectedFrameworkIds : undefined,
-      system_ids: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
-      referenced_model_ids: selectedModelIds.length > 0 ? selectedModelIds : undefined,
+      frameworkIds: selectedFrameworkIds.length > 0 ? selectedFrameworkIds : undefined,
+      systemIds: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
+      referencedModelIds: selectedModelIds.length > 0 ? selectedModelIds : undefined,
     }
 
     try {

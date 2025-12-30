@@ -34,7 +34,7 @@ export function InstallPackDialog({
   )
   const installMutation = useInstallPack()
 
-  const hasMissingDeps = depCheck && depCheck.missing_dependencies.length > 0
+  const hasMissingDeps = depCheck && depCheck.missingDependencies.length > 0
 
   const handleInstall = async () => {
     if (!pack) return
@@ -84,7 +84,7 @@ export function InstallPackDialog({
               <div className="space-y-1">
                 {depCheck.dependencies.map((dep) => (
                   <div
-                    key={dep.pack_id}
+                    key={dep.packId}
                     className="flex items-center justify-between text-sm py-1 px-2 rounded bg-muted/50"
                   >
                     <span>{dep.name}</span>
@@ -92,7 +92,7 @@ export function InstallPackDialog({
                       <span className="text-xs text-muted-foreground">
                         {dep.version}
                       </span>
-                      {dep.is_installed ? (
+                      {dep.isInstalled ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
                         <Badge variant="secondary" className="text-xs">
@@ -122,16 +122,16 @@ export function InstallPackDialog({
               <h4 className="text-sm font-medium">Pack Contents</h4>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { content_summary?: { components: number; threats: number; countermeasures: number; templates: number } })?.content_summary?.components ?? 0} components
+                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.components ?? 0} components
                 </Badge>
                 <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { content_summary?: { components: number; threats: number; countermeasures: number; templates: number } })?.content_summary?.threats ?? 0} threats
+                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.threats ?? 0} threats
                 </Badge>
                 <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { content_summary?: { components: number; threats: number; countermeasures: number; templates: number } })?.content_summary?.countermeasures ?? 0} countermeasures
+                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.countermeasures ?? 0} countermeasures
                 </Badge>
                 <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { content_summary?: { components: number; threats: number; countermeasures: number; templates: number } })?.content_summary?.templates ?? 0} templates
+                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.templates ?? 0} templates
                 </Badge>
               </div>
             </div>

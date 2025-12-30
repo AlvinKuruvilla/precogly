@@ -677,7 +677,7 @@ export const THREAT_DEFINITIONS: ThreatDefinition[] = [
     strideCategory: 'elevation_of_privilege',
     applicableElementTypes: ['trustBoundary'],
     applicableTechCategories: [],
-    applicableBoundaryTypes: ['zone_internet', 'zone_dmz', 'zone_internal', 'zone_restricted'],
+    applicableBoundaryTypes: ['zoneInternet', 'zoneDmz', 'zoneInternal', 'zoneRestricted'],
   },
   {
     id: 'threat-tb-zone-lateral',
@@ -686,7 +686,7 @@ export const THREAT_DEFINITIONS: ThreatDefinition[] = [
     strideCategory: 'elevation_of_privilege',
     applicableElementTypes: ['trustBoundary'],
     applicableTechCategories: [],
-    applicableBoundaryTypes: ['zone_dmz', 'zone_internal', 'zone_restricted'],
+    applicableBoundaryTypes: ['zoneDmz', 'zoneInternal', 'zoneRestricted'],
   },
 
   // ===========================================

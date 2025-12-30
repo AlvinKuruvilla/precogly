@@ -18,9 +18,9 @@ class ThreatLibrary(TimestampedModel):
         SPOOFING = "spoofing", "Spoofing"
         TAMPERING = "tampering", "Tampering"
         REPUDIATION = "repudiation", "Repudiation"
-        INFORMATION_DISCLOSURE = "information_disclosure", "Information Disclosure"
-        DENIAL_OF_SERVICE = "denial_of_service", "Denial of Service"
-        ELEVATION_OF_PRIVILEGE = "elevation_of_privilege", "Elevation of Privilege"
+        INFORMATION_DISCLOSURE = "informationDisclosure", "Information Disclosure"
+        DENIAL_OF_SERVICE = "denialOfService", "Denial of Service"
+        ELEVATION_OF_PRIVILEGE = "elevationOfPrivilege", "Elevation of Privilege"
 
     class Source(models.TextChoices):
         STRIDE = "stride", "STRIDE"

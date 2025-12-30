@@ -130,8 +130,8 @@ class ThreatModel(TimestampedModel):
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
-        IN_PROGRESS = "in_progress", "In Progress"
-        PENDING_REVIEW = "pending_review", "Pending Review"
+        IN_PROGRESS = "inProgress", "In Progress"
+        PENDING_REVIEW = "pendingReview", "Pending Review"
         APPROVED = "approved", "Approved"
         ARCHIVED = "archived", "Archived"
 

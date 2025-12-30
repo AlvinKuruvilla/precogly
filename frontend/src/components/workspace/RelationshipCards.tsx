@@ -154,7 +154,7 @@ export function RelationshipCards({
             {dfds.length > 0 ? (
               dfds.slice(0, 4).map((dfd) => (
                 <div key={dfd.id} className="text-sm truncate">
-                  {dfd.name || dfd.title}
+                  {dfd.name}
                 </div>
               ))
             ) : (

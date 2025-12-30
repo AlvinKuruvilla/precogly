@@ -147,11 +147,11 @@ export function useDiagramState({
   // Initialize nodes and edges from fetched diagram
   useEffect(() => {
     if (diagram && !initialLoadRef.current) {
-      const canvasData = diagram.canvas_data || diagram.canvasData
+      const canvasData = diagram.canvasData
       // Use internal setters during initial load to avoid marking as changed
       setNodesInternal((canvasData?.nodes || []) as DiagramNode[])
       setEdgesInternal((canvasData?.edges || []) as DataFlowEdge[])
-      const updatedAt = diagram.updated_at || diagram.updatedAt
+      const updatedAt = diagram.updatedAt
       if (updatedAt) setLastSaved(new Date(updatedAt))
       initialLoadRef.current = true
     }

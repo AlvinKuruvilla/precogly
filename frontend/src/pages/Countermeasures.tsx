@@ -45,7 +45,7 @@ export function Countermeasures() {
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.description?.toLowerCase().includes(search.toLowerCase()) ||
-      c.control_type.toLowerCase().includes(search.toLowerCase())
+      c.controlType.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -105,10 +105,10 @@ export function Countermeasures() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      className={controlTypeColors[countermeasure.control_type] || ''}
+                      className={controlTypeColors[countermeasure.controlType] || ''}
                       variant="secondary"
                     >
-                      {controlTypeLabels[countermeasure.control_type] || countermeasure.control_type}
+                      {controlTypeLabels[countermeasure.controlType] || countermeasure.controlType}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -121,8 +121,8 @@ export function Countermeasures() {
                   </TableCell>
                   <TableCell>
                     <PackBadge
-                      packName={countermeasure.source_pack_name}
-                      packSlug={countermeasure.source_pack_slug}
+                      packName={countermeasure.sourcePackName}
+                      packSlug={countermeasure.sourcePackSlug}
                     />
                   </TableCell>
                 </TableRow>

@@ -1,147 +1,38 @@
 import type { Node, Edge } from '@xyflow/react'
 
-// Node Types
-export type DiagramNodeType =
-  | 'process'
-  | 'datastore'
-  | 'actor'
-  | 'trustBoundary'
-  | 'systemBoundary'
+// Re-export domain types for convenience
+export {
+  type DiagramNodeType,
+  type TrustLevel,
+  type TrustBoundaryType,
+  type TrustBoundaryZoneType,
+  type TrustBoundaryConfig,
+  type DataClassification,
+  type Protocol,
+  type DataSensitivity,
+  type TemplateCategory,
+  type DiagramTypeValue,
+  type ThreatFramework,
+  TRUST_LEVEL_CONFIG,
+  TRUST_BOUNDARY_TYPE_CONFIG,
+  TRUST_BOUNDARY_ZONE_TYPES,
+  DATA_CLASSIFICATIONS,
+  PROTOCOLS,
+  DATA_SENSITIVITY_CONFIG,
+  TEMPLATE_CATEGORIES,
+} from '@/types/domain'
 
-// Trust Levels for Trust Boundaries (legacy, kept for backward compatibility)
-export type TrustLevel =
-  | 'internet'
-  | 'trusted_partner'
-  | 'private_secured'
-  | 'internal'
-
-export const TRUST_LEVEL_CONFIG: Record<
+import type {
+  DiagramNodeType,
   TrustLevel,
-  { label: string; color: string; borderColor: string }
-> = {
-  internet: { label: 'Internet/Public', color: 'rgba(239, 68, 68, 0.1)', borderColor: '#ef4444' },
-  trusted_partner: { label: 'Trusted Partner', color: 'rgba(234, 179, 8, 0.1)', borderColor: '#eab308' },
-  private_secured: { label: 'Private/Secured', color: 'rgba(59, 130, 246, 0.1)', borderColor: '#3b82f6' },
-  internal: { label: 'Internal', color: 'rgba(34, 197, 94, 0.1)', borderColor: '#22c55e' },
-}
-
-// Trust Boundary Types - Zone demarcations only
-export type TrustBoundaryType =
-  | 'zone_internet'
-  | 'zone_dmz'
-  | 'zone_internal'
-  | 'zone_restricted'
-
-// Trust Boundary Zone Types - Conceptual zone names for the Name dropdown
-export type TrustBoundaryZoneType =
-  | 'internal'
-  | 'external'
-  | 'dmz'
-  | 'partner'
-
-export const TRUST_BOUNDARY_ZONE_TYPES: { value: TrustBoundaryZoneType; label: string; description: string }[] = [
-  { value: 'internal', label: 'Internal', description: 'Trusted internal network or zone' },
-  { value: 'external', label: 'External', description: 'Untrusted external network (internet-facing)' },
-  { value: 'dmz', label: 'DMZ', description: 'Demilitarized zone between trusted and untrusted networks' },
-  { value: 'partner', label: 'Partner Network', description: 'Semi-trusted partner or third-party network' },
-]
-
-export interface TrustBoundaryConfig {
-  label: string
-  icon: string
-  color: string
-  borderColor: string
-  description: string
-}
-
-export const TRUST_BOUNDARY_TYPE_CONFIG: Record<TrustBoundaryType, TrustBoundaryConfig> = {
-  zone_internet: {
-    label: 'Internet/Public Zone',
-    icon: 'globe',
-    color: 'rgba(239, 68, 68, 0.1)',
-    borderColor: '#ef4444',
-    description: 'Untrusted external network',
-  },
-  zone_dmz: {
-    label: 'DMZ',
-    icon: 'shield-half',
-    color: 'rgba(249, 115, 22, 0.1)',
-    borderColor: '#f97316',
-    description: 'Demilitarized zone between external and internal networks',
-  },
-  zone_internal: {
-    label: 'Internal Network',
-    icon: 'building',
-    color: 'rgba(34, 197, 94, 0.1)',
-    borderColor: '#22c55e',
-    description: 'Trusted internal network',
-  },
-  zone_restricted: {
-    label: 'Restricted Zone',
-    icon: 'lock',
-    color: 'rgba(139, 92, 246, 0.1)',
-    borderColor: '#8b5cf6',
-    description: 'Highly restricted, sensitive systems',
-  },
-}
-
-// Data Classification for edges
-export type DataClassification =
-  | 'PII'
-  | 'Customer Data'
-  | 'Financial'
-  | 'PHI'
-  | 'Confidential'
-  | 'Internal'
-  | 'Public'
-
-export const DATA_CLASSIFICATIONS: DataClassification[] = [
-  'PII',
-  'Customer Data',
-  'Financial',
-  'PHI',
-  'Confidential',
-  'Internal',
-  'Public',
-]
-
-// Protocols for data flows
-export type Protocol =
-  | 'HTTP'
-  | 'HTTPS'
-  | 'gRPC'
-  | 'WebSocket'
-  | 'TCP'
-  | 'UDP'
-  | 'MQTT'
-  | 'AMQP'
-  | 'SQL'
-  | 'Custom'
-
-export const PROTOCOLS: Protocol[] = [
-  'HTTP',
-  'HTTPS',
-  'gRPC',
-  'WebSocket',
-  'TCP',
-  'UDP',
-  'MQTT',
-  'AMQP',
-  'SQL',
-  'Custom',
-]
-
-// Data Sensitivity for nodes
-export type DataSensitivity = 'public' | 'internal' | 'confidential'
-
-export const DATA_SENSITIVITY_CONFIG: Record<
+  TrustBoundaryType,
+  DataClassification,
+  Protocol,
   DataSensitivity,
-  { label: string; color: string }
-> = {
-  public: { label: 'Public', color: '#22c55e' },
-  internal: { label: 'Internal', color: '#eab308' },
-  confidential: { label: 'Confidential', color: '#ef4444' },
-}
+  TemplateCategory,
+  DiagramTypeValue,
+  ThreatFramework,
+} from '@/types/domain'
 
 // Node Data Types
 export interface BaseNodeData {
@@ -215,25 +106,15 @@ export interface CanvasData {
   edges: DataFlowEdge[]
 }
 
-// Diagram entity (separate from ThreatModel)
-// Note: Frontend uses camelCase aliases but API returns snake_case
-export type DiagramTypeValue = 'context' | 'level1' | 'level2'
-export type ThreatFramework = 'stride' | 'linddun' | 'cia'
-
+// Diagram entity
 export interface Diagram {
   id: string
-  name: string  // title/name of the diagram
-  diagram_type?: DiagramTypeValue
-  canvas_data?: CanvasData
-  threat_analysis_data?: Record<string, unknown>
-  updated_by?: string
-  updated_by_email?: string
-  created_at?: string
-  updated_at?: string
-  // Legacy frontend fields - kept for compatibility during transition
-  title?: string
-  threatModelId?: string
+  name: string
+  diagramType?: DiagramTypeValue
   canvasData?: CanvasData
+  threatAnalysisData?: Record<string, unknown>
+  updatedBy?: string
+  updatedByEmail?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -246,32 +127,7 @@ export interface CreateDiagramInput {
   threatFramework?: ThreatFramework
 }
 
-// Template types
-export type TemplateCategory =
-  | 'web_application'
-  | 'mobile_application'
-  | 'microservices'
-  | 'data_pipeline'
-  | 'authentication'
-  | 'payment_processing'
-  | 'cloud_infrastructure'
-  | 'iot'
-  | 'api_gateway'
-  | 'other'
-
-export const TEMPLATE_CATEGORIES: { value: TemplateCategory; label: string }[] = [
-  { value: 'web_application', label: 'Web Application' },
-  { value: 'mobile_application', label: 'Mobile Application' },
-  { value: 'microservices', label: 'Microservices' },
-  { value: 'data_pipeline', label: 'Data Pipeline' },
-  { value: 'authentication', label: 'Authentication' },
-  { value: 'payment_processing', label: 'Payment Processing' },
-  { value: 'cloud_infrastructure', label: 'Cloud Infrastructure' },
-  { value: 'iot', label: 'IoT' },
-  { value: 'api_gateway', label: 'API Gateway' },
-  { value: 'other', label: 'Other' },
-]
-
+// DFD Template (local definition for editor-specific use)
 export interface DFDTemplate {
   id: string
   name: string

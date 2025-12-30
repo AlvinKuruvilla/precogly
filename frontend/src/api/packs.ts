@@ -33,38 +33,38 @@ export interface SourcePackInfo {
   name: string
   description: string
   version: string
-  pack_type: string
+  packType: string
   tier: string
   source: string
   author: string
   industries: string[]
   tags: string[]
   path: string
-  is_in_database: boolean
-  database_version: string | null
-  needs_update: boolean
-  component_count: number
-  threat_count: number
-  countermeasure_count: number
+  isInDatabase: boolean
+  databaseVersion: string | null
+  needsUpdate: boolean
+  componentCount: number
+  threatCount: number
+  countermeasureCount: number
 }
 
 export interface AvailablePacksResponse {
   packs: SourcePackInfo[]
   total: number
-  in_database: number
-  needs_update: number
+  inDatabase: number
+  needsUpdate: number
 }
 
 export interface ImportResult {
   success: boolean
-  pack_slug: string
-  pack_name: string
+  packSlug: string
+  packName: string
   version: string
   message: string
-  components_created: number
-  threats_created: number
-  countermeasures_created: number
-  templates_created: number
+  componentsCreated: number
+  threatsCreated: number
+  countermeasuresCreated: number
+  templatesCreated: number
   errors: string[]
 }
 
@@ -83,14 +83,14 @@ export interface PackPreviewComponent {
   slug: string
   name: string
   category: string
-  component_type: string
+  componentType: string
   description: string
 }
 
 export interface PackPreviewThreat {
   slug: string
   name: string
-  stride_category: string
+  strideCategory: string
   severity: string
   description: string
 }
@@ -98,7 +98,7 @@ export interface PackPreviewThreat {
 export interface PackPreviewCountermeasure {
   slug: string
   name: string
-  control_type: string
+  controlType: string
   cost: string
   description: string
 }
@@ -109,7 +109,7 @@ export interface PackPreviewResponse {
     name: string
     description: string
     version: string
-    pack_type: string
+    packType: string
     tier: string
     author: string
     tags: string[]
@@ -123,7 +123,7 @@ export interface PackPreviewResponse {
 // Build query string from filters
 function buildQueryString(filters: PackFilters): string {
   const params = new URLSearchParams()
-  if (filters.pack_type) params.append('pack_type', filters.pack_type)
+  if (filters.packType) params.append('pack_type', filters.packType)
   if (filters.tier) params.append('tier', filters.tier)
   if (filters.source) params.append('source', filters.source)
   if (filters.industry) params.append('industry', filters.industry)
@@ -205,11 +205,11 @@ export function useInstallPack() {
       installDependencies?: boolean
     }) => {
       return api.post<PackInstallResponse>(`/packs/${packId}/install/`, {
-        install_dependencies: installDependencies,
+        installDependencies,
       })
     },
     onSuccess: () => {
-      // Invalidate pack queries to refresh is_installed status
+      // Invalidate pack queries to refresh isInstalled status
       queryClient.invalidateQueries({ queryKey: packKeys.all })
       queryClient.invalidateQueries({ queryKey: packKeys.installed })
     },
@@ -224,14 +224,14 @@ export function usePackUsage(installationId: number | null) {
     queryKey: [...packKeys.installed, 'usage', installationId],
     queryFn: () =>
       api.get<{
-        pack_name: string
+        packName: string
         usage: {
-          component_instances: number
-          threat_instances: number
-          countermeasure_instances: number
+          componentInstances: number
+          threatInstances: number
+          countermeasureInstances: number
           total: number
         }
-        in_use: boolean
+        inUse: boolean
       }>(`/installed-packs/${installationId}/check_usage/`),
     enabled: installationId !== null,
   })

@@ -120,9 +120,9 @@ export function InstalledPacks() {
                   </TableCell>
                   <TableCell>
                     <span className="font-mono text-sm">
-                      v{installation.installed_version}
+                      v{installation.installedVersion}
                     </span>
-                    {installation.update_available && (
+                    {installation.updateAvailable && (
                       <Badge variant="secondary" className="ml-2 text-xs">
                         Update available
                       </Badge>
@@ -137,10 +137,10 @@ export function InstalledPacks() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {installation.installed_by_email}
+                    {installation.installedByEmail}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(installation.installed_at)}
+                    {formatDate(installation.installedAt)}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -186,7 +186,7 @@ export function InstalledPacks() {
 
                 {usageLoading ? (
                   <p className="text-sm text-muted-foreground">Checking usage...</p>
-                ) : usageData?.in_use ? (
+                ) : usageData?.inUse ? (
                   <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
                     <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div className="text-sm">
@@ -194,14 +194,14 @@ export function InstalledPacks() {
                         This pack is in use
                       </p>
                       <p className="text-amber-700 dark:text-amber-300 mt-1">
-                        {usageData.usage.component_instances > 0 && (
-                          <span>{usageData.usage.component_instances} component instances, </span>
+                        {usageData.usage.componentInstances > 0 && (
+                          <span>{usageData.usage.componentInstances} component instances, </span>
                         )}
-                        {usageData.usage.threat_instances > 0 && (
-                          <span>{usageData.usage.threat_instances} threat instances, </span>
+                        {usageData.usage.threatInstances > 0 && (
+                          <span>{usageData.usage.threatInstances} threat instances, </span>
                         )}
-                        {usageData.usage.countermeasure_instances > 0 && (
-                          <span>{usageData.usage.countermeasure_instances} countermeasure instances</span>
+                        {usageData.usage.countermeasureInstances > 0 && (
+                          <span>{usageData.usage.countermeasureInstances} countermeasure instances</span>
                         )}
                         {' '}use items from this pack.
                       </p>

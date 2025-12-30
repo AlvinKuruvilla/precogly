@@ -8,26 +8,26 @@ export interface Framework {
   version: string
   issuer: string
   description: string
-  created_at?: string
-  updated_at?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface FrameworkRequirement {
   id: number
   framework: number
-  framework_name: string
-  section_code: string
+  frameworkName: string
+  sectionCode: string
   description: string
   parent: number | null
-  created_at?: string
-  updated_at?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface CountermeasureStandardMapping {
   id: number
-  countermeasure_library: number
+  countermeasureLibrary: number
   requirement: number
-  requirement_code: string
-  framework_name: string
+  requirementCode: string
+  frameworkName: string
   sufficiency: 'full' | 'partial'
 }

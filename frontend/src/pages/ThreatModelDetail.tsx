@@ -195,7 +195,7 @@ export function ThreatModelDetail() {
     const edges: DataFlowEdge[] = []
 
     diagramsToUse.forEach((diagram) => {
-      const canvasData = diagram.canvas_data || diagram.canvasData
+      const canvasData = diagram.canvasData
       if (canvasData) {
         nodes.push(...(canvasData.nodes || []))
         edges.push(...(canvasData.edges || []))
@@ -251,7 +251,7 @@ export function ThreatModelDetail() {
   const handleDeleteDFD = (diagramId: string) => {
     const diagram = diagrams.find((d) => String(d.id) === String(diagramId))
     if (diagram) {
-      setDfdToDelete({ id: String(diagram.id), name: diagram.name || diagram.title || 'Untitled DFD' })
+      setDfdToDelete({ id: String(diagram.id), name: diagram.name || 'Untitled DFD' })
       setDeleteDFDDialogOpen(true)
     }
   }
@@ -528,7 +528,7 @@ export function ThreatModelDetail() {
                       <option value="">All DFDs</option>
                       {diagrams.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.name || d.title}
+                          {d.name}
                         </option>
                       ))}
                     </select>
