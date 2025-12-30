@@ -1,7 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Search, LayoutTemplate, Loader2, User } from 'lucide-react'
-import { api } from '@/lib/api'
+import { Search, LayoutTemplate, Loader2, Package } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -20,7 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { DFDTemplate, DiagramNode, DataFlowEdge, TemplateCategory } from '../types'
+import { useDFDTemplates } from '@/api/libraries'
+import type { DFDTemplate } from '@/types/libraries'
+import type { DiagramNode, DataFlowEdge, TemplateCategory } from '../types'
 import { TEMPLATE_CATEGORIES } from '../types'
 
 interface TemplateBrowserProps {
@@ -29,16 +29,11 @@ interface TemplateBrowserProps {
   onInsert: (nodes: DiagramNode[], edges: DataFlowEdge[]) => void
 }
 
-type SortOption = 'popular' | 'newest' | 'name'
+type SortOption = 'newest' | 'name'
 type FilterOption = 'all' | TemplateCategory
 
-async function fetchTemplates(): Promise<DFDTemplate[]> {
-  const response = await api.get<{ results: DFDTemplate[] } | DFDTemplate[]>('/dfd-templates/')
-  return Array.isArray(response) ? response : response.results
-}
-
 // Get display label for category
-function getCategoryLabel(category: TemplateCategory): string {
+function getCategoryLabel(category: string): string {
   return TEMPLATE_CATEGORIES.find((c) => c.value === category)?.label || category
 }
 
@@ -48,18 +43,14 @@ export function TemplateBrowser({
   onInsert,
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<SortOption>('popular')
+  const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [filterBy, setFilterBy] = useState<FilterOption>('all')
 
   const {
     data: templates,
     isLoading,
     isError,
-  } = useQuery({
-    queryKey: ['templates'],
-    queryFn: fetchTemplates,
-    enabled: open,
-  })
+  } = useDFDTemplates()
 
   // FIX: Wrap filter/sort in useMemo for performance
   const filteredTemplates = useMemo(() => {
@@ -72,8 +63,8 @@ export function TemplateBrowser({
         const matchesSearch =
           !query ||
           template.name.toLowerCase().includes(query) ||
-          template.description.toLowerCase().includes(query) ||
-          template.tags.some((tag) => tag.toLowerCase().includes(query))
+          (template.description?.toLowerCase().includes(query) ?? false) ||
+          (template.category?.toLowerCase().includes(query) ?? false)
 
         // Category filter
         const matchesCategory = filterBy === 'all' || template.category === filterBy
@@ -82,10 +73,8 @@ export function TemplateBrowser({
       })
       .sort((a, b) => {
         switch (sortBy) {
-          case 'popular':
-            return b.useCount - a.useCount
           case 'newest':
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           case 'name':
             return a.name.localeCompare(b.name)
           default:
@@ -95,8 +84,9 @@ export function TemplateBrowser({
   }, [templates, searchQuery, filterBy, sortBy])
 
   const handleInsert = (template: DFDTemplate) => {
-    const nodes = template.templateData.nodes as DiagramNode[]
-    const edges = template.templateData.edges as DataFlowEdge[]
+    const canvasData = template.canvas_data as { nodes?: unknown[]; edges?: unknown[] } | undefined
+    const nodes = (canvasData?.nodes ?? []) as DiagramNode[]
+    const edges = (canvasData?.edges ?? []) as DataFlowEdge[]
     onInsert(nodes, edges)
     setSearchQuery('')
     setFilterBy('all')
@@ -131,7 +121,6 @@ export function TemplateBrowser({
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="popular">Most Popular</SelectItem>
               <SelectItem value="newest">Newest</SelectItem>
               <SelectItem value="name">Name A-Z</SelectItem>
             </SelectContent>
@@ -188,45 +177,36 @@ export function TemplateBrowser({
                 <button
                   key={template.id}
                   onClick={() => handleInsert(template)}
-                  // FIX: Add flex flex-col w-full h-full for proper button sizing
                   className="flex flex-col w-full h-full text-left p-4 border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors group"
                 >
-                  {/* Header: Title + Category (stacked) */}
+                  {/* Header: Title + Category */}
                   <div className="w-full mb-2">
                     <h3 className="font-semibold text-sm leading-tight group-hover:text-primary mb-1">
                       {template.name}
                     </h3>
-                    <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
-                      {getCategoryLabel(template.category)}
-                    </Badge>
-                  </div>
-
-                  {/* Description - FIX: flex-1 pushes footer to bottom */}
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">
-                    {template.description}
-                  </p>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1 mb-3 w-full">
-                    {template.tags.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs font-normal">
-                        {tag}
+                    {template.category && (
+                      <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
+                        {getCategoryLabel(template.category)}
                       </Badge>
-                    ))}
-                    {template.tags.length > 3 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{template.tags.length - 3} more
-                      </span>
                     )}
                   </div>
 
-                  {/* Footer: Author + Usage - FIX: mt-auto ensures it stays at bottom */}
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">
+                    {template.description || 'No description'}
+                  </p>
+
+                  {/* Footer: Source Pack + Diagram Type */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground w-full mt-auto">
-                    <span className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {template.createdBy}
-                    </span>
-                    <span>Used {template.useCount}x</span>
+                    {template.source_pack_name && (
+                      <span className="flex items-center gap-1">
+                        <Package className="h-3 w-3" />
+                        {template.source_pack_name}
+                      </span>
+                    )}
+                    {template.diagram_type && (
+                      <span>{template.diagram_type}</span>
+                    )}
                   </div>
                 </button>
               ))}

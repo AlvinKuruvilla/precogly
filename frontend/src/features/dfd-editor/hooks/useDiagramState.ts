@@ -71,13 +71,35 @@ export function useDiagramState({
   const queryClient = useQueryClient()
 
   // Local state for nodes and edges
-  const [nodes, setNodes] = useState<DiagramNode[]>([])
-  const [edges, setEdges] = useState<DataFlowEdge[]>([])
+  const [nodes, setNodesInternal] = useState<DiagramNode[]>([])
+  const [edges, setEdgesInternal] = useState<DataFlowEdge[]>([])
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
   // Track if initial data has been loaded
   const initialLoadRef = useRef(false)
+
+  // Wrap setNodes to also mark as changed (after initial load)
+  const setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>> = useCallback(
+    (value) => {
+      setNodesInternal(value)
+      if (initialLoadRef.current) {
+        setHasUnsavedChanges(true)
+      }
+    },
+    []
+  )
+
+  // Wrap setEdges to also mark as changed (after initial load)
+  const setEdges: React.Dispatch<React.SetStateAction<DataFlowEdge[]>> = useCallback(
+    (value) => {
+      setEdgesInternal(value)
+      if (initialLoadRef.current) {
+        setHasUnsavedChanges(true)
+      }
+    },
+    []
+  )
 
   // Undo feature - remove this block to disable undo functionality
   const { pushToHistory, undo: undoFromHistory, canUndo } = useUndoHistory()
@@ -126,8 +148,9 @@ export function useDiagramState({
   useEffect(() => {
     if (diagram && !initialLoadRef.current) {
       const canvasData = diagram.canvas_data || diagram.canvasData
-      setNodes((canvasData?.nodes || []) as DiagramNode[])
-      setEdges((canvasData?.edges || []) as DataFlowEdge[])
+      // Use internal setters during initial load to avoid marking as changed
+      setNodesInternal((canvasData?.nodes || []) as DiagramNode[])
+      setEdgesInternal((canvasData?.edges || []) as DataFlowEdge[])
       const updatedAt = diagram.updated_at || diagram.updatedAt
       if (updatedAt) setLastSaved(new Date(updatedAt))
       initialLoadRef.current = true
@@ -149,7 +172,8 @@ export function useDiagramState({
     if (hasRealChanges) {
       pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
     }
-    setNodes((nds) => applyNodeChanges(changes, nds) as DiagramNode[])
+    // Use internal setter - we handle hasUnsavedChanges manually for selective detection
+    setNodesInternal((nds) => applyNodeChanges(changes, nds) as DiagramNode[])
     if (hasRealChanges) {
       setHasUnsavedChanges(true)
     }
@@ -163,7 +187,8 @@ export function useDiagramState({
     if (hasRealChanges) {
       pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
     }
-    setEdges((eds) => applyEdgeChanges(changes, eds) as DataFlowEdge[])
+    // Use internal setter - we handle hasUnsavedChanges manually for selective detection
+    setEdgesInternal((eds) => applyEdgeChanges(changes, eds) as DataFlowEdge[])
     if (hasRealChanges) {
       setHasUnsavedChanges(true)
     }
