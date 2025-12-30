@@ -111,3 +111,56 @@ export function useDeletePreview(id: string | null) {
     enabled: !!id,
   })
 }
+
+// DFD Delete Preview and Delete Hooks
+
+export interface DFDDeletePreviewOrphanedComponent {
+  id: number
+  name: string
+  library_name: string | null
+}
+
+export interface DFDDeletePreviewResponse {
+  dfd: {
+    id: string
+    name: string
+    node_count: number
+    component_count: number
+  }
+  affected_threat_models: Array<{ id: string; name: string }>
+  is_shared: boolean
+  orphaned_components: DFDDeletePreviewOrphanedComponent[]
+  orphaned_component_count: number
+}
+
+export function useDFDDeletePreview(dfdId: string | null) {
+  return useQuery({
+    queryKey: ['dfd-delete-preview', dfdId],
+    queryFn: () => api.get<DFDDeletePreviewResponse>(`/diagrams/${dfdId}/delete_preview/`),
+    enabled: !!dfdId,
+  })
+}
+
+export interface DeleteDFDOptions {
+  dfdId: string
+  deleteOrphanedComponents?: boolean
+}
+
+export function useDeleteDFD() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ dfdId, deleteOrphanedComponents = false }: DeleteDFDOptions) => {
+      const params = deleteOrphanedComponents ? '?delete_orphaned_components=true' : ''
+      return api.delete<{ status: string; orphaned_components_deleted: number }>(
+        `/diagrams/${dfdId}/${params}`
+      )
+    },
+    onSuccess: () => {
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['diagrams'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+    },
+  })
+}

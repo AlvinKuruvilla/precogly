@@ -364,6 +364,139 @@ class DFDViewSet(viewsets.ModelViewSet):
         """
         return self.create(request)
 
+    @action(detail=True, methods=["get"])
+    def delete_preview(self, request, pk=None):
+        """
+        Preview what will be deleted when this DFD is deleted.
+
+        Returns information about:
+        - Threat models that will lose this DFD
+        - Node and component counts
+        - Warning if shared with multiple threat models
+        - Orphaned components that could be deleted
+        """
+        from apps.systems.models import OrgsystemComponent
+
+        dfd = self.get_object()
+        canvas_data = dfd.canvas_data or {}
+        nodes = canvas_data.get("nodes", [])
+
+        # Get threat model associations
+        threat_model_associations = ThreatModelDFD.objects.filter(
+            dfd=dfd
+        ).select_related("threat_model")
+
+        affected_threat_models = [
+            {
+                "id": str(assoc.threat_model.id),
+                "name": assoc.threat_model.name,
+            }
+            for assoc in threat_model_associations
+        ]
+
+        # Extract component IDs from nodes
+        component_ids = []
+        for node in nodes:
+            comp_id = node.get("data", {}).get("component_id")
+            if comp_id:
+                component_ids.append(comp_id)
+
+        # Find orphaned components (components only referenced by this DFD)
+        # A component is orphaned if it's not referenced by any other DFD's nodes
+        orphaned_components = []
+        if component_ids:
+            # Get all other DFDs
+            other_dfds = DFD.objects.exclude(id=dfd.id)
+
+            # Collect component IDs referenced by other DFDs
+            other_dfd_component_ids = set()
+            for other_dfd in other_dfds:
+                other_canvas = other_dfd.canvas_data or {}
+                for node in other_canvas.get("nodes", []):
+                    other_comp_id = node.get("data", {}).get("component_id")
+                    if other_comp_id:
+                        other_dfd_component_ids.add(other_comp_id)
+
+            # Find components only in this DFD
+            orphaned_component_ids = set(component_ids) - other_dfd_component_ids
+
+            if orphaned_component_ids:
+                orphaned_comps = OrgsystemComponent.objects.filter(
+                    id__in=orphaned_component_ids
+                ).select_related("component_library")
+
+                for comp in orphaned_comps:
+                    orphaned_components.append({
+                        "id": comp.id,
+                        "name": comp.name,
+                        "library_name": comp.component_library.name if comp.component_library else None,
+                    })
+
+        return Response({
+            "dfd": {
+                "id": str(dfd.id),
+                "name": dfd.name,
+                "node_count": len(nodes),
+                "component_count": len(component_ids),
+            },
+            "affected_threat_models": affected_threat_models,
+            "is_shared": len(affected_threat_models) > 1,
+            "orphaned_components": orphaned_components,
+            "orphaned_component_count": len(orphaned_components),
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a DFD with optional orphaned component cleanup.
+
+        Query params:
+        - delete_orphaned_components: If "true", also delete components
+          that are only referenced by this DFD.
+        """
+        from apps.systems.models import OrgsystemComponent
+
+        dfd = self.get_object()
+        delete_orphaned = request.query_params.get("delete_orphaned_components", "").lower() == "true"
+
+        orphaned_deleted_count = 0
+
+        if delete_orphaned:
+            # Find and delete orphaned components
+            canvas_data = dfd.canvas_data or {}
+            nodes = canvas_data.get("nodes", [])
+
+            component_ids = []
+            for node in nodes:
+                comp_id = node.get("data", {}).get("component_id")
+                if comp_id:
+                    component_ids.append(comp_id)
+
+            if component_ids:
+                # Get component IDs referenced by other DFDs
+                other_dfds = DFD.objects.exclude(id=dfd.id)
+                other_dfd_component_ids = set()
+                for other_dfd in other_dfds:
+                    other_canvas = other_dfd.canvas_data or {}
+                    for node in other_canvas.get("nodes", []):
+                        other_comp_id = node.get("data", {}).get("component_id")
+                        if other_comp_id:
+                            other_dfd_component_ids.add(other_comp_id)
+
+                # Delete orphaned components
+                orphaned_component_ids = set(component_ids) - other_dfd_component_ids
+                if orphaned_component_ids:
+                    orphaned_deleted_count, _ = OrgsystemComponent.objects.filter(
+                        id__in=orphaned_component_ids
+                    ).delete()
+
+        # Delete the DFD (cascades to ThreatModelDFD, DFDOrgsystem)
+        dfd.delete()
+
+        return Response({
+            "status": "deleted",
+            "orphaned_components_deleted": orphaned_deleted_count,
+        }, status=status.HTTP_200_OK)
+
 
 class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for browsing DFD templates (read-only)."""

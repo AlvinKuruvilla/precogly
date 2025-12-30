@@ -31,8 +31,8 @@ import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
-import { useDeleteThreatModel } from '@/api/threat-models'
-import { DeleteThreatModelDialog } from '@/components/threat-models'
+import { useDeleteThreatModel, useDeleteDFD } from '@/api/threat-models'
+import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
 
 // Mock team members data (same as in ComponentView)
 const TEAM_MEMBERS: TeamMember[] = [
@@ -97,9 +97,12 @@ export function ThreatModelDetail() {
   const [managePeopleModalOpen, setManagePeopleModalOpen] = useState(false)
   const [manageDFDsModalOpen, setManageDFDsModalOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteDFDDialogOpen, setDeleteDFDDialogOpen] = useState(false)
+  const [dfdToDelete, setDfdToDelete] = useState<{ id: string; name: string } | null>(null)
 
-  // Delete mutation
+  // Delete mutations
   const deleteMutation = useDeleteThreatModel()
+  const deleteDFDMutation = useDeleteDFD()
 
 
   // Data fetching
@@ -246,8 +249,28 @@ export function ThreatModelDetail() {
   }
 
   const handleDeleteDFD = (diagramId: string) => {
-    // TODO: Implement delete via API
-    console.log('Delete DFD:', diagramId)
+    const diagram = diagrams.find((d) => String(d.id) === String(diagramId))
+    if (diagram) {
+      setDfdToDelete({ id: String(diagram.id), name: diagram.name || diagram.title || 'Untitled DFD' })
+      setDeleteDFDDialogOpen(true)
+    }
+  }
+
+  const handleConfirmDeleteDFD = (deleteOrphanedComponents: boolean) => {
+    if (dfdToDelete) {
+      deleteDFDMutation.mutate(
+        { dfdId: dfdToDelete.id, deleteOrphanedComponents },
+        {
+          onSuccess: () => {
+            setDeleteDFDDialogOpen(false)
+            setDfdToDelete(null)
+            // Refresh diagrams list
+            queryClient.invalidateQueries({ queryKey: ['diagrams', id] })
+            queryClient.invalidateQueries({ queryKey: ['threat-model', id] })
+          },
+        }
+      )
+    }
   }
 
   const handleDeleteThreatModel = () => {
@@ -640,6 +663,18 @@ export function ThreatModelDetail() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteThreatModel}
         isDeleting={deleteMutation.isPending}
+      />
+
+      <DeleteDFDDialog
+        dfdId={dfdToDelete?.id ?? null}
+        dfdName={dfdToDelete?.name ?? ''}
+        open={deleteDFDDialogOpen}
+        onOpenChange={(open: boolean) => {
+          setDeleteDFDDialogOpen(open)
+          if (!open) setDfdToDelete(null)
+        }}
+        onConfirm={handleConfirmDeleteDFD}
+        isDeleting={deleteDFDMutation.isPending}
       />
     </div>
   )

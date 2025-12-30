@@ -107,6 +107,8 @@ export function useDiagramState({
       saveDiagram(diagramId, data),
     onSuccess: (updatedDiagram) => {
       queryClient.setQueryData(['diagram', diagramId], updatedDiagram)
+      // Invalidate delete preview cache since component sync may have changed
+      queryClient.invalidateQueries({ queryKey: ['dfd-delete-preview', diagramId] })
       setHasUnsavedChanges(false)
       setLastSaved(new Date())
     },

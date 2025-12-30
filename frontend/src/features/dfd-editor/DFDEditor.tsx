@@ -11,15 +11,16 @@ import {
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Clock, Loader2, Pencil } from 'lucide-react'
+import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DeleteDFDDialog } from '@/components/threat-models'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useThreatModel } from '@/api/threat-models'
+import { useThreatModel, useDeleteDFD } from '@/api/threat-models'
 // DFD Editor internal imports
 import { nodeTypes, edgeTypes } from './components'
 import { DiagramToolbar } from './components/DiagramToolbar'
@@ -41,6 +42,10 @@ function DFDEditorContent() {
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<DataFlowEdge | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Delete DFD mutation
+  const deleteDFDMutation = useDeleteDFD()
 
   // Diagram state management
   const {
@@ -228,6 +233,24 @@ function DFDEditorContent() {
     [handleTitleSave]
   )
 
+  // Handle DFD deletion
+  const handleConfirmDelete = useCallback(
+    (deleteOrphanedComponents: boolean) => {
+      if (diagramId) {
+        deleteDFDMutation.mutate(
+          { dfdId: diagramId, deleteOrphanedComponents },
+          {
+            onSuccess: () => {
+              setShowDeleteDialog(false)
+              navigate(`/threat-models/${threatModelId}`)
+            },
+          }
+        )
+      }
+    },
+    [diagramId, deleteDFDMutation, navigate, threatModelId]
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-44px)]">
@@ -321,6 +344,16 @@ function DFDEditorContent() {
           >
             <Save className="h-4 w-4 mr-2" />
             Save
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowDeleteDialog(true)}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
           </Button>
         </div>
       </div>
@@ -425,6 +458,16 @@ function DFDEditorContent() {
           onInsert={handleInsertTemplate}
         />
       )}
+
+      {/* Delete DFD Dialog */}
+      <DeleteDFDDialog
+        dfdId={diagramId ?? null}
+        dfdName={diagramTitle}
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        isDeleting={deleteDFDMutation.isPending}
+      />
     </div>
   )
 }

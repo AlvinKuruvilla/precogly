@@ -72,6 +72,11 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
             # Find matching ComponentLibrary based on technology
             component_library = _find_component_library(technology, node_type)
 
+            # Skip nodes without a technology - they're visual placeholders only
+            # Components are only created when a technology is assigned
+            if not component_library:
+                continue
+
             if existing_component_id:
                 # Update existing component
                 try:
