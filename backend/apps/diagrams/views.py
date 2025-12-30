@@ -310,6 +310,39 @@ class DFDViewSet(viewsets.ModelViewSet):
             return DFDListSerializer
         return DFDSerializer
 
+    def create(self, request, *args, **kwargs):
+        """
+        Create a DFD with required threat model association.
+
+        All DFDs must be associated with a threat model to prevent orphaned DFDs.
+        The threat_model_id field is required in the request body.
+        """
+        threat_model_id = request.data.get("threat_model_id")
+        if not threat_model_id:
+            return Response(
+                {"error": "threat_model_id is required. DFDs cannot be created without a threat model."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            threat_model = ThreatModel.objects.get(id=threat_model_id)
+        except ThreatModel.DoesNotExist:
+            return Response(
+                {"error": "Threat model not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Create the DFD
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        dfd = serializer.save(updated_by=request.user)
+
+        # Associate with threat model atomically
+        ThreatModelDFD.objects.create(threat_model=threat_model, dfd=dfd)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_update(self, serializer):
         """Set updated_by to current user and sync nodes to components."""
         dfd = serializer.save(updated_by=self.request.user)
@@ -323,31 +356,13 @@ class DFDViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def create_for_threat_model(self, request):
-        """Create a DFD and associate it with a threat model."""
-        threat_model_id = request.data.get("threat_model_id")
-        if not threat_model_id:
-            return Response(
-                {"error": "threat_model_id is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        """
+        Create a DFD and associate it with a threat model.
 
-        try:
-            threat_model = ThreatModel.objects.get(id=threat_model_id)
-        except ThreatModel.DoesNotExist:
-            return Response(
-                {"error": "Threat model not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Create the DFD
-        serializer = DFDSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        dfd = serializer.save(updated_by=request.user)
-
-        # Associate with threat model
-        ThreatModelDFD.objects.create(threat_model=threat_model, dfd=dfd)
-
-        return Response(DFDSerializer(dfd).data, status=status.HTTP_201_CREATED)
+        DEPRECATED: Use POST /diagrams/ with threat_model_id instead.
+        Kept for backwards compatibility.
+        """
+        return self.create(request)
 
 
 class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
