@@ -14,6 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from apps.compliance.models import CountermeasureLibraryStandard, StandardFramework, StandardRequirement
 from apps.diagrams.models import DFDTemplatesLibrary
 from apps.organizations.models import Organization
 from apps.packs.models import LibraryPack, LibraryPackDependency, OrganizationPackInstallation
@@ -80,7 +81,10 @@ class Command(BaseCommand):
                 self._create_standalone_threats(library_pack, pack_data)
                 self._create_standalone_countermeasures(library_pack, pack_data)
 
-                # Phase 5: Load DFD templates
+                # Phase 5: Create compliance frameworks (for compliance packs)
+                self._create_frameworks(library_pack, pack_data)
+
+                # Phase 6: Load DFD templates
                 self._load_dfd_templates(library_pack, pack_path)
 
                 # Phase 6: Create installation record if org specified
@@ -386,3 +390,48 @@ class Command(BaseCommand):
 
         action = "Created" if created else "Updated"
         self.stdout.write(f"  {action} installation for {org.name}")
+
+    def _create_frameworks(self, library_pack, pack_data):
+        """Create compliance frameworks and their requirements."""
+        frameworks = pack_data.get("frameworks", [])
+
+        framework_count = 0
+        requirement_count = 0
+
+        for fw_data in frameworks:
+            # Create or update framework
+            framework, created = StandardFramework.objects.update_or_create(
+                slug=fw_data["slug"],
+                defaults={
+                    "source_pack": library_pack,
+                    "name": fw_data["name"],
+                    "version": fw_data.get("version", ""),
+                    "issuer": fw_data.get("issuer", ""),
+                    "description": fw_data.get("description", ""),
+                },
+            )
+            if created:
+                framework_count += 1
+
+            # Create requirements
+            for req_data in fw_data.get("requirements", []):
+                parent = None
+                if req_data.get("parent_code"):
+                    parent = StandardRequirement.objects.filter(
+                        framework=framework,
+                        section_code=req_data["parent_code"],
+                    ).first()
+
+                _, req_created = StandardRequirement.objects.update_or_create(
+                    framework=framework,
+                    section_code=req_data["section_code"],
+                    defaults={
+                        "description": req_data.get("description", ""),
+                        "parent": parent,
+                    },
+                )
+                if req_created:
+                    requirement_count += 1
+
+        if frameworks:
+            self.stdout.write(f"  Created {framework_count} frameworks, {requirement_count} requirements")

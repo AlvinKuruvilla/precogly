@@ -204,7 +204,7 @@ export function Packs() {
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
                 )}
-                Sync All to Database
+                Import All
               </Button>
             </div>
           </CardHeader>

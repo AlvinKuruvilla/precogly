@@ -6,18 +6,18 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Technology, TechnologyCategory } from '../lib/technology-registry'
 
-// Backend response type
+// Backend response type (camelCase from djangorestframework-camel-case middleware)
 interface ComponentLibraryItem {
   id: number
   slug: string
-  qualified_slug: string | null
+  qualifiedSlug: string | null
   name: string
   category: 'process' | 'datastore' | 'external'  // Node type category
-  component_type: string  // Technology category (database, compute, etc.)
+  componentType: string  // Technology category (database, compute, etc.)
   provider: string
-  source_pack: number | null
-  source_pack_name: string | null
-  source_pack_slug: string | null
+  sourcePack: number | null
+  sourcePackName: string | null
+  sourcePackSlug: string | null
 }
 
 // Paginated response from DRF
@@ -59,11 +59,11 @@ function mapComponentTypeToCategory(componentType: string): TechnologyCategory {
 // Transform backend item to frontend Technology format
 function transformToTechnology(item: ComponentLibraryItem): Technology {
   return {
-    id: item.slug || item.qualified_slug || String(item.id),
+    id: item.slug || item.qualifiedSlug || String(item.id),
     name: item.name,
-    category: mapComponentTypeToCategory(item.component_type),
+    category: mapComponentTypeToCategory(item.componentType),
     vendor: mapProviderToVendor(item.provider),
-    description: item.source_pack_name ? `From ${item.source_pack_name}` : undefined,
+    description: item.sourcePackName ? `From ${item.sourcePackName}` : undefined,
   }
 }
 

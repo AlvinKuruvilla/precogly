@@ -11,13 +11,20 @@ from apps.threats.models import CountermeasureLibrary
 class StandardFramework(TimestampedModel):
     """Compliance framework (e.g., PCI-DSS, SOC2, NIST)."""
 
+    slug = models.SlugField(max_length=100, unique=True)
+    source_pack = models.ForeignKey(
+        "packs.LibraryPack",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="frameworks",
+    )
     name = models.CharField(max_length=255)
     version = models.CharField(max_length=50)
     issuer = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ["name", "version"]
         ordering = ["name", "version"]
 
     def __str__(self):

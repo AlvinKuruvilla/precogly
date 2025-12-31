@@ -1,0 +1,28 @@
+pack:
+  slug: cra
+  name: "Cyber Resilience Act"
+  version: "1.0.0"
+  pack_type: compliance
+  tier: free
+  author: "Precogly"
+  description: "EU Cyber Resilience Act"
+  tags:
+    - compliance
+    - security
+    - european-union
+
+frameworks:
+  - slug: cra-2024
+    name: "CRA"
+    version: "2024"
+    issuer: "European Union"
+    description: "Cyber Resilience Act"
+    requirements:
+      - section_code: "Art. 10"
+        description: "Obligations of manufacturers"
+      - section_code: "Art. 11"
+        description: "Reporting obligations of manufacturers"
+      - section_code: "Annex I.1"
+        description: "Security requirements relating to the properties of products with digital elements"
+      - section_code: "Annex I.2"
+        description: "Vulnerability handling requirements"
