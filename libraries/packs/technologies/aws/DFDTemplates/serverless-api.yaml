@@ -1,0 +1,112 @@
+template:
+  slug: aws-serverless-api
+  name: "AWS Serverless API"
+  description: "Serverless REST API with Lambda, API Gateway, and DynamoDB"
+  category: api
+  diagram_type: level1
+
+canvas_data:
+  nodes:
+    # External actor
+    - id: "actor-client"
+      type: "actor"
+      position: { x: 50, y: 180 }
+      data:
+        label: "Client"
+        description: "Web or mobile application"
+
+    # Trust boundary - AWS
+    - id: "tb-aws"
+      type: "trustBoundary"
+      position: { x: 180, y: 80 }
+      style: { width: 550, height: 300 }
+      data:
+        label: "AWS VPC"
+        trustLevel: "privateSecured"
+
+    # AWS Services
+    - id: "process-apigw"
+      type: "process"
+      position: { x: 230, y: 160 }
+      data:
+        label: "API Gateway"
+        technology: "AWS API Gateway"
+        description: "REST API endpoint with throttling and auth"
+
+    - id: "process-cognito"
+      type: "process"
+      position: { x: 230, y: 280 }
+      data:
+        label: "Cognito"
+        technology: "AWS Cognito"
+        description: "User authentication and authorization"
+
+    - id: "process-lambda"
+      type: "process"
+      position: { x: 430, y: 160 }
+      data:
+        label: "Lambda Function"
+        technology: "AWS Lambda"
+        description: "Serverless compute for business logic"
+
+    - id: "datastore-dynamo"
+      type: "datastore"
+      position: { x: 630, y: 160 }
+      data:
+        label: "DynamoDB"
+        technology: "AWS DynamoDB"
+        description: "NoSQL database for application data"
+
+    - id: "datastore-s3"
+      type: "datastore"
+      position: { x: 630, y: 280 }
+      data:
+        label: "S3 Bucket"
+        technology: "AWS S3"
+        description: "Object storage for files and assets"
+
+  edges:
+    - id: "edge-1"
+      source: "actor-client"
+      target: "process-apigw"
+      type: "dataFlow"
+      data:
+        label: "API Requests"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-2"
+      source: "process-apigw"
+      target: "process-cognito"
+      type: "dataFlow"
+      data:
+        label: "Auth Check"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-3"
+      source: "process-apigw"
+      target: "process-lambda"
+      type: "dataFlow"
+      data:
+        label: "Invoke Function"
+        protocol: "AWS Internal"
+        encrypted: true
+
+    - id: "edge-4"
+      source: "process-lambda"
+      target: "datastore-dynamo"
+      type: "dataFlow"
+      data:
+        label: "Read/Write Data"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-5"
+      source: "process-lambda"
+      target: "datastore-s3"
+      type: "dataFlow"
+      data:
+        label: "Store Files"
+        protocol: "HTTPS"
+        encrypted: true

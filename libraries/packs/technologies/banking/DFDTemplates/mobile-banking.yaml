@@ -1,0 +1,165 @@
+template:
+  slug: mobile-banking
+  name: "Mobile Banking Application"
+  description: "Mobile banking app with authentication, account management, and payment features"
+  category: mobile
+  diagram_type: level1
+
+canvas_data:
+  nodes:
+    # External actors
+    - id: "actor-user"
+      type: "actor"
+      position: { x: 50, y: 200 }
+      data:
+        label: "Mobile User"
+        description: "Customer using iOS/Android app"
+
+    # Trust boundary - Mobile App
+    - id: "tb-mobile"
+      type: "trustBoundary"
+      position: { x: 180, y: 100 }
+      style: { width: 200, height: 250 }
+      data:
+        label: "Mobile Device"
+        trustLevel: "internet"
+
+    # Trust boundary - Backend
+    - id: "tb-backend"
+      type: "trustBoundary"
+      position: { x: 420, y: 80 }
+      style: { width: 380, height: 320 }
+      data:
+        label: "Bank Backend"
+        trustLevel: "privateSecured"
+
+    # Mobile app
+    - id: "process-app"
+      type: "process"
+      position: { x: 220, y: 180 }
+      data:
+        label: "Mobile App"
+        technology: "React Native"
+        description: "iOS/Android banking application"
+
+    # Backend services
+    - id: "process-bff"
+      type: "process"
+      position: { x: 470, y: 130 }
+      data:
+        label: "Mobile BFF"
+        technology: "Node.js"
+        description: "Backend for Frontend - API gateway for mobile"
+
+    - id: "process-auth"
+      type: "process"
+      position: { x: 650, y: 130 }
+      data:
+        label: "Auth Service"
+        technology: "OAuth 2.0 / OIDC"
+        description: "Authentication with biometrics and MFA"
+
+    - id: "process-accounts"
+      type: "process"
+      position: { x: 470, y: 260 }
+      data:
+        label: "Account Service"
+        technology: "Java / Spring"
+        description: "Account balances and transactions"
+
+    - id: "process-payments"
+      type: "process"
+      position: { x: 650, y: 260 }
+      data:
+        label: "Payment Service"
+        technology: "Java / Spring"
+        description: "Fund transfers and bill payments"
+
+    # Data stores
+    - id: "datastore-users"
+      type: "datastore"
+      position: { x: 560, y: 420 }
+      data:
+        label: "Customer DB"
+        technology: "PostgreSQL"
+        description: "Customer profiles and credentials"
+
+    - id: "datastore-accounts"
+      type: "datastore"
+      position: { x: 740, y: 420 }
+      data:
+        label: "Accounts DB"
+        technology: "PostgreSQL"
+        description: "Account balances and transactions"
+
+  edges:
+    - id: "edge-1"
+      source: "actor-user"
+      target: "process-app"
+      type: "dataFlow"
+      data:
+        label: "User Input"
+        protocol: "Touch/Biometric"
+
+    - id: "edge-2"
+      source: "process-app"
+      target: "process-bff"
+      type: "dataFlow"
+      data:
+        label: "API Requests"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-3"
+      source: "process-bff"
+      target: "process-auth"
+      type: "dataFlow"
+      data:
+        label: "Auth Requests"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-4"
+      source: "process-bff"
+      target: "process-accounts"
+      type: "dataFlow"
+      data:
+        label: "Account Queries"
+        protocol: "gRPC"
+        encrypted: true
+
+    - id: "edge-5"
+      source: "process-bff"
+      target: "process-payments"
+      type: "dataFlow"
+      data:
+        label: "Payment Requests"
+        protocol: "gRPC"
+        encrypted: true
+
+    - id: "edge-6"
+      source: "process-auth"
+      target: "datastore-users"
+      type: "dataFlow"
+      data:
+        label: "User Lookup"
+        protocol: "SQL/TLS"
+        encrypted: true
+
+    - id: "edge-7"
+      source: "process-accounts"
+      target: "datastore-accounts"
+      type: "dataFlow"
+      data:
+        label: "Account Data"
+        protocol: "SQL/TLS"
+        encrypted: true
+
+    - id: "edge-8"
+      source: "process-payments"
+      target: "datastore-accounts"
+      type: "dataFlow"
+      data:
+        label: "Transaction Updates"
+        protocol: "SQL/TLS"
+        encrypted: true

@@ -1,0 +1,112 @@
+template:
+  slug: gcp-cloud-run
+  name: "GCP Cloud Run API"
+  description: "Containerized API with Cloud Run, Firestore, and Cloud Storage"
+  category: api
+  diagram_type: level1
+
+canvas_data:
+  nodes:
+    # External actor
+    - id: "actor-client"
+      type: "actor"
+      position: { x: 50, y: 180 }
+      data:
+        label: "Client"
+        description: "Web or mobile application"
+
+    # Trust boundary - GCP
+    - id: "tb-gcp"
+      type: "trustBoundary"
+      position: { x: 180, y: 80 }
+      style: { width: 550, height: 300 }
+      data:
+        label: "GCP VPC"
+        trustLevel: "privateSecured"
+
+    # GCP Services
+    - id: "process-lb"
+      type: "process"
+      position: { x: 230, y: 160 }
+      data:
+        label: "Cloud Load Balancing"
+        technology: "GCP Cloud Load Balancing"
+        description: "Global load balancer with SSL termination"
+
+    - id: "process-iap"
+      type: "process"
+      position: { x: 230, y: 280 }
+      data:
+        label: "Identity-Aware Proxy"
+        technology: "GCP IAP"
+        description: "Context-aware access control"
+
+    - id: "process-cloudrun"
+      type: "process"
+      position: { x: 430, y: 160 }
+      data:
+        label: "Cloud Run"
+        technology: "GCP Cloud Run"
+        description: "Serverless containerized application"
+
+    - id: "datastore-firestore"
+      type: "datastore"
+      position: { x: 630, y: 160 }
+      data:
+        label: "Firestore"
+        technology: "GCP Firestore"
+        description: "NoSQL document database"
+
+    - id: "datastore-gcs"
+      type: "datastore"
+      position: { x: 630, y: 280 }
+      data:
+        label: "Cloud Storage"
+        technology: "GCP Cloud Storage"
+        description: "Object storage for files and assets"
+
+  edges:
+    - id: "edge-1"
+      source: "actor-client"
+      target: "process-lb"
+      type: "dataFlow"
+      data:
+        label: "HTTPS Requests"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-2"
+      source: "process-lb"
+      target: "process-iap"
+      type: "dataFlow"
+      data:
+        label: "Auth Check"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-3"
+      source: "process-lb"
+      target: "process-cloudrun"
+      type: "dataFlow"
+      data:
+        label: "Forward Request"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-4"
+      source: "process-cloudrun"
+      target: "datastore-firestore"
+      type: "dataFlow"
+      data:
+        label: "Read/Write Data"
+        protocol: "gRPC"
+        encrypted: true
+
+    - id: "edge-5"
+      source: "process-cloudrun"
+      target: "datastore-gcs"
+      type: "dataFlow"
+      data:
+        label: "Store Files"
+        protocol: "HTTPS"
+        encrypted: true

@@ -1,0 +1,112 @@
+template:
+  slug: azure-webapp
+  name: "Azure Web Application"
+  description: "Web application with App Service, Azure SQL, and Blob Storage"
+  category: webapp
+  diagram_type: level1
+
+canvas_data:
+  nodes:
+    # External actor
+    - id: "actor-user"
+      type: "actor"
+      position: { x: 50, y: 180 }
+      data:
+        label: "User"
+        description: "Web browser user"
+
+    # Trust boundary - Azure
+    - id: "tb-azure"
+      type: "trustBoundary"
+      position: { x: 180, y: 80 }
+      style: { width: 550, height: 300 }
+      data:
+        label: "Azure VNet"
+        trustLevel: "privateSecured"
+
+    # Azure Services
+    - id: "process-frontdoor"
+      type: "process"
+      position: { x: 230, y: 160 }
+      data:
+        label: "Front Door"
+        technology: "Azure Front Door"
+        description: "Global load balancer with WAF"
+
+    - id: "process-aad"
+      type: "process"
+      position: { x: 230, y: 280 }
+      data:
+        label: "Azure AD"
+        technology: "Azure Active Directory"
+        description: "Identity and access management"
+
+    - id: "process-appservice"
+      type: "process"
+      position: { x: 430, y: 160 }
+      data:
+        label: "App Service"
+        technology: "Azure App Service"
+        description: "Managed web application hosting"
+
+    - id: "datastore-sql"
+      type: "datastore"
+      position: { x: 630, y: 160 }
+      data:
+        label: "Azure SQL"
+        technology: "Azure SQL Database"
+        description: "Managed relational database"
+
+    - id: "datastore-blob"
+      type: "datastore"
+      position: { x: 630, y: 280 }
+      data:
+        label: "Blob Storage"
+        technology: "Azure Blob Storage"
+        description: "Object storage for files and media"
+
+  edges:
+    - id: "edge-1"
+      source: "actor-user"
+      target: "process-frontdoor"
+      type: "dataFlow"
+      data:
+        label: "HTTPS Requests"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-2"
+      source: "process-frontdoor"
+      target: "process-aad"
+      type: "dataFlow"
+      data:
+        label: "Auth Check"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-3"
+      source: "process-frontdoor"
+      target: "process-appservice"
+      type: "dataFlow"
+      data:
+        label: "Forward Request"
+        protocol: "HTTPS"
+        encrypted: true
+
+    - id: "edge-4"
+      source: "process-appservice"
+      target: "datastore-sql"
+      type: "dataFlow"
+      data:
+        label: "Query Data"
+        protocol: "SQL/TLS"
+        encrypted: true
+
+    - id: "edge-5"
+      source: "process-appservice"
+      target: "datastore-blob"
+      type: "dataFlow"
+      data:
+        label: "Store Files"
+        protocol: "HTTPS"
+        encrypted: true
