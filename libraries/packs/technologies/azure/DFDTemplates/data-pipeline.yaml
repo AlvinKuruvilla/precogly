@@ -10,7 +10,7 @@ canvas_data:
     # External data sources (outside all boundaries)
     - id: "actor-iot-devices"
       type: "actor"
-      position: { x: 50, y: 100 }
+      position: { x: 50, y: 130 }
       data:
         label: "IoT Devices"
         actorType: "system"
@@ -18,7 +18,7 @@ canvas_data:
 
     - id: "actor-app-events"
       type: "actor"
-      position: { x: 50, y: 260 }
+      position: { x: 50, y: 300 }
       data:
         label: "Application Events"
         actorType: "system"
@@ -26,7 +26,7 @@ canvas_data:
 
     - id: "actor-external-api"
       type: "actor"
-      position: { x: 50, y: 420 }
+      position: { x: 50, y: 470 }
       data:
         label: "External APIs"
         actorType: "external"
@@ -35,7 +35,7 @@ canvas_data:
     # Consumers (outside boundaries)
     - id: "actor-analyst"
       type: "actor"
-      position: { x: 950, y: 100 }
+      position: { x: 1100, y: 130 }
       data:
         label: "Data Analyst"
         actorType: "user"
@@ -43,7 +43,7 @@ canvas_data:
 
     - id: "actor-ml-service"
       type: "actor"
-      position: { x: 950, y: 420 }
+      position: { x: 1100, y: 470 }
       data:
         label: "ML Pipeline"
         actorType: "system"
@@ -52,8 +52,8 @@ canvas_data:
     # System boundary - Azure Data Platform
     - id: "sb-azure"
       type: "systemBoundary"
-      position: { x: 170, y: 30 }
-      style: { width: 750, height: 520 }
+      position: { x: 200, y: 50 }
+      style: { width: 870, height: 580 }
       data:
         label: "Azure Data Platform"
         owner: "Data Engineering Team"
@@ -63,8 +63,8 @@ canvas_data:
     - id: "tb-ingestion"
       type: "trustBoundary"
       parentId: "sb-azure"
-      position: { x: 20, y: 50 }
-      style: { width: 180, height: 320 }
+      position: { x: 30, y: 60 }
+      style: { width: 220, height: 400 }
       data:
         label: "Ingestion Zone"
         boundaryType: "dmz"
@@ -74,8 +74,8 @@ canvas_data:
     - id: "tb-processing"
       type: "trustBoundary"
       parentId: "sb-azure"
-      position: { x: 220, y: 50 }
-      style: { width: 250, height: 420 }
+      position: { x: 280, y: 60 }
+      style: { width: 280, height: 480 }
       data:
         label: "Processing Zone"
         boundaryType: "privateSecured"
@@ -85,8 +85,8 @@ canvas_data:
     - id: "tb-storage"
       type: "trustBoundary"
       parentId: "sb-azure"
-      position: { x: 490, y: 50 }
-      style: { width: 240, height: 420 }
+      position: { x: 590, y: 60 }
+      style: { width: 250, height: 480 }
       data:
         label: "Storage Zone"
         boundaryType: "privateSecured"
@@ -96,7 +96,7 @@ canvas_data:
     - id: "process-eventhub"
       type: "process"
       parentId: "tb-ingestion"
-      position: { x: 30, y: 50 }
+      position: { x: 35, y: 60 }
       data:
         label: "Event Hub"
         technology: "Azure Event Hub"
@@ -105,7 +105,7 @@ canvas_data:
     - id: "process-iothub"
       type: "process"
       parentId: "tb-ingestion"
-      position: { x: 30, y: 140 }
+      position: { x: 35, y: 170 }
       data:
         label: "IoT Hub"
         technology: "Azure IoT Hub"
@@ -114,7 +114,7 @@ canvas_data:
     - id: "process-datafactory-ingest"
       type: "process"
       parentId: "tb-ingestion"
-      position: { x: 30, y: 230 }
+      position: { x: 35, y: 280 }
       data:
         label: "Data Factory"
         technology: "Azure Data Factory"
@@ -124,7 +124,7 @@ canvas_data:
     - id: "process-streamanalytics"
       type: "process"
       parentId: "tb-processing"
-      position: { x: 30, y: 50 }
+      position: { x: 30, y: 60 }
       data:
         label: "Stream Analytics"
         technology: "Azure Stream Analytics"
@@ -133,7 +133,7 @@ canvas_data:
     - id: "process-databricks"
       type: "process"
       parentId: "tb-processing"
-      position: { x: 30, y: 160 }
+      position: { x: 30, y: 180 }
       data:
         label: "Databricks"
         technology: "Azure Databricks"
@@ -142,7 +142,7 @@ canvas_data:
     - id: "process-synapse"
       type: "process"
       parentId: "tb-processing"
-      position: { x: 30, y: 270 }
+      position: { x: 30, y: 300 }
       data:
         label: "Synapse Analytics"
         technology: "Azure Synapse Analytics"
@@ -152,7 +152,7 @@ canvas_data:
     - id: "process-powerbi"
       type: "process"
       parentId: "tb-processing"
-      position: { x: 140, y: 50 }
+      position: { x: 140, y: 60 }
       data:
         label: "Power BI"
         technology: "Power BI Service"
@@ -162,7 +162,7 @@ canvas_data:
     - id: "datastore-datalake-raw"
       type: "datastore"
       parentId: "tb-storage"
-      position: { x: 50, y: 50 }
+      position: { x: 45, y: 60 }
       data:
         label: "Data Lake (Raw)"
         technology: "Azure Data Lake Gen2"
@@ -172,7 +172,7 @@ canvas_data:
     - id: "datastore-datalake-curated"
       type: "datastore"
       parentId: "tb-storage"
-      position: { x: 50, y: 150 }
+      position: { x: 45, y: 180 }
       data:
         label: "Data Lake (Curated)"
         technology: "Azure Data Lake Gen2"
@@ -182,7 +182,7 @@ canvas_data:
     - id: "datastore-sqlpool"
       type: "datastore"
       parentId: "tb-storage"
-      position: { x: 50, y: 250 }
+      position: { x: 45, y: 300 }
       data:
         label: "Dedicated SQL Pool"
         technology: "Synapse SQL Pool"
@@ -192,7 +192,7 @@ canvas_data:
     - id: "datastore-keyvault"
       type: "datastore"
       parentId: "tb-storage"
-      position: { x: 50, y: 340 }
+      position: { x: 45, y: 400 }
       data:
         label: "Key Vault"
         technology: "Azure Key Vault"

@@ -62,7 +62,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const logout = useCallback(async () => {
-    await apiLogout()
+    try {
+      await apiLogout()
+    } catch {
+      // Ignore logout API errors - we still want to clear local state
+    }
     setUser(null)
   }, [])
 

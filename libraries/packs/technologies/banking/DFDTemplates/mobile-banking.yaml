@@ -10,29 +10,43 @@ canvas_data:
     # External actor (outside all boundaries)
     - id: "actor-user"
       type: "actor"
-      position: { x: 50, y: 200 }
+      position: { x: 50, y: 250 }
       data:
         label: "Mobile User"
         actorType: "user"
         description: "Customer using iOS/Android app"
 
-    # Trust boundary - Mobile Device
+    # System boundary - Mobile Banking System
+    - id: "sb-banking"
+      type: "systemBoundary"
+      position: { x: 180, y: 50 }
+      style: { width: 820, height: 550 }
+      data:
+        label: "Mobile Banking System"
+        owner: "Digital Banking Team"
+        classification: "Production"
+
+    # Trust boundary - Mobile Device (inside sb-banking)
     - id: "tb-mobile"
       type: "trustBoundary"
-      position: { x: 180, y: 100 }
+      parentId: "sb-banking"
+      position: { x: 30, y: 80 }
       style: { width: 200, height: 250 }
       data:
         label: "Mobile Device"
         boundaryType: "internet"
+        technology: "iOS/Android"
 
-    # Trust boundary - Backend
+    # Trust boundary - Backend (inside sb-banking)
     - id: "tb-backend"
       type: "trustBoundary"
-      position: { x: 420, y: 80 }
-      style: { width: 420, height: 380 }
+      parentId: "sb-banking"
+      position: { x: 270, y: 60 }
+      style: { width: 520, height: 460 }
       data:
         label: "Bank Backend"
         boundaryType: "privateSecured"
+        technology: "Private Cloud"
 
     # Mobile app (nested inside tb-mobile)
     - id: "process-app"
@@ -48,7 +62,7 @@ canvas_data:
     - id: "process-bff"
       type: "process"
       parentId: "tb-backend"
-      position: { x: 50, y: 50 }
+      position: { x: 50, y: 60 }
       data:
         label: "Mobile BFF"
         technology: "Node.js"
@@ -57,7 +71,7 @@ canvas_data:
     - id: "process-auth"
       type: "process"
       parentId: "tb-backend"
-      position: { x: 230, y: 50 }
+      position: { x: 250, y: 60 }
       data:
         label: "Auth Service"
         technology: "OAuth 2.0 / OIDC"
@@ -66,7 +80,7 @@ canvas_data:
     - id: "process-accounts"
       type: "process"
       parentId: "tb-backend"
-      position: { x: 50, y: 180 }
+      position: { x: 50, y: 190 }
       data:
         label: "Account Service"
         technology: "Java / Spring"
@@ -75,7 +89,7 @@ canvas_data:
     - id: "process-payments"
       type: "process"
       parentId: "tb-backend"
-      position: { x: 230, y: 180 }
+      position: { x: 250, y: 190 }
       data:
         label: "Payment Service"
         technology: "Java / Spring"
@@ -85,7 +99,7 @@ canvas_data:
     - id: "datastore-users"
       type: "datastore"
       parentId: "tb-backend"
-      position: { x: 100, y: 290 }
+      position: { x: 100, y: 320 }
       data:
         label: "Customer DB"
         technology: "PostgreSQL"
@@ -95,7 +109,7 @@ canvas_data:
     - id: "datastore-accounts"
       type: "datastore"
       parentId: "tb-backend"
-      position: { x: 280, y: 290 }
+      position: { x: 300, y: 320 }
       data:
         label: "Accounts DB"
         technology: "PostgreSQL"

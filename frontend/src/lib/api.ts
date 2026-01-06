@@ -27,6 +27,9 @@ export function setTokens(access: string, refresh: string): void {
 export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
+  // Clear Django session cookies that may have been set
+  document.cookie = 'sessionid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+  document.cookie = 'csrftoken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
 }
 
 export function isAuthenticated(): boolean {

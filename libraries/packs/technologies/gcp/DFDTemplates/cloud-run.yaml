@@ -7,22 +7,35 @@ template:
 
 canvas_data:
   nodes:
-    # External actor (outside boundary)
+    # External actor (outside all boundaries)
     - id: "actor-client"
       type: "actor"
-      position: { x: 50, y: 180 }
+      position: { x: 50, y: 200 }
       data:
         label: "Client"
+        actorType: "external"
         description: "Web or mobile application"
 
-    # Trust boundary - GCP
+    # System boundary - GCP Cloud Run System
+    - id: "sb-gcp"
+      type: "systemBoundary"
+      position: { x: 180, y: 50 }
+      style: { width: 720, height: 450 }
+      data:
+        label: "GCP Cloud Run API"
+        owner: "Platform Team"
+        classification: "Production"
+
+    # Trust boundary - GCP VPC (inside sb-gcp)
     - id: "tb-gcp"
       type: "trustBoundary"
-      position: { x: 180, y: 80 }
-      style: { width: 550, height: 300 }
+      parentId: "sb-gcp"
+      position: { x: 30, y: 60 }
+      style: { width: 650, height: 360 }
       data:
         label: "GCP VPC"
         boundaryType: "privateSecured"
+        technology: "Google VPC"
 
     # GCP Services (nested inside tb-gcp)
     - id: "process-lb"
@@ -60,6 +73,7 @@ canvas_data:
         label: "Firestore"
         technology: "GCP Firestore"
         description: "NoSQL document database"
+        dataSensitivity: "confidential"
 
     - id: "datastore-gcs"
       type: "datastore"

@@ -7,22 +7,35 @@ template:
 
 canvas_data:
   nodes:
-    # External actor (outside boundary)
+    # External actor (outside all boundaries)
     - id: "actor-client"
       type: "actor"
-      position: { x: 50, y: 180 }
+      position: { x: 50, y: 200 }
       data:
         label: "Client"
+        actorType: "external"
         description: "Web or mobile application"
 
-    # Trust boundary - AWS
+    # System boundary - AWS Serverless System
+    - id: "sb-aws"
+      type: "systemBoundary"
+      position: { x: 180, y: 50 }
+      style: { width: 720, height: 450 }
+      data:
+        label: "AWS Serverless API"
+        owner: "API Team"
+        classification: "Production"
+
+    # Trust boundary - AWS VPC (inside sb-aws)
     - id: "tb-aws"
       type: "trustBoundary"
-      position: { x: 180, y: 80 }
-      style: { width: 550, height: 300 }
+      parentId: "sb-aws"
+      position: { x: 30, y: 60 }
+      style: { width: 650, height: 360 }
       data:
         label: "AWS VPC"
         boundaryType: "privateSecured"
+        technology: "Amazon VPC"
 
     # AWS Services (nested inside tb-aws)
     - id: "process-apigw"
@@ -60,6 +73,7 @@ canvas_data:
         label: "DynamoDB"
         technology: "AWS DynamoDB"
         description: "NoSQL database for application data"
+        dataSensitivity: "confidential"
 
     - id: "datastore-s3"
       type: "datastore"

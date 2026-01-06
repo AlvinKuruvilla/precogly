@@ -7,10 +7,10 @@ template:
 
 canvas_data:
   nodes:
-    # External actors (outside boundary)
+    # External actors (outside all boundaries)
     - id: "actor-correspondent"
       type: "actor"
-      position: { x: 50, y: 150 }
+      position: { x: 50, y: 180 }
       data:
         label: "Correspondent Bank"
         actorType: "external"
@@ -18,20 +18,32 @@ canvas_data:
 
     - id: "actor-swiftnet"
       type: "actor"
-      position: { x: 50, y: 300 }
+      position: { x: 50, y: 380 }
       data:
         label: "SWIFTNet"
         actorType: "system"
         description: "SWIFT secure messaging network"
 
-    # Trust boundary - Processing Zone
+    # System boundary - Bank Payment System
+    - id: "sb-bank"
+      type: "systemBoundary"
+      position: { x: 200, y: 50 }
+      style: { width: 720, height: 530 }
+      data:
+        label: "Bank Payment System"
+        owner: "Treasury Operations"
+        classification: "Production"
+
+    # Trust boundary - Processing Zone (inside sb-bank)
     - id: "tb-processing"
       type: "trustBoundary"
-      position: { x: 200, y: 80 }
-      style: { width: 550, height: 400 }
+      parentId: "sb-bank"
+      position: { x: 30, y: 60 }
+      style: { width: 650, height: 440 }
       data:
         label: "Payment Processing Zone"
         boundaryType: "privateSecured"
+        technology: "Secure Network Segment"
 
     # Core processes (nested inside tb-processing)
     - id: "process-gateway"

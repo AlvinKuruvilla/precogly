@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, User, Settings, LogOut, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 const navItems = [
   { name: 'Dashboard', href: '/' },
@@ -33,6 +34,13 @@ const minimalNavRoutes = [
 
 export function Navbar() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login')
+  }
 
   // Check if we should show minimal nav
   const isMinimalNav = minimalNavRoutes.some((pattern) =>
@@ -138,11 +146,13 @@ export function Navbar() {
               className={cn('flex items-center gap-2', isMinimalNav && 'h-8 px-2')}
             >
               <Avatar className={cn(isMinimalNav ? 'h-6 w-6' : 'h-8 w-8')}>
-                <AvatarFallback className={cn(isMinimalNav && 'text-xs')}>JD</AvatarFallback>
+                <AvatarFallback className={cn(isMinimalNav && 'text-xs')}>
+                  {user?.email?.substring(0, 2).toUpperCase() ?? 'U'}
+                </AvatarFallback>
               </Avatar>
               {!isMinimalNav && (
                 <>
-                  <span className="text-sm font-medium">John Doe</span>
+                  <span className="text-sm font-medium">{user?.email ?? 'User'}</span>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </>
               )}
@@ -158,7 +168,7 @@ export function Navbar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>

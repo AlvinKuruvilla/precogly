@@ -7,22 +7,35 @@ template:
 
 canvas_data:
   nodes:
-    # External actor (outside boundary)
+    # External actor (outside all boundaries)
     - id: "actor-user"
       type: "actor"
-      position: { x: 50, y: 180 }
+      position: { x: 50, y: 200 }
       data:
         label: "User"
+        actorType: "user"
         description: "Web browser user"
 
-    # Trust boundary - Azure
+    # System boundary - Azure Web App System
+    - id: "sb-azure"
+      type: "systemBoundary"
+      position: { x: 180, y: 50 }
+      style: { width: 720, height: 450 }
+      data:
+        label: "Azure Web Application"
+        owner: "Web Team"
+        classification: "Production"
+
+    # Trust boundary - Azure VNet (inside sb-azure)
     - id: "tb-azure"
       type: "trustBoundary"
-      position: { x: 180, y: 80 }
-      style: { width: 550, height: 300 }
+      parentId: "sb-azure"
+      position: { x: 30, y: 60 }
+      style: { width: 650, height: 360 }
       data:
         label: "Azure VNet"
         boundaryType: "privateSecured"
+        technology: "Azure Virtual Network"
 
     # Azure Services (nested inside tb-azure)
     - id: "process-frontdoor"
@@ -60,6 +73,7 @@ canvas_data:
         label: "Azure SQL"
         technology: "Azure SQL Database"
         description: "Managed relational database"
+        dataSensitivity: "confidential"
 
     - id: "datastore-blob"
       type: "datastore"
