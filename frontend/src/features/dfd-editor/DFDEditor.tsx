@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ReactFlow,
@@ -7,7 +7,10 @@ import {
   Panel,
   ReactFlowProvider,
   ConnectionMode,
+  useReactFlow,
+  useViewport,
   type Connection,
+  type XYPosition,
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -39,10 +42,16 @@ function DFDEditorContent() {
 
   // State for UI
   const [connectionMode, setConnectionMode] = useState(false)
+  const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null)
+  const [mousePosition, setMousePosition] = useState<XYPosition | null>(null)
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<DataFlowEdge | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // ReactFlow instance for coordinate conversion
+  const { screenToFlowPosition } = useReactFlow()
+  const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   // Delete DFD mutation
   const deleteDFDMutation = useDeleteDFD()
@@ -81,13 +90,157 @@ function DFDEditorContent() {
   // Parent relationship detection
   const { updateParentRelationships } = useParentRelationships()
 
-  // Handle node selection
+  // Clear connection source when connection mode is turned off
+  useEffect(() => {
+    if (!connectionMode) {
+      setConnectionSourceId(null)
+      setMousePosition(null)
+    }
+  }, [connectionMode])
+
+  // Calculate absolute position of a node (accounting for parent offsets)
+  const getAbsolutePosition = useCallback(
+    (nodeId: string): XYPosition | null => {
+      const node = nodes.find((n) => n.id === nodeId)
+      if (!node) return null
+
+      let x = node.position.x
+      let y = node.position.y
+
+      // Traverse up the parent chain to accumulate offsets
+      let currentNode = node
+      while (currentNode.parentId) {
+        const parent = nodes.find((n) => n.id === currentNode.parentId)
+        if (!parent) break
+        x += parent.position.x
+        y += parent.position.y
+        currentNode = parent as DiagramNode
+      }
+
+      return { x, y }
+    },
+    [nodes]
+  )
+
+  // Smart handle selection based on absolute node positions
+  // Also considers existing edges to avoid overlapping reverse connections
+  const getSmartHandles = useCallback(
+    (sourceId: string, targetId: string): { sourceHandle: string; targetHandle: string } => {
+      const sourcePos = getAbsolutePosition(sourceId)
+      const targetPos = getAbsolutePosition(targetId)
+
+      if (!sourcePos || !targetPos) {
+        return { sourceHandle: 'right-source', targetHandle: 'left-target' }
+      }
+
+      const dx = targetPos.x - sourcePos.x
+      const dy = targetPos.y - sourcePos.y
+
+      // Check if an edge already exists between these nodes (in either direction)
+      const existingEdge = edges.find(
+        (e) =>
+          (e.source === sourceId && e.target === targetId) ||
+          (e.source === targetId && e.target === sourceId)
+      )
+
+      // Determine primary and secondary axis based on relative positions
+      const primaryIsHorizontal = Math.abs(dx) > Math.abs(dy)
+
+      // If no existing edge, use primary axis (most direct route)
+      if (!existingEdge) {
+        if (primaryIsHorizontal) {
+          // Horizontal: target is to the right or left
+          if (dx > 0) {
+            return { sourceHandle: 'right-source', targetHandle: 'left-target' }
+          } else {
+            return { sourceHandle: 'left-source', targetHandle: 'right-target' }
+          }
+        } else {
+          // Vertical: target is below or above
+          if (dy > 0) {
+            return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
+          } else {
+            return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
+          }
+        }
+      }
+
+      // An edge already exists - use secondary axis (perpendicular) to avoid overlap
+      if (primaryIsHorizontal) {
+        // Primary was horizontal, so use vertical for the new edge
+        if (dy >= 0) {
+          return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
+        } else {
+          return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
+        }
+      } else {
+        // Primary was vertical, so use horizontal for the new edge
+        if (dx >= 0) {
+          return { sourceHandle: 'right-source', targetHandle: 'left-target' }
+        } else {
+          return { sourceHandle: 'left-source', targetHandle: 'right-target' }
+        }
+      }
+    },
+    [getAbsolutePosition, edges]
+  )
+
+  // Get the source node and its absolute position for visual feedback
+  const connectionSourceNode = connectionSourceId
+    ? nodes.find((n) => n.id === connectionSourceId)
+    : null
+  const connectionSourcePosition = connectionSourceId
+    ? getAbsolutePosition(connectionSourceId)
+    : null
+
+  // Handle node click - supports both selection and click-to-connect
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
+      // In connection mode, handle click-to-connect
+      if (connectionMode) {
+        // Only allow connecting process, datastore, and actor nodes
+        const connectableTypes = ['process', 'datastore', 'actor']
+        if (!connectableTypes.includes(node.type || '')) {
+          return
+        }
+
+        if (!connectionSourceId) {
+          // First click: set as source
+          setConnectionSourceId(node.id)
+        } else if (connectionSourceId === node.id) {
+          // Clicked same node: deselect
+          setConnectionSourceId(null)
+        } else {
+          // Second click on different node: create edge
+          const { sourceHandle, targetHandle } = getSmartHandles(connectionSourceId, node.id)
+
+          const newEdge: DataFlowEdge = {
+            id: `edge-${Date.now()}`,
+            source: connectionSourceId,
+            target: node.id,
+            sourceHandle,
+            targetHandle,
+            type: 'dataFlow',
+            animated: true,
+            data: {
+              label: '',
+              encrypted: false,
+              authenticated: false,
+            },
+          }
+
+          setEdges((eds) => addEdge(newEdge, eds) as DataFlowEdge[])
+          // Clear source but stay in connection mode for chaining
+          setConnectionSourceId(null)
+        }
+        return
+      }
+
+      // Normal mode: select node for editing
       setSelectedNode(node)
       setSelectedEdge(null)
     },
-    []
+    [connectionMode, connectionSourceId, getSmartHandles, setEdges]
   )
 
   // Handle edge selection
@@ -103,7 +256,25 @@ function DFDEditorContent() {
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null)
     setSelectedEdge(null)
-  }, [])
+    // In connection mode, clicking empty space clears source selection
+    if (connectionMode) {
+      setConnectionSourceId(null)
+    }
+  }, [connectionMode])
+
+  // Track mouse position for connection line overlay
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (connectionMode && connectionSourceId) {
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        })
+        setMousePosition(position)
+      }
+    },
+    [connectionMode, connectionSourceId, screenToFlowPosition]
+  )
 
   // Handle node drag end - update parent relationships
   const handleNodeDragStop = useCallback(
@@ -122,6 +293,8 @@ function DFDEditorContent() {
         id: `edge-${Date.now()}`,
         source: connection.source,
         target: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
         type: 'dataFlow',
         animated: true,
         data: {
@@ -372,7 +545,7 @@ function DFDEditorContent() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
-        <div className="flex-1" ref={reactFlowWrapper}>
+        <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -432,9 +605,78 @@ function DFDEditorContent() {
             {connectionMode && (
               <Panel position="top-center">
                 <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                  Click and drag from a node to create a connection
+                  {connectionSourceId
+                    ? 'Click another node to connect, or click empty space to cancel'
+                    : 'Click a node to start connecting'}
                 </div>
               </Panel>
+            )}
+
+            {/* Connection line overlay - dashed line from source to cursor */}
+            {connectionMode && connectionSourcePosition && mousePosition && (
+              <svg
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 1000,
+                  overflow: 'visible',
+                }}
+              >
+                <g transform={`translate(${viewportX}, ${viewportY}) scale(${zoom})`}>
+                  <line
+                    x1={connectionSourcePosition.x + 75}
+                    y1={connectionSourcePosition.y + 40}
+                    x2={mousePosition.x}
+                    y2={mousePosition.y}
+                    stroke="#3b82f6"
+                    strokeWidth={2 / zoom}
+                    strokeDasharray={`${8 / zoom} ${4 / zoom}`}
+                    opacity="0.7"
+                  />
+                  <circle
+                    cx={mousePosition.x}
+                    cy={mousePosition.y}
+                    r={6 / zoom}
+                    fill="#3b82f6"
+                    opacity="0.7"
+                  />
+                </g>
+              </svg>
+            )}
+
+            {/* Source node highlight overlay */}
+            {connectionMode && connectionSourcePosition && (
+              <svg
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 999,
+                  overflow: 'visible',
+                }}
+              >
+                <g transform={`translate(${viewportX}, ${viewportY}) scale(${zoom})`}>
+                  <rect
+                    x={connectionSourcePosition.x - 4}
+                    y={connectionSourcePosition.y - 4}
+                    width="158"
+                    height="88"
+                    rx="12"
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth={3 / zoom}
+                    opacity="0.8"
+                    style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
+                  />
+                </g>
+              </svg>
             )}
           </ReactFlow>
         </div>

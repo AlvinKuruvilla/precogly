@@ -23,9 +23,19 @@ export const ActorNode = memo(function ActorNode({
 
   return (
     <>
-      {/* Left = inbound data flows, Right = outbound data flows */}
-      <Handle type="target" position={Position.Left} className="!bg-green-500 !w-3 !h-3" />
-      <Handle type="source" position={Position.Right} className="!bg-green-500 !w-3 !h-3" />
+      {/* Handles on all 4 sides for flexible edge routing */}
+      {/* Top */}
+      <Handle id="top-target" type="target" position={Position.Top} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      <Handle id="top-source" type="source" position={Position.Top} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      {/* Right */}
+      <Handle id="right-target" type="target" position={Position.Right} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      <Handle id="right-source" type="source" position={Position.Right} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      {/* Bottom */}
+      <Handle id="bottom-target" type="target" position={Position.Bottom} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      <Handle id="bottom-source" type="source" position={Position.Bottom} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      {/* Left */}
+      <Handle id="left-target" type="target" position={Position.Left} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
+      <Handle id="left-source" type="source" position={Position.Left} className="!bg-green-500 !w-2 !h-2 !min-w-0 !min-h-0" />
 
       <div
         className={cn(
