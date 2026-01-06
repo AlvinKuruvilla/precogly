@@ -7,7 +7,7 @@ template:
 
 canvas_data:
   nodes:
-    # External actor
+    # External actor (outside boundary)
     - id: "actor-user"
       type: "actor"
       position: { x: 50, y: 180 }
@@ -22,12 +22,13 @@ canvas_data:
       style: { width: 550, height: 300 }
       data:
         label: "Azure VNet"
-        trustLevel: "privateSecured"
+        boundaryType: "privateSecured"
 
-    # Azure Services
+    # Azure Services (nested inside tb-azure)
     - id: "process-frontdoor"
       type: "process"
-      position: { x: 230, y: 160 }
+      parentId: "tb-azure"
+      position: { x: 50, y: 80 }
       data:
         label: "Front Door"
         technology: "Azure Front Door"
@@ -35,7 +36,8 @@ canvas_data:
 
     - id: "process-aad"
       type: "process"
-      position: { x: 230, y: 280 }
+      parentId: "tb-azure"
+      position: { x: 50, y: 200 }
       data:
         label: "Azure AD"
         technology: "Azure Active Directory"
@@ -43,7 +45,8 @@ canvas_data:
 
     - id: "process-appservice"
       type: "process"
-      position: { x: 430, y: 160 }
+      parentId: "tb-azure"
+      position: { x: 250, y: 80 }
       data:
         label: "App Service"
         technology: "Azure App Service"
@@ -51,7 +54,8 @@ canvas_data:
 
     - id: "datastore-sql"
       type: "datastore"
-      position: { x: 630, y: 160 }
+      parentId: "tb-azure"
+      position: { x: 450, y: 80 }
       data:
         label: "Azure SQL"
         technology: "Azure SQL Database"
@@ -59,7 +63,8 @@ canvas_data:
 
     - id: "datastore-blob"
       type: "datastore"
-      position: { x: 630, y: 280 }
+      parentId: "tb-azure"
+      position: { x: 450, y: 200 }
       data:
         label: "Blob Storage"
         technology: "Azure Blob Storage"

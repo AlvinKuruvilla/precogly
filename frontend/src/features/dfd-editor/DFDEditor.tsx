@@ -147,20 +147,24 @@ function DFDEditorContent() {
         idMap.set(node.id, `${node.type}-${timestamp}-${index}`)
       })
 
-      // Offset nodes to avoid overlap
+      // Offset only root nodes to avoid overlap
+      // Child nodes keep their relative positions (relative to parent)
       const offset = { x: 100, y: 100 }
 
-      const newNodes: DiagramNode[] = templateNodes.map((node) => ({
-        ...node,
-        id: idMap.get(node.id)!,
-        position: {
-          x: node.position.x + offset.x,
-          y: node.position.y + offset.y,
-        },
-        parentId: node.parentId && idMap.has(node.parentId)
-          ? idMap.get(node.parentId)
-          : undefined,
-      }))
+      const newNodes: DiagramNode[] = templateNodes.map((node) => {
+        const hasParent = node.parentId && idMap.has(node.parentId)
+        return {
+          ...node,
+          id: idMap.get(node.id)!,
+          position: hasParent
+            ? node.position // Keep relative position for children
+            : {
+                x: node.position.x + offset.x,
+                y: node.position.y + offset.y,
+              },
+          parentId: hasParent ? idMap.get(node.parentId!) : undefined,
+        }
+      })
 
       const newEdges: DataFlowEdge[] = templateEdges.map((edge, index) => ({
         ...edge,

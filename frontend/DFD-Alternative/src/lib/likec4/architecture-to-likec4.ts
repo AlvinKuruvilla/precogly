@@ -15,6 +15,9 @@ const KIND_TO_SHAPE: Record<string, string> = {
   datastore: 'storage',
   component: 'rectangle',
   trustBoundary: 'rectangle',
+  boundary: 'rectangle',
+  process: 'rectangle',
+  store: 'storage',
 }
 
 // Map our element kinds to LikeC4 colors
@@ -26,6 +29,9 @@ const KIND_TO_COLOR: Record<string, string> = {
   datastore: 'amber',
   component: 'violet',
   trustBoundary: 'red',
+  boundary: 'red',
+  process: 'indigo',
+  store: 'amber',
 }
 
 /**
@@ -145,6 +151,14 @@ export async function architectureToLikeC4(model: ArchitectureModel): Promise<an
 }
 
 /**
+ * Get the local ID from a qualified ID (e.g., "parent.child" -> "child")
+ */
+function getLocalId(qualifiedId: string): string {
+  const parts = qualifiedId.split('.')
+  return parts[parts.length - 1]
+}
+
+/**
  * Build a single element with its children
  */
 function buildElement(
@@ -156,11 +170,13 @@ function buildElement(
   const kindBuilder = helpers[element.kind]
   if (!kindBuilder) {
     console.warn(`Unknown element kind: ${element.kind}, using 'component'`)
-    return helpers.component(element.id, element.name)
+    // Use local ID for LikeC4 Builder (it builds hierarchy from nesting)
+    return helpers.component(getLocalId(element.id), element.name)
   }
 
-  // Build element with optional description
-  let elementOp = kindBuilder(element.id, element.name)
+  // Use local ID for LikeC4 Builder - the hierarchy is built from nesting, not from dots in IDs
+  const localId = getLocalId(element.id)
+  let elementOp = kindBuilder(localId, element.name)
 
   // If element has children or relationships, use .with()
   const childOps: any[] = []

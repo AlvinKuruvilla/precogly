@@ -7,7 +7,7 @@ template:
 
 canvas_data:
   nodes:
-    # External actor
+    # External actor (outside boundary)
     - id: "actor-client"
       type: "actor"
       position: { x: 50, y: 180 }
@@ -22,12 +22,13 @@ canvas_data:
       style: { width: 550, height: 300 }
       data:
         label: "AWS VPC"
-        trustLevel: "privateSecured"
+        boundaryType: "privateSecured"
 
-    # AWS Services
+    # AWS Services (nested inside tb-aws)
     - id: "process-apigw"
       type: "process"
-      position: { x: 230, y: 160 }
+      parentId: "tb-aws"
+      position: { x: 50, y: 80 }
       data:
         label: "API Gateway"
         technology: "AWS API Gateway"
@@ -35,7 +36,8 @@ canvas_data:
 
     - id: "process-cognito"
       type: "process"
-      position: { x: 230, y: 280 }
+      parentId: "tb-aws"
+      position: { x: 50, y: 200 }
       data:
         label: "Cognito"
         technology: "AWS Cognito"
@@ -43,7 +45,8 @@ canvas_data:
 
     - id: "process-lambda"
       type: "process"
-      position: { x: 430, y: 160 }
+      parentId: "tb-aws"
+      position: { x: 250, y: 80 }
       data:
         label: "Lambda Function"
         technology: "AWS Lambda"
@@ -51,7 +54,8 @@ canvas_data:
 
     - id: "datastore-dynamo"
       type: "datastore"
-      position: { x: 630, y: 160 }
+      parentId: "tb-aws"
+      position: { x: 450, y: 80 }
       data:
         label: "DynamoDB"
         technology: "AWS DynamoDB"
@@ -59,7 +63,8 @@ canvas_data:
 
     - id: "datastore-s3"
       type: "datastore"
-      position: { x: 630, y: 280 }
+      parentId: "tb-aws"
+      position: { x: 450, y: 200 }
       data:
         label: "S3 Bucket"
         technology: "AWS S3"

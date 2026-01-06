@@ -367,174 +367,70 @@ export async function deleteModel(id: string): Promise<boolean> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const SAMPLE_DSL = `specification {
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ELEMENT KINDS
-  // ═══════════════════════════════════════════════════════════════════════════
-
   element actor {
-    notation "Person"
-    style { shape person }
+    style {
+      shape person
+    }
+  }
+  element process {
+    style {
+      shape rectangle
+      color indigo
+    }
+  }
+  element store {
+    style {
+      shape storage
+      color secondary
+    }
   }
 
-  element external {
-    notation "External System"
-    style { color muted }
+  element boundary {
+    style {
+      border dashed
+      opacity 0%
+      color red
+    }
   }
-
-  element system {
-    notation "Software System"
-    style { opacity 25% }
-  }
-
-  element service {
-    notation "Service / Process"
-    style { color primary }
-  }
-
-  element datastore {
-    notation "Data Store"
-    style { shape storage }
-  }
-
-  element component {
-    notation "Component"
-  }
-
-  element trustBoundary {
-    style { border dashed, opacity 10% }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // RELATIONSHIP KINDS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  relationship calls { }
-  relationship stores { }
-  relationship reads { }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECURITY TAGS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  tag #pii
-  tag #pci
-  tag #public
-  tag #encrypted_at_rest
-  tag #encrypted_in_transit
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DATA CLASSIFICATIONS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  dataClass credentials
-  dataClass userdata
-  dataClass financial
-  dataClass session
 }
 
 model {
+  customer = actor 'Customer'
+  kitchen = actor 'Kitchen Staff'
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TRUST BOUNDARIES
-  // ═══════════════════════════════════════════════════════════════════════════
+  corpZone = boundary 'Corporate Trust Boundary' {
 
-  internet = trustBoundary "Internet" {
-    level untrusted
+    orderSystem = process 'Order Processing' {
+       validate = process 'Validate'
+       calc = process 'Calculate'
+    }
+
+    ordersDb = store 'Orders DB'
   }
 
-  dmz = trustBoundary "DMZ" {
-    level semi-trusted
-  }
-
-  internal = trustBoundary "Internal Network" {
-    level trusted
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ARCHITECTURE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  customer = actor "Customer" {
-    description "End user accessing via browser"
-  }
-
-  webapp = service "Web Application" {
-    description "React SPA served to customers"
-    technology tech:react
-    boundary dmz
-    #public
-  }
-
-  api = service "API Server" {
-    description "REST API handling business logic"
-    technology tech:nodejs
-    boundary internal
-  }
-
-  userDb = datastore "User Database" {
-    description "Stores user accounts and profiles"
-    technology aws:rds:postgresql
-    boundary internal
-    #pii
-    #encrypted_at_rest
-  }
-
-  cache = datastore "Session Cache" {
-    description "Stores active sessions"
-    technology aws:elasticache:redis
-    boundary internal
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // RELATIONSHIPS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  customer -> webapp "browses" {
-    protocol HTTPS
-    data [session, userdata]
-    #encrypted_in_transit
-    crosses [internet, dmz]
-  }
-
-  webapp -> api "requests data" {
-    protocol HTTPS
-    data [session, userdata]
-    #encrypted_in_transit
-    crosses [dmz, internal]
-  }
-
-  api -> userDb "queries users" {
-    protocol TLS
-    data [credentials, userdata]
-    #encrypted_in_transit
-  }
-
-  api -> cache "manages sessions" {
-    protocol TCP
-    data [session]
-  }
-
+  // Flows - using qualified names for nested elements
+  customer -> corpZone.orderSystem.validate 'Order Details'
+  corpZone.orderSystem.validate -> corpZone.orderSystem.calc
+  corpZone.orderSystem.calc -> corpZone.ordersDb
+  corpZone.orderSystem.calc -> kitchen 'Ticket'
 }
 
 views {
-
-  view context {
-    title "System Context"
-    include
-      customer,
-      webapp,
-      api,
+  view index {
+    title 'High Level View'
+    include *
   }
 
-  view containers {
-    title "Container Diagram"
-    include
-      webapp,
-      api,
-      userDb,
-      cache,
-  }
+  view trust_boundary_view {
+    title 'TM: Corporate Boundary'
 
+    include corpZone
+    include corpZone.*
+
+    include customer
+    include kitchen
+
+    autoLayout TopBottom
+  }
 }
 `

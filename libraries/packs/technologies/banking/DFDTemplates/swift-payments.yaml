@@ -7,12 +7,13 @@ template:
 
 canvas_data:
   nodes:
-    # External actors
+    # External actors (outside boundary)
     - id: "actor-correspondent"
       type: "actor"
       position: { x: 50, y: 150 }
       data:
         label: "Correspondent Bank"
+        actorType: "external"
         description: "Partner bank initiating/receiving SWIFT messages"
 
     - id: "actor-swiftnet"
@@ -20,21 +21,23 @@ canvas_data:
       position: { x: 50, y: 300 }
       data:
         label: "SWIFTNet"
+        actorType: "system"
         description: "SWIFT secure messaging network"
 
     # Trust boundary - Processing Zone
     - id: "tb-processing"
       type: "trustBoundary"
       position: { x: 200, y: 80 }
-      style: { width: 500, height: 400 }
+      style: { width: 550, height: 400 }
       data:
         label: "Payment Processing Zone"
-        trustLevel: "privateSecured"
+        boundaryType: "privateSecured"
 
-    # Core processes
+    # Core processes (nested inside tb-processing)
     - id: "process-gateway"
       type: "process"
-      position: { x: 250, y: 150 }
+      parentId: "tb-processing"
+      position: { x: 50, y: 70 }
       data:
         label: "SWIFT Gateway"
         technology: "SWIFT Alliance Lite2"
@@ -42,7 +45,8 @@ canvas_data:
 
     - id: "process-validation"
       type: "process"
-      position: { x: 450, y: 150 }
+      parentId: "tb-processing"
+      position: { x: 250, y: 70 }
       data:
         label: "Message Validation"
         technology: "Azure Functions"
@@ -50,7 +54,8 @@ canvas_data:
 
     - id: "process-sanctions"
       type: "process"
-      position: { x: 450, y: 280 }
+      parentId: "tb-processing"
+      position: { x: 250, y: 200 }
       data:
         label: "Sanctions Screening"
         technology: "Fircosoft"
@@ -58,28 +63,33 @@ canvas_data:
 
     - id: "process-core-banking"
       type: "process"
-      position: { x: 650, y: 220 }
+      parentId: "tb-processing"
+      position: { x: 450, y: 140 }
       data:
         label: "Core Banking"
         technology: "Temenos T24"
         description: "General ledger and account updates"
 
-    # Data stores
+    # Data stores (nested inside tb-processing)
     - id: "datastore-payments"
       type: "datastore"
-      position: { x: 250, y: 380 }
+      parentId: "tb-processing"
+      position: { x: 50, y: 300 }
       data:
         label: "Payment Messages DB"
         technology: "Azure SQL"
         description: "Transaction records and payment status"
+        dataSensitivity: "confidential"
 
     - id: "datastore-audit"
       type: "datastore"
-      position: { x: 450, y: 380 }
+      parentId: "tb-processing"
+      position: { x: 250, y: 300 }
       data:
         label: "Audit Log"
         technology: "Azure Monitor"
         description: "Immutable audit trail"
+        dataSensitivity: "confidential"
 
   edges:
     - id: "edge-1"

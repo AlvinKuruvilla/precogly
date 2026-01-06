@@ -7,7 +7,7 @@ template:
 
 canvas_data:
   nodes:
-    # External actor
+    # External actor (outside boundary)
     - id: "actor-client"
       type: "actor"
       position: { x: 50, y: 180 }
@@ -22,12 +22,13 @@ canvas_data:
       style: { width: 550, height: 300 }
       data:
         label: "GCP VPC"
-        trustLevel: "privateSecured"
+        boundaryType: "privateSecured"
 
-    # GCP Services
+    # GCP Services (nested inside tb-gcp)
     - id: "process-lb"
       type: "process"
-      position: { x: 230, y: 160 }
+      parentId: "tb-gcp"
+      position: { x: 50, y: 80 }
       data:
         label: "Cloud Load Balancing"
         technology: "GCP Cloud Load Balancing"
@@ -35,7 +36,8 @@ canvas_data:
 
     - id: "process-iap"
       type: "process"
-      position: { x: 230, y: 280 }
+      parentId: "tb-gcp"
+      position: { x: 50, y: 200 }
       data:
         label: "Identity-Aware Proxy"
         technology: "GCP IAP"
@@ -43,7 +45,8 @@ canvas_data:
 
     - id: "process-cloudrun"
       type: "process"
-      position: { x: 430, y: 160 }
+      parentId: "tb-gcp"
+      position: { x: 250, y: 80 }
       data:
         label: "Cloud Run"
         technology: "GCP Cloud Run"
@@ -51,7 +54,8 @@ canvas_data:
 
     - id: "datastore-firestore"
       type: "datastore"
-      position: { x: 630, y: 160 }
+      parentId: "tb-gcp"
+      position: { x: 450, y: 80 }
       data:
         label: "Firestore"
         technology: "GCP Firestore"
@@ -59,7 +63,8 @@ canvas_data:
 
     - id: "datastore-gcs"
       type: "datastore"
-      position: { x: 630, y: 280 }
+      parentId: "tb-gcp"
+      position: { x: 450, y: 200 }
       data:
         label: "Cloud Storage"
         technology: "GCP Cloud Storage"

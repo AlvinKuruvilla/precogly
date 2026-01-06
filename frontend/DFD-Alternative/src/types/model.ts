@@ -15,6 +15,10 @@ export type ElementKind =
   | 'datastore'
   | 'component'
   | 'trustBoundary'
+  | 'boundary'    // Alias for trustBoundary
+  | 'process'     // Common DFD element
+  | 'store'       // Common DFD element
+  | string        // Allow custom element kinds
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RELATIONSHIP KINDS
@@ -195,10 +199,16 @@ export interface ViewStyle {
 export interface View {
   id: string
   title: string
+  description?: string     // view description
   scope?: string           // element to scope to (e.g., "platform.api")
   includes: string[]       // predicates for what to include
   excludes?: string[]      // predicates for what to exclude
   styles?: ViewStyle[]     // style overrides for this view
+  autoLayout?: {           // LikeC4 autoLayout directive
+    direction: string      // TopBottom, BottomTop, LeftRight, RightLeft
+    rankSep?: number       // rank separation in pixels
+    nodeSep?: number       // node separation in pixels
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -33,6 +33,24 @@ export type TokenType =
   | 'DATA'
   | 'CROSSES'
   | 'OF'
+  | 'AUTOLAYOUT'      // autoLayout
+  | 'WHERE'           // where
+  | 'AND'             // and
+  | 'OR'              // or
+  | 'IS'              // is
+  | 'NOT'             // not
+  | 'KIND'            // kind
+  | 'WITH'            // with
+  | 'EXTENDS'         // extends
+  | 'DYNAMIC'         // dynamic
+  | 'PARALLEL'        // parallel
+  | 'GROUP'           // group
+  | 'GLOBAL'          // global
+  | 'LINK'            // link
+  | 'ICON'            // icon
+  | 'METADATA'        // metadata
+  | 'SUMMARY'         // summary
+  | 'COLOR'           // color (as keyword)
 
   // Literals
   | 'IDENTIFIER'
@@ -46,6 +64,12 @@ export type TokenType =
   | 'DOT'             // .
   | 'COMMA'           // ,
   | 'COLON'           // :
+  | 'ASTERISK'        // *
+  | 'DOUBLE_ASTERISK' // **
+  | 'UNDERSCORE'      // _ (for cloud._ expand syntax)
+  | 'LT'              // <
+  | 'GT'              // >
+  | 'BIDIRECTIONAL'   // <->
 
   // Delimiters
   | 'LBRACE'          // {
@@ -98,6 +122,25 @@ const KEYWORDS: Record<string, TokenType> = {
   data: 'DATA',
   crosses: 'CROSSES',
   of: 'OF',
+  // LikeC4 additional keywords
+  autoLayout: 'AUTOLAYOUT',
+  where: 'WHERE',
+  and: 'AND',
+  or: 'OR',
+  is: 'IS',
+  not: 'NOT',
+  kind: 'KIND',
+  with: 'WITH',
+  extends: 'EXTENDS',
+  dynamic: 'DYNAMIC',
+  parallel: 'PARALLEL',
+  group: 'GROUP',
+  global: 'GLOBAL',
+  link: 'LINK',
+  icon: 'ICON',
+  metadata: 'METADATA',
+  summary: 'SUMMARY',
+  color: 'COLOR',
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -376,12 +419,36 @@ export class Tokenizer {
       case ':':
         this.advance()
         return { type: 'COLON', value: ':', line: startLine, column: startColumn }
+      case '*':
+        if (this.peek(1) === '*') {
+          this.advance()
+          this.advance()
+          return { type: 'DOUBLE_ASTERISK', value: '**', line: startLine, column: startColumn }
+        }
+        this.advance()
+        return { type: 'ASTERISK', value: '*', line: startLine, column: startColumn }
+      case '_':
+        this.advance()
+        return { type: 'UNDERSCORE', value: '_', line: startLine, column: startColumn }
+      case '<':
+        if (this.peek(1) === '-' && this.peek(2) === '>') {
+          this.advance()
+          this.advance()
+          this.advance()
+          return { type: 'BIDIRECTIONAL', value: '<->', line: startLine, column: startColumn }
+        }
+        this.advance()
+        return { type: 'LT', value: '<', line: startLine, column: startColumn }
+      case '>':
+        this.advance()
+        return { type: 'GT', value: '>', line: startLine, column: startColumn }
       case '-':
         if (this.peek(1) === '>') {
           this.advance()
           this.advance()
           return { type: 'ARROW', value: '->', line: startLine, column: startColumn }
         }
+        // Allow hyphen in identifiers, skip here and let identifier handle it
         break
     }
 
