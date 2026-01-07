@@ -404,20 +404,38 @@ export function useWorkspaceThreatAnalysis(
     if (isLoadingThreats) return
 
     setState((prev) => {
-      // Get existing diagram IDs that have threats
+      // Build a set of all valid component IDs (nodes + edges) across all diagrams
+      const validComponentIds = new Set<string>()
+      const currentDiagramIds = new Set<string>()
+      diagrams.forEach((d) => {
+        currentDiagramIds.add(d.id)
+        const canvasData = d.canvasData
+        if (canvasData) {
+          canvasData.nodes?.forEach((node) => validComponentIds.add(node.id))
+          canvasData.edges?.forEach((edge) => validComponentIds.add(edge.id))
+        }
+      })
+
+      // Filter out threats for deleted diagrams OR deleted components
+      const filteredThreats = prev.componentThreats.filter((ct) => {
+        const diagramId = ct.sourceDiagramId || ct.diagramId
+        // Remove if diagram was deleted
+        if (!currentDiagramIds.has(diagramId)) return false
+        // Remove if component was deleted from the diagram
+        if (!validComponentIds.has(ct.componentId)) return false
+        return true
+      })
+
+      // Get existing diagram IDs that have threats (after filtering)
       const existingDiagramIds = new Set(
-        prev.componentThreats.map((ct) => ct.sourceDiagramId || ct.diagramId)
+        filteredThreats.map((ct) => ct.sourceDiagramId || ct.diagramId)
       )
 
       // Find new diagrams that need threats initialized
       const newDiagrams = diagrams.filter((d) => !existingDiagramIds.has(d.id))
 
       if (newDiagrams.length === 0) {
-        // Also check for removed diagrams
-        const currentDiagramIds = new Set(diagrams.map((d) => d.id))
-        const filteredThreats = prev.componentThreats.filter(
-          (ct) => currentDiagramIds.has(ct.sourceDiagramId || ct.diagramId)
-        )
+        // Return filtered threats if any were removed
         if (filteredThreats.length !== prev.componentThreats.length) {
           return { ...prev, componentThreats: filteredThreats }
         }
@@ -439,7 +457,7 @@ export function useWorkspaceThreatAnalysis(
 
       return {
         ...prev,
-        componentThreats: [...prev.componentThreats, ...newThreats],
+        componentThreats: [...filteredThreats, ...newThreats],
       }
     })
   }, [diagrams, isLoadingThreats])

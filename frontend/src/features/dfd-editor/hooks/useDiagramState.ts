@@ -131,6 +131,10 @@ export function useDiagramState({
       queryClient.setQueryData(['diagram', diagramId], updatedDiagram)
       // Invalidate delete preview cache since component sync may have changed
       queryClient.invalidateQueries({ queryKey: ['dfd-delete-preview', diagramId] })
+      // Invalidate related queries so Threat Analysis and other views get fresh data
+      queryClient.invalidateQueries({ queryKey: ['diagrams'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-model'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       setHasUnsavedChanges(false)
       setLastSaved(new Date())
     },

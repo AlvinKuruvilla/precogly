@@ -185,10 +185,7 @@ function DFDEditorContent() {
     [getAbsolutePosition, edges]
   )
 
-  // Get the source node and its absolute position for visual feedback
-  const connectionSourceNode = connectionSourceId
-    ? nodes.find((n) => n.id === connectionSourceId)
-    : null
+  // Get the source node's absolute position for visual feedback
   const connectionSourcePosition = connectionSourceId
     ? getAbsolutePosition(connectionSourceId)
     : null
@@ -540,7 +537,13 @@ function DFDEditorContent() {
         connectionMode={connectionMode}
         onConnectionModeChange={setConnectionMode}
         onOpenTemplates={() => setShowTemplates(true)}
-        onOpenThreatAnalysis={() => navigate(`/threat-models/${threatModelId}`)}
+        onOpenThreatAnalysis={async () => {
+          // Save any unsaved changes before navigating so Threat Analysis sees latest data
+          if (hasUnsavedChanges) {
+            await saveNow()
+          }
+          navigate(`/threat-models/${threatModelId}`)
+        }}
       />
 
       <div className="flex flex-1 overflow-hidden">
