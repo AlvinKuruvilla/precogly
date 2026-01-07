@@ -177,6 +177,10 @@ export interface RegisterInput {
 }
 
 export async function login(credentials: LoginCredentials): Promise<LoginResponse> {
+  // Clear any stale session/CSRF cookies before login to prevent CSRF validation
+  // errors when Django's SessionAuthentication sees an expired sessionid cookie
+  clearTokens()
+
   const response = await fetch(`${API_BASE}/auth/login/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -194,6 +198,9 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
 }
 
 export async function register(input: RegisterInput): Promise<LoginResponse> {
+  // Clear any stale session/CSRF cookies before registration
+  clearTokens()
+
   const response = await fetch(`${API_BASE}/auth/registration/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
