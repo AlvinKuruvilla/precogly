@@ -166,6 +166,7 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ThreatModel
         fields = [
+            "id",
             "name",
             "description",
             "organization",
@@ -174,6 +175,7 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "system_ids",
             "referenced_model_ids",
         ]
+        read_only_fields = ["id"]
         extra_kwargs = {
             "organization": {"required": False},
             "criticality": {"required": False},

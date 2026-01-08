@@ -4,7 +4,7 @@ Services for diagrams app - DFD node synchronization and threat generation.
 
 from django.db import transaction
 
-from apps.systems.models import ComponentLibrary, Orgsystem, OrgsystemComponent
+from apps.systems.models import ComponentLibrary, OrgsystemComponent
 from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
 
 
@@ -18,6 +18,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
     3. Links to ComponentLibrary based on technology if available
     4. Stores the component_id back in the node data
     5. Auto-generates threats for new components
+
+    Note: Components are created with orgsystem=None. Users can optionally
+    assign components to systems via the node edit panel if the threat model
+    has linked systems.
 
     Args:
         dfd: The DFD instance being saved
@@ -40,9 +44,6 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
             "threats_generated": 0,
             "node_component_map": {},
         }
-
-    # Get or create an Orgsystem for this threat model
-    orgsystem = _get_or_create_orgsystem(threat_model)
 
     # Filter to analyzable nodes (process, datastore)
     analyzable_nodes = [
@@ -83,22 +84,23 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                     component = OrgsystemComponent.objects.get(id=existing_component_id)
                     component.name = label
                     component.component_library = component_library
+                    # NOTE: Don't overwrite orgsystem - preserve user's system assignment
                     component.save()
                     synced_count += 1
                 except OrgsystemComponent.DoesNotExist:
                     # Component was deleted, create new one
                     component = OrgsystemComponent.objects.create(
                         name=label,
-                        orgsystem=orgsystem,
+                        orgsystem=None,  # No automatic system assignment
                         component_library=component_library,
                     )
                     created_count += 1
                     new_components.append(component)
             else:
-                # Create new component
+                # Create new component with no system assigned
                 component = OrgsystemComponent.objects.create(
                     name=label,
-                    orgsystem=orgsystem,
+                    orgsystem=None,  # No automatic system assignment
                     component_library=component_library,
                 )
                 created_count += 1
@@ -122,21 +124,6 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         "threats_generated": threats_generated,
         "node_component_map": node_component_map,
     }
-
-
-def _get_or_create_orgsystem(threat_model):
-    """Get or create an Orgsystem for the threat model."""
-    # Check if threat model already has an associated system
-    # For now, create one system per threat model
-    orgsystem, _ = Orgsystem.objects.get_or_create(
-        name=f"System for {threat_model.name}",
-        organization=threat_model.organization,
-        defaults={
-            "criticality": "medium",
-            "lifecycle_state": "development",
-        }
-    )
-    return orgsystem
 
 
 def _find_component_library(technology: str, node_type: str):

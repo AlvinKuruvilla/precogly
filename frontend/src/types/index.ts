@@ -76,3 +76,9 @@ export interface System {
   description: string
   environment: string
 }
+
+export interface CreateSystemInput {
+  name: string
+  description?: string
+  lifecycleState?: 'development' | 'production' | 'decommissioned'
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, skipToken } from '@tanstack/react-query'
 import type { Diagram, ThreatModel } from '@/types'
 import type {
   ComponentThreat,
@@ -49,9 +49,9 @@ interface WorkspaceData {
   frameworks?: string[]
 }
 
-function getDefaultState(threatModelId: string): WorkspaceThreatAnalysisState {
+function getDefaultState(threatModelId: string | undefined): WorkspaceThreatAnalysisState {
   return {
-    threatModelId,
+    threatModelId: threatModelId || '',
     componentThreats: [],
     status: 'draft',
     currentVersion: {
@@ -312,7 +312,7 @@ function mergeThreats(
 }
 
 export function useWorkspaceThreatAnalysis(
-  threatModelId: string,
+  threatModelId: string | undefined,
   diagrams: Diagram[]
 ) {
   // Track if we've initialized from backend to avoid overwriting with defaults
@@ -325,8 +325,9 @@ export function useWorkspaceThreatAnalysis(
   // Fetch threat model for workspace_data
   const { data: threatModel, isLoading: isLoadingThreatModel } = useQuery({
     queryKey: ['threat-model', threatModelId],
-    queryFn: () => api.get<ThreatModel>(`/threat-models/${threatModelId}/`),
-    enabled: !!threatModelId,
+    queryFn: threatModelId
+      ? () => api.get<ThreatModel>(`/threat-models/${threatModelId}/`)
+      : skipToken,
   })
 
   // Fetch threats from backend API

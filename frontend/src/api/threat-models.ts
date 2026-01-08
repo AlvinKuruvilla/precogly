@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ThreatModel, DashboardStats, Framework, System, CreateThreatModelInput } from '@/types'
+import type { ThreatModel, DashboardStats, Framework, System, CreateThreatModelInput, CreateSystemInput } from '@/types'
 import { api } from '@/lib/api'
 
 // Query Hooks
@@ -45,6 +45,18 @@ export function useSystems() {
     queryFn: async () => {
       const response = await api.get<{ results: System[] } | System[]>('/systems/')
       return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
+export function useCreateSystem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateSystemInput) =>
+      api.post<System>('/systems/', input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systems'] })
     },
   })
 }
@@ -161,6 +173,39 @@ export function useDeleteDFD() {
       queryClient.invalidateQueries({ queryKey: ['diagrams'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+    },
+  })
+}
+
+// Hook to get linked systems for a threat model
+export function useThreatModelSystems(threatModelId: string | undefined) {
+  const { data: threatModel } = useThreatModel(threatModelId || '')
+  const { data: allSystems = [] } = useSystems()
+
+  // Filter systems to only those linked to this threat model
+  const linkedSystems = threatModel?.systemIds
+    ? allSystems.filter((system) => threatModel.systemIds?.includes(system.id))
+    : []
+
+  return {
+    systems: linkedSystems,
+    hasLinkedSystems: linkedSystems.length > 0,
+  }
+}
+
+// Hook to update a component's system assignment
+export function useUpdateComponentSystem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ componentId, orgsystemId }: { componentId: number; orgsystemId: number | null }) =>
+      api.patch<{ status: string }>(`/components/${componentId}/assign_system/`, {
+        orgsystemId,
+      }),
+    onSuccess: () => {
+      // Invalidate component-related queries
+      queryClient.invalidateQueries({ queryKey: ['components'] })
+      queryClient.invalidateQueries({ queryKey: ['diagrams'] })
     },
   })
 }

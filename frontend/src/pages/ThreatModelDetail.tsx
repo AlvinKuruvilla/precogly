@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
 import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -112,14 +112,12 @@ export function ThreatModelDetail() {
     isError: isErrorModel,
   } = useQuery({
     queryKey: ['threat-model', id],
-    queryFn: () => fetchThreatModel(id!),
-    enabled: !!id,
+    queryFn: id ? () => fetchThreatModel(id) : skipToken,
   })
 
   const { data: diagrams = [] } = useQuery({
     queryKey: ['diagrams', id],
-    queryFn: () => fetchDiagrams(id!),
-    enabled: !!id,
+    queryFn: id ? () => fetchDiagrams(id) : skipToken,
   })
 
   const { data: systems = [] } = useQuery({
@@ -151,7 +149,7 @@ export function ThreatModelDetail() {
     updateStatus,
     updateSystemContext,
     toggleChecklistItem,
-  } = useWorkspaceThreatAnalysis(id!, diagrams)
+  } = useWorkspaceThreatAnalysis(id, diagrams)
 
   // Create diagram mutation
   const createDiagramMutation = useMutation({

@@ -689,6 +689,7 @@ function DFDEditorContent() {
           <NodeEditPanel
             node={currentSelectedNode}
             onClose={() => setSelectedNode(null)}
+            threatModelId={threatModelId}
           />
         )}
         {currentSelectedEdge && (

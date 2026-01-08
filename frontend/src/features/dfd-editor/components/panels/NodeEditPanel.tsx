@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TechnologyCombobox } from '../technology-combobox'
+import { useThreatModelSystems, useUpdateComponentSystem } from '@/api/threat-models'
 import type {
   DiagramNode,
   DiagramNodeType,
@@ -31,6 +32,7 @@ import {
 interface NodeEditPanelProps {
   node: DiagramNode
   onClose: () => void
+  threatModelId?: string
 }
 
 const nodeTypeConfig: Record<
@@ -47,8 +49,13 @@ const nodeTypeConfig: Record<
 export const NodeEditPanel = memo(function NodeEditPanel({
   node,
   onClose,
+  threatModelId,
 }: NodeEditPanelProps) {
   const { setNodes, getNodes, setEdges } = useReactFlow()
+
+  // Get linked systems for this threat model
+  const { systems: linkedSystems, hasLinkedSystems } = useThreatModelSystems(threatModelId)
+  const updateComponentSystemMutation = useUpdateComponentSystem()
 
   const typeConfig = nodeTypeConfig[node.type as DiagramNodeType]
   const Icon = typeConfig?.icon || Cog
@@ -202,6 +209,42 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* System Assignment - only shown if threat model has linked systems */}
+            {hasLinkedSystems && (node.data as { component_id?: number }).component_id && (
+              <div className="space-y-2">
+                <Label htmlFor="node-system">System</Label>
+                <Select
+                  value={(node.data as { orgsystemId?: number }).orgsystemId?.toString() || 'none'}
+                  onValueChange={(value) => {
+                    const componentId = (node.data as { component_id?: number }).component_id
+                    if (componentId) {
+                      const orgsystemId = value === 'none' ? null : parseInt(value, 10)
+                      updateNodeData({ orgsystemId: orgsystemId ?? undefined })
+                      updateComponentSystemMutation.mutate({
+                        componentId,
+                        orgsystemId,
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger id="node-system">
+                    <SelectValue placeholder="Not assigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not assigned</SelectItem>
+                    {linkedSystems.map((system) => (
+                      <SelectItem key={system.id} value={system.id}>
+                        {system.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Assign this component to a linked system
+                </p>
+              </div>
+            )}
           </>
         )}
 

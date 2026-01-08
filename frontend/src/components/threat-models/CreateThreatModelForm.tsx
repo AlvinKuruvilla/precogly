@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
 import {
@@ -22,7 +23,10 @@ import {
   useThreatModels,
   useCreateThreatModel,
 } from '@/api/threat-models'
-import type { Criticality, CreateThreatModelInput } from '@/types'
+import { AddSystemModal } from './AddSystemModal'
+import type { Criticality, CreateThreatModelInput, System } from '@/types'
+
+type SystemLinkOption = 'existing' | 'create' | 'none'
 
 const criticalityOptions: { value: Criticality; label: string }[] = [
   { value: 'low', label: 'Low' },
@@ -45,6 +49,10 @@ export function CreateThreatModelForm() {
   const [selectedFrameworkIds, setSelectedFrameworkIds] = useState<number[]>([])
   const [selectedSystemIds, setSelectedSystemIds] = useState<number[]>([])
   const [selectedModelIds, setSelectedModelIds] = useState<number[]>([])
+
+  // System linking state
+  const [systemLinkOption, setSystemLinkOption] = useState<SystemLinkOption>('none')
+  const [showAddSystemModal, setShowAddSystemModal] = useState(false)
 
   // Combined loading state (available for future use)
   const _isLoading = frameworksLoading || systemsLoading || modelsLoading
@@ -81,6 +89,13 @@ export function CreateThreatModelForm() {
   // Handler for referenced models selection (converts string IDs to numbers)
   const handleModelsChange = (selectedIds: string[]) => {
     setSelectedModelIds(selectedIds.map((id) => parseInt(id, 10)))
+  }
+
+  // Handler for when a new system is created via the modal
+  const handleSystemCreated = (system: System) => {
+    // Auto-select the newly created system and switch to "existing" option
+    setSelectedSystemIds((prev) => [...prev, parseInt(system.id, 10)])
+    setSystemLinkOption('existing')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,27 +214,100 @@ export function CreateThreatModelForm() {
         <CardHeader>
           <CardTitle>Linked Systems</CardTitle>
           <CardDescription>
-            Link this threat model to systems or processes from your CMDB.
+            Optionally link this threat model to systems from your CMDB.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {systemsLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading systems...
             </div>
           ) : (
-            <MultiSelectCombobox
-              options={systemOptions}
-              selected={selectedSystemIds.map(String)}
-              onChange={handleSystemsChange}
-              placeholder="Search and select systems..."
-              searchPlaceholder="Search systems..."
-              emptyMessage="No systems found."
-            />
+            <>
+              <RadioGroup
+                value={systemLinkOption}
+                onValueChange={(value) => {
+                  const newOption = value as SystemLinkOption
+                  setSystemLinkOption(newOption)
+                  // Clear selected systems when switching to "none"
+                  if (newOption === 'none') {
+                    setSelectedSystemIds([])
+                  }
+                }}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="existing" id="existing" />
+                  <Label htmlFor="existing" className="font-normal cursor-pointer">
+                    Link to existing system(s)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="create" id="create" />
+                  <Label htmlFor="create" className="font-normal cursor-pointer">
+                    Create new system
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="none" id="none" />
+                  <Label htmlFor="none" className="font-normal cursor-pointer">
+                    No system yet
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {systemLinkOption === 'existing' && (
+                <div className="pl-6 space-y-2">
+                  <MultiSelectCombobox
+                    options={systemOptions}
+                    selected={selectedSystemIds.map(String)}
+                    onChange={handleSystemsChange}
+                    placeholder="Search and select systems..."
+                    searchPlaceholder="Search systems..."
+                    emptyMessage="No systems found."
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAddSystemModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add New System
+                  </Button>
+                </div>
+              )}
+
+              {systemLinkOption === 'create' && (
+                <div className="pl-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAddSystemModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New System
+                  </Button>
+                </div>
+              )}
+
+              {systemLinkOption === 'none' && (
+                <p className="pl-6 text-sm text-muted-foreground">
+                  This threat model won't be linked to any system. You can add systems later
+                  from the threat model workspace.
+                </p>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Add System Modal */}
+      <AddSystemModal
+        open={showAddSystemModal}
+        onClose={() => setShowAddSystemModal(false)}
+        onSystemCreated={handleSystemCreated}
+      />
 
       {/* Referenced Threat Models */}
       <Card>

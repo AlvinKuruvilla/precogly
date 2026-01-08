@@ -18,19 +18,48 @@ from .models import (
 class OrgsystemSerializer(serializers.ModelSerializer):
     """Serializer for Orgsystem model."""
 
+    # Accept 'description' from frontend, map to 'owner' field
+    description = serializers.CharField(
+        source="owner", required=False, allow_blank=True
+    )
+    # Map to frontend expected fields for response
+    type = serializers.SerializerMethodField()
+    environment = serializers.CharField(source="lifecycle_state", read_only=True)
+
     class Meta:
         model = Orgsystem
         fields = [
             "id",
             "name",
             "owner",
+            "description",
+            "type",
+            "environment",
             "criticality",
             "lifecycle_state",
             "organization",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "organization", "created_at", "updated_at"]
+
+    def get_type(self, obj):
+        """Return type for frontend compatibility."""
+        return "system"
+
+    def create(self, validated_data):
+        """Auto-populate organization from the request user."""
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            # Get user's first organization membership
+            membership = request.user.organization_memberships.first()
+            if membership:
+                validated_data["organization"] = membership.organization
+            else:
+                raise serializers.ValidationError(
+                    {"organization": "User has no organization membership."}
+                )
+        return super().create(validated_data)
 
 
 class OrgsystemListSerializer(serializers.ModelSerializer):

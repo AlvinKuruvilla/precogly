@@ -116,12 +116,47 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        """Filter by user's organizations."""
+        """
+        Filter by user's organizations.
+
+        Includes components where:
+        - orgsystem belongs to user's organization, OR
+        - orgsystem is NULL (unassigned components)
+        """
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
         return OrgsystemComponent.objects.filter(
-            orgsystem__organization_id__in=org_ids
+            Q(orgsystem__organization_id__in=org_ids) | Q(orgsystem__isnull=True)
         ).select_related("component_library", "trust_boundary")
+
+    @action(detail=True, methods=["patch"])
+    def assign_system(self, request, pk=None):
+        """
+        Assign a component to a system (or unassign with null).
+
+        Request body:
+            orgsystemId: int | null - System ID to assign, or null to unassign
+        """
+        component = self.get_object()
+        orgsystem_id = request.data.get("orgsystemId")
+
+        if orgsystem_id:
+            # Validate system belongs to user's organization
+            user = self.request.user
+            org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
+            try:
+                system = Orgsystem.objects.get(id=orgsystem_id, organization_id__in=org_ids)
+                component.orgsystem = system
+            except Orgsystem.DoesNotExist:
+                return Response(
+                    {"error": "System not found or access denied"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            component.orgsystem = None
+
+        component.save()
+        return Response({"status": "updated", "orgsystemId": orgsystem_id})
 
     @action(detail=True, methods=["post"])
     def generate_threats(self, request, pk=None):

@@ -2,7 +2,7 @@
  * API hooks for threat workflow endpoints.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { STRIDECategory } from '@/types/domain'
@@ -334,19 +334,20 @@ export function transformBackendThreatsToComponentThreats(
 /**
  * Fetch all threats for a threat model (aggregated from all DFDs).
  */
-export function useThreatModelThreats(threatModelId: string | null) {
+export function useThreatModelThreats(threatModelId: string | null | undefined) {
   return useQuery({
     queryKey: ['threat-model-threats', threatModelId],
-    queryFn: async () => {
-      const response = await api.get<ThreatModelThreatsResponse>(
-        `/threat-models/${threatModelId}/threats/`
-      )
-      return {
-        ...response,
-        componentThreats: transformBackendThreatsToComponentThreats(response.threats),
-      }
-    },
-    enabled: threatModelId !== null,
+    queryFn: threatModelId
+      ? async () => {
+          const response = await api.get<ThreatModelThreatsResponse>(
+            `/threat-models/${threatModelId}/threats/`
+          )
+          return {
+            ...response,
+            componentThreats: transformBackendThreatsToComponentThreats(response.threats),
+          }
+        }
+      : skipToken,
     staleTime: 30000, // Consider fresh for 30 seconds
   })
 }

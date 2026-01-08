@@ -213,12 +213,15 @@ class ComponentLibrary(TimestampedModel):
 
 
 class OrgsystemComponent(TimestampedModel):
-    """Component instance in an orgsystem."""
+    """Component instance, optionally linked to an orgsystem."""
 
     orgsystem = models.ForeignKey(
         Orgsystem,
         on_delete=models.CASCADE,
         related_name="components",
+        null=True,
+        blank=True,
+        help_text="Optional link to a system. Null means component exists without system assignment.",
     )
     component_library = models.ForeignKey(
         ComponentLibrary,
