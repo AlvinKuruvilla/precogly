@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2 } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -444,6 +444,20 @@ export function ThreatModelDetail() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger
+              value="risk-analysis"
+              className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Risk Analysis
+            </TabsTrigger>
+            <TabsTrigger
+              value="reports"
+              className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Reports
+            </TabsTrigger>
           </TabsList>
           </div>
         </div>
@@ -607,6 +621,24 @@ export function ThreatModelDetail() {
               </div>
             </div>
           )}
+        </TabsContent>
+
+        {/* Risk Analysis Tab */}
+        <TabsContent value="risk-analysis" className="flex-1 flex items-center justify-center m-0">
+          <div className="text-center">
+            <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Risk Analysis</h2>
+            <p className="text-muted-foreground">Coming Soon</p>
+          </div>
+        </TabsContent>
+
+        {/* Reports Tab */}
+        <TabsContent value="reports" className="flex-1 flex items-center justify-center m-0">
+          <div className="text-center">
+            <FileText className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Reports</h2>
+            <p className="text-muted-foreground">Coming Soon</p>
+          </div>
         </TabsContent>
       </Tabs>
 
