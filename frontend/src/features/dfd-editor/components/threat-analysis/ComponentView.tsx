@@ -247,6 +247,7 @@ interface ComponentViewProps {
   onRestoreThreat: (componentThreatId: string) => void
   onAddCustomCountermeasure: (componentThreatId: string, countermeasureId: string) => void
   onRemoveCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
+  onRestoreCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
 }
 
 /**
@@ -374,10 +375,12 @@ export function ComponentView({
   onRestoreThreat,
   onAddCustomCountermeasure,
   onRemoveCountermeasure,
+  onRestoreCountermeasure,
 }: ComponentViewProps) {
   // Mark as unused for now - may use later for adding custom threats
   void _onAddCustomThreat
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
+  const [showDismissedCountermeasures, setShowDismissedCountermeasures] = useState(false)
   // Track which countermeasure is being assigned an owner (by countermeasure instance id)
   const [assigningOwnerFor, setAssigningOwnerFor] = useState<string | null>(null)
   // Track if we should set status to "planned" after owner assignment
@@ -930,160 +933,163 @@ export function ComponentView({
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
-            {selectedComponentThreat?.countermeasures.map((cm) => {
-              const cmDef = getCountermeasureById(cm.countermeasureId)
-              if (!cmDef) return null
+            {/* Active countermeasures */}
+            {selectedComponentThreat?.countermeasures
+              .filter((cm) => !cm.dismissed)
+              .map((cm) => {
+                const cmDef = getCountermeasureById(cm.countermeasureId)
+                if (!cmDef) return null
 
-              const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
-              const isAssigning = assigningOwnerFor === cm.id
-              const isWaiving = waivingReasonFor === cm.id
+                const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
+                const isAssigning = assigningOwnerFor === cm.id
+                const isWaiving = waivingReasonFor === cm.id
 
-              // Find user details if owner is set
-              const ownerUser = cm.owner ? TEAM_MEMBERS.find((u) => u.email === cm.owner) : null
+                // Find user details if owner is set
+                const ownerUser = cm.owner ? TEAM_MEMBERS.find((u) => u.email === cm.owner) : null
 
-              return (
-                <div key={cm.id} className="border rounded-lg p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: statusConfig.color }}
-                      />
-                      <div>
-                        <div className="font-medium text-sm">{cmDef.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {cmDef.description}
-                        </div>
-                        {/* Standard badges - filtered by selected frameworks */}
-                        {(() => {
-                          const filteredStandards = cmDef.standards.filter(
-                            (s) => selectedFrameworks.includes(s.standard)
-                          )
-                          if (filteredStandards.length === 0) return null
-                          return (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {filteredStandards.map((s) => (
-                                <span
-                                  key={`${s.standard}-${s.reference}`}
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
-                                  title={SECURITY_STANDARDS[s.standard]?.description}
-                                >
-                                  {s.standard}
-                                  {s.reference && (
-                                    <span className="ml-0.5 text-slate-500">{s.reference}</span>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                      onClick={() => onRemoveCountermeasure(selectedComponentThreat.id, cm.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-
-                  {/* Owner display */}
-                  {cm.owner && !isAssigning && (
-                    <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {ownerUser ? (
-                        <span>{ownerUser.firstName} {ownerUser.lastName} ({ownerUser.email})</span>
-                      ) : (
-                        <span>{cm.owner}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Provided by boundary badge */}
-                  {cm.providedByBoundaryId && (
-                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
-                      <Shield className="h-3 w-3" />
-                      <span>
-                        Provided by{' '}
-                        <span className="font-medium">
+                return (
+                  <div key={cm.id} className="border rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: statusConfig.color }}
+                        />
+                        <div>
+                          <div className="font-medium text-sm">{cmDef.name}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {cmDef.description}
+                          </div>
+                          {/* Standard badges - filtered by selected frameworks */}
                           {(() => {
-                            const boundary = canvasData.nodes.find((n) => n.id === cm.providedByBoundaryId)
-                            if (!boundary) return 'boundary'
-                            const boundaryData = boundary.data as TrustBoundaryNodeData
-                            return String(boundaryData.label || 'boundary')
+                            const filteredStandards = cmDef.standards.filter(
+                              (s) => selectedFrameworks.includes(s.standard)
+                            )
+                            if (filteredStandards.length === 0) return null
+                            return (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {filteredStandards.map((s) => (
+                                  <span
+                                    key={`${s.standard}-${s.reference}`}
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                                    title={SECURITY_STANDARDS[s.standard]?.description}
+                                  >
+                                    {s.standard}
+                                    {s.reference && (
+                                      <span className="ml-0.5 text-slate-500">{s.reference}</span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )
                           })()}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Waiver reason display */}
-                  {cm.status === 'waived' && cm.notes && !isWaiving && (
-                    <div className="mt-2 text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
-                      <span className="font-medium text-blue-700">Waiver reason:</span>{' '}
-                      {cm.notes}
-                    </div>
-                  )}
-
-                  {/* Owner assignment UI */}
-                  {isAssigning ? (
-                    <div className="mt-3">
-                      <div className="text-xs font-medium text-muted-foreground mb-2">
-                        {pendingPlannedStatus === cm.countermeasureId
-                          ? 'Assign an owner to mark as Planned:'
-                          : 'Assign owner:'}
+                        </div>
                       </div>
-                      <UserSearchCombobox
-                        value={cm.owner || ''}
-                        onSelect={(user) => handleAssignOwner(cm.countermeasureId, user)}
-                        onCancel={handleCancelAssignment}
-                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => onRemoveCountermeasure(selectedComponentThreat.id, cm.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
-                  ) : isWaiving ? (
-                    <div className="mt-3">
-                      <WaiverReasonInput
-                        onSubmit={(reason) => handleWaiverSubmit(cm.countermeasureId, reason)}
-                        onCancel={handleCancelWaiver}
-                      />
-                    </div>
-                  ) : (
-                    <div className="mt-2 flex items-center justify-between">
-                      <CountermeasureStatusButtons
-                        status={cm.status}
-                        isPlatformLevel={cmDef.isPlatformLevel}
-                        hasOwner={!!cm.owner}
-                        onChange={(status) =>
-                          onCountermeasureStatusChange(
-                            selectedComponentThreat.id,
-                            cm.countermeasureId,
-                            status
-                          )
-                        }
-                        onPlannedWithoutOwner={() => {
-                          setAssigningOwnerFor(cm.id)
-                          setPendingPlannedStatus(cm.countermeasureId)
-                        }}
-                        onWaivedWithoutReason={() => {
-                          setWaivingReasonFor(cm.id)
-                        }}
-                      />
-                      {!cm.owner && cm.status !== 'platform' && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs"
-                          onClick={() => setAssigningOwnerFor(cm.id)}
-                        >
-                          Assign owner
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+
+                    {/* Owner display */}
+                    {cm.owner && !isAssigning && (
+                      <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {ownerUser ? (
+                          <span>{ownerUser.firstName} {ownerUser.lastName} ({ownerUser.email})</span>
+                        ) : (
+                          <span>{cm.owner}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Provided by boundary badge */}
+                    {cm.providedByBoundaryId && (
+                      <div className="mt-2 text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
+                        <Shield className="h-3 w-3" />
+                        <span>
+                          Provided by{' '}
+                          <span className="font-medium">
+                            {(() => {
+                              const boundary = canvasData.nodes.find((n) => n.id === cm.providedByBoundaryId)
+                              if (!boundary) return 'boundary'
+                              const boundaryData = boundary.data as TrustBoundaryNodeData
+                              return String(boundaryData.label || 'boundary')
+                            })()}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Waiver reason display */}
+                    {cm.status === 'waived' && cm.notes && !isWaiving && (
+                      <div className="mt-2 text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
+                        <span className="font-medium text-blue-700">Waiver reason:</span>{' '}
+                        {cm.notes}
+                      </div>
+                    )}
+
+                    {/* Owner assignment UI */}
+                    {isAssigning ? (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-muted-foreground mb-2">
+                          {pendingPlannedStatus === cm.countermeasureId
+                            ? 'Assign an owner to mark as Planned:'
+                            : 'Assign owner:'}
+                        </div>
+                        <UserSearchCombobox
+                          value={cm.owner || ''}
+                          onSelect={(user) => handleAssignOwner(cm.countermeasureId, user)}
+                          onCancel={handleCancelAssignment}
+                        />
+                      </div>
+                    ) : isWaiving ? (
+                      <div className="mt-3">
+                        <WaiverReasonInput
+                          onSubmit={(reason) => handleWaiverSubmit(cm.countermeasureId, reason)}
+                          onCancel={handleCancelWaiver}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center justify-between">
+                        <CountermeasureStatusButtons
+                          status={cm.status}
+                          isPlatformLevel={cmDef.isPlatformLevel}
+                          hasOwner={!!cm.owner}
+                          onChange={(status) =>
+                            onCountermeasureStatusChange(
+                              selectedComponentThreat.id,
+                              cm.countermeasureId,
+                              status
+                            )
+                          }
+                          onPlannedWithoutOwner={() => {
+                            setAssigningOwnerFor(cm.id)
+                            setPendingPlannedStatus(cm.countermeasureId)
+                          }}
+                          onWaivedWithoutReason={() => {
+                            setWaivingReasonFor(cm.id)
+                          }}
+                        />
+                        {!cm.owner && cm.status !== 'platform' && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => setAssigningOwnerFor(cm.id)}
+                          >
+                            Assign owner
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
 
             {/* Add countermeasure */}
             {selectedComponentThreat && availableCountermeasures.length > 0 && (
@@ -1106,6 +1112,62 @@ export function ComponentView({
                 </button>
               </div>
             )}
+
+            {/* Dismissed countermeasures section */}
+            {selectedComponentThreat && (() => {
+              const dismissedCms = selectedComponentThreat.countermeasures.filter((cm) => cm.dismissed)
+              if (dismissedCms.length === 0) return null
+              return (
+                <div className="mt-4 pt-3 border-t">
+                  <button
+                    className="w-full flex items-center justify-between px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowDismissedCountermeasures(!showDismissedCountermeasures)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Dismissed</span>
+                      <Badge variant="outline" className="text-xs bg-slate-100">
+                        {dismissedCms.length}
+                      </Badge>
+                    </div>
+                    {showDismissedCountermeasures ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  {showDismissedCountermeasures && (
+                    <div className="mt-2 space-y-2">
+                      {dismissedCms.map((cm) => {
+                        const cmDef = getCountermeasureById(cm.countermeasureId)
+                        if (!cmDef) return null
+
+                        return (
+                          <div
+                            key={cm.id}
+                            className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-slate-50 border"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm text-muted-foreground line-through truncate block">
+                                {cmDef.name}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => onRestoreCountermeasure(selectedComponentThreat.id, cm.id)}
+                            >
+                              Restore
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </ScrollArea>
 

@@ -596,7 +596,7 @@ export function useWorkspaceThreatAnalysis(
     []
   )
 
-  // Remove countermeasure
+  // Dismiss countermeasure (mark as dismissed instead of removing)
   const removeCountermeasure = useCallback(
     (componentThreatId: string, countermeasureInstanceId: string) => {
       setState((prev) => ({
@@ -606,9 +606,31 @@ export function useWorkspaceThreatAnalysis(
           return {
             ...ct,
             updatedAt: new Date().toISOString(),
-            countermeasures: ct.countermeasures.filter(
-              (cm) => cm.id !== countermeasureInstanceId
-            ),
+            countermeasures: ct.countermeasures.map((cm) => {
+              if (cm.id !== countermeasureInstanceId) return cm
+              return { ...cm, dismissed: true, updatedAt: new Date().toISOString() }
+            }),
+          }
+        }),
+      }))
+    },
+    []
+  )
+
+  // Restore dismissed countermeasure
+  const restoreCountermeasure = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string) => {
+      setState((prev) => ({
+        ...prev,
+        componentThreats: prev.componentThreats.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            updatedAt: new Date().toISOString(),
+            countermeasures: ct.countermeasures.map((cm) => {
+              if (cm.id !== countermeasureInstanceId) return cm
+              return { ...cm, dismissed: false, updatedAt: new Date().toISOString() }
+            }),
           }
         }),
       }))
@@ -755,6 +777,7 @@ export function useWorkspaceThreatAnalysis(
     restoreThreat,
     addCountermeasure,
     removeCountermeasure,
+    restoreCountermeasure,
     updateStatus,
     updateSystemContext,
     toggleChecklistItem,

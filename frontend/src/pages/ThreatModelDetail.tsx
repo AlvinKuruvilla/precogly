@@ -146,6 +146,7 @@ export function ThreatModelDetail() {
     restoreThreat,
     addCountermeasure,
     removeCountermeasure,
+    restoreCountermeasure,
     updateStatus,
     updateSystemContext,
     toggleChecklistItem,
@@ -594,6 +595,7 @@ export function ThreatModelDetail() {
                     onRestoreThreat={restoreThreat}
                     onAddCustomCountermeasure={addCountermeasure}
                     onRemoveCountermeasure={removeCountermeasure}
+                    onRestoreCountermeasure={restoreCountermeasure}
                   />
                 ) : (
                   <TableView
