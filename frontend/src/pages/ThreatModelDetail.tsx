@@ -17,6 +17,7 @@ import {
   DFDCarousel,
   SummaryCards,
   SystemContextModal,
+  SystemContextCard,
   ManageSystemsModal,
   ManageThreatModelsModal,
   ManagePeopleModal,
@@ -485,6 +486,12 @@ export function ThreatModelDetail() {
               onManageDFDs={() => setManageDFDsModalOpen(true)}
             />
           </div>
+
+          {/* System Context Card */}
+          <SystemContextCard
+            systemContext={systemContext}
+            onEdit={() => setSystemContextModalOpen(true)}
+          />
 
           {/* Summary Cards */}
           <SummaryCards

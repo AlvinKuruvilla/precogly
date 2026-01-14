@@ -2,7 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Navbar } from './Navbar'
 
 // Routes that should use full-width layout (no container)
-const FULL_WIDTH_ROUTES = ['/diagrams/']
+const FULL_WIDTH_ROUTES = ['/diagrams/', '/threat-models/']
 
 export function Layout() {
   const location = useLocation()

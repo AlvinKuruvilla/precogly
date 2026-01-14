@@ -288,22 +288,55 @@ export interface ThreatModelVersion {
 }
 
 /**
+ * Asset classification types
+ */
+export type AssetClassification =
+  | 'pii'
+  | 'phi'
+  | 'financial'
+  | 'credentials'
+  | 'intellectual_property'
+  | 'business_critical'
+  | 'public'
+  | 'other'
+
+export const ASSET_CLASSIFICATION_CONFIG: Record<AssetClassification, { label: string }> = {
+  pii: { label: 'PII (Personal Identifiable Information)' },
+  phi: { label: 'PHI (Protected Health Information)' },
+  financial: { label: 'Financial Data' },
+  credentials: { label: 'Credentials / Secrets' },
+  intellectual_property: { label: 'Intellectual Property' },
+  business_critical: { label: 'Business Critical' },
+  public: { label: 'Public Data' },
+  other: { label: 'Other' },
+}
+
+/**
+ * Asset definition for system context
+ */
+export interface SystemContextAsset {
+  id: string
+  name: string
+  description: string
+  classification: AssetClassification
+}
+
+/**
+ * Out of scope item definition
+ */
+export interface SystemContextOutOfScopeItem {
+  id: string
+  name: string
+  reason: string
+}
+
+/**
  * System context configuration
  */
 export interface SystemContext {
   description?: string
-  assets?: string[]
-  outOfScopeItems?: string[]
-  integrations?: {
-    github?: boolean
-    jira?: boolean
-    cspm?: boolean
-    sca?: boolean
-  }
-  uploads?: {
-    prd?: string
-    terraform?: string
-  }
+  assets?: SystemContextAsset[]
+  outOfScopeItems?: SystemContextOutOfScopeItem[]
   scopeLocked: boolean
   scopeLockedAt?: string
 }
