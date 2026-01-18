@@ -2,12 +2,12 @@ import { Server, FileText, Users, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { System, ThreatModel, Diagram } from '@/types'
-import type { TeamMember } from '@/features/dfd-editor/types/threat-analysis'
 
 interface RelationshipCardsProps {
   connectedSystems: System[]
   connectedThreatModels: ThreatModel[]
-  people: TeamMember[]
+  teamMemberCount?: number
+  teamName?: string
   dfds: Diagram[]
   onManageSystems: () => void
   onManageThreatModels: () => void
@@ -18,7 +18,8 @@ interface RelationshipCardsProps {
 export function RelationshipCards({
   connectedSystems,
   connectedThreatModels,
-  people,
+  teamMemberCount = 0,
+  teamName,
   dfds,
   onManageSystems,
   onManageThreatModels,
@@ -103,30 +104,28 @@ export function RelationshipCards({
         </CardContent>
       </Card>
 
-      {/* People */}
+      {/* Team Members */}
       <Card className="flex flex-col">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            People
+            Team Members
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
           <div className="space-y-1 flex-1">
-            {people.length > 0 ? (
-              people.slice(0, 4).map((person) => (
-                <div key={person.id} className="text-sm truncate">
-                  {person.firstName} {person.lastName}
-                </div>
-              ))
+            {teamMemberCount > 0 ? (
+              <div className="text-sm">
+                <span className="font-medium">{teamMemberCount}</span> member{teamMemberCount !== 1 ? 's' : ''}
+                {teamName && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    in {teamName}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                No people assigned
-              </div>
-            )}
-            {people.length > 4 && (
-              <div className="text-xs text-muted-foreground">
-                +{people.length - 4} more
+                No team members yet
               </div>
             )}
           </div>

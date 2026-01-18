@@ -201,10 +201,18 @@ export async function register(input: RegisterInput): Promise<LoginResponse> {
   // Clear any stale session/CSRF cookies before registration
   clearTokens()
 
+  // dj-rest-auth requires username field - use email as username
+  const payload = {
+    username: input.email,
+    email: input.email,
+    password1: input.password1,
+    password2: input.password2,
+  }
+
   const response = await fetch(`${API_BASE}/auth/registration/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {

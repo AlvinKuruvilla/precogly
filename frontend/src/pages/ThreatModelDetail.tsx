@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -23,31 +23,19 @@ import {
   ManagePeopleModal,
   ManageDFDsModal,
 } from '@/components/workspace'
+import { MagicLinkDialog } from '@/components/sharing/MagicLinkDialog'
 import { useWorkspaceThreatAnalysis } from '@/components/workspace/useWorkspaceThreatAnalysis'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/ComponentView'
 import { TableView } from '@/features/dfd-editor/components/threat-analysis/TableView'
 import type { ThreatModel, Diagram, System } from '@/types'
-import type { TeamMember, WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
+import type { WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
 import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useDeleteThreatModel, useDeleteDFD } from '@/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
-
-// Mock team members data (same as in ComponentView)
-const TEAM_MEMBERS: TeamMember[] = [
-  { id: '1', firstName: 'Sarah', lastName: 'Chen', email: 'sarah.chen@company.com', role: 'Security Engineer' },
-  { id: '2', firstName: 'Michael', lastName: 'Rodriguez', email: 'michael.rodriguez@company.com', role: 'DevOps Lead' },
-  { id: '3', firstName: 'Emily', lastName: 'Johnson', email: 'emily.johnson@company.com', role: 'Platform Engineer' },
-  { id: '4', firstName: 'David', lastName: 'Kim', email: 'david.kim@company.com', role: 'Security Architect' },
-  { id: '5', firstName: 'Jessica', lastName: 'Williams', email: 'jessica.williams@company.com', role: 'SRE' },
-  { id: '6', firstName: 'James', lastName: 'Brown', email: 'james.brown@company.com', role: 'Backend Engineer' },
-  { id: '7', firstName: 'Amanda', lastName: 'Davis', email: 'amanda.davis@company.com', role: 'Infrastructure Lead' },
-  { id: '8', firstName: 'Robert', lastName: 'Martinez', email: 'robert.martinez@company.com', role: 'Cloud Engineer' },
-  { id: '9', firstName: 'Lisa', lastName: 'Anderson', email: 'lisa.anderson@company.com', role: 'Security Analyst' },
-  { id: '10', firstName: 'Christopher', lastName: 'Taylor', email: 'christopher.taylor@company.com', role: 'Tech Lead' },
-]
 
 async function fetchThreatModel(id: string): Promise<ThreatModel> {
   return api.get<ThreatModel>(`/threat-models/${id}/`)
@@ -83,6 +71,7 @@ export function ThreatModelDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { currentTeam } = useWorkspace()
 
   // View state
   const [activeTab, setActiveTab] = useState<string>('overview')
@@ -97,6 +86,7 @@ export function ThreatModelDetail() {
   const [manageThreatModelsModalOpen, setManageThreatModelsModalOpen] = useState(false)
   const [managePeopleModalOpen, setManagePeopleModalOpen] = useState(false)
   const [manageDFDsModalOpen, setManageDFDsModalOpen] = useState(false)
+  const [shareLinkDialogOpen, setShareLinkDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteDFDDialogOpen, setDeleteDFDDialogOpen] = useState(false)
   const [dfdToDelete, setDfdToDelete] = useState<{ id: string; name: string } | null>(null)
@@ -173,17 +163,6 @@ export function ThreatModelDetail() {
       threatModel?.referencedModelIds?.includes(m.id)
     )
   }, [allThreatModels, threatModel?.referencedModelIds])
-
-  // Get assigned people (from countermeasure owners)
-  const assignedPeople = useMemo(() => {
-    const ownerEmails = new Set<string>()
-    componentThreats.forEach((ct) => {
-      ct.countermeasures.forEach((cm) => {
-        if (cm.owner) ownerEmails.add(cm.owner)
-      })
-    })
-    return TEAM_MEMBERS.filter((m) => ownerEmails.has(m.email))
-  }, [componentThreats])
 
   // Aggregate canvas data from all diagrams or selected diagram
   const aggregatedCanvasData = useMemo((): CanvasData => {
@@ -385,6 +364,17 @@ export function ThreatModelDetail() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Share button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              onClick={() => setShareLinkDialogOpen(true)}
+            >
+              <Share2 className="h-3 w-3" />
+              <span className="hidden sm:inline">Share</span>
+            </Button>
+
             {/* System Context button */}
             <Button
               variant="outline"
@@ -478,7 +468,8 @@ export function ThreatModelDetail() {
             <RelationshipCards
               connectedSystems={linkedSystems}
               connectedThreatModels={referencedModels}
-              people={assignedPeople}
+              teamMemberCount={currentTeam?.memberCount ?? 0}
+              teamName={currentTeam?.name}
               dfds={diagrams}
               onManageSystems={() => setManageSystemsModalOpen(true)}
               onManageThreatModels={() => setManageThreatModelsModalOpen(true)}
@@ -681,10 +672,8 @@ export function ThreatModelDetail() {
       <ManagePeopleModal
         open={managePeopleModalOpen}
         onOpenChange={setManagePeopleModalOpen}
-        people={assignedPeople}
-        availablePeople={TEAM_MEMBERS}
-        onAdd={(personId) => console.log('Add person:', personId)}
-        onRemove={(personId) => console.log('Remove person:', personId)}
+        teamId={currentTeam?.id ?? 0}
+        teamName={currentTeam?.name}
       />
 
       <ManageDFDsModal
@@ -714,6 +703,13 @@ export function ThreatModelDetail() {
         }}
         onConfirm={handleConfirmDeleteDFD}
         isDeleting={deleteDFDMutation.isPending}
+      />
+
+      <MagicLinkDialog
+        threatModelId={parseInt(id!, 10)}
+        threatModelName={threatModel.name}
+        open={shareLinkDialogOpen}
+        onOpenChange={setShareLinkDialogOpen}
       />
     </div>
   )

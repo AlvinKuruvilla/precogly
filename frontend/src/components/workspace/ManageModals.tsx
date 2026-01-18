@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, Copy, Check, Clock, Mail, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -11,8 +11,28 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { System, ThreatModel, Diagram } from '@/types'
-import type { TeamMember } from '@/features/dfd-editor/types/threat-analysis'
+import {
+  useTeamMembers,
+  useInviteTeamMember,
+  useRemoveTeamMember,
+  useTeamInvitations,
+  useRevokeInvitation,
+} from '@/api/organizations'
+import type { TeamRole, TeamInvitation } from '@/types/organization'
 
 // ============================================
 // Manage Connected Systems Modal
@@ -258,128 +278,282 @@ export function ManageThreatModelsModal({
 }
 
 // ============================================
-// Manage People Modal
+// Manage People Modal (Team-based)
 // ============================================
 
 interface ManagePeopleModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  people: TeamMember[]
-  availablePeople: TeamMember[]
-  onAdd: (personId: string) => void
-  onRemove: (personId: string) => void
+  teamId: number
+  teamName?: string
+}
+
+const ROLE_LABELS: Record<TeamRole, string> = {
+  lead: 'Lead',
+  member: 'Member',
+  viewer: 'Viewer',
+}
+
+const ROLE_DESCRIPTIONS: Record<TeamRole, string> = {
+  lead: 'Can manage team settings and members',
+  member: 'Can edit threat models',
+  viewer: 'Can view but not edit',
 }
 
 export function ManagePeopleModal({
   open,
   onOpenChange,
-  people,
-  availablePeople,
-  onAdd,
-  onRemove,
+  teamId,
+  teamName,
 }: ManagePeopleModalProps) {
-  const [search, setSearch] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<TeamRole>('member')
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
 
-  const filteredAvailable = availablePeople.filter(
-    (p) =>
-      !people.find((c) => c.id === p.id) &&
-      (`${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-        p.email.toLowerCase().includes(search.toLowerCase()))
+  // Only fetch when we have a valid teamId
+  const hasValidTeam = teamId > 0
+
+  // Fetch team members
+  const { data: members = [], isLoading: membersLoading } = useTeamMembers(
+    hasValidTeam ? teamId : 0
   )
+
+  // Fetch pending invitations for this team
+  const { data: allInvitations = [] } = useTeamInvitations()
+  const pendingInvitations = hasValidTeam
+    ? allInvitations.filter(
+        (inv) => inv.team === teamId && inv.status === 'pending'
+      )
+    : []
+
+  // Mutations
+  const inviteMutation = useInviteTeamMember()
+  const removeMutation = useRemoveTeamMember()
+  const revokeInvitationMutation = useRevokeInvitation()
+
+  const handleInvite = () => {
+    if (!inviteEmail.trim() || !hasValidTeam) return
+    inviteMutation.mutate(
+      { teamId, email: inviteEmail.trim(), role: inviteRole },
+      {
+        onSuccess: () => {
+          setInviteEmail('')
+        },
+      }
+    )
+  }
+
+  const handleRemove = (userId: number) => {
+    if (confirm('Are you sure you want to remove this member from the team?')) {
+      removeMutation.mutate({ teamId, userId })
+    }
+  }
+
+  const handleCopyInviteLink = (invitation: TeamInvitation) => {
+    const fullUrl = `${window.location.origin}${invitation.inviteUrl}`
+    navigator.clipboard.writeText(fullUrl)
+    setCopiedInviteId(invitation.id)
+    setTimeout(() => setCopiedInviteId(null), 2000)
+  }
+
+  const handleRevokeInvitation = (invitationId: string) => {
+    if (confirm('Are you sure you want to revoke this invitation?')) {
+      revokeInvitationMutation.mutate(invitationId)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    })
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Manage People</DialogTitle>
+          <DialogTitle>Manage Team Members</DialogTitle>
           <DialogDescription>
-            Add or remove team members from this threat model.
+            {hasValidTeam
+              ? `Add or remove members from ${teamName || 'this team'}. Invite people by email to collaborate on threat models.`
+              : 'No team selected. Please select a team first.'}
           </DialogDescription>
         </DialogHeader>
 
+        {!hasValidTeam ? (
+          <div className="py-8 text-center text-muted-foreground">
+            <p>You need to select or create a team before managing members.</p>
+            <p className="text-sm mt-2">
+              Go to Settings &gt; Teams to create your first team.
+            </p>
+          </div>
+        ) : (
         <div className="space-y-4 py-4">
-          {/* Assigned people */}
-          <div>
-            <h4 className="text-sm font-medium mb-2">Assigned Team Members</h4>
-            <ScrollArea className="h-[150px] border rounded-md">
-              <div className="p-2 space-y-1">
-                {people.length > 0 ? (
-                  people.map((person) => (
-                    <div
-                      key={person.id}
-                      className="flex items-center justify-between p-2 hover:bg-muted rounded"
-                    >
+          {/* Invite new member by email */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Invite by Email
+            </h4>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="colleague@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+              />
+              <Select
+                value={inviteRole}
+                onValueChange={(v) => setInviteRole(v as TeamRole)}
+              >
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(ROLE_LABELS) as TeamRole[]).map((role) => (
+                    <SelectItem key={role} value={role}>
                       <div>
-                        <div className="text-sm font-medium">
-                          {person.firstName} {person.lastName}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {person.email}
-                        </div>
+                        <div>{ROLE_LABELS[role]}</div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => onRemove(person.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No team members assigned
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleInvite}
+                disabled={!inviteEmail.trim() || inviteMutation.isPending}
+              >
+                {inviteMutation.isPending ? 'Inviting...' : 'Invite'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              If they already have an account, they'll be added immediately. Otherwise,
+              you'll get a link to share with them.
+            </p>
           </div>
 
-          {/* Add people */}
-          <div>
-            <h4 className="text-sm font-medium mb-2">Add Team Members</h4>
-            <Input
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="mb-2"
-            />
-            <ScrollArea className="h-[150px] border rounded-md">
-              <div className="p-2 space-y-1">
-                {filteredAvailable.length > 0 ? (
-                  filteredAvailable.map((person) => (
+          {/* Pending Invitations */}
+          {pendingInvitations.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Pending Invitations
+              </h4>
+              <ScrollArea className="max-h-[120px] border rounded-md">
+                <div className="p-2 space-y-1">
+                  {pendingInvitations.map((invitation) => (
                     <div
-                      key={person.id}
+                      key={invitation.id}
                       className="flex items-center justify-between p-2 hover:bg-muted rounded"
                     >
-                      <div>
-                        <div className="text-sm font-medium">
-                          {person.firstName} {person.lastName}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {invitation.email}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {person.email}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-xs">
+                            {ROLE_LABELS[invitation.role]}
+                          </Badge>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Invitation expires {formatDate(invitation.expiresAt)}
+                          </span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onAdd(person.id)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleCopyInviteLink(invitation)}
+                            >
+                              {copiedInviteId === invitation.id ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px]">
+                            Copy invite link to share with this person. They can use it to join the team.
+                          </TooltipContent>
+                        </Tooltip>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRevokeInvitation(invitation.id)}
+                          title="Revoke invitation"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Current team members */}
+          <div>
+            <h4 className="text-sm font-medium mb-2">
+              Current Members ({members.length})
+            </h4>
+            <ScrollArea className="h-[200px] border rounded-md">
+              <div className="p-2 space-y-1">
+                {membersLoading ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    Loading members...
+                  </div>
+                ) : members.length > 0 ? (
+                  members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-2 hover:bg-muted rounded"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {member.userName || member.userEmail}
+                        </div>
+                        {member.userName && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {member.userEmail}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {ROLE_LABELS[member.role]}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemove(member.user)}
+                          disabled={removeMutation.isPending}
+                          title="Remove member"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))
                 ) : (
                   <div className="p-4 text-center text-sm text-muted-foreground">
-                    No available team members
+                    No team members yet
                   </div>
                 )}
               </div>
             </ScrollArea>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   )

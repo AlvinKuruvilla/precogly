@@ -192,6 +192,13 @@ REST_FRAMEWORK = {
     ),
 }
 
+# CamelCase parser settings - ignore password fields used by dj-rest-auth
+JSON_CAMEL_CASE = {
+    "JSON_UNDERSCOREIZE": {
+        "ignore_keys": ("password1", "password2", "new_password1", "new_password2"),
+    },
+}
+
 
 # JWT Settings
 from datetime import timedelta
@@ -212,6 +219,8 @@ REST_AUTH = {
     "JWT_AUTH_REFRESH_COOKIE": None,
     "JWT_AUTH_HTTPONLY": False,
     "JWT_AUTH_RETURN_EXPIRATION": True,
+    # Use custom serializer that generates frontend URLs for password reset
+    "PASSWORD_RESET_SERIALIZER": "apps.core.serializers.CustomPasswordResetSerializer",
 }
 
 
@@ -244,3 +253,12 @@ CORS_ALLOWED_ORIGINS = env.list(
     default=["http://localhost:5173", "http://127.0.0.1:5173"],
 )
 CORS_ALLOW_CREDENTIALS = True
+
+
+# Email Settings
+# Console backend for development - prints emails to terminal
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@precogly.dev"
+
+# Frontend URL for password reset links
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")

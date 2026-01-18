@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,8 +16,14 @@ export function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
 
-  const from = (location.state as { from?: string })?.from || '/'
+  // Check for redirect in query params first (from magic link), then location state
+  const redirectParam = searchParams.get('redirect')
+  const from = redirectParam || (location.state as { from?: string })?.from || '/'
+
+  // Build signup URL preserving redirect
+  const signupUrl = redirectParam ? `/signup?redirect=${encodeURIComponent(redirectParam)}` : '/signup'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -69,7 +75,15 @@ export function Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -88,7 +102,14 @@ export function Login() {
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Demo credentials: admin@precogly.dev / admin123
+            Don't have an account?{' '}
+            <Link to={signupUrl} className="text-primary hover:underline">
+              Create one
+            </Link>
+          </p>
+
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Demo: admin@precogly.dev / admin123
           </p>
         </CardContent>
       </Card>

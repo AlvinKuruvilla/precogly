@@ -153,6 +153,14 @@ class ThreatModel(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="threat_models",
     )
+    owning_team = models.ForeignKey(
+        "organizations.Team",
+        on_delete=models.PROTECT,
+        related_name="threat_models",
+        null=True,
+        blank=True,
+        help_text="Team that owns this threat model (nullable during migration)",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

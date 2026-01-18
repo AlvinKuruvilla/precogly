@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { TeamSwitcher } from './TeamSwitcher'
 
 const navItems = [
   { name: 'Dashboard', href: '/' },
@@ -61,6 +62,13 @@ export function Navbar() {
             Precogly
           </span>
         </Link>
+
+        {/* Team Switcher - progressive disclosure (hidden if only one team) */}
+        {!isMinimalNav && (
+          <div className="ml-4">
+            <TeamSwitcher />
+          </div>
+        )}
 
         {/* Navigation Links - only show in full mode */}
         {!isMinimalNav && (
@@ -159,13 +167,17 @@ export function Navbar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              Profile
+            <DropdownMenuItem asChild>
+              <Link to="/settings/profile">
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
+            <DropdownMenuItem asChild>
+              <Link to="/settings/organization">
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={handleLogout}>
