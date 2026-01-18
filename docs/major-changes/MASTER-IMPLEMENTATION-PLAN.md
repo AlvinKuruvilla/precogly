@@ -2,11 +2,12 @@
 
 ## Executive Summary
 
-This document outlines the recommended order for implementing four major features in the Precogly threat modeling platform. The order is determined by analyzing dependencies, data model impacts, and risk of unintended consequences.
+This document outlines the recommended order for implementing five major features in the Precogly threat modeling platform. The order is determined by analyzing dependencies, data model impacts, and risk of unintended consequences.
 
 **Recommended Order:**
+0. **USER-MANAGEMENT-REDESIGN** - Foundation: team-based ownership model
 1. **REDESIGN-OF-DFD-EDITOR** - Isolated UI changes, establishes clean type system
-2. **HIERARCHICAL-DFD** - Foundational data model changes
+2. **HIERARCHICAL-DFD** - Foundational data model changes for DFD hierarchy
 3. **FEATURE-THREATS-IN-DFD** - UI enhancement building on hierarchy
 4. **ENHANCE-LIBRARY-PACKS** - Advanced feature building on all previous work
 
@@ -22,7 +23,15 @@ This document outlines the recommended order for implementing four major feature
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │   ┌──────────────────────┐                                                  │
-│   │  REDESIGN-OF-DFD     │  ← Isolated, no dependencies                     │
+│   │  USER-MANAGEMENT     │  ← Foundation: who owns what                     │
+│   │  (Teams, Business    │                                                  │
+│   │   Units, Sharing)    │                                                  │
+│   └──────────┬───────────┘                                                  │
+│              │                                                               │
+│              │ provides: Team ownership, WorkspaceContext, org structure     │
+│              ▼                                                               │
+│   ┌──────────────────────┐                                                  │
+│   │  REDESIGN-OF-DFD     │  ← Isolated UI, can run parallel with Phase 0    │
 │   │  (External System +  │                                                  │
 │   │   System Scope)      │                                                  │
 │   └──────────┬───────────┘                                                  │
@@ -30,7 +39,7 @@ This document outlines the recommended order for implementing four major feature
 │              │ establishes clean node types                                  │
 │              ▼                                                               │
 │   ┌──────────────────────┐                                                  │
-│   │  HIERARCHICAL-DFD    │  ← Foundational: changes core data models        │
+│   │  HIERARCHICAL-DFD    │  ← Builds on team ownership from Phase 0         │
 │   │  (DFD Hierarchy +    │                                                  │
 │   │   Image Workflow)    │                                                  │
 │   └──────────┬───────────┘                                                  │
@@ -58,6 +67,7 @@ This document outlines the recommended order for implementing four major feature
 
 | Feature | Backend Models | Backend APIs | Frontend Types | DFD Editor | Threat Analysis |
 |---------|---------------|--------------|----------------|------------|-----------------|
+| USER-MANAGEMENT-REDESIGN | **Major** | **Major** | **Major** | None | Minor |
 | REDESIGN-OF-DFD-EDITOR | None | None | Moderate | Moderate | None |
 | HIERARCHICAL-DFD | **Major** | **Major** | **Major** | Minor | Moderate |
 | FEATURE-THREATS-IN-DFD | None | Minor | Minor | **Major** | Moderate |
@@ -65,14 +75,115 @@ This document outlines the recommended order for implementing four major feature
 
 ---
 
+## Phase 0: USER-MANAGEMENT-REDESIGN
+
+### Why First (Phase 0)
+
+1. **Establishes ownership foundation**: All subsequent features build on team-scoped resources from day one
+2. **No retrofitting needed**: HIERARCHICAL-DFD components, system components, and manual components are team-aware from the start
+3. **WorkspaceContext available early**: Every feature after can use `useWorkspace()` for team/org context
+4. **Progressive disclosure**: Solo users see no complexity; Team Switcher stays hidden until needed
+5. **Both Phase 0 and Phase 2 modify ThreatModel**: Doing them in sequence avoids migration conflicts
+
+### What It Does
+
+- Adds Team model (functional unit that owns threat models)
+- Adds BusinessUnit model (flexible grouping layer between Org and Team)
+- Changes ThreatModel ownership from User to Team (`owning_team` FK)
+- Adds MagicLink for read-only sharing with external stakeholders
+- Adds ShadowUser for PLG "test drive" functionality
+- Auto-provisions Personal Organization + Team for new users
+- Adds WorkspaceContext and TeamSwitcher to frontend
+
+### Critical Data Model Changes
+
+```python
+# New: BusinessUnit (flexible grouping layer)
+class BusinessUnit(TimestampedModel):
+    organization = ForeignKey(Organization)
+    name = CharField(max_length=255)
+    code = CharField(max_length=50)
+    parent = ForeignKey('self', null=True)  # Optional nesting
+
+# New: Team (owns threat models)
+class Team(TimestampedModel):
+    organization = ForeignKey(Organization)
+    business_unit = ForeignKey(BusinessUnit, null=True)
+    name = CharField(max_length=255)
+    is_default = BooleanField(default=False)
+
+# New: TeamMembership (many-to-many)
+class TeamMembership(TimestampedModel):
+    team = ForeignKey(Team)
+    user = ForeignKey(User)
+    role = CharField(choices=['lead', 'member', 'viewer'])
+
+# Updated: ThreatModel
+owning_team = ForeignKey(Team, on_delete=PROTECT)  # NEW
+
+# New: MagicLink (read-only sharing)
+class MagicLink(TimestampedModel):
+    threat_model = ForeignKey(ThreatModel)
+    token = CharField(max_length=64, unique=True)
+    expires_at = DateTimeField()
+    is_revoked = BooleanField(default=False)
+
+# New: ShadowUser (PLG test drive)
+class ShadowUser(TimestampedModel):
+    session_key = CharField(max_length=64)
+    user = OneToOneField(User)
+    organization = ForeignKey(Organization)
+    team = ForeignKey(Team)
+    status = CharField(choices=['active', 'converted', 'expired'])
+```
+
+### Files Changed
+
+| Action | File | Risk |
+|--------|------|------|
+| Modify | `backend/apps/organizations/models.py` | **High** |
+| Modify | `backend/apps/diagrams/models.py` (ThreatModel.owning_team) | **High** |
+| Create | Migration file | **High** |
+| Modify | `backend/apps/organizations/serializers.py` | Medium |
+| Create | `backend/apps/organizations/views.py` (Team, MagicLink viewsets) | Medium |
+| Modify | `backend/apps/organizations/urls.py` | Low |
+| Create | `backend/apps/organizations/signals.py` (auto-provisioning) | Medium |
+| Create | `frontend/src/types/organization.ts` | Low |
+| Create | `frontend/src/api/organizations.ts` | Low |
+| Create | `frontend/src/contexts/WorkspaceContext.tsx` | Medium |
+| Create | `frontend/src/components/layout/TeamSwitcher.tsx` | Low |
+| Create | `frontend/src/components/sharing/MagicLinkDialog.tsx` | Low |
+| Modify | `frontend/src/components/layout/Navbar.tsx` | Low |
+| Create | Settings pages (profile, org, members, teams) | Low |
+
+### Potential Issues
+
+1. **Migration complexity**: Existing threat models need `owning_team` assigned
+   - **Mitigation**: Data migration creates default team per org, assigns existing models
+
+2. **Auth context changes**: Frontend AuthContext needs team/org awareness
+   - **Mitigation**: WorkspaceContext wraps existing auth, provides progressive disclosure
+
+3. **API scoping**: All queries must respect team boundaries
+   - **Mitigation**: Update querysets to filter by user's team memberships
+
+4. **Magic link security**: Tokens must be unpredictable, expirable
+   - **Mitigation**: Use `secrets.token_urlsafe(32)`, enforce expiration checks
+
+### Estimated Effort
+
+Medium-Large - 2 weeks
+
+---
+
 ## Phase 1: REDESIGN-OF-DFD-EDITOR
 
-### Why First
+### Why Second (Can Run Parallel with Phase 0)
 
-1. **Isolated changes**: Purely frontend, no backend model changes
-2. **Low risk**: Adding a node type and renaming another doesn't break existing functionality
-3. **Quick win**: Establishes clean type system before adding complexity
-4. **No blockers**: Can be done immediately without waiting for any other work
+1. **Isolated changes**: Purely frontend DFD editor, no backend model changes
+2. **No overlap with Phase 0**: Different files, different concerns
+3. **Low risk**: Adding a node type and renaming another doesn't break existing functionality
+4. **Quick win**: Establishes clean type system before adding complexity
 
 ### What It Does
 
@@ -101,6 +212,10 @@ This document outlines the recommended order for implementing four major feature
 2. **Type changes cascade**: Other code may reference old types
    - **Mitigation**: Search codebase for `systemBoundary` string literals
 
+### Dependencies on Phase 0
+
+- None directly, but can leverage WorkspaceContext if available
+
 ### Estimated Effort
 
 Small - 1-2 days
@@ -109,10 +224,10 @@ Small - 1-2 days
 
 ## Phase 2: HIERARCHICAL-DFD
 
-### Why Second
+### Why Third
 
-1. **Foundational**: Changes core data models that other features depend on
-2. **Must precede others**: If done after THREATS-IN-DFD or ENHANCE-LIBRARY-PACKS, those features would need major refactoring
+1. **Builds on team ownership**: Manual components and system components are team-scoped from the start
+2. **Must precede threat UI**: If done after THREATS-IN-DFD, those features would need major refactoring
 3. **Establishes structure**: Creates System Component, parent/child relationships, DFD types that later features build upon
 4. **Enables flexibility**: Image-based workflow provides alternative before adding more DFD complexity
 
@@ -180,10 +295,10 @@ file, file_name, file_type, description, uploaded_by
 4. **Reference DFD confusion**: Users may not understand why reference DFDs don't affect threat analysis
    - **Mitigation**: Clear UI messaging and documentation
 
-### Dependencies on Phase 1
+### Dependencies on Phase 0 and Phase 1
 
-- Uses updated `DiagramNodeType` union that includes `externalSystem` and `systemScope`
-- Templates updated in Phase 1 will need hierarchy-aware loading
+- **Phase 0**: ThreatModel already has `owning_team`; manual components inherit team scope
+- **Phase 1**: Uses updated `DiagramNodeType` union that includes `externalSystem` and `systemScope`
 
 ### Estimated Effort
 
@@ -193,7 +308,7 @@ Large - 2-3 weeks
 
 ## Phase 3: FEATURE-THREATS-IN-DFD
 
-### Why Third
+### Why Fourth
 
 1. **Builds on hierarchy**: Can leverage System Component and hierarchical structure
 2. **Prepares for Phase 4**: Establishes tabbed interface and badge system that ENHANCE-LIBRARY-PACKS extends
@@ -208,12 +323,13 @@ Large - 2-3 weeks
 - Visual indicators on edges for data flow threats
 - Edit countermeasure statuses directly from DFD editor
 
-### Integration with Hierarchy
+### Integration with Previous Phases
 
-With hierarchical DFD in place:
+With team ownership and hierarchical DFD in place:
 - Threat badges can reflect hierarchical aggregation
 - Decomposition DFDs can show threats for child components
 - System-level threats can be displayed appropriately
+- Team context available via WorkspaceContext
 
 ### Files Changed
 
@@ -245,11 +361,10 @@ With hierarchical DFD in place:
 4. **Stale data on navigation**: User edits threats, navigates away
    - **Mitigation**: Clear save/discard semantics, optimistic updates
 
-### Dependencies on Phase 2
+### Dependencies on Phases 0-2
 
-- Uses hierarchical component structure for threat aggregation
-- Uses System Component for system-level threat display
-- Respects `dfd_type` (reference DFDs don't show threat analysis)
+- **Phase 0**: Uses WorkspaceContext for team-scoped data fetching
+- **Phase 2**: Uses hierarchical component structure for threat aggregation; respects `dfd_type`
 
 ### Estimated Effort
 
@@ -278,6 +393,7 @@ Medium - 1-2 weeks
 
 | Phase | How Phase 4 Uses It |
 |-------|---------------------|
+| Phase 0 | Capabilities and security controls are team/org scoped |
 | Phase 1 | External System nodes may interact with Security Controls |
 | Phase 2 | Protection graph respects hierarchy; capabilities tracked per org |
 | Phase 3 | Threats tab shows "Platform (provided by WAF)" status; badges reflect protection |
@@ -311,8 +427,9 @@ Medium - 1-2 weeks
 4. **Role-based access complexity**: Security team vs regular users
    - **Mitigation**: Clear permission model, UI that adapts to role
 
-### Dependencies on Phases 1-3
+### Dependencies on Phases 0-3
 
+- **Phase 0**: Organization-level capability customization; role-based access uses team roles
 - **Phase 1**: Security Controls are Process nodes (uses ProcessNodeData structure)
 - **Phase 2**: Capabilities stored at organization level; works with manual components
 - **Phase 3**: Protection status shown in Threats tab; badges reflect inherited protection
@@ -329,15 +446,17 @@ Large - 2-3 weeks
 
 | Wrong Order | Consequence |
 |-------------|-------------|
-| HIERARCHICAL-DFD last | THREATS-IN-DFD badges would need major refactoring to support hierarchy; ENHANCE-LIBRARY-PACKS protection graph would break |
+| USER-MANAGEMENT last | All features would need retrofitting for team ownership; significant refactoring |
+| HIERARCHICAL-DFD before USER-MANAGEMENT | Manual components and hierarchy wouldn't be team-scoped; migration conflicts |
 | ENHANCE-LIBRARY-PACKS before THREATS-IN-DFD | No UI to show "Platform provided by X" status; would need to add later |
 | REDESIGN last | Type changes would cascade through all other features |
-| THREATS-IN-DFD first | Would build on non-hierarchical structure, then break when hierarchy added |
+| THREATS-IN-DFD before HIERARCHICAL | Would build on non-hierarchical structure, then break when hierarchy added |
 
 ### Data Migration Risks
 
 | Phase | Migration Risk | Mitigation |
 |-------|---------------|------------|
+| 0 | **High** - Teams for existing orgs, owning_team for existing models | Data migration creates defaults |
 | 1 | Low - template nodes need `systemScope` type | Add to template loading |
 | 2 | **High** - System Components for existing models | Documented data migration in spec |
 | 3 | Low - no schema changes | None needed |
@@ -347,6 +466,7 @@ Large - 2-3 weeks
 
 | Phase | Breaking Changes | Mitigation |
 |-------|-----------------|------------|
+| 0 | ThreatModel now requires `owning_team` | Migration assigns default team |
 | 1 | `systemBoundary` → `systemScope` type | Search/replace, migration |
 | 2 | `ComponentInstanceThreat.component` now nullable | Update foreign key queries |
 | 3 | None | - |
@@ -357,30 +477,49 @@ Large - 2-3 weeks
 ## Implementation Timeline
 
 ```
-Week 1-2:    Phase 1 - REDESIGN-OF-DFD-EDITOR
+Week 1-2:    Phase 0 - USER-MANAGEMENT-REDESIGN
+             ├── Week 1: Backend models, migrations, signals
+             └── Week 2: Frontend context, TeamSwitcher, settings pages
+
+Week 2-3:    Phase 1 - REDESIGN-OF-DFD-EDITOR (can overlap with Phase 0)
              ├── Day 1-2: Add External System node
              └── Day 3-4: Rename System Boundary → System Scope
 
-Week 3-5:    Phase 2 - HIERARCHICAL-DFD
-             ├── Week 3: Backend models & migrations
-             ├── Week 4: Backend APIs & serializers
-             └── Week 5: Frontend hierarchy & image upload
+Week 4-6:    Phase 2 - HIERARCHICAL-DFD
+             ├── Week 4: Backend models & migrations
+             ├── Week 5: Backend APIs & serializers
+             └── Week 6: Frontend hierarchy & image upload
 
-Week 6-7:    Phase 3 - FEATURE-THREATS-IN-DFD
-             ├── Week 6: Tabbed interface & threat cards
-             └── Week 7: Visual badges & edge indicators
+Week 7-8:    Phase 3 - FEATURE-THREATS-IN-DFD
+             ├── Week 7: Tabbed interface & threat cards
+             └── Week 8: Visual badges & edge indicators
 
-Week 8-10:   Phase 4 - ENHANCE-LIBRARY-PACKS
-             ├── Week 8: Backend capability model & pack schema
-             ├── Week 9: Protection resolver & threat integration
-             └── Week 10: UI for security controls & capabilities
+Week 9-11:   Phase 4 - ENHANCE-LIBRARY-PACKS
+             ├── Week 9: Backend capability model & pack schema
+             ├── Week 10: Protection resolver & threat integration
+             └── Week 11: UI for security controls & capabilities
 
-Week 11:     Integration testing & bug fixes
+Week 12:     Integration testing & bug fixes
 ```
 
 ---
 
 ## Testing Strategy
+
+### Phase 0 Testing
+
+- [ ] BusinessUnit CRUD operations
+- [ ] Team CRUD operations
+- [ ] TeamMembership many-to-many relationships
+- [ ] User can belong to multiple teams
+- [ ] Auto-provisioning on user registration
+- [ ] MagicLink creation and validation
+- [ ] MagicLink expiration enforcement
+- [ ] Organization-scoped query filtering
+- [ ] WorkspaceContext loads organizations and teams
+- [ ] TeamSwitcher hidden when user has one team (progressive disclosure)
+- [ ] TeamSwitcher visible and functional with multiple teams
+- [ ] Settings pages render and save correctly
 
 ### Phase 1 Testing
 
@@ -399,6 +538,7 @@ Week 11:     Integration testing & bug fixes
 - [ ] Image upload works
 - [ ] Manual components appear under System Component
 - [ ] System-level threats can be added
+- [ ] All components/DFDs respect team ownership from Phase 0
 
 ### Phase 3 Testing
 
@@ -424,12 +564,13 @@ Week 11:     Integration testing & bug fixes
 
 The recommended implementation order is:
 
-1. **REDESIGN-OF-DFD-EDITOR** - Clean foundation, isolated risk
-2. **HIERARCHICAL-DFD** - Core data model that others depend on
+0. **USER-MANAGEMENT-REDESIGN** - Foundation: team-based ownership for all resources
+1. **REDESIGN-OF-DFD-EDITOR** - Clean foundation, isolated risk (can parallel with Phase 0)
+2. **HIERARCHICAL-DFD** - Core data model that others depend on, builds on team ownership
 3. **FEATURE-THREATS-IN-DFD** - UI enhancement building on hierarchy
 4. **ENHANCE-LIBRARY-PACKS** - Advanced feature building on all previous
 
-This order minimizes refactoring, respects dependencies, and delivers incremental value at each phase.
+This order establishes ownership first, then structure, then visibility, then advanced features. It minimizes refactoring, respects dependencies, and delivers incremental value at each phase.
 
 ---
 
@@ -438,3 +579,4 @@ This order minimizes refactoring, respects dependencies, and delivers incrementa
 | Date | Changes |
 |------|---------|
 | 2026-01-17 | Initial master implementation plan created |
+| 2026-01-18 | Added USER-MANAGEMENT-REDESIGN as Phase 0; renumbered all phases |
