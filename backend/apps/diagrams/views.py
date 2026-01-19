@@ -508,11 +508,17 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["name", "description"]
 
     def get_queryset(self):
-        """Get templates accessible to user (global + org-specific, excluding deleted)."""
+        """Get templates accessible to user (org-specific only, excluding deleted).
+
+        Templates are now stored per-organization. When a pack is installed,
+        master templates (organization=null) are copied to org-specific records.
+        This allows clean uninstall/reinstall to refresh template content.
+        """
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
 
+        # Only return org-specific templates, not global masters
         return DFDTemplatesLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
+            organization_id__in=org_ids,
             is_deleted=False,
         ).select_related("source_pack")

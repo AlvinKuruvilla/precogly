@@ -32,6 +32,7 @@ from .serializers import (
     PackInstallResponseSerializer,
 )
 from .services import (
+    _copy_templates_for_organization,
     _restore_library_items,
     discover_packs_from_source,
     get_pack_preview_from_database,
@@ -238,6 +239,9 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         # Increment install count
         pack.install_count += 1
         pack.save(update_fields=["install_count"])
+
+        # Copy templates to org-specific copies
+        _copy_templates_for_organization(pack, org)
 
         # Restore any soft-deleted library items from previous uninstall
         _restore_library_items(pack)
@@ -485,9 +489,10 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
         })
 
     def destroy(self, request, *args, **kwargs):
-        """Uninstall a pack (soft-delete library items, remove installation)."""
+        """Uninstall a pack (hard-delete org templates, soft-delete other library items, remove installation)."""
         installation = self.get_object()
         pack = installation.pack
+        org = installation.organization
 
         # Check if other packs depend on this one
         dependent_packs = LibraryPackDependency.objects.filter(
@@ -495,7 +500,6 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
         ).values_list("pack__slug", flat=True)
 
         # Check if any of those dependent packs are installed
-        org = installation.organization
         installed_dependents = OrganizationPackInstallation.objects.filter(
             organization=org, pack__slug__in=dependent_packs
         ).values_list("pack__name", flat=True)
@@ -510,7 +514,15 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
             )
 
         with transaction.atomic():
-            # Soft-delete library items from this pack
+            # Hard-delete org-specific templates (these are copies made during install)
+            # This allows reinstalling to get fresh content from the master templates
+            deleted_templates, _ = DFDTemplatesLibrary.objects.filter(
+                source_pack=pack,
+                organization=org,
+            ).delete()
+
+            # Soft-delete shared library items (components, threats, countermeasures)
+            # These remain soft-deleted so they can be restored on reinstall
             now = timezone.now()
 
             ComponentLibrary.objects.filter(source_pack=pack).update(
@@ -520,9 +532,6 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
                 is_deleted=True, deleted_at=now
             )
             CountermeasureLibrary.objects.filter(source_pack=pack).update(
-                is_deleted=True, deleted_at=now
-            )
-            DFDTemplatesLibrary.objects.filter(source_pack=pack).update(
                 is_deleted=True, deleted_at=now
             )
 
@@ -535,6 +544,6 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
                 pack.save(update_fields=["install_count"])
 
         return Response(
-            {"message": f"Successfully uninstalled {pack.name}"},
+            {"message": f"Successfully uninstalled {pack.name}", "templates_deleted": deleted_templates},
             status=status.HTTP_200_OK,
         )

@@ -807,11 +807,61 @@ def _load_dfd_templates(library_pack: LibraryPack, pack_path: Path) -> int:
     return count
 
 
+def _copy_templates_for_organization(library_pack: LibraryPack, org: Organization) -> int:
+    """
+    Copy master templates (organization=null) to org-specific copies.
+
+    This enables per-organization template storage, so uninstalling a pack
+    only removes that org's templates without affecting other organizations.
+
+    Args:
+        library_pack: The pack being installed
+        org: The organization to copy templates for
+
+    Returns:
+        Number of templates copied
+    """
+    # Get master templates (organization=null) for this pack
+    master_templates = DFDTemplatesLibrary.objects.filter(
+        source_pack=library_pack,
+        organization__isnull=True,
+        is_deleted=False,
+    )
+
+    count = 0
+    for master in master_templates:
+        # Create org-specific qualified_slug to avoid conflicts
+        org_qualified_slug = f"org-{org.id}/{library_pack.slug}/{master.slug}"
+
+        # Create or update org-specific copy
+        DFDTemplatesLibrary.objects.update_or_create(
+            qualified_slug=org_qualified_slug,
+            defaults={
+                "organization": org,
+                "source_pack": library_pack,
+                "slug": master.slug,
+                "name": master.name,
+                "description": master.description,
+                "category": master.category,
+                "diagram_type": master.diagram_type,
+                "canvas_data": master.canvas_data,
+                "customization_status": "original",
+                "is_deleted": False,
+                "deleted_at": None,
+            },
+        )
+        count += 1
+
+    logger.info(f"Copied {count} templates for org {org.id} from pack {library_pack.slug}")
+    return count
+
+
 def _create_installation(library_pack: LibraryPack, org: Organization, user) -> OrganizationPackInstallation:
     """
     Create installation record for organization.
 
-    Also restores any soft-deleted library items from a previous uninstall.
+    Also copies templates to org-specific copies and restores any soft-deleted
+    library items from a previous uninstall.
     """
     installation, created = OrganizationPackInstallation.objects.update_or_create(
         organization=org,
@@ -826,6 +876,9 @@ def _create_installation(library_pack: LibraryPack, org: Organization, user) -> 
     if created:
         library_pack.install_count += 1
         library_pack.save(update_fields=["install_count"])
+
+    # Copy templates to org-specific copies
+    _copy_templates_for_organization(library_pack, org)
 
     # Restore any soft-deleted library items from previous uninstall
     _restore_library_items(library_pack)

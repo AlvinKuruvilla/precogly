@@ -100,7 +100,7 @@ export function useParentRelationships() {
       // Filter valid candidates (Boundaries only)
       const boundaries = allNodes.filter(
         (n) =>
-          (n.type === 'trustBoundary' || n.type === 'systemBoundary') &&
+          (n.type === 'trustBoundary' || n.type === 'systemScope') &&
           n.id !== node.id
       )
 
@@ -160,7 +160,7 @@ export function useParentRelationships() {
           // Only preserve if: parent exists, is a boundary, AND child is still inside parent bounds
           if (node.parentId) {
             const currentParent = liveNodesMap.get(node.parentId)
-            if (currentParent && (currentParent.type === 'trustBoundary' || currentParent.type === 'systemBoundary')) {
+            if (currentParent && (currentParent.type === 'trustBoundary' || currentParent.type === 'systemScope')) {
               const nodeBox = getAbsoluteBoundingBox(node, liveNodesMap)
               const parentBox = getAbsoluteBoundingBox(currentParent, liveNodesMap)
 
@@ -246,7 +246,7 @@ export function useParentRelationships() {
         // Update boundaries that received children (for receive animation)
         const finalNodes = updatedNodes.map((node) => {
           if (
-            (node.type === 'trustBoundary' || node.type === 'systemBoundary') &&
+            (node.type === 'trustBoundary' || node.type === 'systemScope') &&
             boundariesReceivingChildren.has(node.id)
           ) {
             return {

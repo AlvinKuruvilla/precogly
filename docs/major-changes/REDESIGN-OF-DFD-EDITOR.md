@@ -190,11 +190,52 @@ Add handling for External System nodes:
 - Add optional `vendor` text field
 - Follow the pattern used for Actor node editing
 
-### Step 8: Update Templates (Optional)
+### Step 8: Update Frontend Templates (Optional)
 
 #### Files: `frontend/src/data/templates/generic.json`, `banking.json`
 
 Review templates and consider updating nodes that represent non-human external entities to use `externalSystem` type instead of `actor`. This is optional but improves semantic accuracy.
+
+### Step 9: Update Library Pack Templates (Optional but Recommended)
+
+#### Directory: `libraries/packs/**/DFDTemplates/*.yaml`
+
+Library pack templates currently use `actor` nodes with `actorType` to distinguish between humans and systems. For semantic accuracy, migrate system actors to use the new `externalSystem` type.
+
+**Current pattern:**
+```yaml
+- id: "actor-swiftnet"
+  type: "actor"
+  data:
+    label: "SWIFTNet"
+    actorType: "system"  # Non-human system
+```
+
+**New pattern:**
+```yaml
+- id: "system-swiftnet"
+  type: "externalSystem"
+  data:
+    label: "SWIFTNet"
+    systemType: "partner"
+    vendor: "SWIFT"
+```
+
+**Migration guide by `actorType`:**
+
+| Current actorType | Action | New type |
+|-------------------|--------|----------|
+| `"user"` | Keep as-is | `actor` |
+| `"system"` | Migrate | `externalSystem` |
+| `"external"` | Review case-by-case | `actor` (if human/org) or `externalSystem` (if API/system) |
+
+**Files to review:**
+
+| Pack | Template | System Actors to Migrate |
+|------|----------|--------------------------|
+| `azure` | `data-pipeline.yaml` | IoT Devices, Application Events, ML Pipeline |
+| `azure` | `serverless-functions.yaml` | External Webhook, Timer Trigger |
+| `banking` | `swift-payments.yaml` | SWIFTNet |
 
 ---
 
@@ -327,11 +368,42 @@ Search for any `'systemBoundary'` string literals and update to `'systemScope'`.
 
 Search for any `'systemBoundary'` string literals and update to `'systemScope'`.
 
-### Step 8: Update Templates
+### Step 8: Update Frontend Templates
 
 #### Files: `frontend/src/data/templates/generic.json`, `banking.json`
 
 Update any nodes with `"type": "systemBoundary"` to `"type": "systemScope"`.
+
+### Step 9: Update Library Pack Templates (REQUIRED)
+
+#### Directory: `libraries/packs/**/DFDTemplates/*.yaml`
+
+**This step is required** - library pack templates use `systemBoundary` and will break if not updated.
+
+**Find and replace:**
+- Find: `type: "systemBoundary"`
+- Replace: `type: "systemScope"`
+
+**Affected files (11 total):**
+
+| Pack | Template File |
+|------|---------------|
+| `technologies/aws` | `DFDTemplates/serverless-api.yaml` |
+| `technologies/azure` | `DFDTemplates/webapp.yaml` |
+| `technologies/azure` | `DFDTemplates/microservices-aks.yaml` |
+| `technologies/azure` | `DFDTemplates/serverless-functions.yaml` |
+| `technologies/azure` | `DFDTemplates/data-pipeline.yaml` |
+| `technologies/gcp` | `DFDTemplates/cloud-run.yaml` |
+| `technologies/banking` | `DFDTemplates/swift-payments.yaml` |
+| `technologies/banking` | `DFDTemplates/card-payment-processing.yaml` |
+| `technologies/banking` | `DFDTemplates/open-banking-psd2.yaml` |
+| `technologies/banking` | `DFDTemplates/fraud-detection.yaml` |
+| `technologies/banking` | `DFDTemplates/mobile-banking.yaml` |
+
+**Batch update command:**
+```bash
+find libraries/packs -name "*.yaml" -exec sed -i '' 's/type: "systemBoundary"/type: "systemScope"/g' {} \;
+```
 
 ---
 
@@ -350,6 +422,9 @@ Update any nodes with `"type": "systemBoundary"` to `"type": "systemScope"`.
 | Modify | `frontend/src/features/dfd-editor/lib/technology-registry.ts` |
 | Modify | `frontend/src/features/dfd-editor/components/DiagramToolbar.tsx` |
 | Modify | `frontend/src/features/dfd-editor/components/panels/NodeEditPanel.tsx` |
+| Modify (optional) | `libraries/packs/technologies/azure/DFDTemplates/data-pipeline.yaml` |
+| Modify (optional) | `libraries/packs/technologies/azure/DFDTemplates/serverless-functions.yaml` |
+| Modify (optional) | `libraries/packs/technologies/banking/DFDTemplates/swift-payments.yaml` |
 
 ### Decision 2: Rename System Boundary → System Scope
 
@@ -367,6 +442,17 @@ Update any nodes with `"type": "systemBoundary"` to `"type": "systemScope"`.
 | Modify | `frontend/src/features/dfd-editor/hooks/useKeyboardShortcuts.ts` |
 | Modify | `frontend/src/data/templates/generic.json` |
 | Modify | `frontend/src/data/templates/banking.json` |
+| Modify | `libraries/packs/technologies/aws/DFDTemplates/serverless-api.yaml` |
+| Modify | `libraries/packs/technologies/azure/DFDTemplates/webapp.yaml` |
+| Modify | `libraries/packs/technologies/azure/DFDTemplates/microservices-aks.yaml` |
+| Modify | `libraries/packs/technologies/azure/DFDTemplates/serverless-functions.yaml` |
+| Modify | `libraries/packs/technologies/azure/DFDTemplates/data-pipeline.yaml` |
+| Modify | `libraries/packs/technologies/gcp/DFDTemplates/cloud-run.yaml` |
+| Modify | `libraries/packs/technologies/banking/DFDTemplates/swift-payments.yaml` |
+| Modify | `libraries/packs/technologies/banking/DFDTemplates/card-payment-processing.yaml` |
+| Modify | `libraries/packs/technologies/banking/DFDTemplates/open-banking-psd2.yaml` |
+| Modify | `libraries/packs/technologies/banking/DFDTemplates/fraud-detection.yaml` |
+| Modify | `libraries/packs/technologies/banking/DFDTemplates/mobile-banking.yaml` |
 
 ---
 
@@ -376,3 +462,4 @@ Update any nodes with `"type": "systemBoundary"` to `"type": "systemScope"`.
 |------|---------|
 | 2026-01-16 | Initial decisions captured after DFD standard gap analysis |
 | 2026-01-16 | Added implementation plan for both decisions |
+| 2026-01-19 | Added library pack template migration steps (11 templates use systemBoundary) |

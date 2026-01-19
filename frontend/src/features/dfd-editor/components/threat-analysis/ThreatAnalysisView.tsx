@@ -529,6 +529,25 @@ export function ThreatAnalysisView({
     []
   )
 
+  // Restore a dismissed countermeasure
+  const handleRestoreCountermeasure = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string) => {
+      setComponentThreats((prev) =>
+        prev.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            updatedAt: new Date().toISOString(),
+            countermeasures: ct.countermeasures.map((cm) =>
+              cm.id === countermeasureInstanceId ? { ...cm, dismissed: false } : cm
+            ),
+          }
+        })
+      )
+    },
+    []
+  )
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
@@ -593,6 +612,7 @@ export function ThreatAnalysisView({
             onRestoreThreat={handleRestoreThreat}
             onAddCustomCountermeasure={handleAddCustomCountermeasure}
             onRemoveCountermeasure={handleRemoveCountermeasure}
+            onRestoreCountermeasure={handleRestoreCountermeasure}
           />
         ) : (
           <TableView

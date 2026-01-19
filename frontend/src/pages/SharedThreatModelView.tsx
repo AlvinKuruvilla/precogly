@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ReadOnlyDFDViewer } from '@/components/shared/ReadOnlyDFDViewer'
 import { ReadOnlyThreatAnalysisView } from '@/components/shared/ReadOnlyThreatAnalysisView'
 import type { ThreatModelStats } from '@/types/organization'
+import type { DiagramData } from '@/lib/threat-computation'
 import {
   AlertCircle,
   Clock,
@@ -470,7 +471,7 @@ export function SharedThreatModelView() {
                 diagrams={dfds.map((dfd) => ({
                   id: dfd.id,
                   name: dfd.name,
-                  canvasData: dfd.canvasData,
+                  canvasData: dfd.canvasData as DiagramData['canvasData'],
                 }))}
                 className="min-h-[400px]"
               />

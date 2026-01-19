@@ -18,7 +18,7 @@ canvas_data:
 
     # System boundary - Mobile Banking System
     - id: "sb-banking"
-      type: "systemBoundary"
+      type: "systemScope"
       position: { x: 180, y: 50 }
       style: { width: 820, height: 550 }
       data:

@@ -189,4 +189,4 @@ export type DiagramTypeValue = 'context' | 'level1' | 'level2'
 export type ThreatFramework = 'stride' | 'linddun' | 'cia'
 
 // Node types for DFD
-export type DiagramNodeType = 'process' | 'datastore' | 'actor' | 'trustBoundary' | 'systemBoundary'
+export type DiagramNodeType = 'process' | 'datastore' | 'actor' | 'externalSystem' | 'trustBoundary' | 'systemScope'

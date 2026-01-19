@@ -34,7 +34,7 @@ canvas_data:
 
     # System boundary - Bank Card Processing
     - id: "sb-bank"
-      type: "systemBoundary"
+      type: "systemScope"
       position: { x: 200, y: 50 }
       style: { width: 970, height: 600 }
       data:

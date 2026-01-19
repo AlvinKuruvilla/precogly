@@ -66,11 +66,6 @@ function CountermeasureRow({ cm }: { cm: ComponentThreatCountermeasure }) {
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Shield className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span className="text-sm truncate">{cmDef?.name || cm.countermeasureId}</span>
-        {cmDef?.controlType && (
-          <Badge variant="outline" className="text-xs">
-            {cmDef.controlType}
-          </Badge>
-        )}
       </div>
       <div className="flex items-center gap-2">
         {cm.owner && (

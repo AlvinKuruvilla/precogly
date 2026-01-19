@@ -294,12 +294,6 @@ const ROLE_LABELS: Record<TeamRole, string> = {
   viewer: 'Viewer',
 }
 
-const ROLE_DESCRIPTIONS: Record<TeamRole, string> = {
-  lead: 'Can manage team settings and members',
-  member: 'Can edit threat models',
-  viewer: 'Can view but not edit',
-}
-
 export function ManagePeopleModal({
   open,
   onOpenChange,

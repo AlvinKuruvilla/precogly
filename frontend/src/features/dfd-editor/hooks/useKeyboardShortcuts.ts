@@ -51,7 +51,7 @@ export function useKeyboardShortcuts({
 
     // For boundary nodes, convert children to root nodes
     const boundaryIds = selectedNodes
-      .filter((n) => n.type === 'trustBoundary' || n.type === 'systemBoundary')
+      .filter((n) => n.type === 'trustBoundary' || n.type === 'systemScope')
       .map((n) => n.id)
 
     const updatedNodes = nodes

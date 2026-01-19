@@ -29,8 +29,9 @@ export const NODE_TYPE_CATEGORIES: Record<DiagramNodeType, TechnologyCategory[]>
   datastore: ['database', 'storage', 'cache'],
   process: ['compute', 'backend', 'messaging', 'security'],
   actor: [], // Actors typically don't have technologies
+  externalSystem: [], // External systems typically don't have internal technologies
   trustBoundary: ['networking'], // Will be further filtered by TRUST_BOUNDARY_TECHNOLOGY_IDS
-  systemBoundary: ['infrastructure', 'networking'],
+  systemScope: ['infrastructure', 'networking'],
 }
 
 // Technology IDs that are appropriate for Trust Boundaries

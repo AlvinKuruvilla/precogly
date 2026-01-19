@@ -1,5 +1,4 @@
 import { http, HttpResponse } from 'msw'
-import { dfdTemplates } from '../data/templates'
 
 // Base API URL - will match your Django backend later
 const API_BASE = '/api'
@@ -433,58 +432,4 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  // ===== TEMPLATE ENDPOINTS =====
-
-  // Get all templates
-  http.get(`${API_BASE}/dfd-templates`, ({ request }) => {
-    const url = new URL(request.url)
-    const orderBy = url.searchParams.get('order_by') || '-use_count'
-
-    let sorted = [...dfdTemplates]
-    if (orderBy === '-use_count') {
-      sorted.sort((a, b) => b.useCount - a.useCount)
-    } else if (orderBy === '-created_at') {
-      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    } else if (orderBy === 'name') {
-      sorted.sort((a, b) => a.name.localeCompare(b.name))
-    }
-
-    return HttpResponse.json(sorted)
-  }),
-
-  // Get single template
-  http.get(`${API_BASE}/dfd-templates/:id`, ({ params }) => {
-    const { id } = params
-    const template = dfdTemplates.find((t) => t.id === id)
-    if (!template) {
-      return new HttpResponse(null, { status: 404 })
-    }
-    return HttpResponse.json(template)
-  }),
-
-  // Create template
-  http.post(`${API_BASE}/dfd-templates`, async ({ request }) => {
-    const body = (await request.json()) as Record<string, unknown>
-    const newTemplate = {
-      id: `template-${Date.now()}`,
-      isPublic: true,
-      useCount: 0,
-      createdBy: 'current-user',
-      ...body,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    return HttpResponse.json(newTemplate, { status: 201 })
-  }),
-
-  // Use template (increment counter)
-  http.post(`${API_BASE}/dfd-templates/:id/use_template`, ({ params }) => {
-    const { id } = params
-    const template = dfdTemplates.find((t) => t.id === id)
-    if (!template) {
-      return new HttpResponse(null, { status: 404 })
-    }
-    template.useCount += 1
-    return HttpResponse.json({ success: true })
-  }),
 ]

@@ -31,7 +31,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import { UserPlus, Trash2 } from 'lucide-react'
 import type { TeamListItem, TeamRole } from '@/types/organization'

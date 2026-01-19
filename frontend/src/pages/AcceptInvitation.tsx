@@ -63,7 +63,7 @@ export function AcceptInvitation() {
     )
   }
 
-  const { invitation, requiresSignup } = data
+  const { invitation, requiresSignup: _requiresSignup } = data
 
   // Successfully accepted
   if (acceptMutation.isSuccess) {

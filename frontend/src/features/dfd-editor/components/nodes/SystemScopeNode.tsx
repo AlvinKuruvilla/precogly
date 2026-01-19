@@ -13,16 +13,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import type { SystemBoundaryNodeData, DiagramNode } from '../../types'
+import type { SystemScopeNodeData, DiagramNode } from '../../types'
 
-type SystemBoundaryNodeType = Node<SystemBoundaryNodeData, 'systemBoundary'>
+type SystemScopeNodeType = Node<SystemScopeNodeData, 'systemScope'>
 
-// Need to add AlertDialog component
-export const SystemBoundaryNode = memo(function SystemBoundaryNode({
+export const SystemScopeNode = memo(function SystemScopeNode({
   id,
   data,
   selected,
-}: NodeProps<SystemBoundaryNodeType>) {
+}: NodeProps<SystemScopeNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
@@ -129,9 +128,9 @@ export const SystemBoundaryNode = memo(function SystemBoundaryNode({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete System Boundary</AlertDialogTitle>
+            <AlertDialogTitle>Delete System Scope</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this system boundary? Child nodes
+              Are you sure you want to delete this system scope? Child nodes
               will be converted to root nodes and preserved on the canvas.
             </AlertDialogDescription>
           </AlertDialogHeader>

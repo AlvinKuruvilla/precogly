@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { X, Trash2, Cog, Database, User, Shield, Box } from 'lucide-react'
+import { X, Trash2, Cog, Database, User, Server, Shield, Box } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -42,8 +42,9 @@ const nodeTypeConfig: Record<
   process: { label: 'Process', icon: Cog, color: 'text-blue-600' },
   datastore: { label: 'Data Store', icon: Database, color: 'text-purple-600' },
   actor: { label: 'Actor', icon: User, color: 'text-green-600' },
+  externalSystem: { label: 'External System', icon: Server, color: 'text-slate-600' },
   trustBoundary: { label: 'Trust Boundary', icon: Shield, color: 'text-orange-600' },
-  systemBoundary: { label: 'System Boundary', icon: Box, color: 'text-slate-600' },
+  systemScope: { label: 'System Scope', icon: Box, color: 'text-gray-600' },
 }
 
 export const NodeEditPanel = memo(function NodeEditPanel({
@@ -77,7 +78,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
     const nodes = getNodes() as DiagramNode[]
 
     // For boundary nodes, convert children to root nodes
-    if (node.type === 'trustBoundary' || node.type === 'systemBoundary') {
+    if (node.type === 'trustBoundary' || node.type === 'systemScope') {
       const boundaryPos = node.position
       const updatedNodes = nodes
         .filter((n) => n.id !== node.id)
@@ -327,14 +328,47 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           </>
         )}
 
-        {node.type === 'systemBoundary' && (
+        {node.type === 'externalSystem' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="node-systemType">System Type</Label>
+              <Select
+                value={(node.data as { systemType?: string }).systemType || ''}
+                onValueChange={(value) => updateNodeData({ systemType: value })}
+              >
+                <SelectTrigger id="node-systemType">
+                  <SelectValue placeholder="Select system type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="api">Third-party API</SelectItem>
+                  <SelectItem value="legacy">Legacy System</SelectItem>
+                  <SelectItem value="partner">Partner System</SelectItem>
+                  <SelectItem value="thirdParty">Third-party Service</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="node-vendor">Vendor</Label>
+              <Input
+                id="node-vendor"
+                value={(node.data as { vendor?: string }).vendor || ''}
+                onChange={(e) => updateNodeData({ vendor: e.target.value })}
+                placeholder="e.g., Stripe, Twilio..."
+              />
+            </div>
+          </>
+        )}
+
+        {node.type === 'systemScope' && (
           <>
             <div className="space-y-2">
               <Label>Technology</Label>
               <TechnologyCombobox
                 value={(node.data as { technology?: string }).technology || ''}
                 onChange={(value) => updateNodeData({ technology: value })}
-                filterNodeType="systemBoundary"
+                filterNodeType="systemScope"
                 placeholder="Select infrastructure..."
               />
             </div>
@@ -371,7 +405,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 {parentNode.type === 'trustBoundary' ? (
                   <Shield className="h-4 w-4 text-orange-600" />
                 ) : (
-                  <Box className="h-4 w-4 text-slate-600" />
+                  <Box className="h-4 w-4 text-gray-600" />
                 )}
                 <span className="text-sm font-medium">{parentNode.data.label}</span>
               </div>

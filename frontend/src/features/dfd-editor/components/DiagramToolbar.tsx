@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { User, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert } from 'lucide-react'
+import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -33,7 +33,14 @@ const nodeButtons: ToolbarButtonConfig[] = [
     label: 'Actor',
     icon: User,
     color: 'text-green-600 hover:bg-green-50',
-    description: 'External user or system that interacts with your application',
+    description: 'Human external entity: users, admins, customers',
+  },
+  {
+    type: 'externalSystem',
+    label: 'External System',
+    icon: Server,
+    color: 'text-slate-600 hover:bg-slate-50',
+    description: 'Non-human external entity: third-party APIs, partner systems',
   },
   {
     type: 'process',
@@ -57,11 +64,11 @@ const nodeButtons: ToolbarButtonConfig[] = [
     description: 'Security boundary with specific trust level (e.g., DMZ, VPC)',
   },
   {
-    type: 'systemBoundary',
-    label: 'System Boundary',
+    type: 'systemScope',
+    label: 'System Scope',
     icon: Box,
-    color: 'text-slate-600 hover:bg-slate-50',
-    description: 'Visual grouping for related components (no security semantics)',
+    color: 'text-gray-600 hover:bg-gray-50',
+    description: 'Visual grouping for related components (defines analysis scope)',
   },
 ]
 
@@ -86,14 +93,15 @@ export const DiagramToolbar = memo(function DiagramToolbar({
     // Default data based on node type
     const defaultData: Record<DiagramNodeType, Record<string, unknown>> = {
       actor: { label: 'New Actor' },
+      externalSystem: { label: 'New External System' },
       process: { label: 'New Process', technology: '' },
       datastore: { label: 'New Data Store', technology: '' },
       trustBoundary: { label: 'Trust Boundary', trustLevel: 'internal' },
-      systemBoundary: { label: 'System Boundary' },
+      systemScope: { label: 'System Scope' },
     }
 
     // Default style for boundary nodes
-    const defaultStyle = (type === 'trustBoundary' || type === 'systemBoundary')
+    const defaultStyle = (type === 'trustBoundary' || type === 'systemScope')
       ? { width: 300, height: 200 }
       : undefined
 

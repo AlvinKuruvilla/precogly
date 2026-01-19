@@ -363,6 +363,8 @@ export function useWorkspaceThreatAnalysis(
 
     // Debounce saves to backend (500ms delay)
     saveTimeoutRef.current = setTimeout(() => {
+      if (!threatModelId) return
+
       const workspaceData = {
         status: state.status,
         currentVersion: state.currentVersion,

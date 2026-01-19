@@ -3,8 +3,9 @@ export * from './nodes'
 import { ProcessNode } from './nodes/ProcessNode'
 import { DataStoreNode } from './nodes/DataStoreNode'
 import { ActorNode } from './nodes/ActorNode'
+import { ExternalSystemNode } from './nodes/ExternalSystemNode'
 import { TrustBoundaryNode } from './nodes/TrustBoundaryNode'
-import { SystemBoundaryNode } from './nodes/SystemBoundaryNode'
+import { SystemScopeNode } from './nodes/SystemScopeNode'
 
 // Edge components
 export * from './edges'
@@ -23,8 +24,9 @@ export const nodeTypes = {
   process: ProcessNode,
   datastore: DataStoreNode,
   actor: ActorNode,
+  externalSystem: ExternalSystemNode,
   trustBoundary: TrustBoundaryNode,
-  systemBoundary: SystemBoundaryNode,
+  systemScope: SystemScopeNode,
 } as const
 
 // Edge type registry for React Flow

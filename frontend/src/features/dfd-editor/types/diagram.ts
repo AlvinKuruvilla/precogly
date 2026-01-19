@@ -58,6 +58,11 @@ export interface ActorNodeData extends BaseNodeData {
   actorType?: 'user' | 'system' | 'external'
 }
 
+export interface ExternalSystemNodeData extends BaseNodeData {
+  systemType?: 'api' | 'legacy' | 'partner' | 'thirdParty' | 'other'
+  vendor?: string
+}
+
 export interface TrustBoundaryNodeData extends BaseNodeData {
   // Zone type for the trust boundary
   boundaryType?: TrustBoundaryType
@@ -67,7 +72,7 @@ export interface TrustBoundaryNodeData extends BaseNodeData {
   technology?: string
 }
 
-export interface SystemBoundaryNodeData extends BaseNodeData {
+export interface SystemScopeNodeData extends BaseNodeData {
   owner?: string
   classification?: string
 }
@@ -77,8 +82,9 @@ export type DiagramNodeData =
   | ProcessNodeData
   | DataStoreNodeData
   | ActorNodeData
+  | ExternalSystemNodeData
   | TrustBoundaryNodeData
-  | SystemBoundaryNodeData
+  | SystemScopeNodeData
 
 // Edge Data
 export interface DataFlowEdgeData {
@@ -169,14 +175,18 @@ export function isActorNode(node: DiagramNode): node is Node<ActorNodeData, 'act
   return node.type === 'actor'
 }
 
+export function isExternalSystemNode(node: DiagramNode): node is Node<ExternalSystemNodeData, 'externalSystem'> {
+  return node.type === 'externalSystem'
+}
+
 export function isTrustBoundaryNode(node: DiagramNode): node is Node<TrustBoundaryNodeData, 'trustBoundary'> {
   return node.type === 'trustBoundary'
 }
 
-export function isSystemBoundaryNode(node: DiagramNode): node is Node<SystemBoundaryNodeData, 'systemBoundary'> {
-  return node.type === 'systemBoundary'
+export function isSystemScopeNode(node: DiagramNode): node is Node<SystemScopeNodeData, 'systemScope'> {
+  return node.type === 'systemScope'
 }
 
 export function isBoundaryNode(node: DiagramNode): boolean {
-  return node.type === 'trustBoundary' || node.type === 'systemBoundary'
+  return node.type === 'trustBoundary' || node.type === 'systemScope'
 }
