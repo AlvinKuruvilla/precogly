@@ -425,9 +425,13 @@ class MagicLinkAccessView(APIView):
         # Compute summary stats
         stats = self._compute_threat_model_stats(link.threat_model)
 
+        # Get threat analysis data
+        threat_analysis = self._get_threat_analysis_data(link.threat_model)
+
         return Response({
             "threat_model": serializer.data,
             "stats": stats,
+            "threat_analysis": threat_analysis,
             "read_only": True,
             "expires_at": link.expires_at,
             "is_authenticated": is_authenticated,
@@ -443,6 +447,102 @@ class MagicLinkAccessView(APIView):
         from .threat_registry import compute_threat_model_stats_from_canvas
 
         return compute_threat_model_stats_from_canvas(threat_model)
+
+    def _get_threat_analysis_data(self, threat_model):
+        """
+        Get threat analysis data for the threat model.
+        Returns threats with their countermeasures, organized by component.
+        Same format as ThreatModelViewSet.threats() action.
+        """
+        from apps.threats.models import ComponentInstanceThreat
+
+        # Get all DFDs for this threat model
+        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+        dfds = [assoc.dfd for assoc in dfd_associations]
+
+        # Build node_id -> component_id mapping from all DFDs
+        node_component_map = {}
+        for dfd in dfds:
+            canvas_data = dfd.canvas_data or {}
+            for node in canvas_data.get("nodes", []):
+                node_id = node.get("id")
+                component_id = node.get("data", {}).get("component_id")
+                if node_id and component_id:
+                    node_component_map[node_id] = {
+                        "component_id": component_id,
+                        "dfd_id": str(dfd.id),
+                        "dfd_name": dfd.name,
+                    }
+
+        # Get all component IDs
+        component_ids = [v["component_id"] for v in node_component_map.values()]
+
+        if not component_ids:
+            return {
+                "threat_model_id": str(threat_model.id),
+                "threats": [],
+                "total_count": 0,
+                "node_component_map": node_component_map,
+            }
+
+        # Fetch all threats for these components
+        threats = ComponentInstanceThreat.objects.filter(
+            component_id__in=component_ids
+        ).select_related(
+            "component", "threat_library"
+        ).prefetch_related(
+            "countermeasures__countermeasure_library",
+            "countermeasures__assigned_owner",
+            "countermeasures__verified_by",
+        )
+
+        # Build response with node mapping
+        result = []
+        for threat in threats:
+            # Find which node this component corresponds to
+            node_info = None
+            for node_id, info in node_component_map.items():
+                if info["component_id"] == threat.component_id:
+                    node_info = {"node_id": node_id, **info}
+                    break
+
+            threat_data = {
+                "id": threat.id,
+                "component_id": threat.component_id,
+                "component_name": threat.component.name if threat.component else None,
+                "node_id": node_info["node_id"] if node_info else None,
+                "dfd_id": node_info["dfd_id"] if node_info else None,
+                "dfd_name": node_info["dfd_name"] if node_info else None,
+                "threat_library_id": threat.threat_library_id,
+                "threat_name": threat.threat_library.name if threat.threat_library else None,
+                "threat_description": threat.threat_library.description if threat.threat_library else None,
+                "stride_category": threat.threat_library.stride_category if threat.threat_library else None,
+                "inherent_severity": threat.inherent_severity,
+                "residual_severity": threat.residual_severity,
+                "status": threat.status,
+                "justification": threat.justification,
+                "countermeasures": [
+                    {
+                        "id": cm.id,
+                        "countermeasure_library_id": cm.countermeasure_library_id,
+                        "countermeasure_name": cm.countermeasure_library.name if cm.countermeasure_library else None,
+                        "control_type": cm.countermeasure_library.control_type if cm.countermeasure_library else None,
+                        "status": cm.status,
+                        "evidence_url": cm.evidence_url,
+                        "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                        "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                    }
+                    for cm in threat.countermeasures.all()
+                ],
+            }
+            result.append(threat_data)
+
+        return {
+            "threat_model_id": str(threat_model.id),
+            "threats": result,
+            "total_count": len(result),
+            "node_component_map": node_component_map,
+        }
 
 
 class TeamInvitationViewSet(viewsets.ModelViewSet):

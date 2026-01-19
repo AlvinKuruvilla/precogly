@@ -168,9 +168,47 @@ export interface ThreatModelStats {
   }
 }
 
+// Threat Analysis types for magic link sharing
+export interface SharedCountermeasure {
+  id: number
+  countermeasureLibraryId: number
+  countermeasureName: string | null
+  controlType: string | null
+  status: 'gap' | 'planned' | 'verified' | 'waived'
+  evidenceUrl: string
+  assignedOwnerEmail: string | null
+  verifiedByEmail: string | null
+}
+
+export interface SharedThreat {
+  id: number
+  componentId: number
+  componentName: string | null
+  nodeId: string | null
+  dfdId: string | null
+  dfdName: string | null
+  threatLibraryId: number
+  threatName: string | null
+  threatDescription: string | null
+  strideCategory: string | null
+  inherentSeverity: string
+  residualSeverity: string
+  status: 'open' | 'mitigated' | 'accepted'
+  justification: string
+  countermeasures: SharedCountermeasure[]
+}
+
+export interface ThreatAnalysisData {
+  threatModelId: string
+  threats: SharedThreat[]
+  totalCount: number
+  nodeComponentMap: Record<string, { componentId: number; dfdId: string; dfdName: string }>
+}
+
 export interface MagicLinkAccessResponse {
   threatModel: unknown // ThreatModel type from threat-models
   stats: ThreatModelStats
+  threatAnalysis: ThreatAnalysisData
   readOnly: boolean
   expiresAt: string
   isAuthenticated: boolean
