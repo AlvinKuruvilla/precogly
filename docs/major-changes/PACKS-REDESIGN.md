@@ -437,6 +437,149 @@ canvas_data:
 
 This keeps Precogly modular, scalable, and realistic.
 
+---
+
+# UI/UX CHANGES
+
+## Navigation Restructure
+
+**Current navigation:**
+```
+Dashboard | Threat Models | Packs | Frameworks | Libraries ▾
+                                                 ├── Tech Components
+                                                 ├── Threats
+                                                 ├── Countermeasures
+                                                 └── DFD Templates
+```
+
+**Problem:** Three separate entry points (Packs, Frameworks, Libraries) with overlapping concerns. Compliance frameworks appear both as packs and as a separate Frameworks tab.
+
+**New navigation:**
+```
+Dashboard | Threat Models | Libraries
+                           ├── Catalog    → Browse & install packs
+                           └── Installed  → Manage installed packs
+```
+
+## Libraries → Catalog
+
+The Catalog is the "store" for browsing and installing packs.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Libraries > Catalog                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ 🔍 Search packs...                    [Type ▾] [Industry ▾] │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐    │
+│ │ AWS             │ │ Azure           │ │ Banking         │    │
+│ │ v1.0.0     FREE │ │ v1.0.0     FREE │ │ v1.0.0     FREE │    │
+│ │                 │ │                 │ │                 │    │
+│ │ Amazon Web...   │ │ Microsoft...    │ │ Banking and...  │    │
+│ │                 │ │                 │ │                 │    │
+│ │ [technology]    │ │ [technology]    │ │ [industry]      │    │
+│ │ [aws] [cloud]   │ │ [azure] [cloud] │ │ [banking]       │    │
+│ │                 │ │                 │ │                 │    │
+│ │ 👁 Preview      │ │ 👁 Preview      │ │ 👁 Preview      │    │
+│ │ ⬇ Install      │ │ ⬇ Install      │ │ ⬇ Install      │    │
+│ └─────────────────┘ └─────────────────┘ └─────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Pack types shown in Catalog:**
+- Technology packs (AWS, Azure, GCP, Generic)
+- Industry packs (Banking, Healthcare)
+- Threat packs (Base STRIDE)
+- Framework definition packs (PCI-DSS, DORA, ASVS) — defines requirements only
+
+## Libraries → Installed
+
+The Installed view is **pack-centric**. Users see their installed packs and can expand to view contents.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Libraries > Installed                                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ▶ AWS Pack                                        v1.0.0    │ │
+│ │   Technology pack                      [Update] [Uninstall] │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ▼ Banking Pack                                    v1.0.0    │ │
+│ │   Industry pack                                 [Uninstall] │ │
+│ │ ┌─────────────────────────────────────────────────────────┐ │ │
+│ │ │                                                         │ │ │
+│ │ │  Components          8    [View all →]                  │ │ │
+│ │ │  Threats            12    [View all →]                  │ │ │
+│ │ │  Countermeasures    24    [View all →]                  │ │ │
+│ │ │  Templates           4    [View all →]                  │ │ │
+│ │ │                                                         │ │ │
+│ │ │  Framework Overlays                                     │ │ │
+│ │ │  ┌──────────┐ ┌──────────┐                             │ │ │
+│ │ │  │ PCI-DSS  │ │ DORA     │                             │ │ │
+│ │ │  │ ✓ Active │ │ ✓ Active │                             │ │ │
+│ │ │  └──────────┘ └──────────┘                             │ │ │
+│ │ │                                                         │ │ │
+│ │ └─────────────────────────────────────────────────────────┘ │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ▶ Base STRIDE                                     v1.0.0    │ │
+│ │   Threat pack                                   [Uninstall] │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ▶ PCI-DSS Framework                               v4.0.1    │ │
+│ │   Framework definitions                         [Uninstall] │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Expanded pack shows:**
+- Count of each item type (components, threats, countermeasures, templates)
+- "View all →" links to filtered detail views
+- Active framework overlays (which compliance mappings are enabled)
+
+## What This Removes
+
+| Removed | Replacement |
+|---------|-------------|
+| **Packs** tab | Libraries → Catalog |
+| **Frameworks** tab | Framework packs shown in Catalog; active overlays shown per-pack in Installed |
+| **Libraries** dropdown (Components, Threats, etc.) | Expand pack in Installed → "View all →" |
+
+## Detail Views (accessed via "View all →")
+
+When user clicks "View all →" on Components within an expanded pack:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Libraries > Installed > Banking Pack > Components               │
+├─────────────────────────────────────────────────────────────────┤
+│ 🔍 Search components...                                         │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Core Banking System                              [database] │ │
+│ │ Central system for account management                       │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Payment Gateway                                   [process] │ │
+│ │ Handles payment processing                                  │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Card Data Vault                                  [datastore]│ │
+│ │ Secure storage for card data                                │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 # TECHNICAL IMPLEMENTATION (FOR AI CODING AGENTS)
 
 This section provides implementation details for AI coding agents. Breaking changes are acceptable as there is no production data yet.
