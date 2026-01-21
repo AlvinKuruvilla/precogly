@@ -16,11 +16,11 @@ import { TeamSwitcher } from './TeamSwitcher'
 const navItems = [
   { name: 'Dashboard', href: '/' },
   { name: 'Threat Models', href: '/threat-models' },
-  { name: 'Packs', href: '/packs' },
-  { name: 'Frameworks', href: '/frameworks' },
+  { name: 'Libraries', href: '/libraries' },
 ]
 
-const libraryItems = [
+// Browse items in Libraries dropdown (for quick access to specific library views)
+const browseItems = [
   { name: 'Tech Components', href: '/tech-components' },
   { name: 'Threats', href: '/threat-libraries' },
   { name: 'Countermeasures', href: '/countermeasures' },
@@ -80,7 +80,8 @@ export function Navbar() {
                 className={cn(
                   'px-3 py-2 text-sm font-medium rounded-md transition-colors',
                   'hover:bg-accent hover:text-accent-foreground',
-                  location.pathname === item.href
+                  location.pathname === item.href ||
+                    (item.href === '/libraries' && location.pathname.startsWith('/libraries'))
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground'
                 )}
@@ -88,24 +89,24 @@ export function Navbar() {
                 {item.name}
               </Link>
             ))}
-            {/* Libraries Dropdown */}
+            {/* Browse Dropdown - quick access to specific library item views */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   className={cn(
                     'flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md transition-colors',
                     'hover:bg-accent hover:text-accent-foreground',
-                    libraryItems.some((item) => location.pathname === item.href)
+                    browseItems.some((item) => location.pathname === item.href)
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground'
                   )}
                 >
-                  Libraries
+                  Browse
                   <ChevronDown className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {libraryItems.map((item) => (
+                {browseItems.map((item) => (
                   <DropdownMenuItem key={item.href} asChild>
                     <Link to={item.href}>{item.name}</Link>
                   </DropdownMenuItem>
@@ -135,9 +136,9 @@ export function Navbar() {
               ))}
               <DropdownMenuSeparator />
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                Libraries
+                Browse
               </div>
-              {libraryItems.map((item) => (
+              {browseItems.map((item) => (
                 <DropdownMenuItem key={item.href} asChild>
                   <Link to={item.href}>{item.name}</Link>
                 </DropdownMenuItem>

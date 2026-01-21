@@ -29,13 +29,14 @@ class StandardFrameworkListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StandardFramework
-        fields = ["id", "name", "description"]
+        fields = ["id", "name", "description", "source_pack"]
 
 
 class StandardRequirementSerializer(serializers.ModelSerializer):
     """Serializer for StandardRequirement model."""
 
     framework_name = serializers.CharField(source="framework.name", read_only=True)
+    source_pack = serializers.IntegerField(source="framework.source_pack_id", read_only=True)
 
     class Meta:
         model = StandardRequirement
@@ -43,13 +44,14 @@ class StandardRequirementSerializer(serializers.ModelSerializer):
             "id",
             "framework",
             "framework_name",
+            "source_pack",
             "section_code",
             "description",
             "parent",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "framework_name"]
+        read_only_fields = ["id", "created_at", "updated_at", "framework_name", "source_pack"]
 
 
 class CountermeasureLibraryStandardSerializer(serializers.ModelSerializer):

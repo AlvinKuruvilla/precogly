@@ -522,3 +522,89 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
             organization_id__in=org_ids,
             is_deleted=False,
         ).select_related("source_pack")
+
+    @action(detail=True, methods=["get"])
+    def resolved(self, request, pk=None):
+        """
+        Get template with resolved component_refs.
+
+        Returns the template's canvas_data with component_ref values resolved
+        to actual component_library_id values for nodes that reference components.
+        """
+        from apps.systems.models import ComponentLibrary
+
+        template = self.get_object()
+        canvas_data = template.canvas_data or {}
+
+        # Get the source pack for reference resolution
+        source_pack = template.source_pack
+
+        # Clone the canvas_data to avoid mutating the original
+        resolved_data = {
+            "nodes": [],
+            "edges": canvas_data.get("edges", []),
+        }
+
+        # Track resolution results
+        resolution_results = []
+
+        for node in canvas_data.get("nodes", []):
+            resolved_node = {**node}
+            node_data = node.get("data", {})
+            component_ref = node_data.get("component_ref")
+
+            if component_ref:
+                # Resolve the component_ref to a component_library_id
+                component_library = None
+
+                if source_pack:
+                    # Try to resolve within the source pack first
+                    qualified_slug = f"{source_pack.slug}/{component_ref}"
+                    component_library = ComponentLibrary.objects.filter(
+                        qualified_slug=qualified_slug,
+                        is_deleted=False,
+                    ).first()
+
+                if not component_library and "/" in component_ref:
+                    # Cross-pack reference
+                    component_library = ComponentLibrary.objects.filter(
+                        qualified_slug=component_ref,
+                        is_deleted=False,
+                    ).first()
+
+                if component_library:
+                    # Add component_library_id to the node data
+                    resolved_node["data"] = {
+                        **node_data,
+                        "component_library_id": component_library.id,
+                        "component_library_name": component_library.name,
+                    }
+                    resolution_results.append({
+                        "node_id": node.get("id"),
+                        "component_ref": component_ref,
+                        "resolved": True,
+                        "component_library_id": component_library.id,
+                        "component_library_name": component_library.name,
+                    })
+                else:
+                    resolution_results.append({
+                        "node_id": node.get("id"),
+                        "component_ref": component_ref,
+                        "resolved": False,
+                        "error": f"Component not found: {component_ref}",
+                    })
+
+            resolved_data["nodes"].append(resolved_node)
+
+        return Response({
+            "id": template.id,
+            "name": template.name,
+            "description": template.description,
+            "category": template.category,
+            "diagramType": template.diagram_type,
+            "canvasData": resolved_data,
+            "sourcePackId": source_pack.id if source_pack else None,
+            "sourcePackName": source_pack.name if source_pack else None,
+            "resolutionResults": resolution_results,
+            "allResolved": all(r.get("resolved", False) for r in resolution_results if r),
+        })

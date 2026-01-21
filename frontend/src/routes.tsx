@@ -13,6 +13,7 @@ import {
   DFDTemplates,
   Packs,
   InstalledPacks,
+  Libraries,
   DFDEditor,
   Login,
   Signup,
@@ -67,9 +68,13 @@ export const router = createBrowserRouter([
       { path: 'threat-models/new', element: <CreateThreatModel /> },
       { path: 'threat-models/:id', element: <ThreatModelDetail /> },
       { path: 'threat-models/:id/diagrams/:diagramId', element: <DFDEditor /> },
-      { path: 'frameworks', element: <Frameworks /> },
-      { path: 'packs', element: <Packs /> },
-      { path: 'packs/installed', element: <InstalledPacks /> },
+      // New unified Libraries page
+      { path: 'libraries', element: <Libraries /> },
+      // Legacy routes - redirect to new Libraries page
+      { path: 'frameworks', element: <Navigate to="/libraries" replace /> },
+      { path: 'packs', element: <Navigate to="/libraries" replace /> },
+      { path: 'packs/installed', element: <Navigate to="/libraries?tab=installed" replace /> },
+      // Keep individual library pages for now (accessed via Libraries page)
       { path: 'tech-components', element: <TechComponents /> },
       { path: 'threat-libraries', element: <ThreatLibraries /> },
       { path: 'countermeasures', element: <Countermeasures /> },

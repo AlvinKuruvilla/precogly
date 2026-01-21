@@ -20,6 +20,7 @@ class StandardFrameworkViewSet(viewsets.ModelViewSet):
 
     queryset = StandardFramework.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "issuer", "description"]
     ordering_fields = ["name", "version"]
@@ -38,6 +39,7 @@ class StandardRequirementViewSet(viewsets.ModelViewSet):
     queryset = StandardRequirement.objects.select_related("framework", "parent").all()
     serializer_class = StandardRequirementSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["framework"]
     search_fields = ["section_code", "description"]

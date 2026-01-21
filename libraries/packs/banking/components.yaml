@@ -1,0 +1,67 @@
+# Banking Components - Industry-specific
+components:
+  - slug: core-banking
+    name: "Core Banking System"
+    category: process
+    component_type: banking-platform
+    description: "Central system for account management"
+
+  - slug: swift-gateway
+    name: "SWIFT Gateway"
+    category: external
+    component_type: payment-network
+    description: "International payment messaging network"
+
+  - slug: payment-gateway
+    name: "Payment Gateway"
+    category: process
+    component_type: payment-processing
+    description: "Handles payment processing"
+
+  - slug: fraud-detection
+    name: "Fraud Detection Engine"
+    category: process
+    component_type: security
+    description: "Real-time fraud detection and prevention"
+
+  - slug: customer-database
+    name: "Customer Database"
+    category: datastore
+    component_type: database
+    description: "Customer information and KYC data"
+
+  - slug: transaction-database
+    name: "Transaction Database"
+    category: datastore
+    component_type: database
+    description: "Transaction records and history"
+
+  - slug: mobile-app
+    name: "Mobile Banking App"
+    category: external
+    component_type: mobile-application
+    description: "Customer-facing mobile application"
+
+  - slug: internet-banking
+    name: "Internet Banking Portal"
+    category: process
+    component_type: web-application
+    description: "Customer-facing web portal"
+
+  - slug: card-vault
+    name: "Card Data Vault"
+    category: datastore
+    component_type: secure-storage
+    description: "PCI-compliant card data storage"
+
+  - slug: kyc-service
+    name: "KYC Service"
+    category: process
+    component_type: compliance
+    description: "Know Your Customer verification"
+
+  - slug: aml-service
+    name: "AML Service"
+    category: process
+    component_type: compliance
+    description: "Anti-Money Laundering screening"

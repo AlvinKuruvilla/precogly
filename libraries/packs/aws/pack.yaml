@@ -1,0 +1,25 @@
+# =============================================================================
+# AWS Technologies Pack
+# =============================================================================
+# This pack provides AWS service components for threat modeling.
+# Components are "stubs" - they define what services exist, not what can go wrong.
+# Threats should be added via separate threat packs or by extending components.
+# =============================================================================
+
+pack:
+  slug: aws
+  name: "AWS Technologies"
+  description: "Amazon Web Services cloud components for threat modeling diagrams"
+  version: "2.0.0"
+  author: "Precogly Team"
+  pack_type: technology
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - aws
+    - cloud
+    - infrastructure
+  repository_url: "https://github.com/precogly/precogly"
+  documentation_url: "https://docs.aws.amazon.com/"

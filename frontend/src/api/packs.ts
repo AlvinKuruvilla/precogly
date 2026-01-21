@@ -103,6 +103,12 @@ export interface PackPreviewCountermeasure {
   description: string
 }
 
+export interface PackPreviewRequirement {
+  sectionCode: string
+  description: string
+  frameworkName: string
+}
+
 export interface PackPreviewResponse {
   pack: {
     slug: string
@@ -118,6 +124,35 @@ export interface PackPreviewResponse {
   components: PackPreviewComponent[]
   threats: PackPreviewThreat[]
   countermeasures: PackPreviewCountermeasure[]
+  requirements: PackPreviewRequirement[]
+}
+
+// Types for pack overlays
+export interface OverlayInfo {
+  frameworkId: string
+  frameworkName: string
+  mappingCount: number
+  frameworkExists: boolean
+}
+
+export interface AvailableOverlaysResponse {
+  overlays: OverlayInfo[]
+  total: number
+  availableCount: number
+}
+
+// Types for active overlays (installed packs)
+export interface ActiveOverlayInfo {
+  frameworkId: string
+  frameworkName: string
+  mappingCount: number
+}
+
+export interface ActiveOverlaysResponse {
+  packId: number
+  packName: string
+  overlays: ActiveOverlayInfo[]
+  total: number
 }
 
 // Build query string from filters
@@ -244,8 +279,9 @@ export function useUninstallPack() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (installationId: number) =>
-      api.delete<{ message: string }>(`/installed-packs/${installationId}/`),
+    mutationFn: async (installationId: number) => {
+      return api.delete<{ message: string }>(`/installed-packs/${installationId}/`)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packKeys.all })
       queryClient.invalidateQueries({ queryKey: packKeys.installed })
@@ -290,17 +326,65 @@ export function useSyncPacksFromSource() {
 
 /**
  * Import a single pack from the libraries folder by slug.
+ * Optionally specify which framework overlays to load.
  */
 export function useImportSinglePack() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ slug, force = false }: { slug: string; force?: boolean }) =>
-      api.post<ImportResult>('/packs/import_single/', { slug, force }),
+    mutationFn: ({
+      slug,
+      force = false,
+      selectedOverlays,
+    }: {
+      slug: string
+      force?: boolean
+      selectedOverlays?: string[] | null
+    }) =>
+      api.post<ImportResult>('/packs/import_single/', {
+        slug,
+        force,
+        selectedOverlays,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packKeys.all })
+      queryClient.invalidateQueries({ queryKey: packKeys.installed })
       queryClient.invalidateQueries({ queryKey: packKeys.availableFromSource })
     },
+  })
+}
+
+/**
+ * Fetch available framework overlays for a pack before installation.
+ */
+export function usePackOverlays(slug: string | null) {
+  return useQuery({
+    queryKey: [...packKeys.all, 'overlays', slug],
+    queryFn: () =>
+      api.get<AvailableOverlaysResponse>(
+        `/packs/available_overlays/?slug=${slug}`
+      ),
+    enabled: slug !== null,
+  })
+}
+
+/**
+ * Fetch active framework overlays for an installed pack.
+ */
+export function useActiveOverlays(installationId: number | null) {
+  return useQuery({
+    queryKey: [...packKeys.installed, 'active-overlays', installationId],
+    queryFn: async () => {
+      try {
+        return await api.get<ActiveOverlaysResponse>(
+          `/installed-packs/${installationId}/active_overlays/`
+        )
+      } catch (error) {
+        // Return empty overlays if installation doesn't exist (e.g., after delete)
+        return { packId: installationId, packName: '', overlays: [], total: 0 }
+      }
+    },
+    enabled: installationId !== null,
   })
 }
 

@@ -2,10 +2,12 @@
  * Tech Components library page.
  */
 
-import { Search, Server } from 'lucide-react'
-import { useState } from 'react'
+import { Search, Server, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -20,13 +22,34 @@ import { useComponentLibraries } from '@/api/libraries'
 export function TechComponents() {
   const { data: components, isLoading } = useComponentLibraries()
   const [search, setSearch] = useState('')
+  const [searchParams] = useSearchParams()
 
-  const filteredComponents = components?.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.category.toLowerCase().includes(search.toLowerCase()) ||
-      c.provider?.toLowerCase().includes(search.toLowerCase())
-  )
+  // Get pack filter from URL query params
+  const packIdFilter = searchParams.get('packId')
+  const packNameFilter = searchParams.get('packName')
+  const packId = packIdFilter ? parseInt(packIdFilter, 10) : null
+
+  const filteredComponents = useMemo(() => {
+    let result = components ?? []
+
+    // Filter by pack if specified
+    if (packId !== null) {
+      result = result.filter((c) => c.sourcePack === packId)
+    }
+
+    // Filter by search
+    if (search) {
+      const searchLower = search.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(searchLower) ||
+          c.category.toLowerCase().includes(searchLower) ||
+          c.provider?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return result
+  }, [components, packId, search])
 
   return (
     <div className="space-y-6">
@@ -37,6 +60,21 @@ export function TechComponents() {
           Browse technology components like databases, servers, and cloud services.
         </p>
       </div>
+
+      {/* Pack Filter Banner */}
+      {packId !== null && packNameFilter && (
+        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          <p className="text-sm">
+            Showing components from <strong>{packNameFilter}</strong>
+          </p>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/tech-components">
+              <X className="mr-1 h-4 w-4" />
+              Clear filter
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm">

@@ -1,0 +1,90 @@
+framework: soc2-2017
+
+mappings:
+  # CC6.1 - Logical and physical access controls
+  - countermeasure: access-control-enforcement
+    requirements:
+      - "CC6.1"
+    sufficiency: full
+
+  - countermeasure: multi-factor-authentication
+    requirements:
+      - "CC6.1"
+    sufficiency: full
+
+  - countermeasure: network-segmentation
+    requirements:
+      - "CC6.1"
+    sufficiency: partial
+
+  - countermeasure: encryption-at-rest
+    requirements:
+      - "CC6.1"
+    sufficiency: partial
+
+  - countermeasure: secrets-management
+    requirements:
+      - "CC6.1"
+    sufficiency: partial
+
+  - countermeasure: container-hardening
+    requirements:
+      - "CC6.1"
+    sufficiency: partial
+
+  # CC6.2 - User registration and authorization
+  - countermeasure: principle-of-least-privilege
+    requirements:
+      - "CC6.2"
+    sufficiency: full
+
+  - countermeasure: regular-access-reviews
+    requirements:
+      - "CC6.2"
+    sufficiency: full
+
+  - countermeasure: credential-rotation
+    requirements:
+      - "CC6.2"
+    sufficiency: partial
+
+  - countermeasure: iam-policy-review
+    requirements:
+      - "CC6.2"
+    sufficiency: partial
+
+  - countermeasure: background-checks
+    requirements:
+      - "CC6.2"
+    sufficiency: partial
+
+  # CC7.2 - System monitoring
+  - countermeasure: comprehensive-audit-logging
+    requirements:
+      - "CC7.2"
+    sufficiency: full
+
+  - countermeasure: centralized-logging
+    requirements:
+      - "CC7.2"
+    sufficiency: full
+
+  - countermeasure: log-integrity-monitoring
+    requirements:
+      - "CC7.2"
+    sufficiency: partial
+
+  - countermeasure: user-activity-monitoring
+    requirements:
+      - "CC7.2"
+    sufficiency: partial
+
+  - countermeasure: resource-monitoring
+    requirements:
+      - "CC7.2"
+    sufficiency: partial
+
+  - countermeasure: configuration-drift-detection
+    requirements:
+      - "CC7.2"
+    sufficiency: partial

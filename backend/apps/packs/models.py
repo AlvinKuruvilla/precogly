@@ -229,3 +229,45 @@ class LibraryPackDependency(TimestampedModel):
         constraint = f" {self.version_constraint}" if self.version_constraint else ""
         optional = " (optional)" if self.is_optional else ""
         return f"{self.pack.slug} -> {self.depends_on_pack.slug}{constraint}{optional}"
+
+
+class PendingFrameworkOverlay(TimestampedModel):
+    """
+    Stores framework overlays that couldn't be applied because the framework
+    wasn't installed when the pack was imported.
+
+    When a framework is later installed, pending overlays for that framework
+    can be activated automatically.
+    """
+
+    pack = models.ForeignKey(
+        LibraryPack,
+        on_delete=models.CASCADE,
+        related_name="pending_overlays",
+        help_text="The pack that contains this overlay",
+    )
+    framework_slug = models.CharField(
+        max_length=100,
+        help_text="The slug of the framework this overlay maps to",
+    )
+    overlay_file_name = models.CharField(
+        max_length=255,
+        help_text="Name of the overlay file (e.g., 'countermeasures-owasp-2021.yaml')",
+    )
+    overlay_data = models.JSONField(
+        default=dict,
+        help_text="The raw overlay data from the YAML file",
+    )
+    mapping_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of mappings in this overlay",
+    )
+
+    class Meta:
+        unique_together = ["pack", "framework_slug"]
+        verbose_name = "Pending Framework Overlay"
+        verbose_name_plural = "Pending Framework Overlays"
+        ordering = ["pack", "framework_slug"]
+
+    def __str__(self):
+        return f"{self.pack.slug} -> {self.framework_slug} (pending)"

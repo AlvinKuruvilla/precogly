@@ -1,38 +1,6 @@
-# =============================================================================
-# GCP Technologies Pack
-# =============================================================================
-# This pack provides Google Cloud Platform service components for threat modeling.
-# Components are "stubs" - they define what services exist, not what can go wrong.
-# Threats should be added via separate threat packs or by extending components.
-# =============================================================================
-
-pack:
-  slug: gcp-technologies
-  name: "GCP Technologies"
-  description: "Google Cloud Platform components for threat modeling diagrams"
-  version: "1.0.0"
-  author: "Precogly Team"
-  pack_type: technology
-  tier: free
-  source: official
-  industries:
-    - all
-  tags:
-    - gcp
-    - google
-    - cloud
-    - infrastructure
-  repository_url: "https://github.com/precogly/precogly"
-  documentation_url: "https://cloud.google.com/docs"
-
-# =============================================================================
-# COMPONENTS
-# =============================================================================
-
+# GCP Components
 components:
-  # ---------------------------------------------------------------------------
   # DATABASES
-  # ---------------------------------------------------------------------------
   - slug: cloudsql-postgresql
     name: "GCP Cloud SQL (PostgreSQL)"
     category: datastore
@@ -75,9 +43,7 @@ components:
     component_type: database
     description: "NoSQL document database (legacy mode)"
 
-  # ---------------------------------------------------------------------------
   # STORAGE
-  # ---------------------------------------------------------------------------
   - slug: cloud-storage
     name: "GCP Cloud Storage"
     category: datastore
@@ -96,9 +62,7 @@ components:
     component_type: storage
     description: "Block storage for VMs"
 
-  # ---------------------------------------------------------------------------
   # CACHE
-  # ---------------------------------------------------------------------------
   - slug: memorystore-redis
     name: "GCP Memorystore (Redis)"
     category: datastore
@@ -111,9 +75,7 @@ components:
     component_type: cache
     description: "Managed Memcached in-memory cache"
 
-  # ---------------------------------------------------------------------------
   # COMPUTE
-  # ---------------------------------------------------------------------------
   - slug: cloud-functions
     name: "GCP Cloud Functions"
     category: process
@@ -150,9 +112,7 @@ components:
     component_type: compute
     description: "CI/CD build service"
 
-  # ---------------------------------------------------------------------------
   # MESSAGING
-  # ---------------------------------------------------------------------------
   - slug: pubsub
     name: "GCP Pub/Sub"
     category: process
@@ -171,9 +131,7 @@ components:
     component_type: messaging
     description: "Stream and batch data processing"
 
-  # ---------------------------------------------------------------------------
   # NETWORKING
-  # ---------------------------------------------------------------------------
   - slug: vpc
     name: "GCP VPC"
     category: process
@@ -222,9 +180,7 @@ components:
     component_type: networking
     description: "Network Address Translation"
 
-  # ---------------------------------------------------------------------------
   # SECURITY
-  # ---------------------------------------------------------------------------
   - slug: cloud-armor
     name: "GCP Cloud Armor"
     category: process
@@ -273,9 +229,7 @@ components:
     component_type: security
     description: "Zero-trust access to applications"
 
-  # ---------------------------------------------------------------------------
   # AUTH / IDENTITY
-  # ---------------------------------------------------------------------------
   - slug: identity-platform
     name: "GCP Identity Platform"
     category: process
@@ -294,9 +248,7 @@ components:
     component_type: auth
     description: "Kubernetes workload identity federation"
 
-  # ---------------------------------------------------------------------------
   # MONITORING
-  # ---------------------------------------------------------------------------
   - slug: cloud-monitoring
     name: "GCP Cloud Monitoring"
     category: process
@@ -321,9 +273,7 @@ components:
     component_type: monitoring
     description: "Application performance profiling"
 
-  # ---------------------------------------------------------------------------
   # API MANAGEMENT
-  # ---------------------------------------------------------------------------
   - slug: api-gateway
     name: "GCP API Gateway"
     category: process

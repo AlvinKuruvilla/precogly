@@ -1,0 +1,26 @@
+threats:
+  # S3 Threats
+  - id: s3-public-exposure
+    name: S3 Bucket Public Exposure
+    description: S3 bucket is publicly accessible, exposing sensitive data to unauthorized users
+    stride_category: information_disclosure
+    source: custom
+
+  - id: s3-data-tampering
+    name: S3 Object Tampering
+    description: Unauthorized modification of S3 objects due to misconfigured permissions
+    stride_category: tampering
+    source: custom
+
+  # Lambda Threats
+  - id: lambda-injection
+    name: Lambda Code Injection
+    description: Malicious input exploits Lambda function leading to code execution
+    stride_category: tampering
+    source: custom
+
+  - id: lambda-privilege-escalation
+    name: Lambda Role Over-Privileged
+    description: Lambda execution role has excessive permissions enabling privilege escalation
+    stride_category: elevation_of_privilege
+    source: custom

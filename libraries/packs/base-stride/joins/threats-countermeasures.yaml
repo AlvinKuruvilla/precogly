@@ -1,0 +1,176 @@
+# Threat to Countermeasure Mappings
+mappings:
+  # SPOOFING
+  - threat: credential-theft
+    countermeasures:
+      - multi-factor-authentication
+      - credential-rotation
+      - phishing-awareness-training
+
+  - threat: session-hijacking
+    countermeasures:
+      - secure-session-management
+      - session-binding
+      - https-only
+
+  - threat: api-key-compromise
+    countermeasures:
+      - secrets-management
+      - api-key-rotation
+      - key-scope-limitation
+
+  - threat: man-in-the-middle
+    countermeasures:
+      - tls-encryption
+      - certificate-pinning
+      - mutual-tls
+
+  - threat: service-impersonation
+    countermeasures:
+      - service-authentication
+      - service-mesh
+
+  # TAMPERING
+  - threat: data-tampering
+    countermeasures:
+      - data-integrity-checks
+      - immutable-audit-logs
+      - database-access-controls
+
+  - threat: code-injection
+    countermeasures:
+      - input-validation
+      - parameterized-queries
+      - output-encoding
+      - content-security-policy
+
+  - threat: configuration-tampering
+    countermeasures:
+      - configuration-management
+      - configuration-drift-detection
+      - immutable-infrastructure
+
+  - threat: message-tampering
+    countermeasures:
+      - message-signing
+      - message-encryption
+
+  - threat: binary-tampering
+    countermeasures:
+      - image-signing
+      - binary-verification
+      - supply-chain-security
+
+  # REPUDIATION
+  - threat: action-repudiation
+    countermeasures:
+      - comprehensive-audit-logging
+      - tamper-evident-logs
+      - log-integrity-monitoring
+
+  - threat: transaction-repudiation
+    countermeasures:
+      - digital-signatures
+      - transaction-receipts
+      - multi-party-approval
+
+  - threat: log-deletion
+    countermeasures:
+      - centralized-logging
+      - log-replication
+      - write-once-storage
+
+  # INFORMATION DISCLOSURE
+  - threat: data-breach
+    countermeasures:
+      - encryption-at-rest
+      - encryption-in-transit
+      - data-classification
+      - data-loss-prevention
+
+  - threat: sensitive-data-exposure
+    countermeasures:
+      - log-sanitization
+      - error-handling
+      - debug-mode-controls
+
+  - threat: unauthorized-access
+    countermeasures:
+      - access-control-enforcement
+      - authorization-checks
+      - principle-of-least-privilege
+
+  - threat: metadata-leakage
+    countermeasures:
+      - header-hardening
+      - api-response-filtering
+
+  - threat: side-channel-attack
+    countermeasures:
+      - constant-time-operations
+      - rate-limiting
+
+  # DENIAL OF SERVICE
+  - threat: volumetric-dos
+    countermeasures:
+      - ddos-protection
+      - rate-limiting-network
+      - geo-blocking
+
+  - threat: application-dos
+    countermeasures:
+      - api-rate-limiting
+      - request-size-limits
+      - query-complexity-limits
+      - circuit-breakers
+
+  - threat: resource-exhaustion
+    countermeasures:
+      - resource-quotas
+      - connection-pooling
+      - auto-scaling
+      - resource-monitoring
+
+  - threat: dependency-failure
+    countermeasures:
+      - redundancy
+      - graceful-degradation
+      - timeout-configuration
+      - fallback-mechanisms
+
+  # ELEVATION OF PRIVILEGE
+  - threat: privilege-escalation
+    countermeasures:
+      - least-privilege-principle
+      - privilege-separation
+      - regular-access-reviews
+
+  - threat: insecure-deserialization
+    countermeasures:
+      - safe-deserialization
+      - input-type-validation
+
+  - threat: container-escape
+    countermeasures:
+      - container-hardening
+      - container-runtime-security
+      - pod-security-policies
+
+  - threat: iam-misconfiguration
+    countermeasures:
+      - iam-policy-review
+      - iam-policy-constraints
+      - service-control-policies
+
+  - threat: insider-threat
+    countermeasures:
+      - separation-of-duties
+      - user-activity-monitoring
+      - just-in-time-access
+      - background-checks
+
+  - threat: ssrf
+    countermeasures:
+      - ssrf-protection
+      - network-segmentation
+      - metadata-service-protection

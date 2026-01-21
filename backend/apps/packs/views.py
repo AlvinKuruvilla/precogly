@@ -35,10 +35,13 @@ from .services import (
     _copy_templates_for_organization,
     _restore_library_items,
     discover_packs_from_source,
+    get_active_overlays_for_pack,
+    get_available_overlays_for_pack,
     get_pack_preview_from_database,
     get_pack_preview_from_source,
     import_pack_from_path,
     sync_all_packs_from_source,
+    validate_pack_references,
 )
 
 
@@ -213,12 +216,13 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
     def _create_installation(self, org, pack, user):
         """Create an installation record and increment install count.
 
-        Also ensures components exist - if the pack has no components,
+        Also ensures components exist - if the pack has no active components,
         it will attempt to re-import from source to create them.
         """
-        # Check if pack has components - if not, try to import from source
-        has_components = ComponentLibrary.objects.filter(source_pack=pack).exists()
-        if not has_components:
+        # Check if pack has active (non-deleted) components - if not, try to import from source
+        active_components = ComponentLibrary.objects.filter(source_pack=pack, is_deleted=False).count()
+
+        if active_components == 0:
             # Try to find and import from source
             packs = discover_packs_from_source()
             pack_info = next((p for p in packs if p.slug == pack.slug), None)
@@ -307,12 +311,18 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         Import a single pack from the libraries folder by slug.
 
         Provide the pack slug in the request body:
-        {"slug": "aws-technologies", "force": false}
+        {"slug": "aws-technologies", "force": false, "selectedOverlays": ["owasp-2021", "nist-csf"]}
+
+        The selectedOverlays field is optional:
+        - If omitted (null/undefined), all overlays will be loaded
+        - If empty list [], no overlays will be loaded
+        - If list of framework IDs, only those overlays will be loaded
 
         Automatically installs the pack for the user's organization after import.
         """
         slug = request.data.get("slug")
         force = request.data.get("force", False)
+        selected_overlays = request.data.get("selected_overlays")  # camelCase auto-converted by middleware
 
         if not slug:
             return Response(
@@ -341,6 +351,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             organization=org,
             installed_by=user,
             force=force,
+            selected_overlays=selected_overlays,
         )
 
         if result.success:
@@ -426,6 +437,74 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(preview_data)
 
+    @action(detail=False, methods=["get"])
+    def available_overlays(self, request):
+        """
+        Get available framework overlays for a pack before installation.
+
+        Query parameters:
+            slug: The pack slug to check overlays for
+
+        Returns list of overlays with framework_id, framework_name, mapping_count,
+        and whether the framework is installed.
+        """
+        slug = request.query_params.get("slug")
+
+        if not slug:
+            return Response(
+                {"error": "Pack slug is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        overlays = get_available_overlays_for_pack(slug)
+
+        return Response({
+            "overlays": [
+                {
+                    "framework_id": o.framework_id,
+                    "framework_name": o.framework_name,
+                    "mapping_count": o.mapping_count,
+                    "framework_exists": o.framework_exists,
+                }
+                for o in overlays
+            ],
+            "total": len(overlays),
+            "available_count": sum(1 for o in overlays if o.framework_exists),
+        })
+
+    @action(detail=False, methods=["post"])
+    def validate(self, request):
+        """
+        Validate a pack's references without importing (dry-run).
+
+        Provide the pack slug in the request body:
+        {"slug": "aws-technologies"}
+
+        Returns validation results including any reference errors.
+        """
+        slug = request.data.get("slug")
+
+        if not slug:
+            return Response(
+                {"error": "Pack slug is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Find the pack in available sources
+        packs = discover_packs_from_source()
+        pack_info = next((p for p in packs if p.slug == slug), None)
+
+        if not pack_info:
+            return Response(
+                {"error": f"Pack '{slug}' not found in libraries folder"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Run validation
+        result = validate_pack_references(Path(pack_info.path))
+
+        return Response(result.to_dict())
+
 
 class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
     """
@@ -452,6 +531,32 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
         return OrganizationPackInstallation.objects.filter(
             organization_id__in=org_ids
         ).select_related("pack", "organization", "installed_by")
+
+    @action(detail=True, methods=["get"])
+    def active_overlays(self, request, pk=None):
+        """
+        Get active framework overlays for an installed pack.
+
+        Returns the frameworks that have countermeasure mappings from this pack.
+        """
+        installation = self.get_object()
+        pack = installation.pack
+
+        overlays = get_active_overlays_for_pack(pack)
+
+        return Response({
+            "pack_id": pack.id,
+            "pack_name": pack.name,
+            "overlays": [
+                {
+                    "framework_id": o.framework_id,
+                    "framework_name": o.framework_name,
+                    "mapping_count": o.mapping_count,
+                }
+                for o in overlays
+            ],
+            "total": len(overlays),
+        })
 
     @action(detail=True, methods=["get"])
     def check_usage(self, request, pk=None):
@@ -521,6 +626,13 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
                 organization=org,
             ).delete()
 
+            # Delete framework overlay mappings (CountermeasureLibraryStandard)
+            # These link countermeasures to compliance requirements
+            from apps.compliance.models import CountermeasureLibraryStandard
+            deleted_mappings, _ = CountermeasureLibraryStandard.objects.filter(
+                countermeasure_library__source_pack=pack
+            ).delete()
+
             # Soft-delete shared library items (components, threats, countermeasures)
             # These remain soft-deleted so they can be restored on reinstall
             now = timezone.now()
@@ -528,9 +640,11 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
             ComponentLibrary.objects.filter(source_pack=pack).update(
                 is_deleted=True, deleted_at=now
             )
+
             ThreatLibrary.objects.filter(source_pack=pack).update(
                 is_deleted=True, deleted_at=now
             )
+
             CountermeasureLibrary.objects.filter(source_pack=pack).update(
                 is_deleted=True, deleted_at=now
             )
@@ -542,7 +656,6 @@ class OrganizationPackInstallationViewSet(viewsets.ModelViewSet):
             if pack.install_count > 0:
                 pack.install_count -= 1
                 pack.save(update_fields=["install_count"])
-
         return Response(
             {"message": f"Successfully uninstalled {pack.name}", "templates_deleted": deleted_templates},
             status=status.HTTP_200_OK,

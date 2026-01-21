@@ -1,0 +1,10 @@
+components:
+  - id: s3
+    name: Amazon S3
+    category: datastore
+    type: Object Storage
+
+  - id: lambda
+    name: AWS Lambda
+    category: process
+    type: Serverless Function

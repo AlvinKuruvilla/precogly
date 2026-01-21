@@ -1,38 +1,6 @@
-# =============================================================================
-# Generic Technologies Pack
-# =============================================================================
-# This pack provides vendor-agnostic technology components for threat modeling.
-# Includes open-source software, frameworks, protocols, and self-hosted solutions.
-# Components are "stubs" - they define what services exist, not what can go wrong.
-# Threats should be added via separate threat packs or by extending components.
-# =============================================================================
-
-pack:
-  slug: generic-technologies
-  name: "Generic Technologies"
-  description: "Vendor-agnostic components: open-source, frameworks, and self-hosted solutions"
-  version: "1.0.0"
-  author: "Precogly Team"
-  pack_type: technology
-  tier: free
-  source: official
-  industries:
-    - all
-  tags:
-    - generic
-    - open-source
-    - self-hosted
-    - frameworks
-  repository_url: "https://github.com/precogly/precogly"
-
-# =============================================================================
-# COMPONENTS
-# =============================================================================
-
+# Generic Components - Vendor-agnostic technologies
 components:
-  # ---------------------------------------------------------------------------
   # DATABASES
-  # ---------------------------------------------------------------------------
   - slug: postgresql
     name: "PostgreSQL"
     category: datastore
@@ -105,9 +73,7 @@ components:
     component_type: database
     description: "Time series database"
 
-  # ---------------------------------------------------------------------------
   # CACHE
-  # ---------------------------------------------------------------------------
   - slug: redis-cache
     name: "Redis (Cache)"
     category: datastore
@@ -126,9 +92,7 @@ components:
     component_type: cache
     description: "HTTP accelerator and reverse proxy cache"
 
-  # ---------------------------------------------------------------------------
   # STORAGE
-  # ---------------------------------------------------------------------------
   - slug: minio
     name: "MinIO"
     category: datastore
@@ -147,9 +111,7 @@ components:
     component_type: storage
     description: "Network File System"
 
-  # ---------------------------------------------------------------------------
   # COMPUTE / CONTAINERS
-  # ---------------------------------------------------------------------------
   - slug: kubernetes
     name: "Kubernetes"
     category: process
@@ -180,9 +142,7 @@ components:
     component_type: compute
     description: "Workload orchestrator"
 
-  # ---------------------------------------------------------------------------
   # BACKEND FRAMEWORKS
-  # ---------------------------------------------------------------------------
   - slug: nodejs
     name: "Node.js"
     category: process
@@ -279,9 +239,7 @@ components:
     component_type: backend
     description: "PHP web framework"
 
-  # ---------------------------------------------------------------------------
   # FRONTEND FRAMEWORKS
-  # ---------------------------------------------------------------------------
   - slug: react
     name: "React"
     category: process
@@ -312,9 +270,7 @@ components:
     component_type: frontend
     description: "Compiled JavaScript framework"
 
-  # ---------------------------------------------------------------------------
   # MESSAGING / QUEUES
-  # ---------------------------------------------------------------------------
   - slug: kafka
     name: "Apache Kafka"
     category: process
@@ -351,9 +307,7 @@ components:
     component_type: messaging
     description: "Distributed pub-sub messaging"
 
-  # ---------------------------------------------------------------------------
   # NETWORKING / LOAD BALANCERS
-  # ---------------------------------------------------------------------------
   - slug: nginx
     name: "NGINX"
     category: process
@@ -402,51 +356,7 @@ components:
     component_type: networking
     description: "CDN and security services"
 
-  - slug: vlan
-    name: "VLAN"
-    category: process
-    component_type: networking
-    description: "Virtual LAN network segment"
-
-  - slug: network-segment
-    name: "Network Segment"
-    category: process
-    component_type: networking
-    description: "Physical or logical network segment"
-
-  - slug: dmz-network
-    name: "DMZ Network"
-    category: process
-    component_type: networking
-    description: "Demilitarized zone network"
-
-  - slug: k8s-namespace
-    name: "Kubernetes Namespace"
-    category: process
-    component_type: networking
-    description: "Kubernetes namespace isolation boundary"
-
-  - slug: k8s-network-policy
-    name: "Kubernetes Network Policy"
-    category: process
-    component_type: networking
-    description: "Pod network isolation rules"
-
-  - slug: docker-network
-    name: "Docker Network"
-    category: process
-    component_type: networking
-    description: "Container network"
-
-  - slug: service-mesh
-    name: "Service Mesh"
-    category: process
-    component_type: networking
-    description: "Microservices network layer"
-
-  # ---------------------------------------------------------------------------
   # AUTH / IDENTITY
-  # ---------------------------------------------------------------------------
   - slug: auth0
     name: "Auth0"
     category: process
@@ -489,9 +399,7 @@ components:
     component_type: auth
     description: "Microsoft directory service"
 
-  # ---------------------------------------------------------------------------
   # SECURITY TOOLS
-  # ---------------------------------------------------------------------------
   - slug: vault
     name: "HashiCorp Vault"
     category: process
@@ -522,33 +430,7 @@ components:
     component_type: security
     description: "Open source WAF"
 
-  - slug: snort
-    name: "Snort"
-    category: process
-    component_type: security
-    description: "Network intrusion detection"
-
-  - slug: suricata
-    name: "Suricata"
-    category: process
-    component_type: security
-    description: "Network threat detection engine"
-
-  - slug: ossec
-    name: "OSSEC"
-    category: process
-    component_type: security
-    description: "Host-based intrusion detection"
-
-  - slug: wazuh
-    name: "Wazuh"
-    category: process
-    component_type: security
-    description: "Security monitoring platform"
-
-  # ---------------------------------------------------------------------------
   # MONITORING / OBSERVABILITY
-  # ---------------------------------------------------------------------------
   - slug: prometheus
     name: "Prometheus"
     category: process
@@ -585,39 +467,7 @@ components:
     component_type: monitoring
     description: "Distributed tracing"
 
-  - slug: zipkin
-    name: "Zipkin"
-    category: process
-    component_type: monitoring
-    description: "Distributed tracing"
-
-  - slug: new-relic
-    name: "New Relic"
-    category: process
-    component_type: monitoring
-    description: "Application performance monitoring"
-
-  - slug: pagerduty
-    name: "PagerDuty"
-    category: process
-    component_type: monitoring
-    description: "Incident management"
-
-  # ---------------------------------------------------------------------------
   # INFRASTRUCTURE
-  # ---------------------------------------------------------------------------
-  - slug: on-premise
-    name: "On-Premise"
-    category: process
-    component_type: infrastructure
-    description: "On-premise data center"
-
-  - slug: hybrid-cloud
-    name: "Hybrid Cloud"
-    category: process
-    component_type: infrastructure
-    description: "Hybrid cloud infrastructure"
-
   - slug: terraform
     name: "Terraform"
     category: process

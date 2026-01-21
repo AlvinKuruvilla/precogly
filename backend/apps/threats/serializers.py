@@ -50,7 +50,7 @@ class ThreatLibraryListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ThreatLibrary
-        fields = ["id", "name", "stride_category", "source", "source_pack_name", "source_pack_slug"]
+        fields = ["id", "name", "stride_category", "source", "source_pack", "source_pack_name", "source_pack_slug"]
 
 
 class CountermeasureLibrarySerializer(serializers.ModelSerializer):
@@ -85,7 +85,7 @@ class CountermeasureLibraryListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CountermeasureLibrary
-        fields = ["id", "name", "control_type", "cost", "source_pack_name", "source_pack_slug"]
+        fields = ["id", "name", "control_type", "cost", "source_pack", "source_pack_name", "source_pack_slug"]
 
 
 class ComponentLibraryThreatSerializer(serializers.ModelSerializer):

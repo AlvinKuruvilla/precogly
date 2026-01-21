@@ -2,7 +2,7 @@
  * Dialog for previewing pack contents (components, threats, countermeasures).
  */
 
-import { Box, Loader2, Package, Shield, ShieldAlert } from 'lucide-react'
+import { Box, ClipboardList, Loader2, Package, Shield, ShieldAlert } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -45,9 +45,15 @@ export function PreviewPackDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+          <>
+            <DialogHeader>
+              <DialogTitle>Loading Pack Preview</DialogTitle>
+              <DialogDescription>Please wait while we load the pack details.</DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </>
         ) : preview ? (
           <>
             <DialogHeader>
@@ -76,9 +82,15 @@ export function PreviewPackDialog({
             <PreviewTabs preview={preview} />
           </>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            Failed to load pack preview.
-          </div>
+          <>
+            <DialogHeader>
+              <DialogTitle>Pack Preview</DialogTitle>
+              <DialogDescription>Unable to load pack details.</DialogDescription>
+            </DialogHeader>
+            <div className="text-center py-12 text-muted-foreground">
+              Failed to load pack preview.
+            </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
@@ -89,9 +101,13 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
   const componentCount = preview.components.length
   const threatCount = preview.threats.length
   const countermeasureCount = preview.countermeasures.length
+  const requirementCount = preview.requirements?.length ?? 0
+
+  // Determine default tab based on what content exists
+  const defaultTab = componentCount > 0 ? 'components' : threatCount > 0 ? 'threats' : countermeasureCount > 0 ? 'countermeasures' : requirementCount > 0 ? 'requirements' : 'components'
 
   return (
-    <Tabs defaultValue="components" className="flex-1 flex flex-col min-h-0">
+    <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
       <TabsList className="w-full justify-start">
         <TabsTrigger value="components">
           <Box className="h-4 w-4 mr-1" />
@@ -104,6 +120,10 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
         <TabsTrigger value="countermeasures">
           <Shield className="h-4 w-4 mr-1" />
           Countermeasures ({countermeasureCount})
+        </TabsTrigger>
+        <TabsTrigger value="requirements">
+          <ClipboardList className="h-4 w-4 mr-1" />
+          Requirements ({requirementCount})
         </TabsTrigger>
       </TabsList>
 
@@ -204,6 +224,37 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                   {cm.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {cm.description}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="requirements" className="flex-1 min-h-0">
+        <ScrollArea className="h-[350px]">
+          {requirementCount === 0 ? (
+            <EmptyState text="No requirements in this pack" />
+          ) : (
+            <div className="space-y-2 pr-4">
+              {preview.requirements.map((req, idx) => (
+                <div
+                  key={req.sectionCode || idx}
+                  className="border rounded-lg p-3 space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{req.sectionCode}</span>
+                    {req.frameworkName && (
+                      <Badge variant="outline" className="text-xs">
+                        {req.frameworkName}
+                      </Badge>
+                    )}
+                  </div>
+                  {req.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {req.description}
                     </p>
                   )}
                 </div>

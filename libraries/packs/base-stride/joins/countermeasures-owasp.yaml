@@ -1,0 +1,162 @@
+framework: owasp-2021
+
+mappings:
+  # A01:2021 - Broken Access Control
+  - countermeasure: access-control-enforcement
+    requirements:
+      - "A01:2021"
+    sufficiency: full
+
+  - countermeasure: authorization-checks
+    requirements:
+      - "A01:2021"
+    sufficiency: full
+
+  - countermeasure: principle-of-least-privilege
+    requirements:
+      - "A01:2021"
+    sufficiency: partial
+
+  # A02:2021 - Cryptographic Failures
+  - countermeasure: encryption-at-rest
+    requirements:
+      - "A02:2021"
+    sufficiency: full
+
+  - countermeasure: encryption-in-transit
+    requirements:
+      - "A02:2021"
+    sufficiency: full
+
+  - countermeasure: tls-encryption
+    requirements:
+      - "A02:2021"
+    sufficiency: partial
+
+  - countermeasure: secrets-management
+    requirements:
+      - "A02:2021"
+    sufficiency: partial
+
+  # A03:2021 - Injection
+  - countermeasure: input-validation
+    requirements:
+      - "A03:2021"
+    sufficiency: full
+
+  - countermeasure: parameterized-queries
+    requirements:
+      - "A03:2021"
+    sufficiency: full
+
+  - countermeasure: output-encoding
+    requirements:
+      - "A03:2021"
+    sufficiency: partial
+
+  # A04:2021 - Insecure Design
+  - countermeasure: data-classification
+    requirements:
+      - "A04:2021"
+    sufficiency: partial
+
+  - countermeasure: separation-of-duties
+    requirements:
+      - "A04:2021"
+    sufficiency: partial
+
+  # A05:2021 - Security Misconfiguration
+  - countermeasure: configuration-management
+    requirements:
+      - "A05:2021"
+    sufficiency: full
+
+  - countermeasure: configuration-drift-detection
+    requirements:
+      - "A05:2021"
+    sufficiency: partial
+
+  - countermeasure: header-hardening
+    requirements:
+      - "A05:2021"
+    sufficiency: partial
+
+  - countermeasure: debug-mode-controls
+    requirements:
+      - "A05:2021"
+    sufficiency: partial
+
+  # A06:2021 - Vulnerable Components
+  - countermeasure: supply-chain-security
+    requirements:
+      - "A06:2021"
+    sufficiency: full
+
+  - countermeasure: binary-verification
+    requirements:
+      - "A06:2021"
+    sufficiency: partial
+
+  # A07:2021 - Auth Failures
+  - countermeasure: multi-factor-authentication
+    requirements:
+      - "A07:2021"
+    sufficiency: full
+
+  - countermeasure: credential-rotation
+    requirements:
+      - "A07:2021"
+    sufficiency: partial
+
+  - countermeasure: secure-session-management
+    requirements:
+      - "A07:2021"
+    sufficiency: full
+
+  # A08:2021 - Integrity Failures
+  - countermeasure: data-integrity-checks
+    requirements:
+      - "A08:2021"
+    sufficiency: full
+
+  - countermeasure: image-signing
+    requirements:
+      - "A08:2021"
+    sufficiency: full
+
+  - countermeasure: safe-deserialization
+    requirements:
+      - "A08:2021"
+    sufficiency: partial
+
+  # A09:2021 - Logging Failures
+  - countermeasure: comprehensive-audit-logging
+    requirements:
+      - "A09:2021"
+    sufficiency: full
+
+  - countermeasure: centralized-logging
+    requirements:
+      - "A09:2021"
+    sufficiency: partial
+
+  - countermeasure: log-integrity-monitoring
+    requirements:
+      - "A09:2021"
+    sufficiency: partial
+
+  # A10:2021 - SSRF
+  - countermeasure: ssrf-protection
+    requirements:
+      - "A10:2021"
+    sufficiency: full
+
+  - countermeasure: network-segmentation
+    requirements:
+      - "A10:2021"
+    sufficiency: partial
+
+  - countermeasure: metadata-service-protection
+    requirements:
+      - "A10:2021"
+    sufficiency: partial

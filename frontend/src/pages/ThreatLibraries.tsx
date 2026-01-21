@@ -2,10 +2,12 @@
  * Threat Libraries page.
  */
 
-import { Search, ShieldAlert } from 'lucide-react'
-import { useState } from 'react'
+import { Search, ShieldAlert, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -38,13 +40,34 @@ const strideCategoryColors: Record<string, string> = {
 export function ThreatLibraries() {
   const { data: threats, isLoading } = useThreatLibraries()
   const [search, setSearch] = useState('')
+  const [searchParams] = useSearchParams()
 
-  const filteredThreats = threats?.filter(
-    (t) =>
-      t.name.toLowerCase().includes(search.toLowerCase()) ||
-      t.description?.toLowerCase().includes(search.toLowerCase()) ||
-      t.strideCategory.toLowerCase().includes(search.toLowerCase())
-  )
+  // Get pack filter from URL query params
+  const packIdFilter = searchParams.get('packId')
+  const packNameFilter = searchParams.get('packName')
+  const packId = packIdFilter ? parseInt(packIdFilter, 10) : null
+
+  const filteredThreats = useMemo(() => {
+    let result = threats ?? []
+
+    // Filter by pack if specified
+    if (packId !== null) {
+      result = result.filter((t) => t.sourcePack === packId)
+    }
+
+    // Filter by search
+    if (search) {
+      const searchLower = search.toLowerCase()
+      result = result.filter(
+        (t) =>
+          t.name.toLowerCase().includes(searchLower) ||
+          t.description?.toLowerCase().includes(searchLower) ||
+          t.strideCategory.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return result
+  }, [threats, packId, search])
 
   return (
     <div className="space-y-6">
@@ -55,6 +78,21 @@ export function ThreatLibraries() {
           Browse known threats categorized by STRIDE methodology.
         </p>
       </div>
+
+      {/* Pack Filter Banner */}
+      {packId !== null && packNameFilter && (
+        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          <p className="text-sm">
+            Showing threats from <strong>{packNameFilter}</strong>
+          </p>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/threat-libraries">
+              <X className="mr-1 h-4 w-4" />
+              Clear filter
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm">

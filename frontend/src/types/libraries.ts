@@ -61,3 +61,15 @@ export interface DFDTemplate {
   createdAt: string
   updatedAt: string
 }
+
+export interface StandardRequirement {
+  id: number
+  framework: number
+  frameworkName: string
+  sourcePack?: number
+  sectionCode: string
+  description: string
+  parent?: number
+  createdAt: string
+  updatedAt: string
+}

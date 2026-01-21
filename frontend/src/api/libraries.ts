@@ -9,6 +9,7 @@ import type {
   ThreatLibrary,
   CountermeasureLibrary,
   DFDTemplate,
+  StandardRequirement,
 } from '@/types/libraries'
 
 // Query keys
@@ -17,6 +18,7 @@ export const libraryKeys = {
   threats: ['threat-libraries'] as const,
   countermeasures: ['countermeasure-libraries'] as const,
   templates: ['dfd-templates'] as const,
+  requirements: ['standard-requirements'] as const,
 }
 
 /**
@@ -77,4 +79,55 @@ export function useDFDTemplates() {
       return Array.isArray(response) ? response : response.results
     },
   })
+}
+
+/**
+ * Fetch standard requirements (compliance).
+ */
+export function useRequirements() {
+  return useQuery({
+    queryKey: libraryKeys.requirements,
+    queryFn: async () => {
+      const response = await api.get<{ results: StandardRequirement[] } | StandardRequirement[]>(
+        '/requirements/'
+      )
+      return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
+// Types for resolved template
+export interface ResolutionResult {
+  nodeId: string
+  componentRef: string
+  resolved: boolean
+  componentLibraryId?: number
+  componentLibraryName?: string
+  error?: string
+}
+
+export interface ResolvedTemplate {
+  id: number
+  name: string
+  description: string
+  category: string
+  diagramType: string
+  canvasData: {
+    nodes: unknown[]
+    edges: unknown[]
+  }
+  sourcePackId: number | null
+  sourcePackName: string | null
+  resolutionResults: ResolutionResult[]
+  allResolved: boolean
+}
+
+/**
+ * Fetch a DFD template with resolved component_refs.
+ *
+ * This resolves component_ref values in template nodes to actual
+ * component_library_id values that can be used when inserting the template.
+ */
+export async function fetchResolvedTemplate(templateId: number): Promise<ResolvedTemplate> {
+  return api.get<ResolvedTemplate>(`/dfd-templates/${templateId}/resolved/`)
 }

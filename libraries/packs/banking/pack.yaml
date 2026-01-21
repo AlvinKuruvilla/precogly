@@ -1,0 +1,20 @@
+# Banking Industry Pack
+pack:
+  slug: banking
+  name: "Banking"
+  description: "Banking and financial services components and DFD templates"
+  version: "2.0.0"
+  author: "Precogly Team"
+  pack_type: industry
+  tier: free
+  source: official
+  industries:
+    - banking
+    - fintech
+    - payments
+  tags:
+    - banking
+    - swift
+    - payments
+    - financial-services
+  repository_url: "https://github.com/precogly/precogly"

@@ -1,0 +1,35 @@
+framework: nist-csf-2
+
+mappings:
+  # PR.AC-1 - Identity management
+  - countermeasure: lambda-least-privilege
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  # PR.AC-4 - Least privilege
+  - countermeasure: s3-bucket-policy
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: lambda-least-privilege
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: s3-block-public-access
+    requirements:
+      - "PR.AC-4"
+    sufficiency: partial
+
+  # SC-8 - Transmission confidentiality
+  - countermeasure: s3-encryption
+    requirements:
+      - "SC-8"
+    sufficiency: partial
+
+  - countermeasure: lambda-vpc
+    requirements:
+      - "SC-8"
+    sufficiency: partial

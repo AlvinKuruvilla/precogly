@@ -1,0 +1,20 @@
+mappings:
+  - threat: s3-public-exposure
+    countermeasures:
+      - s3-block-public-access
+      - s3-bucket-policy
+
+  - threat: s3-data-tampering
+    countermeasures:
+      - s3-versioning
+      - s3-encryption
+      - s3-bucket-policy
+
+  - threat: lambda-injection
+    countermeasures:
+      - lambda-input-validation
+      - lambda-vpc
+
+  - threat: lambda-privilege-escalation
+    countermeasures:
+      - lambda-least-privilege

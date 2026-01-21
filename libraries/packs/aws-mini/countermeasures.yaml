@@ -1,0 +1,44 @@
+countermeasures:
+  # S3 Countermeasures
+  - id: s3-block-public-access
+    name: S3 Block Public Access
+    description: Enable S3 Block Public Access settings at account and bucket level
+    control_type: technical
+    cost: low
+
+  - id: s3-bucket-policy
+    name: S3 Bucket Policy Restriction
+    description: Implement least-privilege bucket policies limiting access to authorized principals
+    control_type: technical
+    cost: low
+
+  - id: s3-versioning
+    name: S3 Versioning
+    description: Enable versioning to protect against accidental or malicious deletions/modifications
+    control_type: technical
+    cost: low
+
+  - id: s3-encryption
+    name: S3 Server-Side Encryption
+    description: Enable SSE-S3 or SSE-KMS encryption for data at rest
+    control_type: technical
+    cost: low
+
+  # Lambda Countermeasures
+  - id: lambda-input-validation
+    name: Lambda Input Validation
+    description: Validate and sanitize all input to Lambda functions
+    control_type: technical
+    cost: low
+
+  - id: lambda-least-privilege
+    name: Lambda Least Privilege Role
+    description: Configure Lambda execution role with minimum required permissions
+    control_type: technical
+    cost: low
+
+  - id: lambda-vpc
+    name: Lambda VPC Isolation
+    description: Deploy Lambda in VPC with security groups for network isolation
+    control_type: technical
+    cost: medium

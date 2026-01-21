@@ -1,0 +1,106 @@
+framework: nist-csf-2
+
+mappings:
+  # PR.AC-1 - Identity and credential management
+  - countermeasure: multi-factor-authentication
+    requirements:
+      - "PR.AC-1"
+    sufficiency: full
+
+  - countermeasure: credential-rotation
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  - countermeasure: secure-session-management
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  - countermeasure: service-authentication
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  # PR.AC-4 - Least privilege and separation of duties
+  - countermeasure: principle-of-least-privilege
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: separation-of-duties
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: access-control-enforcement
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: regular-access-reviews
+    requirements:
+      - "PR.AC-4"
+    sufficiency: partial
+
+  - countermeasure: iam-policy-review
+    requirements:
+      - "PR.AC-4"
+    sufficiency: partial
+
+  - countermeasure: just-in-time-access
+    requirements:
+      - "PR.AC-4"
+    sufficiency: partial
+
+  # PR.DS-4 - Availability
+  - countermeasure: ddos-protection
+    requirements:
+      - "PR.DS-4"
+    sufficiency: full
+
+  - countermeasure: auto-scaling
+    requirements:
+      - "PR.DS-4"
+    sufficiency: partial
+
+  - countermeasure: redundancy
+    requirements:
+      - "PR.DS-4"
+    sufficiency: full
+
+  - countermeasure: circuit-breakers
+    requirements:
+      - "PR.DS-4"
+    sufficiency: partial
+
+  - countermeasure: graceful-degradation
+    requirements:
+      - "PR.DS-4"
+    sufficiency: partial
+
+  # SC-8 - Transmission confidentiality and integrity
+  - countermeasure: tls-encryption
+    requirements:
+      - "SC-8"
+    sufficiency: full
+
+  - countermeasure: encryption-in-transit
+    requirements:
+      - "SC-8"
+    sufficiency: full
+
+  - countermeasure: mutual-tls
+    requirements:
+      - "SC-8"
+    sufficiency: full
+
+  - countermeasure: certificate-pinning
+    requirements:
+      - "SC-8"
+    sufficiency: partial
+
+  - countermeasure: message-encryption
+    requirements:
+      - "SC-8"
+    sufficiency: partial

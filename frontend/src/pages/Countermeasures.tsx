@@ -2,10 +2,12 @@
  * Countermeasures library page.
  */
 
-import { Search, Shield } from 'lucide-react'
-import { useState } from 'react'
+import { Search, Shield, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -40,13 +42,34 @@ const costColors: Record<string, string> = {
 export function Countermeasures() {
   const { data: countermeasures, isLoading } = useCountermeasureLibraries()
   const [search, setSearch] = useState('')
+  const [searchParams] = useSearchParams()
 
-  const filteredCountermeasures = countermeasures?.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.description?.toLowerCase().includes(search.toLowerCase()) ||
-      c.controlType.toLowerCase().includes(search.toLowerCase())
-  )
+  // Get pack filter from URL query params
+  const packIdFilter = searchParams.get('packId')
+  const packNameFilter = searchParams.get('packName')
+  const packId = packIdFilter ? parseInt(packIdFilter, 10) : null
+
+  const filteredCountermeasures = useMemo(() => {
+    let result = countermeasures ?? []
+
+    // Filter by pack if specified
+    if (packId !== null) {
+      result = result.filter((c) => c.sourcePack === packId)
+    }
+
+    // Filter by search
+    if (search) {
+      const searchLower = search.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(searchLower) ||
+          c.description?.toLowerCase().includes(searchLower) ||
+          c.controlType.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return result
+  }, [countermeasures, packId, search])
 
   return (
     <div className="space-y-6">
@@ -57,6 +80,21 @@ export function Countermeasures() {
           Browse security controls and mitigation strategies.
         </p>
       </div>
+
+      {/* Pack Filter Banner */}
+      {packId !== null && packNameFilter && (
+        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          <p className="text-sm">
+            Showing countermeasures from <strong>{packNameFilter}</strong>
+          </p>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/countermeasures">
+              <X className="mr-1 h-4 w-4" />
+              Clear filter
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm">

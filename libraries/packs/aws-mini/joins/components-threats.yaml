@@ -1,0 +1,10 @@
+mappings:
+  - component: s3
+    threats:
+      - s3-public-exposure
+      - s3-data-tampering
+
+  - component: lambda
+    threats:
+      - lambda-injection
+      - lambda-privilege-escalation

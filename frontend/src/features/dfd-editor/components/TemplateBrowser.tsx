@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useDFDTemplates } from '@/api/libraries'
+import { useDFDTemplates, fetchResolvedTemplate } from '@/api/libraries'
 import type { DFDTemplate } from '@/types/libraries'
 import type { DiagramNode, DataFlowEdge, TemplateCategory } from '../types'
 import { TEMPLATE_CATEGORIES } from '../types'
@@ -83,13 +83,34 @@ export function TemplateBrowser({
       })
   }, [templates, searchQuery, filterBy, sortBy])
 
-  const handleInsert = (template: DFDTemplate) => {
-    const canvasData = template.canvasData as { nodes?: unknown[]; edges?: unknown[] } | undefined
-    const nodes = (canvasData?.nodes ?? []) as DiagramNode[]
-    const edges = (canvasData?.edges ?? []) as DataFlowEdge[]
-    onInsert(nodes, edges)
-    setSearchQuery('')
-    setFilterBy('all')
+  const [insertingTemplateId, setInsertingTemplateId] = useState<number | null>(null)
+
+  const handleInsert = async (template: DFDTemplate) => {
+    setInsertingTemplateId(template.id)
+
+    try {
+      // Fetch resolved template with component_refs resolved to component_library_ids
+      const resolvedTemplate = await fetchResolvedTemplate(template.id)
+
+      // Check for unresolved component refs
+      const unresolvedRefs = resolvedTemplate.resolutionResults.filter((r) => !r.resolved)
+      if (unresolvedRefs.length > 0) {
+        // Log warning but still allow insertion
+        const unresolvedNames = unresolvedRefs.map((r) => r.componentRef).join(', ')
+        console.warn(`Some components could not be resolved: ${unresolvedNames}`)
+      }
+
+      const nodes = (resolvedTemplate.canvasData?.nodes ?? []) as DiagramNode[]
+      const edges = (resolvedTemplate.canvasData?.edges ?? []) as DataFlowEdge[]
+      onInsert(nodes, edges)
+      setSearchQuery('')
+      setFilterBy('all')
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Failed to resolve template:', error)
+    } finally {
+      setInsertingTemplateId(null)
+    }
   }
 
   return (
@@ -173,43 +194,49 @@ export function TemplateBrowser({
 
           {!isLoading && !isError && filteredTemplates.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
-              {filteredTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => handleInsert(template)}
-                  className="flex flex-col w-full h-full text-left p-4 border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors group"
-                >
-                  {/* Header: Title + Category */}
-                  <div className="w-full mb-2">
-                    <h3 className="font-semibold text-sm leading-tight group-hover:text-primary mb-1">
-                      {template.name}
-                    </h3>
-                    {template.category && (
-                      <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
-                        {getCategoryLabel(template.category)}
-                      </Badge>
-                    )}
-                  </div>
+              {filteredTemplates.map((template) => {
+                const isInserting = insertingTemplateId === template.id
 
-                  {/* Description */}
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">
-                    {template.description || 'No description'}
-                  </p>
+                return (
+                  <button
+                    key={template.id}
+                    onClick={() => handleInsert(template)}
+                    disabled={insertingTemplateId !== null}
+                    className="flex flex-col w-full h-full text-left p-4 border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {/* Header: Title + Category */}
+                    <div className="w-full mb-2">
+                      <h3 className="font-semibold text-sm leading-tight group-hover:text-primary mb-1 flex items-center gap-2">
+                        {isInserting && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {template.name}
+                      </h3>
+                      {template.category && (
+                        <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
+                          {getCategoryLabel(template.category)}
+                        </Badge>
+                      )}
+                    </div>
 
-                  {/* Footer: Source Pack + Diagram Type */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground w-full mt-auto">
-                    {template.sourcePackName && (
-                      <span className="flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        {template.sourcePackName}
-                      </span>
-                    )}
-                    {template.diagramType && (
-                      <span>{template.diagramType}</span>
-                    )}
-                  </div>
-                </button>
-              ))}
+                    {/* Description */}
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">
+                      {template.description || 'No description'}
+                    </p>
+
+                    {/* Footer: Source Pack + Diagram Type */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground w-full mt-auto">
+                      {template.sourcePackName && (
+                        <span className="flex items-center gap-1">
+                          <Package className="h-3 w-3" />
+                          {template.sourcePackName}
+                        </span>
+                      )}
+                      {template.diagramType && (
+                        <span>{template.diagramType}</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
         </ScrollArea>

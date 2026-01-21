@@ -40,6 +40,7 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for ThreatLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["stride_category", "source", "organization"]
     search_fields = ["name", "description", "source_id"]
@@ -66,6 +67,7 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for CountermeasureLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["control_type", "cost", "organization"]
     search_fields = ["name", "description"]

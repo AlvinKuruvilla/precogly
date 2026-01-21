@@ -1,0 +1,13 @@
+pack:
+  slug: aws-mini
+  name: AWS Mini
+  version: 1.0.0
+  pack_type: full
+  description: A minimal AWS pack demonstrating S3 and Lambda with associated threats and countermeasures
+  tier: free
+  source: official
+  tags:
+    - aws
+    - cloud
+    - serverless
+    - demo

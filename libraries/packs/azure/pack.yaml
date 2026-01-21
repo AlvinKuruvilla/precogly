@@ -1,0 +1,19 @@
+# Azure Technologies Pack
+pack:
+  slug: azure
+  name: "Azure Technologies"
+  description: "Microsoft Azure cloud components for threat modeling diagrams"
+  version: "2.0.0"
+  author: "Precogly Team"
+  pack_type: technology
+  tier: free
+  source: official
+  industries:
+    - all
+  tags:
+    - azure
+    - microsoft
+    - cloud
+    - infrastructure
+  repository_url: "https://github.com/precogly/precogly"
+  documentation_url: "https://docs.microsoft.com/azure/"
