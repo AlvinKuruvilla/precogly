@@ -1,503 +1,607 @@
 erDiagram
 
-%% ========================================
-%% PRECOGLY THREAT MODELING SCHEMA
-%% ========================================
-%% NOTE: User FK references point to Django's auth.User model
-%% (not defined here - managed by Django auth system)
-%% Single-org deployments create one Organization record;
-%% multi-tenant SaaS uses multiple.
-%%
-%% UPDATED: Dec. 27, 2025 - Added Library Packs architecture for
-%% modular, installable content bundles.
-%%
-%% UPDATED: Dec. 27, 2025 - Reviewer feedback fixes:
-%% - Added qualified_slug for namespace collision prevention
-%% - Added customization tracking (status, base_item) for update/fork handling
-%% - Added aliases for backward compatibility with renamed slugs
-%% - Added soft delete (is_deleted, deleted_at) for deletion cascades
-%% - Added LibraryPackDependency with version constraints
-%%
-%% UPDATED: Dec. 27, 2025 - Zombie Record Fix:
-%% - Changed qualified_slug from unique to partial unique constraint
-%% - Uniqueness only enforced where is_deleted=False
-%% - Allows multiple soft-deleted records with same slug
-%% - Enables pack reinstallation without constraint violations
+Organizations {
+    int id PK
+    string name
+    string domain
+    string plan "free/pro/enterprise"
+    string business_unit_label "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== ORGANIZATIONS (Multi-tenancy) =====
-    Organizations {
-        int id PK
-        string Name
-        string Domain
-        string Plan "Free/Pro/Enterprise"
-        date CreatedDate
-    }
+OrganizationMembers {
+    int id PK
+    int organization_id FK
+    int user_id FK
+    string role "admin/security_team/champion/viewer"
+    datetime joined_at
+}
 
-    OrganizationMembers {
-        int id PK
-        int OrganizationID FK
-        int UserID FK "Django User"
-        string Role "Admin/SecurityTeam/Champion/Viewer"
-        date JoinedDate
-    }
+BusinessUnits {
+    int id PK
+    int organization_id FK
+    string name
+    string code "nullable"
+    string description "nullable"
+    int parent_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== LIBRARY PACKS (Modular Content) =====
-    %% Packs allow bundling of components, threats, countermeasures,
-    %% and templates for easy installation and management.
-    LibraryPacks {
-        int id PK
-        string Slug UK "unique identifier e.g. 'banking-technologies'"
-        string Name
-        string Description
-        string PackType "technology/threat/countermeasure/compliance/template/full"
-        string Tier "free/premium/enterprise"
-        string Source "official/partner/community/private"
-        string Version "semantic version e.g. '1.2.0'"
-        string Author
-        string RepositoryURL "nullable - GitHub or registry URL"
-        string DocumentationURL "nullable"
-        string IconURL "nullable"
-        array Industries "e.g. ['banking', 'fintech']"
-        array Tags "e.g. ['aws', 'cloud', 'serverless']"
-        json Content "pack content: components, threats, etc."
-        int InstallCount
-        boolean IsPublished
-        date PublishedAt "nullable"
-        int OwnerOrganizationID FK "nullable - for private packs"
-        date CreatedAt
-        date UpdatedAt
-    }
+Teams {
+    int id PK
+    int organization_id FK
+    int business_unit_id FK "nullable"
+    string name
+    string code "nullable"
+    string description "nullable"
+    boolean is_default
+    datetime created_at
+    datetime updated_at
+}
 
-    LibraryPackDependencies {
-        int id PK
-        int PackID FK
-        int DependsOnPackID FK
-        string VersionConstraint "nullable - e.g. '^1.0.0', '>=2.0.0'"
-        boolean IsOptional "default false"
-        date CreatedAt
-        date UpdatedAt
-    }
+TeamMemberships {
+    int id PK
+    int team_id FK
+    int user_id FK
+    string role "lead/member/viewer"
+    datetime joined_at
+}
 
-    OrganizationPackInstallations {
-        int id PK
-        int OrganizationID FK
-        int PackID FK
-        string InstalledVersion
-        string Status "installed/pending_update/failed"
-        int InstalledByID FK "Django User"
-        date InstalledAt
-        date LastUpdatedAt
-        string LicenseKey "nullable - for premium packs"
-        date LicenseExpiresAt "nullable"
-    }
+TeamInvitations {
+    int id PK
+    int team_id FK
+    string email
+    string role "lead/member/viewer"
+    string token UK
+    int invited_by_id FK
+    string status "pending/accepted/expired/revoked"
+    datetime expires_at
+    datetime accepted_at "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== CORE SYSTEM ENTITIES =====
-    Orgsystems {
-        int id PK
-        int OrganizationID FK
-        string Name
-        string Owner
-        string Criticality
-        string LifecycleState "Dev/Prod/Decom"
-    }
+MagicLinks {
+    int id PK
+    int threat_model_id FK
+    string token UK
+    int created_by_id FK
+    datetime expires_at "nullable"
+    int accessed_count
+    boolean is_revoked
+    datetime created_at
+    datetime updated_at
+}
 
-    IntegrationSources {
-        int id PK
-        string Name "e.g. Main App Repo"
-        string Type "GitHub/CSPM/Terraform/SBOM/Manual"
-        json ConnectionDetails "repo URL, account ID, etc."
-        string Status "Active/Inactive/Error"
-        date LastSyncDate
-        int OrgsystemID FK
-    }
+SharedWithMe {
+    int id PK
+    int user_id FK
+    int threat_model_id FK
+    int magic_link_id FK
+    datetime first_accessed_at
+    datetime last_accessed_at
+    int access_count
+}
 
-    TrustBoundaries {
-        int id PK
-        int OrganizationID FK "nullable - null means global/shared"
-        string Name
-        int TrustLevel "0-100"
-        string Description
-        int ParentBoundaryID FK "nullable - for nested zones"
-    }
+ShadowUsers {
+    int id PK
+    string session_key UK
+    int user_id FK
+    int organization_id FK
+    int team_id FK
+    string status "active/expired/converted"
+    datetime expires_at
+    datetime converted_at "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    ComponentLibrary {
-        int id PK
-        int OrganizationID FK "nullable - null means global/shared"
-        int SourcePackID FK "nullable - pack this came from"
-        string Slug "identifier within pack e.g. 'aws-s3'"
-        string QualifiedSlug "partial UK where is_deleted=false"
-        string Name
-        string Category "Process/Store/External"
-        string ComponentType
-        string Provider "AWS/Azure/Internal"
-        string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
-        array Aliases "previous slugs for backward compat"
-        boolean IsDeleted "soft delete flag"
-        date DeletedAt "nullable"
-    }
+LibraryPacks {
+    int id PK
+    string slug UK
+    string name
+    string description
+    string pack_type "technology/threat/countermeasure/compliance/template/full"
+    string tier "free/premium/enterprise"
+    string source "official/partner/community/private"
+    string version
+    string author
+    string repository_url "nullable"
+    string documentation_url "nullable"
+    string icon_url "nullable"
+    array industries
+    array tags
+    json content
+    int install_count
+    boolean is_published
+    datetime published_at "nullable"
+    int owner_organization_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    OrgsystemsComponents {
-        int id PK
-        string Name
-        int OrgsystemID FK
-        int ComponentLibraryID FK
-        int TrustBoundaryID FK "Security zone"
-        int SourceIntegrationID FK "nullable - discovery source"
-    }
+LibraryPackDependencies {
+    int id PK
+    int pack_id FK
+    int depends_on_pack_id FK
+    string version_constraint "nullable"
+    boolean is_optional
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== DATA CLASSIFICATION (CIA Triad) =====
-    DataAssets {
-        int id PK
-        string Name
-        string Classification
-        string Confidentiality "High/Med/Low"
-        string Integrity "High/Med/Low"
-        string Availability "High/Med/Low"
-        json ComplianceTags
-    }
+OrganizationPackInstallations {
+    int id PK
+    int organization_id FK
+    int pack_id FK
+    string installed_version
+    string status "installed/pending_update/failed"
+    int installed_by_id FK
+    datetime installed_at
+    datetime last_updated_at
+    string license_key "nullable"
+    datetime license_expires_at "nullable"
+}
 
-    ComponentDataAssets {
-        int ComponentID FK
-        int DataAssetID FK
-        string DataState "AtRest/Processed"
-        string Volume
-    }
+PendingFrameworkOverlays {
+    int id PK
+    int pack_id FK
+    string framework_slug
+    string overlay_file_name
+    json overlay_data
+    int mapping_count
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== DATA FLOWS =====
-    DataFlows {
-        int id PK
-        int SourceComponentID FK
-        int DestComponentID FK
-        string Protocol
-        int Port
-        boolean CrossesTrustBoundary
-    }
+Orgsystems {
+    int id PK
+    int organization_id FK
+    string name
+    string owner "nullable"
+    string criticality "low/medium/high/critical"
+    string lifecycle_state "development/production/decommissioned"
+    datetime created_at
+    datetime updated_at
+}
 
-    DataFlowAssets {
-        int DataFlowID FK
-        int DataAssetID FK
-        string ProtectionMethod "Encrypted/Masked/Tokenized/Hashed/None"
-        string EncryptionType "nullable - TLS/AES-256/etc."
-        string Format "JSON/XML/Binary/CSV"
-        string Sensitivity "nullable - overrides DataAsset if set"
-    }
+IntegrationSources {
+    int id PK
+    string name
+    string source_type "github/cspm/terraform/sbom/manual"
+    json connection_details
+    string status "active/inactive/error"
+    datetime last_sync_at "nullable"
+    int orgsystem_id FK
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== THREAT CATALOG (Library) =====
-    ThreatLibrary {
-        int id PK
-        int OrganizationID FK "nullable - null means global/shared"
-        int SourcePackID FK "nullable - pack this came from"
-        string Slug "identifier within pack e.g. 'sql-injection'"
-        string QualifiedSlug "partial UK where is_deleted=false"
-        string Name
-        string Description
-        string STRIDE_Category
-        string Source "STRIDE/CAPEC/OWASP/CWE/Custom"
-        string SourceID "nullable - e.g. CAPEC-66, CWE-89"
-        string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
-        array Aliases "previous slugs for backward compat"
-        boolean IsDeleted "soft delete flag"
-        date DeletedAt "nullable"
-    }
+TrustBoundaries {
+    int id PK
+    int organization_id FK "nullable"
+    string name
+    int trust_level "0-100"
+    string description "nullable"
+    int parent_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    ComponentLibraryThreats {
-        int ComponentLibraryID FK
-        int ThreatLibraryID FK
-        string DefaultSeverity
-        string AppliesTo "Component/Flow/Both"
-    }
+ComponentLibrary {
+    int id PK
+    int organization_id FK "nullable"
+    int source_pack_id FK "nullable"
+    string slug
+    string qualified_slug "partial UK where is_deleted=false"
+    string name
+    string category "process/datastore/external"
+    string component_type
+    string provider "nullable"
+    string customization_status "original/customized/detached"
+    string base_item_qualified_slug "nullable"
+    array aliases
+    boolean is_deleted
+    datetime deleted_at "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== THREAT INSTANCES (Runtime) =====
-    ComponentInstanceThreats {
-        int id PK
-        int ComponentID FK
-        int ThreatLibraryID FK
-        string InherentSeverity
-        string ResidualSeverity
-        string Status "Open/Mitigated/Accepted"
-        string Justification
-    }
+OrgsystemComponents {
+    int id PK
+    string name
+    int orgsystem_id FK "nullable"
+    int component_library_id FK
+    int trust_boundary_id FK "nullable"
+    int source_integration_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    DataFlowInstanceThreats {
-        int id PK
-        int DataFlowID FK
-        int ThreatLibraryID FK
-        string InherentSeverity
-        string ResidualSeverity
-        string Status "Open/Mitigated/Accepted"
-    }
+DataAssets {
+    int id PK
+    string name
+    string classification
+    string confidentiality "high/medium/low"
+    string integrity "high/medium/low"
+    string availability "high/medium/low"
+    json compliance_tags
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== COUNTERMEASURE LIBRARY =====
-    CountermeasureLibrary {
-        int id PK
-        int OrganizationID FK "nullable - null means global/shared"
-        int SourcePackID FK "nullable - pack this came from"
-        string Slug "identifier within pack e.g. 'encryption-at-rest'"
-        string QualifiedSlug "partial UK where is_deleted=false"
-        string Name
-        string Description
-        string Type "Technical/Procedural"
-        string Cost "Low/Medium/High"
-        string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
-        array Aliases "previous slugs for backward compat"
-        boolean IsDeleted "soft delete flag"
-        date DeletedAt "nullable"
-    }
+ComponentDataAssets {
+    int id PK
+    int component_id FK
+    int data_asset_id FK
+    string data_state "at_rest/processed"
+    string volume "nullable"
+}
 
-    %% M2M: Which threats can this countermeasure mitigate?
-    CountermeasureApplicableThreats {
-        int CountermeasureLibraryID FK
-        int ThreatLibraryID FK
-    }
+DataFlows {
+    int id PK
+    int source_component_id FK
+    int dest_component_id FK
+    string protocol "nullable"
+    int port "nullable"
+    boolean crosses_trust_boundary
+    datetime created_at
+    datetime updated_at
+}
 
-    ComponentInstanceCountermeasures {
-        int id PK
-        int InstanceThreatID FK
-        int CountermeasureLibraryID FK
-        string Status "Gap/Planned/Verified/Waived"
-        int VerifiedByID FK "Django User who verified"
-        string EvidenceURL "link to PR, ticket, scan result"
-        boolean RequiredForRelease
-        int AssignedOwnerID FK "Django User"
-    }
+DataFlowAssets {
+    int id PK
+    int data_flow_id FK
+    int data_asset_id FK
+    string protection_method "encrypted/masked/tokenized/hashed/none"
+    string encryption_type "nullable"
+    string format "nullable"
+    string sensitivity_override "nullable"
+}
 
-    FlowInstanceCountermeasures {
-        int id PK
-        int FlowThreatID FK
-        int CountermeasureLibraryID FK
-        string Status "Gap/Planned/Verified/Waived"
-        int VerifiedByID FK "Django User who verified"
-        string EvidenceURL "link to PR, ticket, scan result"
-        boolean RequiredForRelease
-        int AssignedOwnerID FK "Django User"
-    }
+ThreatLibrary {
+    int id PK
+    int organization_id FK "nullable"
+    int source_pack_id FK "nullable"
+    string slug
+    string qualified_slug "partial UK where is_deleted=false"
+    string name
+    string description
+    string stride_category
+    string source "STRIDE/CAPEC/OWASP/CWE/Custom"
+    string source_id "nullable"
+    string customization_status "original/customized/detached"
+    string base_item_qualified_slug "nullable"
+    array aliases
+    boolean is_deleted
+    datetime deleted_at "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== VERIFICATION & TESTING =====
-    VerificationTests {
-        int id PK
-        int OrganizationID FK "nullable - null means global/shared"
-        string Name
-        string Method "PenTest/Auto/CodeReview"
-        date LastRunDate
-        boolean Passed
-        string Evidence
-    }
+ComponentLibraryThreats {
+    int id PK
+    int component_library_id FK
+    int threat_library_id FK
+    string default_severity
+    string applies_to "component/flow/both"
+}
 
-    ComponentInstanceCountermeasureTests {
-        int id PK
-        int ComponentInstanceCountermeasureID FK
-        int VerificationTestID FK
-        date TestedAt
-    }
+ComponentInstanceThreats {
+    int id PK
+    int component_id FK
+    int threat_library_id FK
+    string inherent_severity "low/medium/high/critical"
+    string residual_severity "nullable"
+    string status "open/mitigated/accepted"
+    string justification "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    FlowInstanceCountermeasureTests {
-        int id PK
-        int FlowInstanceCountermeasureID FK
-        int VerificationTestID FK
-        date TestedAt
-    }
+DataFlowInstanceThreats {
+    int id PK
+    int data_flow_id FK
+    int threat_library_id FK
+    string inherent_severity "low/medium/high/critical"
+    string residual_severity "nullable"
+    string status "open/mitigated/accepted"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== PENTEST RECONCILIATION =====
-    PentestFindings {
-        int id PK
-        int ThreatModelID FK
-        string FindingDescription
-        string Severity
-        int MatchedThreatLibraryID FK "nullable - did we predict this?"
-        int MatchedComponentInstanceCountermeasureID FK "nullable - component control that failed"
-        int MatchedFlowInstanceCountermeasureID FK "nullable - flow control that failed"
-        string ReconciliationStatus "Matched/Unpredicted/FalsePositive"
-    }
+CountermeasureLibrary {
+    int id PK
+    int organization_id FK "nullable"
+    int source_pack_id FK "nullable"
+    string slug
+    string qualified_slug "partial UK where is_deleted=false"
+    string name
+    string description
+    string control_type "technical/procedural"
+    string cost "low/medium/high"
+    string customization_status "original/customized/detached"
+    string base_item_qualified_slug "nullable"
+    array aliases
+    boolean is_deleted
+    datetime deleted_at "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== COMPLIANCE FRAMEWORKS =====
-    StandardFrameworks {
-        int id PK
-        string Name
-        string Version
-        string Issuer
-        string Description
-    }
+CountermeasureApplicableThreats {
+    int countermeasure_library_id FK
+    int threat_library_id FK
+}
 
-    StandardRequirements {
-        int id PK
-        int FrameworkID FK
-        string SectionCode
-        string Description
-        int ParentRequirementID FK "nullable - for hierarchical requirements"
-    }
+ComponentInstanceCountermeasures {
+    int id PK
+    int instance_threat_id FK
+    int countermeasure_library_id FK
+    string status "gap/planned/verified/waived"
+    int verified_by_id FK "nullable"
+    string evidence_url "nullable"
+    boolean required_for_release
+    int assigned_owner_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    CountermeasureLibraryStandards {
-        int CountermeasureLibraryID FK
-        int RequirementID FK
-        string Sufficiency "Full/Partial"
-    }
+FlowInstanceCountermeasures {
+    int id PK
+    int flow_threat_id FK
+    int countermeasure_library_id FK
+    string status "gap/planned/verified/waived"
+    int verified_by_id FK "nullable"
+    string evidence_url "nullable"
+    boolean required_for_release
+    int assigned_owner_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== DFD TEMPLATES LIBRARY =====
-    DFDTemplatesLibrary {
-        int id PK
-        int OrganizationID FK "nullable - null means global/shared"
-        int SourcePackID FK "nullable - pack this came from"
-        string Slug "identifier within pack e.g. 'banking-webapp-l1'"
-        string QualifiedSlug "partial UK where is_deleted=false"
-        string Name
-        string Description
-        string Category "WebApp/Microservices/IoT/API/Mobile"
-        string Type "Context/Level1/Level2"
-        int MaintainedByID FK "Django User"
-        json CanvasData "ReactFlow JSON structure"
-        string CustomizationStatus "original/customized/detached"
-        string BaseItemQualifiedSlug "nullable - original item if forked, indexed"
-        array Aliases "previous slugs for backward compat"
-        boolean IsDeleted "soft delete flag"
-        date DeletedAt "nullable"
-        date LastUpdated
-    }
+VerificationTests {
+    int id PK
+    int organization_id FK "nullable"
+    string name
+    string method "pentest/auto/codereview"
+    datetime last_run_at "nullable"
+    boolean passed
+    string evidence "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% ===== THREAT MODELS & DFDs =====
-    ThreatModels {
-        int id PK
-        int OrganizationID FK
-        int CreatedByUserID FK "Django User"
-        string Name
-        string Description
-        string Version
-        string Status "Draft/InProgress/PendingReview/Approved/Archived"
-        string Trigger "New/Incident/Pentest/Drift/FeatureAddition"
-        int PreviousVersionID FK "nullable"
-        json WorkspaceData "UI state, progress, system context"
-        date CreatedDate
-        date LastModified
-    }
+ComponentInstanceCountermeasureTests {
+    int id PK
+    int component_countermeasure_id FK
+    int verification_test_id FK
+    datetime tested_at
+}
 
-    ThreatModelOrgsystems {
-        int ThreatModelID FK
-        int OrgsystemID FK
-    }
+FlowInstanceCountermeasureTests {
+    int id PK
+    int flow_countermeasure_id FK
+    int verification_test_id FK
+    datetime tested_at
+}
 
-    ThreatModelRelationships {
-        int id PK
-        int SourceThreatModelID FK
-        int TargetThreatModelID FK
-        string RelationType "DependsOn/SubsystemOf/RelatedTo/SupersededBy"
-    }
+PentestFindings {
+    int id PK
+    int threat_model_id FK
+    string finding_description
+    string severity
+    int matched_threat_library_id FK "nullable"
+    int matched_component_countermeasure_id FK "nullable"
+    int matched_flow_countermeasure_id FK "nullable"
+    string reconciliation_status "matched/unpredicted/false_positive"
+    datetime created_at
+    datetime updated_at
+}
 
-    DFDs {
-        int id PK
-        string Name
-        string Type "Context/Level1/Level2"
-        int UpdatedByID FK "Django User"
-        int TemplateLibraryID FK "nullable - created from library template"
-        json CanvasData "ReactFlow nodes and edges"
-        json ThreatAnalysisData "analysis results"
-        date LastUpdated
-    }
+StandardFrameworks {
+    int id PK
+    string slug UK
+    string name
+    string version
+    string issuer
+    string description "nullable"
+    int source_pack_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    ThreatModelDFDs {
-        int ThreatModelID FK
-        int DFDID FK
-    }
+StandardRequirements {
+    int id PK
+    int framework_id FK
+    string section_code
+    string description
+    int parent_id FK "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    DFDOrgsystems {
-        int DFDID FK
-        int OrgsystemID FK
-    }
+CountermeasureLibraryStandards {
+    int id PK
+    int countermeasure_library_id FK
+    int requirement_id FK
+    string sufficiency "full/partial"
+}
 
-    %% ========================================
-    %% RELATIONSHIPS
-    %% ========================================
+DFDTemplatesLibrary {
+    int id PK
+    int organization_id FK "nullable"
+    int source_pack_id FK "nullable"
+    string slug
+    string qualified_slug "partial UK where is_deleted=false"
+    string name
+    string description "nullable"
+    string category "webapp/microservices/iot/api/mobile"
+    string diagram_type "context/level1/level2"
+    int maintained_by_id FK "nullable"
+    json canvas_data
+    string customization_status "original/customized/detached"
+    string base_item_qualified_slug "nullable"
+    array aliases
+    boolean is_deleted
+    datetime deleted_at "nullable"
+    datetime created_at
+    datetime updated_at
+}
 
-    %% --- Organizations (Multi-tenancy) ---
-    Organizations ||--o{ OrganizationMembers : "has_members"
-    Organizations ||--o{ Orgsystems : "owns"
-    Organizations ||--o{ ThreatModels : "owns"
-    Organizations ||--o{ ComponentLibrary : "customizes"
-    Organizations ||--o{ ThreatLibrary : "customizes"
-    Organizations ||--o{ CountermeasureLibrary : "customizes"
-    Organizations ||--o{ DFDTemplatesLibrary : "customizes"
-    Organizations ||--o{ TrustBoundaries : "defines"
-    Organizations ||--o{ VerificationTests : "owns"
-    Organizations ||--o{ OrganizationPackInstallations : "has_installed"
-    Organizations ||--o{ LibraryPacks : "owns_private"
+ThreatModels {
+    int id PK
+    int organization_id FK
+    int owning_team_id FK "nullable"
+    int created_by_id FK "nullable"
+    string name
+    string description "nullable"
+    string version
+    string status "draft/in_progress/pending_review/approved/archived"
+    string trigger "new/incident/pentest/drift/feature_addition"
+    string criticality "low/medium/high/critical"
+    int previous_version_id FK "nullable"
+    json workspace_data
+    datetime created_at
+    datetime updated_at
+}
 
-    %% --- Library Packs ---
-    LibraryPacks ||--o{ LibraryPackDependencies : "depends_on"
-    LibraryPacks ||--o{ OrganizationPackInstallations : "installed_by"
-    LibraryPacks ||--o{ ComponentLibrary : "provides"
-    LibraryPacks ||--o{ ThreatLibrary : "provides"
-    LibraryPacks ||--o{ CountermeasureLibrary : "provides"
-    LibraryPacks ||--o{ DFDTemplatesLibrary : "provides"
+ThreatModelOrgsystems {
+    int id PK
+    int threat_model_id FK
+    int orgsystem_id FK
+}
 
-    %% --- Core System Hierarchy ---
-    Orgsystems ||--o{ OrgsystemsComponents : "owns"
-    ComponentLibrary ||--o{ OrgsystemsComponents : "instantiated_as"
-    TrustBoundaries ||--o{ OrgsystemsComponents : "contains"
-    TrustBoundaries ||--o| TrustBoundaries : "nested_in"
-    Orgsystems ||--o{ IntegrationSources : "ingests_from"
-    IntegrationSources ||--o{ OrgsystemsComponents : "discovered"
+ThreatModelRelationships {
+    int id PK
+    int source_threat_model_id FK
+    int target_threat_model_id FK
+    string relation_type "depends_on/subsystem_of/related_to/superseded_by"
+}
 
-    %% --- Data Asset Mapping ---
-    OrgsystemsComponents ||--o{ ComponentDataAssets : "stores"
-    DataAssets ||--o{ ComponentDataAssets : "classified_as"
+ThreatModelFrameworks {
+    int id PK
+    int threat_model_id FK
+    int framework_id FK
+}
 
-    %% --- Data Flows ---
-    OrgsystemsComponents ||--o{ DataFlows : "source_of"
-    OrgsystemsComponents ||--o{ DataFlows : "destination_of"
-    DataFlows ||--o{ DataFlowAssets : "transports"
-    DataAssets ||--o{ DataFlowAssets : "flows_through"
+DFDs {
+    int id PK
+    string name
+    string diagram_type "context/level1/level2"
+    int updated_by_id FK "nullable"
+    int template_library_id FK "nullable"
+    json canvas_data
+    json threat_analysis_data
+    datetime created_at
+    datetime updated_at
+}
 
-    %% --- Threat Library (Templates) ---
-    ComponentLibrary ||--o{ ComponentLibraryThreats : "has_potential"
-    ThreatLibrary ||--o{ ComponentLibraryThreats : "applies_to_type"
+ThreatModelDFDs {
+    int id PK
+    int threat_model_id FK
+    int dfd_id FK
+}
 
-    %% --- Countermeasure to Threat Mapping ---
-    CountermeasureLibrary ||--o{ CountermeasureApplicableThreats : "mitigates"
-    ThreatLibrary ||--o{ CountermeasureApplicableThreats : "mitigated_by"
+DFDOrgsystems {
+    int id PK
+    int dfd_id FK
+    int orgsystem_id FK
+}
 
-    %% --- Component Threat Instances ---
-    OrgsystemsComponents ||--o{ ComponentInstanceThreats : "vulnerable_to"
-    ThreatLibrary ||--o{ ComponentInstanceThreats : "manifests_as"
+Organizations ||--o{ OrganizationMembers : "has_members"
+Organizations ||--o{ BusinessUnits : "has_units"
+Organizations ||--o{ Teams : "has_teams"
+Organizations ||--o{ Orgsystems : "owns"
+Organizations ||--o{ ThreatModels : "owns"
+Organizations ||--o{ ComponentLibrary : "customizes"
+Organizations ||--o{ ThreatLibrary : "customizes"
+Organizations ||--o{ CountermeasureLibrary : "customizes"
+Organizations ||--o{ DFDTemplatesLibrary : "customizes"
+Organizations ||--o{ TrustBoundaries : "defines"
+Organizations ||--o{ VerificationTests : "owns"
+Organizations ||--o{ OrganizationPackInstallations : "has_installed"
+Organizations ||--o{ LibraryPacks : "owns_private"
+Organizations ||--o{ ShadowUsers : "has_shadow_users"
 
-    %% --- Data Flow Threat Instances ---
-    DataFlows ||--o{ DataFlowInstanceThreats : "vulnerable_to"
-    ThreatLibrary ||--o{ DataFlowInstanceThreats : "manifests_as"
+BusinessUnits ||--o| BusinessUnits : "nested_in"
+BusinessUnits ||--o{ Teams : "contains"
+Teams ||--o{ TeamMemberships : "has_members"
+Teams ||--o{ TeamInvitations : "has_invitations"
+Teams ||--o{ ThreatModels : "owns"
+Teams ||--o{ ShadowUsers : "has_shadow_users"
 
-    %% --- Component Instance Countermeasures ---
-    ComponentInstanceThreats ||--o{ ComponentInstanceCountermeasures : "mitigated_by"
-    CountermeasureLibrary ||--o{ ComponentInstanceCountermeasures : "applied_to"
+ThreatModels ||--o{ MagicLinks : "shared_via"
+MagicLinks ||--o{ SharedWithMe : "accessed_through"
 
-    %% --- Flow Instance Countermeasures ---
-    DataFlowInstanceThreats ||--o{ FlowInstanceCountermeasures : "mitigated_by"
-    CountermeasureLibrary ||--o{ FlowInstanceCountermeasures : "applied_to"
+LibraryPacks ||--o{ LibraryPackDependencies : "depends_on"
+LibraryPacks ||--o{ OrganizationPackInstallations : "installed_by"
+LibraryPacks ||--o{ ComponentLibrary : "provides"
+LibraryPacks ||--o{ ThreatLibrary : "provides"
+LibraryPacks ||--o{ CountermeasureLibrary : "provides"
+LibraryPacks ||--o{ DFDTemplatesLibrary : "provides"
+LibraryPacks ||--o{ StandardFrameworks : "provides"
+LibraryPacks ||--o{ PendingFrameworkOverlays : "has_pending"
 
-    %% --- Verification Testing ---
-    ComponentInstanceCountermeasures ||--o{ ComponentInstanceCountermeasureTests : "verified_by"
-    FlowInstanceCountermeasures ||--o{ FlowInstanceCountermeasureTests : "verified_by"
-    VerificationTests ||--o{ ComponentInstanceCountermeasureTests : "validates"
-    VerificationTests ||--o{ FlowInstanceCountermeasureTests : "validates"
+Orgsystems ||--o{ OrgsystemComponents : "owns"
+ComponentLibrary ||--o{ OrgsystemComponents : "instantiated_as"
+TrustBoundaries ||--o{ OrgsystemComponents : "contains"
+TrustBoundaries ||--o| TrustBoundaries : "nested_in"
+Orgsystems ||--o{ IntegrationSources : "ingests_from"
+IntegrationSources ||--o{ OrgsystemComponents : "discovered"
 
-    %% --- Pentest Reconciliation ---
-    ThreatModels ||--o{ PentestFindings : "validated_by"
-    ThreatLibrary ||--o{ PentestFindings : "confirmed_by"
-    ComponentInstanceCountermeasures ||--o{ PentestFindings : "exposed_by"
-    FlowInstanceCountermeasures ||--o{ PentestFindings : "exposed_by"
+OrgsystemComponents ||--o{ ComponentDataAssets : "stores"
+DataAssets ||--o{ ComponentDataAssets : "classified_as"
 
-    %% --- Compliance Framework ---
-    StandardFrameworks ||--o{ StandardRequirements : "contains"
-    StandardRequirements ||--o| StandardRequirements : "parent_of"
-    CountermeasureLibrary ||--o{ CountermeasureLibraryStandards : "satisfies"
-    StandardRequirements ||--o{ CountermeasureLibraryStandards : "satisfied_by"
+OrgsystemComponents ||--o{ DataFlows : "source_of"
+OrgsystemComponents ||--o{ DataFlows : "destination_of"
+DataFlows ||--o{ DataFlowAssets : "transports"
+DataAssets ||--o{ DataFlowAssets : "flows_through"
 
-    %% --- Threat Model Workflow ---
-    ThreatModels ||--o| ThreatModels : "previous_version"
-    ThreatModels ||--o{ ThreatModelRelationships : "related_from"
-    ThreatModels ||--o{ ThreatModelRelationships : "related_to"
-    DFDTemplatesLibrary ||--o{ DFDs : "instantiated_as"
-    ThreatModels ||--o{ ThreatModelOrgsystems : "assesses"
-    Orgsystems ||--o{ ThreatModelOrgsystems : "assessed_in"
-    ThreatModels ||--o{ ThreatModelDFDs : "visualized_by"
-    DFDs ||--o{ ThreatModelDFDs : "used_in"
-    DFDs ||--o{ DFDOrgsystems : "depicts"
-    Orgsystems ||--o{ DFDOrgsystems : "shown_on"
+ComponentLibrary ||--o{ ComponentLibraryThreats : "has_potential"
+ThreatLibrary ||--o{ ComponentLibraryThreats : "applies_to_type"
+
+CountermeasureLibrary ||--o{ CountermeasureApplicableThreats : "mitigates"
+ThreatLibrary ||--o{ CountermeasureApplicableThreats : "mitigated_by"
+
+OrgsystemComponents ||--o{ ComponentInstanceThreats : "vulnerable_to"
+ThreatLibrary ||--o{ ComponentInstanceThreats : "manifests_as"
+
+DataFlows ||--o{ DataFlowInstanceThreats : "vulnerable_to"
+ThreatLibrary ||--o{ DataFlowInstanceThreats : "manifests_as"
+
+ComponentInstanceThreats ||--o{ ComponentInstanceCountermeasures : "mitigated_by"
+CountermeasureLibrary ||--o{ ComponentInstanceCountermeasures : "applied_to"
+
+DataFlowInstanceThreats ||--o{ FlowInstanceCountermeasures : "mitigated_by"
+CountermeasureLibrary ||--o{ FlowInstanceCountermeasures : "applied_to"
+
+ComponentInstanceCountermeasures ||--o{ ComponentInstanceCountermeasureTests : "verified_by"
+FlowInstanceCountermeasures ||--o{ FlowInstanceCountermeasureTests : "verified_by"
+VerificationTests ||--o{ ComponentInstanceCountermeasureTests : "validates"
+VerificationTests ||--o{ FlowInstanceCountermeasureTests : "validates"
+
+ThreatModels ||--o{ PentestFindings : "validated_by"
+ThreatLibrary ||--o{ PentestFindings : "confirmed_by"
+ComponentInstanceCountermeasures ||--o{ PentestFindings : "exposed_by"
+FlowInstanceCountermeasures ||--o{ PentestFindings : "exposed_by"
+
+StandardFrameworks ||--o{ StandardRequirements : "contains"
+StandardRequirements ||--o| StandardRequirements : "parent_of"
+CountermeasureLibrary ||--o{ CountermeasureLibraryStandards : "satisfies"
+StandardRequirements ||--o{ CountermeasureLibraryStandards : "satisfied_by"
+ThreatModels ||--o{ ThreatModelFrameworks : "assessed_against"
+StandardFrameworks ||--o{ ThreatModelFrameworks : "used_in"
+
+ThreatModels ||--o| ThreatModels : "previous_version"
+ThreatModels ||--o{ ThreatModelRelationships : "related_from"
+ThreatModels ||--o{ ThreatModelRelationships : "related_to"
+DFDTemplatesLibrary ||--o{ DFDs : "instantiated_as"
+ThreatModels ||--o{ ThreatModelOrgsystems : "assesses"
+Orgsystems ||--o{ ThreatModelOrgsystems : "assessed_in"
+ThreatModels ||--o{ ThreatModelDFDs : "visualized_by"
+DFDs ||--o{ ThreatModelDFDs : "used_in"
+DFDs ||--o{ DFDOrgsystems : "depicts"
+Orgsystems ||--o{ DFDOrgsystems : "shown_on"
