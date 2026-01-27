@@ -7,8 +7,9 @@ from rest_framework import serializers
 from apps.systems.models import ComponentLibrary
 from apps.threats.models import CountermeasureLibrary, ThreatLibrary
 from apps.diagrams.models import DFDTemplatesLibrary
+from apps.compliance.models import StandardFramework
 
-from .models import LibraryPack, LibraryPackDependency, OrganizationPackInstallation
+from .models import LibraryPack, LibraryPackDependency
 
 
 class LibraryPackDependencySerializer(serializers.ModelSerializer):
@@ -37,7 +38,7 @@ class LibraryPackDependencySerializer(serializers.ModelSerializer):
 class LibraryPackListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for pack listing."""
 
-    is_installed = serializers.SerializerMethodField()
+    is_imported = serializers.SerializerMethodField()
 
     class Meta:
         model = LibraryPack
@@ -54,21 +55,18 @@ class LibraryPackListSerializer(serializers.ModelSerializer):
             "install_count",
             "industries",
             "tags",
-            "is_installed",
+            "is_imported",
         ]
 
-    def get_is_installed(self, obj):
-        """Check if pack is installed for the user's organization."""
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return False
-
-        org_ids = list(
-            request.user.organization_memberships.values_list("organization_id", flat=True)
+    def get_is_imported(self, obj):
+        """Check if pack has library items in the database."""
+        # A pack is "imported" if it has components, threats, countermeasures, or frameworks
+        return (
+            ComponentLibrary.objects.filter(source_pack=obj).exists()
+            or ThreatLibrary.objects.filter(source_pack=obj).exists()
+            or CountermeasureLibrary.objects.filter(source_pack=obj).exists()
+            or StandardFramework.objects.filter(source_pack=obj).exists()
         )
-        return OrganizationPackInstallation.objects.filter(
-            organization_id__in=org_ids, pack=obj
-        ).exists()
 
 
 class LibraryPackDetailSerializer(serializers.ModelSerializer):
@@ -76,8 +74,7 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
 
     dependencies = LibraryPackDependencySerializer(many=True, read_only=True)
     content_summary = serializers.SerializerMethodField()
-    is_installed = serializers.SerializerMethodField()
-    installed_version = serializers.SerializerMethodField()
+    is_imported = serializers.SerializerMethodField()
 
     class Meta:
         model = LibraryPack
@@ -101,8 +98,7 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
             "published_at",
             "dependencies",
             "content_summary",
-            "is_installed",
-            "installed_version",
+            "is_imported",
             "created_at",
             "updated_at",
         ]
@@ -117,18 +113,10 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
         """
         # Try database counts first
         db_counts = {
-            "components": ComponentLibrary.objects.filter(
-                source_pack=obj, is_deleted=False
-            ).count(),
-            "threats": ThreatLibrary.objects.filter(
-                source_pack=obj, is_deleted=False
-            ).count(),
-            "countermeasures": CountermeasureLibrary.objects.filter(
-                source_pack=obj, is_deleted=False
-            ).count(),
-            "templates": DFDTemplatesLibrary.objects.filter(
-                source_pack=obj, is_deleted=False
-            ).count(),
+            "components": ComponentLibrary.objects.filter(source_pack=obj).count(),
+            "threats": ThreatLibrary.objects.filter(source_pack=obj).count(),
+            "countermeasures": CountermeasureLibrary.objects.filter(source_pack=obj).count(),
+            "templates": DFDTemplatesLibrary.objects.filter(source_pack=obj).count(),
         }
 
         # If all DB counts are 0 and pack has content, use content as fallback
@@ -163,78 +151,18 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
 
         return db_counts
 
-    def get_is_installed(self, obj):
-        """Check if pack is installed for the user's organization."""
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return False
-
-        org_ids = list(
-            request.user.organization_memberships.values_list("organization_id", flat=True)
+    def get_is_imported(self, obj):
+        """Check if pack has library items in the database."""
+        return (
+            ComponentLibrary.objects.filter(source_pack=obj).exists()
+            or ThreatLibrary.objects.filter(source_pack=obj).exists()
+            or CountermeasureLibrary.objects.filter(source_pack=obj).exists()
+            or StandardFramework.objects.filter(source_pack=obj).exists()
         )
-        return OrganizationPackInstallation.objects.filter(
-            organization_id__in=org_ids, pack=obj
-        ).exists()
-
-    def get_installed_version(self, obj):
-        """Get the installed version if pack is installed."""
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return None
-
-        org_ids = list(
-            request.user.organization_memberships.values_list("organization_id", flat=True)
-        )
-        installation = OrganizationPackInstallation.objects.filter(
-            organization_id__in=org_ids, pack=obj
-        ).first()
-        return installation.installed_version if installation else None
-
-
-class OrganizationPackInstallationSerializer(serializers.ModelSerializer):
-    """Serializer for pack installations."""
-
-    pack = LibraryPackListSerializer(read_only=True)
-    installed_by_email = serializers.EmailField(
-        source="installed_by.email", read_only=True
-    )
-    update_available = serializers.BooleanField(read_only=True)
-
-    class Meta:
-        model = OrganizationPackInstallation
-        fields = [
-            "id",
-            "organization",
-            "pack",
-            "installed_version",
-            "status",
-            "installed_by",
-            "installed_by_email",
-            "installed_at",
-            "last_updated_at",
-            "update_available",
-        ]
-        read_only_fields = [
-            "id",
-            "installed_at",
-            "last_updated_at",
-            "installed_by_email",
-            "update_available",
-        ]
-
-
-class PackInstallResponseSerializer(serializers.Serializer):
-    """Response serializer for pack installation."""
-
-    installation = OrganizationPackInstallationSerializer()
-    dependencies_installed = serializers.ListField(
-        child=serializers.CharField(), read_only=True
-    )
-    message = serializers.CharField(read_only=True)
 
 
 class PackDependencyTreeSerializer(serializers.Serializer):
-    """Serializer for showing dependencies before install."""
+    """Serializer for showing dependencies before import."""
 
     pack = LibraryPackListSerializer()
     dependencies = serializers.ListField(child=serializers.DictField())

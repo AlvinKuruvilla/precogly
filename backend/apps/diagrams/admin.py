@@ -13,7 +13,7 @@ from .models import (
 
 @admin.register(DFDTemplatesLibrary)
 class DFDTemplatesLibraryAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "diagram_type", "organization", "maintained_by"]
+    list_display = ["name", "category", "diagram_type", "maintained_by"]
     list_filter = ["category", "diagram_type"]
     search_fields = ["name", "description"]
 

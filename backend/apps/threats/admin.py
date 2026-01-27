@@ -15,7 +15,7 @@ from .models import (
 
 @admin.register(ThreatLibrary)
 class ThreatLibraryAdmin(admin.ModelAdmin):
-    list_display = ["name", "stride_category", "source", "organization"]
+    list_display = ["name", "stride_category", "source"]
     list_filter = ["stride_category", "source"]
     search_fields = ["name", "description"]
 
@@ -28,7 +28,7 @@ class ComponentLibraryThreatAdmin(admin.ModelAdmin):
 
 @admin.register(CountermeasureLibrary)
 class CountermeasureLibraryAdmin(admin.ModelAdmin):
-    list_display = ["name", "control_type", "cost", "organization"]
+    list_display = ["name", "control_type", "cost"]
     list_filter = ["control_type", "cost"]
     search_fields = ["name", "description"]
 

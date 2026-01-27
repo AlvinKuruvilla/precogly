@@ -7,8 +7,6 @@ import { api } from '@/lib/api'
 import type {
   LibraryPack,
   LibraryPackListItem,
-  InstalledPack,
-  PackInstallResponse,
   PackDependencyCheck,
   PackFilters,
 } from '@/types/packs'
@@ -23,7 +21,6 @@ export const packKeys = {
   dependencies: (id: number) => [...packKeys.all, 'dependencies', id] as const,
   preview: (id: number) => [...packKeys.all, 'preview', id] as const,
   previewFromSource: (slug: string) => [...packKeys.all, 'preview-source', slug] as const,
-  installed: ['installed-packs'] as const,
   availableFromSource: ['packs', 'available-from-source'] as const,
 }
 
@@ -141,20 +138,6 @@ export interface AvailableOverlaysResponse {
   availableCount: number
 }
 
-// Types for active overlays (installed packs)
-export interface ActiveOverlayInfo {
-  frameworkId: string
-  frameworkName: string
-  mappingCount: number
-}
-
-export interface ActiveOverlaysResponse {
-  packId: number
-  packName: string
-  overlays: ActiveOverlayInfo[]
-  total: number
-}
-
 // Build query string from filters
 function buildQueryString(filters: PackFilters): string {
   const params = new URLSearchParams()
@@ -198,94 +181,13 @@ export function usePack(id: number | null) {
 }
 
 /**
- * Check dependencies for a pack before installation.
+ * Check dependencies for a pack before import.
  */
 export function usePackDependencies(id: number | null) {
   return useQuery({
     queryKey: packKeys.dependencies(id!),
     queryFn: () => api.get<PackDependencyCheck>(`/packs/${id}/check_dependencies/`),
     enabled: id !== null,
-  })
-}
-
-/**
- * Fetch list of installed packs for the user's organization.
- */
-export function useInstalledPacks() {
-  return useQuery({
-    queryKey: packKeys.installed,
-    queryFn: async () => {
-      const response = await api.get<{ results: InstalledPack[] } | InstalledPack[]>(
-        '/installed-packs/'
-      )
-      return Array.isArray(response) ? response : response.results
-    },
-  })
-}
-
-// Mutation Hooks
-
-/**
- * Install a pack for the user's organization.
- */
-export function useInstallPack() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({
-      packId,
-      installDependencies = false,
-    }: {
-      packId: number
-      installDependencies?: boolean
-    }) => {
-      return api.post<PackInstallResponse>(`/packs/${packId}/install/`, {
-        installDependencies,
-      })
-    },
-    onSuccess: () => {
-      // Invalidate pack queries to refresh isInstalled status
-      queryClient.invalidateQueries({ queryKey: packKeys.all })
-      queryClient.invalidateQueries({ queryKey: packKeys.installed })
-    },
-  })
-}
-
-/**
- * Check usage before uninstalling a pack.
- */
-export function usePackUsage(installationId: number | null) {
-  return useQuery({
-    queryKey: [...packKeys.installed, 'usage', installationId],
-    queryFn: () =>
-      api.get<{
-        packName: string
-        usage: {
-          componentInstances: number
-          threatInstances: number
-          countermeasureInstances: number
-          total: number
-        }
-        inUse: boolean
-      }>(`/installed-packs/${installationId}/check_usage/`),
-    enabled: installationId !== null,
-  })
-}
-
-/**
- * Uninstall a pack (by installation ID).
- */
-export function useUninstallPack() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (installationId: number) => {
-      return api.delete<{ message: string }>(`/installed-packs/${installationId}/`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packKeys.all })
-      queryClient.invalidateQueries({ queryKey: packKeys.installed })
-    },
   })
 }
 
@@ -348,14 +250,15 @@ export function useImportSinglePack() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packKeys.all })
-      queryClient.invalidateQueries({ queryKey: packKeys.installed })
       queryClient.invalidateQueries({ queryKey: packKeys.availableFromSource })
+      // Also invalidate component library to refresh available technologies
+      queryClient.invalidateQueries({ queryKey: ['component-library'] })
     },
   })
 }
 
 /**
- * Fetch available framework overlays for a pack before installation.
+ * Fetch available framework overlays for a pack before import.
  */
 export function usePackOverlays(slug: string | null) {
   return useQuery({
@@ -365,47 +268,6 @@ export function usePackOverlays(slug: string | null) {
         `/packs/available_overlays/?slug=${slug}`
       ),
     enabled: slug !== null,
-  })
-}
-
-/**
- * Fetch active framework overlays for an installed pack.
- */
-export function useActiveOverlays(installationId: number | null) {
-  return useQuery({
-    queryKey: [...packKeys.installed, 'active-overlays', installationId],
-    queryFn: async () => {
-      try {
-        return await api.get<ActiveOverlaysResponse>(
-          `/installed-packs/${installationId}/active_overlays/`
-        )
-      } catch (error) {
-        // Return empty overlays if installation doesn't exist (e.g., after delete)
-        return { packId: installationId, packName: '', overlays: [], total: 0 }
-      }
-    },
-    enabled: installationId !== null,
-  })
-}
-
-/**
- * Install a pack for the user's organization (after it's been imported to DB).
- * This creates the OrganizationPackInstallation record.
- */
-export function useInstallPackForOrg() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (packId: number) =>
-      api.post<{ message: string; installation: InstalledPack }>(
-        `/packs/${packId}/install_for_org/`
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packKeys.all })
-      queryClient.invalidateQueries({ queryKey: packKeys.installed })
-      // Also invalidate component library to refresh available technologies
-      queryClient.invalidateQueries({ queryKey: ['component-library'] })
-    },
   })
 }
 

@@ -2,8 +2,6 @@
 Views for threats app.
 """
 
-from django.db import transaction
-from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -48,13 +46,8 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return threats accessible to user (global + org-specific, excluding deleted)."""
-        user = self.request.user
-        org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
-        return ThreatLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
-            is_deleted=False,
-        ).select_related("organization", "source_pack")
+        """Return all threats in the library."""
+        return ThreatLibrary.objects.all().select_related("source_pack")
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
@@ -69,19 +62,14 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["control_type", "cost", "organization"]
+    filterset_fields = ["control_type", "cost"]
     search_fields = ["name", "description"]
     ordering_fields = ["name", "control_type", "created_at"]
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return countermeasures accessible to user (global + org-specific, excluding deleted)."""
-        user = self.request.user
-        org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
-        return CountermeasureLibrary.objects.filter(
-            Q(organization__isnull=True) | Q(organization_id__in=org_ids),
-            is_deleted=False,
-        ).select_related("organization", "source_pack")
+        """Return all countermeasures in the library."""
+        return CountermeasureLibrary.objects.all().select_related("source_pack")
 
     def get_serializer_class(self):
         """Return appropriate serializer."""
@@ -133,7 +121,6 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
         # Get countermeasures applicable to this threat type
         applicable_countermeasures = CountermeasureLibrary.objects.filter(
             applicable_threats=threat_library,
-            is_deleted=False,
         )
 
         # Get countermeasures already applied to this instance
@@ -180,9 +167,7 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            countermeasure = CountermeasureLibrary.objects.get(
-                id=countermeasure_id, is_deleted=False
-            )
+            countermeasure = CountermeasureLibrary.objects.get(id=countermeasure_id)
         except CountermeasureLibrary.DoesNotExist:
             return Response(
                 {"error": "Countermeasure not found"},

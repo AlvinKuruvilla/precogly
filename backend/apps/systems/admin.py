@@ -36,7 +36,7 @@ class TrustBoundaryAdmin(admin.ModelAdmin):
 
 @admin.register(ComponentLibrary)
 class ComponentLibraryAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "component_type", "provider", "organization"]
+    list_display = ["name", "category", "component_type", "provider"]
     list_filter = ["category", "provider"]
     search_fields = ["name", "component_type"]
 

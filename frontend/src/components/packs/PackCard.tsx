@@ -10,9 +10,9 @@ import type { LibraryPackListItem } from '@/types/packs'
 
 interface PackCardProps {
   pack: LibraryPackListItem
-  onInstall: (pack: LibraryPackListItem) => void
+  onImport: (pack: LibraryPackListItem) => void
   onPreview?: (pack: LibraryPackListItem) => void
-  installing?: boolean
+  importing?: boolean
 }
 
 const tierColors: Record<string, string> = {
@@ -28,7 +28,7 @@ const sourceLabels: Record<string, string> = {
   private: 'Private',
 }
 
-export function PackCard({ pack, onInstall, onPreview, installing }: PackCardProps) {
+export function PackCard({ pack, onImport, onPreview, importing }: PackCardProps) {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="pb-3">
@@ -87,18 +87,18 @@ export function PackCard({ pack, onInstall, onPreview, installing }: PackCardPro
               <Eye className="h-4 w-4" />
             </Button>
           )}
-          {pack.isInstalled ? (
+          {pack.isImported ? (
             <Button size="sm" variant="ghost" disabled>
               <Check className="h-4 w-4 mr-1" />
-              Installed
+              Imported
             </Button>
           ) : (
             <Button
               size="sm"
-              onClick={() => onInstall(pack)}
-              disabled={installing}
+              onClick={() => onImport(pack)}
+              disabled={importing}
             >
-              Install
+              Import
             </Button>
           )}
         </div>

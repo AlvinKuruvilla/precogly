@@ -1,7 +1,7 @@
 // Re-export domain types (single source of truth)
 export * from './domain'
 
-// Re-export pack types (excluding InstallationStatus which is in domain)
+// Re-export pack types
 export {
   type PackType,
   type PackTier,
@@ -10,8 +10,6 @@ export {
   type PackContentSummary,
   type LibraryPack,
   type LibraryPackListItem,
-  type InstalledPack,
-  type PackInstallResponse,
   type PackDependencyCheck,
   type PackFilters,
 } from './packs'

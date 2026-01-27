@@ -1,5 +1,5 @@
 /**
- * Dialog for confirming pack installation with dependency information.
+ * Dialog for confirming pack import with dependency information.
  */
 
 import { AlertCircle, Check, Package } from 'lucide-react'
@@ -13,10 +13,10 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { usePackDependencies, useInstallPack } from '@/api/packs'
+import { usePackDependencies, useImportSinglePack } from '@/api/packs'
 import type { LibraryPackListItem } from '@/types/packs'
 
-interface InstallPackDialogProps {
+interface ImportPackDialogProps {
   pack: LibraryPackListItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -28,26 +28,26 @@ export function InstallPackDialog({
   open,
   onOpenChange,
   onSuccess,
-}: InstallPackDialogProps) {
+}: ImportPackDialogProps) {
   const { data: depCheck, isLoading: loadingDeps } = usePackDependencies(
     pack?.id ?? null
   )
-  const installMutation = useInstallPack()
+  const importMutation = useImportSinglePack()
 
   const hasMissingDeps = depCheck && depCheck.missingDependencies.length > 0
 
-  const handleInstall = async () => {
+  const handleImport = async () => {
     if (!pack) return
 
     try {
-      await installMutation.mutateAsync({
-        packId: pack.id,
-        installDependencies: hasMissingDeps,
+      await importMutation.mutateAsync({
+        slug: pack.slug,
+        force: false,
       })
       onOpenChange(false)
       onSuccess?.()
     } catch (error) {
-      console.error('Failed to install pack:', error)
+      console.error('Failed to import pack:', error)
     }
   }
 
@@ -59,7 +59,7 @@ export function InstallPackDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Install {pack.name}
+            Import {pack.name}
           </DialogTitle>
           <DialogDescription>
             {pack.description}
@@ -92,11 +92,11 @@ export function InstallPackDialog({
                       <span className="text-xs text-muted-foreground">
                         {dep.version}
                       </span>
-                      {dep.isInstalled ? (
+                      {dep.isImported ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
                         <Badge variant="secondary" className="text-xs">
-                          Will install
+                          Will import
                         </Badge>
                       )}
                     </div>
@@ -106,34 +106,13 @@ export function InstallPackDialog({
               {hasMissingDeps && (
                 <p className="text-xs text-muted-foreground flex items-start gap-1">
                   <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  Missing dependencies will be installed automatically.
+                  Missing dependencies will be imported automatically.
                 </p>
               )}
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">
               No dependencies required.
-            </div>
-          )}
-
-          {/* Content summary */}
-          {depCheck?.pack && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Pack Contents</h4>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.components ?? 0} components
-                </Badge>
-                <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.threats ?? 0} threats
-                </Badge>
-                <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.countermeasures ?? 0} countermeasures
-                </Badge>
-                <Badge variant="outline">
-                  {(depCheck.pack as LibraryPackListItem & { contentSummary?: { components: number; threats: number; countermeasures: number; templates: number } })?.contentSummary?.templates ?? 0} templates
-                </Badge>
-              </div>
             </div>
           )}
         </div>
@@ -143,10 +122,10 @@ export function InstallPackDialog({
             Cancel
           </Button>
           <Button
-            onClick={handleInstall}
-            disabled={installMutation.isPending || loadingDeps}
+            onClick={handleImport}
+            disabled={importMutation.isPending || loadingDeps}
           >
-            {installMutation.isPending ? 'Installing...' : 'Install Pack'}
+            {importMutation.isPending ? 'Importing...' : 'Import Pack'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -16,8 +16,7 @@ from django.utils.text import slugify
 
 from apps.compliance.models import CountermeasureLibraryStandard, StandardFramework, StandardRequirement
 from apps.diagrams.models import DFDTemplatesLibrary
-from apps.organizations.models import Organization
-from apps.packs.models import LibraryPack, LibraryPackDependency, OrganizationPackInstallation
+from apps.packs.models import LibraryPack, LibraryPackDependency
 from apps.systems.models import ComponentLibrary
 from apps.threats.models import CountermeasureLibrary, ThreatLibrary, ComponentLibraryThreat
 
@@ -28,11 +27,6 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("pack_path", type=str, help="Path to pack directory")
         parser.add_argument(
-            "--org-id",
-            type=int,
-            help="Organization ID to install pack for (optional for global packs)",
-        )
-        parser.add_argument(
             "--force",
             action="store_true",
             help="Force reinstall even if pack exists",
@@ -40,7 +34,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         pack_path = Path(options["pack_path"])
-        org_id = options.get("org_id")
         force = options.get("force", False)
 
         if not pack_path.exists():
@@ -55,15 +48,6 @@ class Command(BaseCommand):
             pack_data = yaml.safe_load(f)
 
         self.stdout.write(f"Importing pack: {pack_data['pack']['name']}")
-
-        # Get organization if specified
-        org = None
-        if org_id:
-            try:
-                org = Organization.objects.get(id=org_id)
-                self.stdout.write(f"Installing for organization: {org.name}")
-            except Organization.DoesNotExist:
-                raise CommandError(f"Organization with ID {org_id} not found")
 
         try:
             with transaction.atomic():
@@ -86,10 +70,6 @@ class Command(BaseCommand):
 
                 # Phase 6: Load DFD templates
                 self._load_dfd_templates(library_pack, pack_path)
-
-                # Phase 6: Create installation record if org specified
-                if org:
-                    self._create_installation(library_pack, org)
 
                 self.stdout.write(
                     self.style.SUCCESS(f"Successfully imported pack: {library_pack.name} v{library_pack.version}")
@@ -122,19 +102,11 @@ class Command(BaseCommand):
 
         if existing and force:
             self.stdout.write(f"  Updating existing pack: {slug}")
-            # Soft delete existing items
-            ComponentLibrary.objects.filter(source_pack=existing).update(
-                is_deleted=True, deleted_at=timezone.now()
-            )
-            ThreatLibrary.objects.filter(source_pack=existing).update(
-                is_deleted=True, deleted_at=timezone.now()
-            )
-            CountermeasureLibrary.objects.filter(source_pack=existing).update(
-                is_deleted=True, deleted_at=timezone.now()
-            )
-            DFDTemplatesLibrary.objects.filter(source_pack=existing).update(
-                is_deleted=True, deleted_at=timezone.now()
-            )
+            # Hard delete existing items
+            ComponentLibrary.objects.filter(source_pack=existing).delete()
+            ThreatLibrary.objects.filter(source_pack=existing).delete()
+            CountermeasureLibrary.objects.filter(source_pack=existing).delete()
+            DFDTemplatesLibrary.objects.filter(source_pack=existing).delete()
 
         library_pack, created = LibraryPack.objects.update_or_create(
             slug=slug,
@@ -240,8 +212,6 @@ class Command(BaseCommand):
                 "component_type": comp_data.get("component_type", ""),
                 "provider": comp_data.get("provider", ""),
                 "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
             },
         )
         return component
@@ -262,8 +232,6 @@ class Command(BaseCommand):
                 "source": threat_data.get("source", "custom"),
                 "source_id": threat_data.get("source_id", ""),
                 "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
             },
         )
         return threat
@@ -283,8 +251,6 @@ class Command(BaseCommand):
                 "control_type": cm_data["control_type"],
                 "cost": cm_data.get("cost", "medium"),
                 "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
             },
         )
         return countermeasure
@@ -319,20 +285,16 @@ class Command(BaseCommand):
         """Resolve a threat reference (slug or qualified slug)."""
         if "/" in threat_ref:
             # Qualified slug
-            return ThreatLibrary.objects.filter(
-                qualified_slug=threat_ref, is_deleted=False
-            ).first()
+            return ThreatLibrary.objects.filter(qualified_slug=threat_ref).first()
         else:
             # Try current pack first
             qualified = f"{library_pack.slug}/{threat_ref}"
-            threat = ThreatLibrary.objects.filter(
-                qualified_slug=qualified, is_deleted=False
-            ).first()
+            threat = ThreatLibrary.objects.filter(qualified_slug=qualified).first()
 
             if not threat:
                 # Try global
                 threat = ThreatLibrary.objects.filter(
-                    qualified_slug=f"global/{threat_ref}", is_deleted=False
+                    qualified_slug=f"global/{threat_ref}"
                 ).first()
 
             return threat
@@ -364,32 +326,11 @@ class Command(BaseCommand):
                     "diagram_type": template.get("diagram_type", "level1"),
                     "canvas_data": template_data.get("canvas_data", {}),
                     "customization_status": "original",
-                    "is_deleted": False,
-                    "deleted_at": None,
                 },
             )
 
         if template_files:
             self.stdout.write(f"  Created {len(template_files)} DFD templates")
-
-    def _create_installation(self, library_pack, org):
-        """Create installation record for organization."""
-        installation, created = OrganizationPackInstallation.objects.update_or_create(
-            organization=org,
-            pack=library_pack,
-            defaults={
-                "installed_version": library_pack.version,
-                "status": "installed",
-            },
-        )
-
-        # Increment install count
-        if created:
-            library_pack.install_count += 1
-            library_pack.save(update_fields=["install_count"])
-
-        action = "Created" if created else "Updated"
-        self.stdout.write(f"  {action} installation for {org.name}")
 
     def _create_frameworks(self, library_pack, pack_data):
         """Create compliance frameworks and their requirements."""

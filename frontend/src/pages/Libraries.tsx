@@ -1,6 +1,6 @@
 /**
- * Unified Libraries page combining Catalog (browse packs) and Installed (manage) views.
- * Replaces separate Packs, Frameworks, and Libraries tabs with a single consolidated interface.
+ * Unified Libraries page combining Catalog (browse packs) and Imported (manage) views.
+ * Simplified for single-organization deployment.
  */
 
 import { useState, useMemo, useEffect } from 'react'
@@ -13,13 +13,10 @@ import {
   Download,
   ChevronDown,
   ChevronRight,
-  Trash2,
-  AlertTriangle,
   Server,
   Shield,
   Bug,
   ClipboardList,
-  Layers,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -33,16 +30,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -54,19 +41,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { PreviewPackDialog } from '@/components/packs'
 import {
-  useInstalledPacks,
   useAvailablePacksFromSource,
   useImportSinglePack,
-  useInstallPackForOrg,
   usePacks,
-  useUninstallPack,
-  usePackUsage,
   usePackOverlays,
-  useActiveOverlays,
 } from '@/api/packs'
-import type { OverlayInfo, ActiveOverlayInfo } from '@/api/packs'
 import { useComponentLibraries, useThreatLibraries, useCountermeasureLibraries, useRequirements } from '@/api/libraries'
-import type { PackFilters, InstalledPack } from '@/types/packs'
+import type { PackFilters } from '@/types/packs'
 import { Link } from 'react-router-dom'
 
 // Unified pack type that can represent both source and database packs
@@ -82,8 +63,7 @@ interface UnifiedPack {
   componentCount: number
   threatCount: number
   isInDatabase: boolean
-  isInstalled: boolean
-  installCount: number
+  isImported: boolean
   databaseId: number | null
 }
 
@@ -96,7 +76,7 @@ export function Libraries() {
       <div>
         <h1 className="text-2xl font-bold">Libraries</h1>
         <p className="text-muted-foreground">
-          Browse and manage library packs for your organization.
+          Browse and manage library packs.
         </p>
       </div>
 
@@ -104,15 +84,15 @@ export function Libraries() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="catalog">Catalog</TabsTrigger>
-          <TabsTrigger value="installed">Installed</TabsTrigger>
+          <TabsTrigger value="imported">Imported</TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalog" className="mt-6">
           <CatalogView />
         </TabsContent>
 
-        <TabsContent value="installed" className="mt-6">
-          <InstalledView />
+        <TabsContent value="imported" className="mt-6">
+          <ImportedView />
         </TabsContent>
       </Tabs>
     </div>
@@ -120,7 +100,7 @@ export function Libraries() {
 }
 
 /**
- * Catalog view - browse and install available packs
+ * Catalog view - browse and import available packs
  */
 function CatalogView() {
   const [filters, setFilters] = useState<PackFilters>({})
@@ -128,19 +108,13 @@ function CatalogView() {
   const [previewPackId, setPreviewPackId] = useState<number | null>(null)
   const [previewPackSlug, setPreviewPackSlug] = useState<string | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
-  const [installingSlug, setInstallingSlug] = useState<string | null>(null)
+  const [importingSlug, setImportingSlug] = useState<string | null>(null)
   const [installDialogPack, setInstallDialogPack] = useState<UnifiedPack | null>(null)
 
   const { data: dbPacks, isLoading: isLoadingDb } = usePacks(filters)
   const { data: sourcePacks, isLoading: isLoadingSource } = useAvailablePacksFromSource()
-  const { data: installedPacks } = useInstalledPacks()
 
   const importMutation = useImportSinglePack()
-  const installMutation = useInstallPackForOrg()
-
-  const installedPackIds = useMemo(() => {
-    return new Set(installedPacks?.map((p) => p.pack.id) ?? [])
-  }, [installedPacks])
 
   const unifiedPacks = useMemo(() => {
     const packs: UnifiedPack[] = []
@@ -161,8 +135,7 @@ function CatalogView() {
           componentCount: sp.componentCount,
           threatCount: sp.threatCount,
           isInDatabase: sp.isInDatabase,
-          isInstalled: dbPack ? installedPackIds.has(dbPack.id) : false,
-          installCount: dbPack?.installCount ?? 0,
+          isImported: sp.isInDatabase || (dbPack?.isImported ?? false),
           databaseId: dbPack?.id ?? null,
         })
         seenSlugs.add(sp.slug)
@@ -184,8 +157,7 @@ function CatalogView() {
             componentCount: 0,
             threatCount: 0,
             isInDatabase: true,
-            isInstalled: installedPackIds.has(dbPack.id),
-            installCount: dbPack.installCount,
+            isImported: dbPack.isImported,
             databaseId: dbPack.id,
           })
         }
@@ -210,7 +182,7 @@ function CatalogView() {
     }
 
     return filtered
-  }, [sourcePacks, dbPacks, installedPackIds, filters])
+  }, [sourcePacks, dbPacks, filters])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -224,19 +196,19 @@ function CatalogView() {
     }))
   }
 
-  const handleInstallClick = (pack: UnifiedPack) => {
-    // Open the install dialog to show overlay options
+  const handleImportClick = (pack: UnifiedPack) => {
+    // Open the import dialog to show overlay options
     setInstallDialogPack(pack)
   }
 
-  const handleInstallConfirm = async (
+  const handleImportConfirm = async (
     pack: UnifiedPack,
     selectedOverlays: string[] | null
   ) => {
-    setInstallingSlug(pack.slug)
+    setImportingSlug(pack.slug)
     setInstallDialogPack(null)
     try {
-      // Always use import_single to support selective overlays
+      // Use import_single to support selective overlays
       // Use force=true if pack is already in database to re-import with new overlay selection
       await importMutation.mutateAsync({
         slug: pack.slug,
@@ -244,9 +216,9 @@ function CatalogView() {
         selectedOverlays,
       })
     } catch (error) {
-      console.error('Install failed:', error)
+      console.error('Import failed:', error)
     } finally {
-      setInstallingSlug(null)
+      setImportingSlug(null)
     }
   }
 
@@ -329,9 +301,9 @@ function CatalogView() {
             <PackCard
               key={pack.slug}
               pack={pack}
-              onInstall={handleInstallClick}
+              onImport={handleImportClick}
               onPreview={handlePreview}
-              isInstalling={installingSlug === pack.slug}
+              isImporting={importingSlug === pack.slug}
             />
           ))}
         </div>
@@ -354,20 +326,20 @@ function CatalogView() {
         onOpenChange={setPreviewDialogOpen}
       />
 
-      <InstallPackDialog
+      <ImportPackDialog
         pack={installDialogPack}
         open={installDialogPack !== null}
         onOpenChange={(open) => !open && setInstallDialogPack(null)}
-        onConfirm={handleInstallConfirm}
+        onConfirm={handleImportConfirm}
       />
     </div>
   )
 }
 
 /**
- * Dialog for installing a pack with overlay selection
+ * Dialog for importing a pack with overlay selection
  */
-function InstallPackDialog({
+function ImportPackDialog({
   pack,
   open,
   onOpenChange,
@@ -406,7 +378,7 @@ function InstallPackDialog({
     })
   }
 
-  const handleInstall = () => {
+  const handleImport = () => {
     if (!pack) return
     // If there are no overlays, pass null to load all (default behavior)
     // If there are overlays, pass the selected list
@@ -423,11 +395,11 @@ function InstallPackDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Install {pack?.name}</DialogTitle>
+          <DialogTitle>Import {pack?.name}</DialogTitle>
           <DialogDescription>
             {hasOverlays
               ? 'Select which compliance framework overlays to include with this pack.'
-              : `Install ${pack?.name} v${pack?.version} for your organization.`}
+              : `Import ${pack?.name} v${pack?.version} to make its content available.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -439,7 +411,7 @@ function InstallPackDialog({
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
               Framework overlays map countermeasures to compliance requirements.
-              Overlays for frameworks you haven&apos;t installed are disabled.
+              Overlays for frameworks you haven&apos;t imported are disabled.
             </p>
             <div className="space-y-3">
               {overlaysData?.overlays.map((overlay) => (
@@ -468,7 +440,7 @@ function InstallPackDialog({
                       {overlay.mappingCount} mappings
                       {!overlay.frameworkExists && (
                         <span className="ml-2 text-amber-600">
-                          (framework not installed)
+                          (framework not imported)
                         </span>
                       )}
                     </p>
@@ -490,9 +462,9 @@ function InstallPackDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleInstall}>
+          <Button onClick={handleImport}>
             <Download className="mr-2 h-4 w-4" />
-            Install
+            Import
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -505,14 +477,14 @@ function InstallPackDialog({
  */
 function PackCard({
   pack,
-  onInstall,
+  onImport,
   onPreview,
-  isInstalling,
+  isImporting,
 }: {
   pack: UnifiedPack
-  onInstall: (pack: UnifiedPack) => void
+  onImport: (pack: UnifiedPack) => void
   onPreview: (pack: UnifiedPack) => void
-  isInstalling: boolean
+  isImporting: boolean
 }) {
   const packTypeColors: Record<string, string> = {
     technology: 'bg-blue-100 text-blue-800',
@@ -572,15 +544,6 @@ function PackCard({
       <div className="flex items-center justify-between pt-2 border-t">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{pack.source === 'official' ? 'Official' : 'Community'}</span>
-          {pack.installCount > 0 && (
-            <>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                <Download className="h-3 w-3" />
-                {pack.installCount}
-              </span>
-            </>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -591,19 +554,19 @@ function PackCard({
           >
             <Eye className="h-4 w-4" />
           </Button>
-          {pack.isInstalled ? (
+          {pack.isImported ? (
             <Badge variant="outline" className="text-green-600 border-green-600">
               <Check className="mr-1 h-3 w-3" />
-              Installed
+              Imported
             </Badge>
           ) : (
-            <Button size="sm" onClick={() => onInstall(pack)} disabled={isInstalling}>
-              {isInstalling ? (
+            <Button size="sm" onClick={() => onImport(pack)} disabled={isImporting}>
+              {isImporting ? (
                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
               ) : (
                 <Download className="mr-2 h-3 w-3" />
               )}
-              Install
+              Import
             </Button>
           )}
         </div>
@@ -613,17 +576,16 @@ function PackCard({
 }
 
 /**
- * Installed view - pack-centric expandable list of installed content
+ * Imported view - pack-centric expandable list of imported content
  */
-function InstalledView() {
-  const { data: packs, isLoading } = useInstalledPacks()
+function ImportedView() {
+  const { data: dbPacks, isLoading } = usePacks({})
   const [expandedPacks, setExpandedPacks] = useState<Set<number>>(new Set())
-  const [packToUninstall, setPackToUninstall] = useState<InstalledPack | null>(null)
-  const uninstallMutation = useUninstallPack()
 
-  const { data: usageData, isLoading: usageLoading } = usePackUsage(
-    packToUninstall?.id ?? null
-  )
+  // Filter to only imported packs
+  const importedPacks = useMemo(() => {
+    return dbPacks?.filter(p => p.isImported) ?? []
+  }, [dbPacks])
 
   const toggleExpanded = (packId: number) => {
     setExpandedPacks((prev) => {
@@ -637,16 +599,6 @@ function InstalledView() {
     })
   }
 
-  const handleUninstall = async () => {
-    if (!packToUninstall) return
-    try {
-      await uninstallMutation.mutateAsync(packToUninstall.id)
-      setPackToUninstall(null)
-    } catch (error) {
-      console.error('Failed to uninstall pack:', error)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -657,13 +609,13 @@ function InstalledView() {
     )
   }
 
-  if (!packs || packs.length === 0) {
+  if (importedPacks.length === 0) {
     return (
       <div className="text-center py-12 border rounded-lg">
         <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium mb-2">No packs installed</h3>
+        <h3 className="text-lg font-medium mb-2">No packs imported</h3>
         <p className="text-muted-foreground mb-4">
-          Install library packs from the Catalog to add pre-built components, threats, and countermeasures.
+          Import library packs from the Catalog to add pre-built components, threats, and countermeasures.
         </p>
       </div>
     )
@@ -671,94 +623,36 @@ function InstalledView() {
 
   return (
     <div className="space-y-3">
-      {packs.map((installation) => (
-        <InstalledPackRow
-          key={installation.id}
-          installation={installation}
-          isExpanded={expandedPacks.has(installation.id)}
-          onToggleExpand={() => toggleExpanded(installation.id)}
-          onUninstall={() => setPackToUninstall(installation)}
+      {importedPacks.map((pack) => (
+        <ImportedPackRow
+          key={pack.id}
+          pack={pack}
+          isExpanded={expandedPacks.has(pack.id)}
+          onToggleExpand={() => toggleExpanded(pack.id)}
         />
       ))}
-
-      {/* Uninstall Confirmation Dialog */}
-      <AlertDialog
-        open={packToUninstall !== null}
-        onOpenChange={(open) => !open && setPackToUninstall(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Uninstall Pack</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <p>
-                  Are you sure you want to uninstall{' '}
-                  <strong>{packToUninstall?.pack.name}</strong>?
-                </p>
-
-                {usageLoading ? (
-                  <p className="text-sm text-muted-foreground">Checking usage...</p>
-                ) : usageData?.inUse ? (
-                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-amber-800 dark:text-amber-200">
-                        This pack is in use
-                      </p>
-                      <p className="text-amber-700 dark:text-amber-300 mt-1">
-                        {usageData.usage.componentInstances > 0 && (
-                          <span>{usageData.usage.componentInstances} component instances, </span>
-                        )}
-                        {usageData.usage.threatInstances > 0 && (
-                          <span>{usageData.usage.threatInstances} threat instances, </span>
-                        )}
-                        {usageData.usage.countermeasureInstances > 0 && (
-                          <span>{usageData.usage.countermeasureInstances} countermeasure instances</span>
-                        )}
-                        {' '}use items from this pack.
-                      </p>
-                      <p className="text-amber-700 dark:text-amber-300 mt-1">
-                        Existing threat models will continue to work, but library items will be hidden.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No threat models are using items from this pack.
-                  </p>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleUninstall}
-              disabled={usageLoading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {uninstallMutation.isPending ? 'Uninstalling...' : 'Uninstall'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
 
 /**
- * Expandable row for an installed pack showing its contents
+ * Expandable row for an imported pack showing its contents
  */
-function InstalledPackRow({
-  installation,
+function ImportedPackRow({
+  pack,
   isExpanded,
   onToggleExpand,
-  onUninstall,
 }: {
-  installation: InstalledPack
+  pack: {
+    id: number
+    slug: string
+    name: string
+    version: string
+    packType: string
+    description: string
+  }
   isExpanded: boolean
   onToggleExpand: () => void
-  onUninstall: () => void
 }) {
   const packTypeColors: Record<string, string> = {
     technology: 'bg-blue-100 text-blue-800',
@@ -767,12 +661,6 @@ function InstalledPackRow({
     compliance: 'bg-purple-100 text-purple-800',
     template: 'bg-yellow-100 text-yellow-800',
     full: 'bg-gray-100 text-gray-800',
-  }
-
-  const statusColors: Record<string, string> = {
-    installed: 'bg-green-100 text-green-800',
-    pending_update: 'bg-yellow-100 text-yellow-800',
-    failed: 'bg-red-100 text-red-800',
   }
 
   return (
@@ -792,51 +680,28 @@ function InstalledPackRow({
             <Package className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <h3 className="font-semibold">{installation.pack.name}</h3>
-            <p className="text-sm text-muted-foreground">
-              v{installation.installedVersion}
-              {installation.updateAvailable && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  Update available
-                </Badge>
-              )}
-            </p>
+            <h3 className="font-semibold">{pack.name}</h3>
+            <p className="text-sm text-muted-foreground">v{pack.version}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Badge
             variant="secondary"
-            className={packTypeColors[installation.pack.packType] || 'bg-gray-100'}
+            className={packTypeColors[pack.packType] || 'bg-gray-100'}
           >
-            {installation.pack.packType}
+            {pack.packType}
           </Badge>
-          <Badge
-            variant="secondary"
-            className={statusColors[installation.status] || ''}
-          >
-            {installation.status.replace('_', ' ')}
+          <Badge variant="outline" className="text-green-600 border-green-600">
+            <Check className="mr-1 h-3 w-3" />
+            Imported
           </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation()
-              onUninstall()
-            }}
-          >
-            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-          </Button>
         </div>
       </div>
 
       {/* Expanded Content */}
       {isExpanded && (
         <div className="border-t px-4 py-3 bg-muted/30">
-          <PackContents
-            packId={installation.pack.id}
-            packName={installation.pack.name}
-            installationId={installation.id}
-          />
+          <PackContents packId={pack.id} packName={pack.name} />
         </div>
       )}
     </div>
@@ -844,24 +709,21 @@ function InstalledPackRow({
 }
 
 /**
- * Shows the contents of a pack (components, threats, countermeasures, requirements, overlays)
+ * Shows the contents of a pack (components, threats, countermeasures, requirements)
  */
 function PackContents({
   packId,
   packName,
-  installationId,
 }: {
   packId: number
   packName: string
-  installationId: number
 }) {
   const { data: allComponents, isLoading: loadingComponents } = useComponentLibraries()
   const { data: allThreats, isLoading: loadingThreats } = useThreatLibraries()
   const { data: allCountermeasures, isLoading: loadingCountermeasures } = useCountermeasureLibraries()
   const { data: allRequirements, isLoading: loadingRequirements } = useRequirements()
-  const { data: overlaysData, isLoading: loadingOverlays } = useActiveOverlays(installationId)
 
-  const isLoading = loadingComponents || loadingThreats || loadingCountermeasures || loadingRequirements || loadingOverlays
+  const isLoading = loadingComponents || loadingThreats || loadingCountermeasures || loadingRequirements
 
   // Filter by packId (sourcePack is the pack's database ID)
   const components = useMemo(
@@ -894,10 +756,8 @@ function PackContents({
   const hasThreats = threats.length > 0
   const hasCountermeasures = countermeasures.length > 0
   const hasRequirements = requirements.length > 0
-  const activeOverlays = overlaysData?.overlays ?? []
-  const hasOverlays = activeOverlays.length > 0
 
-  if (!hasComponents && !hasThreats && !hasCountermeasures && !hasRequirements && !hasOverlays) {
+  if (!hasComponents && !hasThreats && !hasCountermeasures && !hasRequirements) {
     return (
       <div className="py-4 text-center text-muted-foreground">
         No content in this pack
@@ -912,8 +772,8 @@ function PackContents({
   const countermeasuresUrl = `/countermeasures?packId=${packId}&packName=${encodedPackName}`
 
   // Determine grid columns based on content types present
-  const contentTypeCount = [hasComponents, hasThreats, hasCountermeasures, hasRequirements, hasOverlays].filter(Boolean).length
-  const gridCols = contentTypeCount === 1 ? 'grid-cols-1' : contentTypeCount === 2 ? 'md:grid-cols-2' : contentTypeCount === 3 ? 'md:grid-cols-3' : contentTypeCount >= 4 ? 'md:grid-cols-4' : 'md:grid-cols-5'
+  const contentTypeCount = [hasComponents, hasThreats, hasCountermeasures, hasRequirements].filter(Boolean).length
+  const gridCols = contentTypeCount === 1 ? 'grid-cols-1' : contentTypeCount === 2 ? 'md:grid-cols-2' : contentTypeCount === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'
 
   return (
     <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
@@ -1043,30 +903,6 @@ function PackContents({
                 title={`${r.sectionCode}: ${r.description}`}
               >
                 {r.sectionCode}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Framework Overlays */}
-      {hasOverlays && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Layers className="h-4 w-4 text-amber-600" />
-            Framework Overlays ({activeOverlays.length})
-          </div>
-          <div className="space-y-1 max-h-60 overflow-y-auto">
-            {activeOverlays.map((overlay) => (
-              <div
-                key={overlay.frameworkId}
-                className="text-sm text-muted-foreground pl-6"
-                title={`${overlay.frameworkName}: ${overlay.mappingCount} mappings`}
-              >
-                <span className="truncate block">{overlay.frameworkName}</span>
-                <span className="text-xs text-muted-foreground/70">
-                  {overlay.mappingCount} mappings
-                </span>
               </div>
             ))}
           </div>

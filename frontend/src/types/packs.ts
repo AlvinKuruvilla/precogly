@@ -2,14 +2,9 @@
  * Type definitions for Library Packs.
  */
 
-import type { InstallationStatus } from './domain'
-
 export type PackType = 'technology' | 'threat' | 'countermeasure' | 'compliance' | 'template' | 'full'
 export type PackTier = 'free' | 'premium' | 'enterprise'
 export type PackSource = 'official' | 'partner' | 'community' | 'private'
-
-// Re-export InstallationStatus from domain
-export type { InstallationStatus } from './domain'
 
 export interface PackDependency {
   id: number
@@ -45,8 +40,7 @@ export interface LibraryPack {
   tags: string[]
   isPublished: boolean
   publishedAt?: string
-  isInstalled: boolean
-  installedVersion?: string
+  isImported: boolean
   dependencies?: PackDependency[]
   contentSummary?: PackContentSummary
   createdAt: string
@@ -66,26 +60,7 @@ export interface LibraryPackListItem {
   installCount: number
   industries: string[]
   tags: string[]
-  isInstalled: boolean
-}
-
-export interface InstalledPack {
-  id: number
-  organization: number
-  pack: LibraryPackListItem
-  installedVersion: string
-  status: InstallationStatus
-  installedBy: number
-  installedByEmail: string
-  installedAt: string
-  lastUpdatedAt?: string
-  updateAvailable: boolean
-}
-
-export interface PackInstallResponse {
-  installation: InstalledPack
-  dependenciesInstalled: string[]
-  message: string
+  isImported: boolean
 }
 
 export interface PackDependencyCheck {
@@ -96,7 +71,7 @@ export interface PackDependencyCheck {
     name: string
     version: string
     versionConstraint: string
-    isInstalled: boolean
+    isImported: boolean
   }[]
   missingDependencies: string[]
   allSatisfied: boolean

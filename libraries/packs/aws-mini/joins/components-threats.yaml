@@ -3,8 +3,30 @@ mappings:
     threats:
       - s3-public-exposure
       - s3-data-tampering
+      - s3-deletion
 
   - component: lambda
     threats:
       - lambda-injection
       - lambda-privilege-escalation
+      - lambda-secret-exposure
+      - lambda-dos
+
+  - component: api-gateway
+    threats:
+      - apigw-unauthorized-access
+      - apigw-injection
+      - apigw-rate-limit-bypass
+      - apigw-logging-gap
+
+  - component: dynamodb
+    threats:
+      - dynamodb-unauthorized-access
+      - dynamodb-injection
+      - dynamodb-capacity-exhaustion
+
+  - component: sqs
+    threats:
+      - sqs-message-tampering
+      - sqs-message-injection
+      - sqs-queue-flooding

@@ -88,14 +88,6 @@ class IntegrationSource(TimestampedModel):
 class TrustBoundary(TimestampedModel):
     """Trust boundary / security zone."""
 
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="trust_boundaries",
-        help_text="Null means global/shared boundary",
-    )
     name = models.CharField(max_length=255)
     trust_level = models.IntegerField(default=50, help_text="0-100 scale")
     description = models.TextField(blank=True)
@@ -125,17 +117,9 @@ class ComponentLibrary(TimestampedModel):
 
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"
-        CUSTOMIZED = "customized", "Customized (org edited)"
+        CUSTOMIZED = "customized", "Customized (user edited)"
         DETACHED = "detached", "Detached (unlinked from pack)"
 
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="component_library",
-        help_text="Null means global/shared",
-    )
     source_pack = models.ForeignKey(
         "packs.LibraryPack",
         on_delete=models.SET_NULL,
@@ -182,18 +166,13 @@ class ComponentLibrary(TimestampedModel):
         help_text="Previous slugs for backward compatibility",
     )
 
-    # Soft delete (for deletion cascade handling)
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-
     class Meta:
         verbose_name_plural = "Component libraries"
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["qualified_slug"],
-                condition=models.Q(is_deleted=False),
-                name="unique_active_component_qualified_slug",
+                name="unique_component_qualified_slug",
             ),
         ]
 
@@ -205,10 +184,8 @@ class ComponentLibrary(TimestampedModel):
         if not self.qualified_slug and self.slug:
             if self.source_pack:
                 self.qualified_slug = f"{self.source_pack.slug}/{self.slug}"
-            elif self.organization:
-                self.qualified_slug = f"org-{self.organization.id}/{self.slug}"
             else:
-                self.qualified_slug = f"global/{self.slug}"
+                self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
 
 
@@ -225,8 +202,11 @@ class OrgsystemComponent(TimestampedModel):
     )
     component_library = models.ForeignKey(
         ComponentLibrary,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="instances",
+        help_text="Null means orphaned/custom component (library item was removed)",
     )
     name = models.CharField(max_length=255)
     trust_boundary = models.ForeignKey(
@@ -242,6 +222,23 @@ class OrgsystemComponent(TimestampedModel):
         null=True,
         blank=True,
         related_name="discovered_components",
+    )
+
+    # Metadata copied from library on creation (for self-sufficiency if orphaned)
+    category = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Copied from ComponentLibrary.category on creation",
+    )
+    component_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Copied from ComponentLibrary.component_type on creation",
+    )
+    provider = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Copied from ComponentLibrary.provider on creation",
     )
 
     class Meta:

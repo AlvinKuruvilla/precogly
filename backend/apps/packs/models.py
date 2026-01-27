@@ -8,12 +8,10 @@ Packs enable:
 - Version-controlled library updates
 """
 
-from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps.core.models import TimestampedModel
-from apps.organizations.models import Organization
 
 
 class LibraryPack(TimestampedModel):
@@ -94,16 +92,6 @@ class LibraryPack(TimestampedModel):
     # Stats
     install_count = models.PositiveIntegerField(default=0)
 
-    # For private packs, which org owns it
-    owner_organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="owned_packs",
-        help_text="For private packs, the org that owns it",
-    )
-
     # Publishing status
     is_published = models.BooleanField(
         default=False,
@@ -126,64 +114,6 @@ class LibraryPack(TimestampedModel):
     @property
     def is_official(self):
         return self.source == self.Source.OFFICIAL
-
-
-class OrganizationPackInstallation(TimestampedModel):
-    """
-    Tracks which packs an organization has installed.
-    """
-
-    class Status(models.TextChoices):
-        INSTALLED = "installed", "Installed"
-        PENDING_UPDATE = "pendingUpdate", "Update Available"
-        FAILED = "failed", "Installation Failed"
-
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        related_name="pack_installations",
-    )
-    pack = models.ForeignKey(
-        LibraryPack,
-        on_delete=models.PROTECT,
-        related_name="installations",
-    )
-
-    # Version tracking
-    installed_version = models.CharField(max_length=20)
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.INSTALLED,
-    )
-
-    # Audit
-    installed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="pack_installations",
-    )
-    installed_at = models.DateTimeField(auto_now_add=True)
-    last_updated_at = models.DateTimeField(auto_now=True)
-
-    # For premium packs - license/subscription info
-    license_key = models.CharField(max_length=255, blank=True)
-    license_expires_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        unique_together = ["organization", "pack"]
-        ordering = ["-installed_at"]
-        verbose_name = "Pack Installation"
-        verbose_name_plural = "Pack Installations"
-
-    def __str__(self):
-        return f"{self.organization} - {self.pack.name} v{self.installed_version}"
-
-    @property
-    def update_available(self):
-        """Check if a newer version of the pack is available."""
-        return self.pack.version != self.installed_version
 
 
 class LibraryPackDependency(TimestampedModel):

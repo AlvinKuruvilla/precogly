@@ -1,12 +1,11 @@
 /**
- * Pack Browser page for browsing and installing library packs.
+ * Pack Browser page for browsing and importing library packs.
  *
- * Simplified UI: One unified list of packs with a single "Install" button
- * that handles both import (from YAML) and install (for org) automatically.
+ * Simplified UI: One unified list of packs with a single "Import" button
+ * that imports packs from YAML source files into the database.
  */
 
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Package,
   Search,
@@ -27,10 +26,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { PreviewPackDialog } from '@/components/packs'
 import {
-  useInstalledPacks,
   useAvailablePacksFromSource,
   useImportSinglePack,
-  useInstallPackForOrg,
   usePacks,
 } from '@/api/packs'
 import type { PackFilters } from '@/types/packs'
@@ -49,8 +46,7 @@ interface UnifiedPack {
   threatCount: number
   // Status
   isInDatabase: boolean
-  isInstalled: boolean
-  installCount: number
+  isImported: boolean
   // IDs for API calls
   databaseId: number | null
 }
@@ -62,22 +58,15 @@ export function Packs() {
   const [previewPackId, setPreviewPackId] = useState<number | null>(null)
   const [previewPackSlug, setPreviewPackSlug] = useState<string | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
-  // Track which pack is being installed
-  const [installingSlug, setInstallingSlug] = useState<string | null>(null)
+  // Track which pack is being imported
+  const [importingSlug, setImportingSlug] = useState<string | null>(null)
 
   // Fetch data from both sources
   const { data: dbPacks, isLoading: isLoadingDb } = usePacks(filters)
   const { data: sourcePacks, isLoading: isLoadingSource } = useAvailablePacksFromSource()
-  const { data: installedPacks } = useInstalledPacks()
 
   // Mutations
   const importMutation = useImportSinglePack()
-  const installMutation = useInstallPackForOrg()
-
-  // Create a set of installed pack IDs for quick lookup
-  const installedPackIds = useMemo(() => {
-    return new Set(installedPacks?.map((p) => p.pack.id) ?? [])
-  }, [installedPacks])
 
   // Merge source packs and database packs into unified list
   const unifiedPacks = useMemo(() => {
@@ -102,8 +91,7 @@ export function Packs() {
           componentCount: sp.componentCount,
           threatCount: sp.threatCount,
           isInDatabase: sp.isInDatabase,
-          isInstalled: dbPack ? installedPackIds.has(dbPack.id) : false,
-          installCount: dbPack?.installCount ?? 0,
+          isImported: sp.isInDatabase || (dbPack?.isImported ?? false),
           databaseId: dbPack?.id ?? null,
         })
         seenSlugs.add(sp.slug)
@@ -126,8 +114,7 @@ export function Packs() {
             componentCount: 0,
             threatCount: 0,
             isInDatabase: true,
-            isInstalled: installedPackIds.has(dbPack.id),
-            installCount: dbPack.installCount,
+            isImported: dbPack.isImported,
             databaseId: dbPack.id,
           })
         }
@@ -157,7 +144,7 @@ export function Packs() {
     }
 
     return filtered
-  }, [sourcePacks, dbPacks, installedPackIds, filters])
+  }, [sourcePacks, dbPacks, filters])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -171,20 +158,14 @@ export function Packs() {
     }))
   }
 
-  const handleInstall = async (pack: UnifiedPack) => {
-    setInstallingSlug(pack.slug)
+  const handleImport = async (pack: UnifiedPack) => {
+    setImportingSlug(pack.slug)
     try {
-      if (!pack.isInDatabase) {
-        // Not in database yet - use import_single which imports + installs
-        await importMutation.mutateAsync({ slug: pack.slug, force: false })
-      } else if (pack.databaseId) {
-        // Already in database - just install for org
-        await installMutation.mutateAsync(pack.databaseId)
-      }
+      await importMutation.mutateAsync({ slug: pack.slug, force: false })
     } catch (error) {
-      console.error('Install failed:', error)
+      console.error('Import failed:', error)
     } finally {
-      setInstallingSlug(null)
+      setImportingSlug(null)
     }
   }
 
@@ -200,7 +181,7 @@ export function Packs() {
   }
 
   const isLoading = isLoadingDb || isLoadingSource
-  const installedCount = installedPacks?.length ?? 0
+  const importedCount = unifiedPacks.filter(p => p.isImported).length
 
   return (
     <div className="space-y-6">
@@ -209,15 +190,13 @@ export function Packs() {
         <div>
           <h1 className="text-2xl font-bold">Library Packs</h1>
           <p className="text-muted-foreground">
-            Browse and install pre-built content packs for your organization.
+            Browse and import pre-built content packs.
           </p>
         </div>
-        <Link to="/packs/installed">
-          <Button variant="outline">
-            <Package className="mr-2 h-4 w-4" />
-            Installed ({installedCount})
-          </Button>
-        </Link>
+        <Badge variant="outline" className="text-sm">
+          <Package className="mr-2 h-4 w-4" />
+          {importedCount} imported
+        </Badge>
       </div>
 
       {/* Search and Filters */}
@@ -287,9 +266,9 @@ export function Packs() {
             <UnifiedPackCard
               key={pack.slug}
               pack={pack}
-              onInstall={handleInstall}
+              onImport={handleImport}
               onPreview={handlePreview}
-              isInstalling={installingSlug === pack.slug}
+              isImporting={importingSlug === pack.slug}
             />
           ))}
         </div>
@@ -321,14 +300,14 @@ export function Packs() {
  */
 function UnifiedPackCard({
   pack,
-  onInstall,
+  onImport,
   onPreview,
-  isInstalling,
+  isImporting,
 }: {
   pack: UnifiedPack
-  onInstall: (pack: UnifiedPack) => void
+  onImport: (pack: UnifiedPack) => void
   onPreview: (pack: UnifiedPack) => void
-  isInstalling: boolean
+  isImporting: boolean
 }) {
   const packTypeColors: Record<string, string> = {
     technology: 'bg-blue-100 text-blue-800',
@@ -392,15 +371,6 @@ function UnifiedPackCard({
       <div className="flex items-center justify-between pt-2 border-t">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{pack.source === 'official' ? 'Official' : 'Community'}</span>
-          {pack.installCount > 0 && (
-            <>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                <Download className="h-3 w-3" />
-                {pack.installCount}
-              </span>
-            </>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -411,23 +381,23 @@ function UnifiedPackCard({
           >
             <Eye className="h-4 w-4" />
           </Button>
-          {pack.isInstalled ? (
+          {pack.isImported ? (
             <Badge variant="outline" className="text-green-600 border-green-600">
               <Check className="mr-1 h-3 w-3" />
-              Installed
+              Imported
             </Badge>
           ) : (
             <Button
               size="sm"
-              onClick={() => onInstall(pack)}
-              disabled={isInstalling}
+              onClick={() => onImport(pack)}
+              disabled={isImporting}
             >
-              {isInstalling ? (
+              {isImporting ? (
                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
               ) : (
                 <Download className="mr-2 h-3 w-3" />
               )}
-              Install
+              Import
             </Button>
           )}
         </div>

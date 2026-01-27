@@ -161,28 +161,19 @@ def _find_component_library(technology: str, node_type: str):
         return None
 
     # Try exact match on slug first
-    component = ComponentLibrary.objects.filter(
-        slug=technology,
-        is_deleted=False,
-    ).first()
+    component = ComponentLibrary.objects.filter(slug=technology).first()
 
     if component:
         return component
 
     # Try name match (case-insensitive)
-    component = ComponentLibrary.objects.filter(
-        name__iexact=technology,
-        is_deleted=False,
-    ).first()
+    component = ComponentLibrary.objects.filter(name__iexact=technology).first()
 
     if component:
         return component
 
     # Try partial name match
-    component = ComponentLibrary.objects.filter(
-        name__icontains=technology,
-        is_deleted=False,
-    ).first()
+    component = ComponentLibrary.objects.filter(name__icontains=technology).first()
 
     return component
 
@@ -222,7 +213,6 @@ def _generate_countermeasures_for_threat(threat_instance):
     # Find countermeasures that apply to this threat's library
     applicable_countermeasures = CountermeasureLibrary.objects.filter(
         applicable_threats=threat_instance.threat_library,
-        is_deleted=False,
     )
 
     created_count = 0
@@ -250,8 +240,7 @@ def _generate_threats_for_component(component):
     # Get threats linked to this component's library type
     library_threats = ComponentLibraryThreat.objects.filter(
         component_library=component.component_library,
-        threat_library__is_deleted=False,
-    ).select_related("threat_library")
+            ).select_related("threat_library")
 
     created_count = 0
 
@@ -436,8 +425,7 @@ def _generate_threats_for_dataflow(dataflow):
             ComponentLibraryThreat.AppliesTo.FLOW,
             ComponentLibraryThreat.AppliesTo.BOTH,
         ],
-        threat_library__is_deleted=False,
-    ).select_related("threat_library").distinct()
+            ).select_related("threat_library").distinct()
 
     created_count = 0
     seen_threat_ids = set()
@@ -479,7 +467,6 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
     # Find countermeasures that apply to this threat's library
     applicable_countermeasures = CountermeasureLibrary.objects.filter(
         applicable_threats=threat_instance.threat_library,
-        is_deleted=False,
     )
 
     created_count = 0

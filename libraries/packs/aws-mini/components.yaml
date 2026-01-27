@@ -1,10 +1,50 @@
 components:
+  # Storage
   - id: s3
     name: Amazon S3
     category: datastore
     type: Object Storage
+    provider: aws
+    description: |
+      Amazon Simple Storage Service (S3) provides scalable object storage for data backup,
+      archival, and analytics. Supports versioning, lifecycle policies, and cross-region replication.
 
+  # Compute
   - id: lambda
     name: AWS Lambda
     category: process
     type: Serverless Function
+    provider: aws
+    description: |
+      AWS Lambda lets you run code without provisioning servers. Supports multiple runtimes
+      (Python, Node.js, Java, etc.) with automatic scaling and pay-per-execution pricing.
+
+  # API
+  - id: api-gateway
+    name: Amazon API Gateway
+    category: process
+    type: API Management
+    provider: aws
+    description: |
+      Amazon API Gateway is a managed service for creating, publishing, and securing REST,
+      HTTP, and WebSocket APIs. Supports throttling, caching, and authorization.
+
+  # Database
+  - id: dynamodb
+    name: Amazon DynamoDB
+    category: datastore
+    type: NoSQL Database
+    provider: aws
+    description: |
+      Amazon DynamoDB is a fully managed NoSQL database with single-digit millisecond latency.
+      Supports key-value and document data models with automatic scaling.
+
+  # Messaging
+  - id: sqs
+    name: Amazon SQS
+    category: process
+    type: Message Queue
+    provider: aws
+    description: |
+      Amazon Simple Queue Service (SQS) is a fully managed message queuing service
+      for decoupling and scaling microservices, distributed systems, and serverless apps.

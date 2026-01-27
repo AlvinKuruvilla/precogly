@@ -81,30 +81,11 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Get components from installed packs for user's organizations.
+        Get all component library entries.
 
-        Returns components where:
-        - The source_pack is installed for any of the user's organizations, OR
-        - The component is organization-specific (custom), OR
-        - The component is global (no organization, no pack - legacy)
+        Returns all components that have been imported into the database.
         """
-        from apps.packs.models import OrganizationPackInstallation
-
-        user = self.request.user
-        org_ids = list(user.organization_memberships.values_list("organization_id", flat=True))
-
-        # Get pack IDs that are installed for the user's organizations
-        installed_pack_ids = OrganizationPackInstallation.objects.filter(
-            organization_id__in=org_ids,
-            status=OrganizationPackInstallation.Status.INSTALLED,
-        ).values_list("pack_id", flat=True)
-
-        return ComponentLibrary.objects.filter(
-            Q(source_pack_id__in=installed_pack_ids) |  # From installed packs
-            Q(organization_id__in=org_ids) |  # Org-specific custom components
-            Q(organization__isnull=True, source_pack__isnull=True),  # Legacy global
-            is_deleted=False,
-        ).select_related("source_pack").order_by("name")
+        return ComponentLibrary.objects.all().select_related("source_pack").order_by("name")
 
 
 class OrgsystemComponentViewSet(viewsets.ModelViewSet):
@@ -183,7 +164,6 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
         # Get threats linked to this component's library type
         library_threats = ComponentLibraryThreat.objects.filter(
             component_library=component.component_library,
-            threat_library__is_deleted=False,
         ).select_related("threat_library")
 
         created_threats = []

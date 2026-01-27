@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LibraryPack, LibraryPackDependency, OrganizationPackInstallation
+from .models import LibraryPack, LibraryPackDependency
 
 
 class LibraryPackDependencyInline(admin.TabularInline):
@@ -46,7 +46,7 @@ class LibraryPackAdmin(admin.ModelAdmin):
             "classes": ("collapse",),
         }),
         ("Publishing", {
-            "fields": ("is_published", "published_at", "owner_organization")
+            "fields": ("is_published", "published_at")
         }),
         ("Stats", {
             "fields": ("install_count", "created_at", "updated_at"),
@@ -60,19 +60,3 @@ class LibraryPackDependencyAdmin(admin.ModelAdmin):
     list_filter = ["is_optional"]
     search_fields = ["pack__name", "pack__slug", "depends_on_pack__name", "depends_on_pack__slug"]
     autocomplete_fields = ["pack", "depends_on_pack"]
-
-
-@admin.register(OrganizationPackInstallation)
-class OrganizationPackInstallationAdmin(admin.ModelAdmin):
-    list_display = [
-        "organization",
-        "pack",
-        "installed_version",
-        "status",
-        "installed_by",
-        "installed_at",
-    ]
-    list_filter = ["status", "pack__pack_type", "pack__tier"]
-    search_fields = ["organization__name", "pack__name"]
-    readonly_fields = ["installed_at", "last_updated_at", "created_at", "updated_at"]
-    raw_id_fields = ["organization", "pack", "installed_by"]

@@ -29,17 +29,9 @@ class DFDTemplatesLibrary(TimestampedModel):
 
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"
-        CUSTOMIZED = "customized", "Customized (org edited)"
+        CUSTOMIZED = "customized", "Customized (user edited)"
         DETACHED = "detached", "Detached (unlinked from pack)"
 
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="dfd_templates",
-        help_text="Null means global/shared",
-    )
     source_pack = models.ForeignKey(
         "packs.LibraryPack",
         on_delete=models.SET_NULL,
@@ -95,18 +87,13 @@ class DFDTemplatesLibrary(TimestampedModel):
         help_text="Previous slugs for backward compatibility",
     )
 
-    # Soft delete (for deletion cascade handling)
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-
     class Meta:
         verbose_name_plural = "DFD templates library"
         ordering = ["category", "name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["qualified_slug"],
-                condition=models.Q(is_deleted=False),
-                name="unique_active_dfdtemplate_qualified_slug",
+                name="unique_dfdtemplate_qualified_slug",
             ),
         ]
 
@@ -118,10 +105,8 @@ class DFDTemplatesLibrary(TimestampedModel):
         if not self.qualified_slug and self.slug:
             if self.source_pack:
                 self.qualified_slug = f"{self.source_pack.slug}/{self.slug}"
-            elif self.organization:
-                self.qualified_slug = f"org-{self.organization.id}/{self.slug}"
             else:
-                self.qualified_slug = f"global/{self.slug}"
+                self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
 
 

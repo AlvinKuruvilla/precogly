@@ -578,20 +578,8 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["name", "description"]
 
     def get_queryset(self):
-        """Get templates accessible to user (org-specific only, excluding deleted).
-
-        Templates are now stored per-organization. When a pack is installed,
-        master templates (organization=null) are copied to org-specific records.
-        This allows clean uninstall/reinstall to refresh template content.
-        """
-        user = self.request.user
-        org_ids = user.organization_memberships.values_list("organization_id", flat=True)
-
-        # Only return org-specific templates, not global masters
-        return DFDTemplatesLibrary.objects.filter(
-            organization_id__in=org_ids,
-            is_deleted=False,
-        ).select_related("source_pack")
+        """Get all available DFD templates."""
+        return DFDTemplatesLibrary.objects.all().select_related("source_pack")
 
     @action(detail=True, methods=["get"])
     def resolved(self, request, pk=None):
@@ -632,14 +620,12 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
                     qualified_slug = f"{source_pack.slug}/{component_ref}"
                     component_library = ComponentLibrary.objects.filter(
                         qualified_slug=qualified_slug,
-                        is_deleted=False,
                     ).first()
 
                 if not component_library and "/" in component_ref:
                     # Cross-pack reference
                     component_library = ComponentLibrary.objects.filter(
                         qualified_slug=component_ref,
-                        is_deleted=False,
                     ).first()
 
                 if component_library:

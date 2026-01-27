@@ -12,7 +12,6 @@ import {
   Countermeasures,
   DFDTemplates,
   Packs,
-  InstalledPacks,
   Libraries,
   DFDEditor,
   Login,
@@ -73,7 +72,7 @@ export const router = createBrowserRouter([
       // Legacy routes - redirect to new Libraries page
       { path: 'frameworks', element: <Navigate to="/libraries" replace /> },
       { path: 'packs', element: <Navigate to="/libraries" replace /> },
-      { path: 'packs/installed', element: <Navigate to="/libraries?tab=installed" replace /> },
+      { path: 'packs/installed', element: <Navigate to="/libraries?tab=imported" replace /> },
       // Keep individual library pages for now (accessed via Libraries page)
       { path: 'tech-components', element: <TechComponents /> },
       { path: 'threat-libraries', element: <ThreatLibraries /> },

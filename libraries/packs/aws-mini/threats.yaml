@@ -1,26 +1,151 @@
 threats:
+  # ============================================================================
   # S3 Threats
+  # ============================================================================
   - id: s3-public-exposure
     name: S3 Bucket Public Exposure
-    description: S3 bucket is publicly accessible, exposing sensitive data to unauthorized users
+    description: |
+      S3 bucket is publicly accessible, exposing sensitive data to unauthorized users.
+      This can occur through misconfigured bucket policies, ACLs, or disabled Block Public Access.
     stride_category: information_disclosure
     source: custom
 
   - id: s3-data-tampering
     name: S3 Object Tampering
-    description: Unauthorized modification of S3 objects due to misconfigured permissions
+    description: |
+      Unauthorized modification of S3 objects due to misconfigured permissions.
+      Attackers may alter data, inject malicious content, or corrupt backups.
     stride_category: tampering
     source: custom
 
+  - id: s3-deletion
+    name: S3 Data Deletion
+    description: |
+      Malicious or accidental deletion of S3 objects without proper versioning or MFA delete.
+      Can lead to permanent data loss and service disruption.
+    stride_category: denial_of_service
+    source: custom
+
+  # ============================================================================
   # Lambda Threats
+  # ============================================================================
   - id: lambda-injection
     name: Lambda Code Injection
-    description: Malicious input exploits Lambda function leading to code execution
+    description: |
+      Malicious input exploits Lambda function leading to code execution.
+      Includes SQL injection, command injection, or template injection attacks.
     stride_category: tampering
     source: custom
 
   - id: lambda-privilege-escalation
     name: Lambda Role Over-Privileged
-    description: Lambda execution role has excessive permissions enabling privilege escalation
+    description: |
+      Lambda execution role has excessive permissions enabling privilege escalation.
+      Compromised function could access resources beyond its intended scope.
     stride_category: elevation_of_privilege
+    source: custom
+
+  - id: lambda-secret-exposure
+    name: Lambda Environment Variable Exposure
+    description: |
+      Sensitive data (API keys, credentials) stored in Lambda environment variables
+      may be exposed through logs, error messages, or function enumeration.
+    stride_category: information_disclosure
+    source: custom
+
+  - id: lambda-dos
+    name: Lambda Resource Exhaustion
+    description: |
+      Attacker triggers excessive Lambda invocations causing throttling, high costs,
+      or denial of service to legitimate users.
+    stride_category: denial_of_service
+    source: custom
+
+  # ============================================================================
+  # API Gateway Threats
+  # ============================================================================
+  - id: apigw-unauthorized-access
+    name: API Gateway Unauthorized Access
+    description: |
+      API endpoints accessible without proper authentication, allowing unauthorized
+      access to backend services and data.
+    stride_category: spoofing
+    source: custom
+
+  - id: apigw-injection
+    name: API Gateway Input Injection
+    description: |
+      Malicious payloads passed through API Gateway to backend services,
+      exploiting insufficient input validation.
+    stride_category: tampering
+    source: custom
+
+  - id: apigw-rate-limit-bypass
+    name: API Gateway Rate Limit Bypass
+    description: |
+      Attacker bypasses API throttling through distributed requests or
+      exploiting misconfigured rate limiting, causing backend overload.
+    stride_category: denial_of_service
+    source: custom
+
+  - id: apigw-logging-gap
+    name: API Gateway Insufficient Logging
+    description: |
+      Lack of comprehensive API logging prevents detection of attacks,
+      unauthorized access attempts, and security incident investigation.
+    stride_category: repudiation
+    source: custom
+
+  # ============================================================================
+  # DynamoDB Threats
+  # ============================================================================
+  - id: dynamodb-unauthorized-access
+    name: DynamoDB Unauthorized Table Access
+    description: |
+      IAM policies allow broader access to DynamoDB tables than required,
+      enabling unauthorized data reads or modifications.
+    stride_category: information_disclosure
+    source: custom
+
+  - id: dynamodb-injection
+    name: DynamoDB Query Injection
+    description: |
+      Malicious input manipulates DynamoDB queries through improperly
+      constructed filter expressions or condition expressions.
+    stride_category: tampering
+    source: custom
+
+  - id: dynamodb-capacity-exhaustion
+    name: DynamoDB Capacity Exhaustion
+    description: |
+      Attacker consumes provisioned throughput capacity through excessive
+      requests, causing throttling for legitimate users.
+    stride_category: denial_of_service
+    source: custom
+
+  # ============================================================================
+  # SQS Threats
+  # ============================================================================
+  - id: sqs-message-tampering
+    name: SQS Message Tampering
+    description: |
+      Unauthorized modification of messages in transit or at rest,
+      potentially altering application behavior or injecting malicious payloads.
+    stride_category: tampering
+    source: custom
+
+  - id: sqs-message-injection
+    name: SQS Malicious Message Injection
+    description: |
+      Attacker injects unauthorized messages into the queue, potentially
+      triggering unintended actions in consuming applications.
+    stride_category: spoofing
+    source: custom
+
+  - id: sqs-queue-flooding
+    name: SQS Queue Flooding
+    description: |
+      Excessive messages sent to queue causing processing delays, increased
+      costs, and potential denial of service to consumers.
+    stride_category: denial_of_service
     source: custom

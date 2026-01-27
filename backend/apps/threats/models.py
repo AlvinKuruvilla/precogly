@@ -7,7 +7,6 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps.core.models import TimestampedModel
-from apps.organizations.models import Organization
 from apps.systems.models import ComponentLibrary, DataFlow, OrgsystemComponent
 
 
@@ -31,17 +30,9 @@ class ThreatLibrary(TimestampedModel):
 
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"
-        CUSTOMIZED = "customized", "Customized (org edited)"
+        CUSTOMIZED = "customized", "Customized (user edited)"
         DETACHED = "detached", "Detached (unlinked from pack)"
 
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="threat_library",
-        help_text="Null means global/shared",
-    )
     source_pack = models.ForeignKey(
         "packs.LibraryPack",
         on_delete=models.SET_NULL,
@@ -93,18 +84,13 @@ class ThreatLibrary(TimestampedModel):
         help_text="Previous slugs for backward compatibility",
     )
 
-    # Soft delete (for deletion cascade handling)
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-
     class Meta:
         verbose_name_plural = "Threat library"
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["qualified_slug"],
-                condition=models.Q(is_deleted=False),
-                name="unique_active_threat_qualified_slug",
+                name="unique_threat_qualified_slug",
             ),
         ]
 
@@ -116,10 +102,8 @@ class ThreatLibrary(TimestampedModel):
         if not self.qualified_slug and self.slug:
             if self.source_pack:
                 self.qualified_slug = f"{self.source_pack.slug}/{self.slug}"
-            elif self.organization:
-                self.qualified_slug = f"org-{self.organization.id}/{self.slug}"
             else:
-                self.qualified_slug = f"global/{self.slug}"
+                self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
 
 
@@ -169,17 +153,9 @@ class CountermeasureLibrary(TimestampedModel):
 
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"
-        CUSTOMIZED = "customized", "Customized (org edited)"
+        CUSTOMIZED = "customized", "Customized (user edited)"
         DETACHED = "detached", "Detached (unlinked from pack)"
 
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="countermeasure_library",
-        help_text="Null means global/shared",
-    )
     source_pack = models.ForeignKey(
         "packs.LibraryPack",
         on_delete=models.SET_NULL,
@@ -232,18 +208,13 @@ class CountermeasureLibrary(TimestampedModel):
         help_text="Previous slugs for backward compatibility",
     )
 
-    # Soft delete (for deletion cascade handling)
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-
     class Meta:
         verbose_name_plural = "Countermeasure library"
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["qualified_slug"],
-                condition=models.Q(is_deleted=False),
-                name="unique_active_countermeasure_qualified_slug",
+                name="unique_countermeasure_qualified_slug",
             ),
         ]
 
@@ -255,10 +226,8 @@ class CountermeasureLibrary(TimestampedModel):
         if not self.qualified_slug and self.slug:
             if self.source_pack:
                 self.qualified_slug = f"{self.source_pack.slug}/{self.slug}"
-            elif self.organization:
-                self.qualified_slug = f"org-{self.organization.id}/{self.slug}"
             else:
-                self.qualified_slug = f"global/{self.slug}"
+                self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
 
 
@@ -283,8 +252,11 @@ class ComponentInstanceThreat(TimestampedModel):
     )
     threat_library = models.ForeignKey(
         ThreatLibrary,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="component_instances",
+        help_text="Null means orphaned/custom threat (library item was removed)",
     )
     inherent_severity = models.CharField(max_length=20, choices=Severity.choices)
     residual_severity = models.CharField(
@@ -298,6 +270,22 @@ class ComponentInstanceThreat(TimestampedModel):
         default=Status.OPEN,
     )
     justification = models.TextField(blank=True)
+
+    # Metadata copied from library on creation (for self-sufficiency if orphaned)
+    threat_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Copied from ThreatLibrary.name on creation",
+    )
+    threat_description = models.TextField(
+        blank=True,
+        help_text="Copied from ThreatLibrary.description on creation",
+    )
+    stride_category = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Copied from ThreatLibrary.stride_category on creation",
+    )
 
     class Meta:
         unique_together = ["component", "threat_library"]
@@ -328,8 +316,11 @@ class DataFlowInstanceThreat(TimestampedModel):
     )
     threat_library = models.ForeignKey(
         ThreatLibrary,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="flow_instances",
+        help_text="Null means orphaned/custom threat (library item was removed)",
     )
     inherent_severity = models.CharField(max_length=20, choices=Severity.choices)
     residual_severity = models.CharField(
@@ -341,6 +332,22 @@ class DataFlowInstanceThreat(TimestampedModel):
         max_length=20,
         choices=Status.choices,
         default=Status.OPEN,
+    )
+
+    # Metadata copied from library on creation (for self-sufficiency if orphaned)
+    threat_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Copied from ThreatLibrary.name on creation",
+    )
+    threat_description = models.TextField(
+        blank=True,
+        help_text="Copied from ThreatLibrary.description on creation",
+    )
+    stride_category = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Copied from ThreatLibrary.stride_category on creation",
     )
 
     class Meta:
@@ -366,8 +373,11 @@ class ComponentInstanceCountermeasure(TimestampedModel):
     )
     countermeasure_library = models.ForeignKey(
         CountermeasureLibrary,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="component_instances",
+        help_text="Null means orphaned/custom countermeasure (library item was removed)",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.GAP)
     verified_by = models.ForeignKey(
@@ -385,6 +395,22 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         null=True,
         blank=True,
         related_name="assigned_component_countermeasures",
+    )
+
+    # Metadata copied from library on creation (for self-sufficiency if orphaned)
+    countermeasure_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Copied from CountermeasureLibrary.name on creation",
+    )
+    countermeasure_description = models.TextField(
+        blank=True,
+        help_text="Copied from CountermeasureLibrary.description on creation",
+    )
+    control_type = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Copied from CountermeasureLibrary.control_type on creation",
     )
 
     class Meta:
@@ -410,8 +436,11 @@ class FlowInstanceCountermeasure(TimestampedModel):
     )
     countermeasure_library = models.ForeignKey(
         CountermeasureLibrary,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="flow_instances",
+        help_text="Null means orphaned/custom countermeasure (library item was removed)",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.GAP)
     verified_by = models.ForeignKey(
@@ -431,6 +460,22 @@ class FlowInstanceCountermeasure(TimestampedModel):
         related_name="assigned_flow_countermeasures",
     )
 
+    # Metadata copied from library on creation (for self-sufficiency if orphaned)
+    countermeasure_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Copied from CountermeasureLibrary.name on creation",
+    )
+    countermeasure_description = models.TextField(
+        blank=True,
+        help_text="Copied from CountermeasureLibrary.description on creation",
+    )
+    control_type = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Copied from CountermeasureLibrary.control_type on creation",
+    )
+
     class Meta:
         unique_together = ["flow_threat", "countermeasure_library"]
 
@@ -446,14 +491,6 @@ class VerificationTest(TimestampedModel):
         AUTO = "auto", "Automated Scan"
         CODE_REVIEW = "code_review", "Code Review"
 
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="verification_tests",
-        help_text="Null means global/shared test",
-    )
     name = models.CharField(max_length=255)
     method = models.CharField(max_length=20, choices=Method.choices)
     last_run_at = models.DateTimeField(null=True, blank=True)

@@ -258,7 +258,6 @@ class DFDTemplatesLibrarySerializer(serializers.ModelSerializer):
             "category",
             "diagram_type",
             "canvas_data",
-            "organization",
             "source_pack",
             "source_pack_name",
             "source_pack_slug",

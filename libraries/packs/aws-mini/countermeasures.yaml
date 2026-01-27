@@ -1,44 +1,223 @@
 countermeasures:
+  # ============================================================================
   # S3 Countermeasures
+  # ============================================================================
   - id: s3-block-public-access
     name: S3 Block Public Access
-    description: Enable S3 Block Public Access settings at account and bucket level
-    control_type: technical
+    description: |
+      Enable S3 Block Public Access settings at account and bucket level.
+      Prevents accidental public exposure regardless of bucket policies or ACLs.
+    control_type: preventive
     cost: low
 
   - id: s3-bucket-policy
     name: S3 Bucket Policy Restriction
-    description: Implement least-privilege bucket policies limiting access to authorized principals
-    control_type: technical
+    description: |
+      Implement least-privilege bucket policies limiting access to authorized principals.
+      Use conditions to restrict by VPC, IP range, or requiring MFA.
+    control_type: preventive
     cost: low
 
   - id: s3-versioning
     name: S3 Versioning
-    description: Enable versioning to protect against accidental or malicious deletions/modifications
-    control_type: technical
+    description: |
+      Enable versioning to protect against accidental or malicious deletions/modifications.
+      Combined with MFA Delete for additional protection.
+    control_type: detective
     cost: low
 
   - id: s3-encryption
     name: S3 Server-Side Encryption
-    description: Enable SSE-S3 or SSE-KMS encryption for data at rest
-    control_type: technical
+    description: |
+      Enable SSE-S3 or SSE-KMS encryption for data at rest.
+      Use bucket keys to reduce KMS costs for high-volume buckets.
+    control_type: preventive
     cost: low
 
+  - id: s3-access-logging
+    name: S3 Access Logging
+    description: |
+      Enable server access logging to track all requests to the bucket.
+      Logs can be analyzed for suspicious access patterns.
+    control_type: detective
+    cost: low
+
+  - id: s3-mfa-delete
+    name: S3 MFA Delete
+    description: |
+      Require MFA for object version deletion, providing additional
+      protection against accidental or malicious permanent deletions.
+    control_type: preventive
+    cost: low
+
+  # ============================================================================
   # Lambda Countermeasures
+  # ============================================================================
   - id: lambda-input-validation
     name: Lambda Input Validation
-    description: Validate and sanitize all input to Lambda functions
-    control_type: technical
+    description: |
+      Validate and sanitize all input to Lambda functions.
+      Use schema validation libraries and reject unexpected input.
+    control_type: preventive
     cost: low
 
   - id: lambda-least-privilege
     name: Lambda Least Privilege Role
-    description: Configure Lambda execution role with minimum required permissions
-    control_type: technical
+    description: |
+      Configure Lambda execution role with minimum required permissions.
+      Use separate roles for each function based on actual needs.
+    control_type: preventive
     cost: low
 
   - id: lambda-vpc
     name: Lambda VPC Isolation
-    description: Deploy Lambda in VPC with security groups for network isolation
-    control_type: technical
+    description: |
+      Deploy Lambda in VPC with security groups for network isolation.
+      Limits blast radius and enables private resource access.
+    control_type: preventive
     cost: medium
+
+  - id: lambda-secrets-manager
+    name: Use Secrets Manager for Lambda
+    description: |
+      Store sensitive data in AWS Secrets Manager instead of environment variables.
+      Enables rotation, auditing, and fine-grained access control.
+    control_type: preventive
+    cost: medium
+
+  - id: lambda-reserved-concurrency
+    name: Lambda Reserved Concurrency
+    description: |
+      Set reserved concurrency limits to prevent resource exhaustion
+      and control costs during traffic spikes or attacks.
+    control_type: preventive
+    cost: low
+
+  - id: lambda-code-signing
+    name: Lambda Code Signing
+    description: |
+      Enable code signing to ensure only trusted code is deployed.
+      Prevents deployment of tampered or unauthorized code.
+    control_type: preventive
+    cost: medium
+
+  # ============================================================================
+  # API Gateway Countermeasures
+  # ============================================================================
+  - id: apigw-cognito-auth
+    name: API Gateway Cognito Authorization
+    description: |
+      Use Amazon Cognito user pools for API authentication.
+      Provides JWT validation, MFA support, and user management.
+    control_type: preventive
+    cost: medium
+
+  - id: apigw-api-key
+    name: API Gateway API Keys
+    description: |
+      Require API keys for access with usage plans.
+      Enables tracking, throttling per key, and easy revocation.
+    control_type: preventive
+    cost: low
+
+  - id: apigw-waf
+    name: API Gateway WAF Integration
+    description: |
+      Enable AWS WAF to protect against common web exploits.
+      Block SQL injection, XSS, and known bad actors.
+    control_type: preventive
+    cost: medium
+
+  - id: apigw-throttling
+    name: API Gateway Throttling
+    description: |
+      Configure request throttling at stage and method levels.
+      Protects backend from overload and mitigates DoS attacks.
+    control_type: preventive
+    cost: low
+
+  - id: apigw-request-validation
+    name: API Gateway Request Validation
+    description: |
+      Enable request validation to reject malformed requests early.
+      Validate required parameters, headers, and body schema.
+    control_type: preventive
+    cost: low
+
+  - id: apigw-cloudwatch-logging
+    name: API Gateway CloudWatch Logging
+    description: |
+      Enable detailed CloudWatch logging for all API requests.
+      Captures request/response details for security analysis.
+    control_type: detective
+    cost: low
+
+  # ============================================================================
+  # DynamoDB Countermeasures
+  # ============================================================================
+  - id: dynamodb-fine-grained-access
+    name: DynamoDB Fine-Grained Access Control
+    description: |
+      Use IAM conditions for item-level access control.
+      Restrict access based on partition key values or attributes.
+    control_type: preventive
+    cost: medium
+
+  - id: dynamodb-encryption
+    name: DynamoDB Encryption at Rest
+    description: |
+      Enable encryption using AWS-owned, AWS-managed, or customer-managed KMS keys.
+      Protects data at rest from unauthorized access.
+    control_type: preventive
+    cost: low
+
+  - id: dynamodb-pitr
+    name: DynamoDB Point-in-Time Recovery
+    description: |
+      Enable continuous backups with point-in-time recovery.
+      Restore to any second in the last 35 days.
+    control_type: corrective
+    cost: medium
+
+  - id: dynamodb-vpc-endpoint
+    name: DynamoDB VPC Endpoint
+    description: |
+      Use VPC endpoint to keep DynamoDB traffic within AWS network.
+      Reduces exposure and enables endpoint policies.
+    control_type: preventive
+    cost: low
+
+  # ============================================================================
+  # SQS Countermeasures
+  # ============================================================================
+  - id: sqs-encryption
+    name: SQS Server-Side Encryption
+    description: |
+      Enable SSE-SQS or SSE-KMS encryption for messages at rest.
+      Protects message content from unauthorized access.
+    control_type: preventive
+    cost: low
+
+  - id: sqs-queue-policy
+    name: SQS Queue Access Policy
+    description: |
+      Configure queue policies to restrict who can send/receive messages.
+      Use conditions for VPC endpoints or specific principals.
+    control_type: preventive
+    cost: low
+
+  - id: sqs-dlq
+    name: SQS Dead-Letter Queue
+    description: |
+      Configure dead-letter queues for failed message handling.
+      Enables analysis of problematic messages without blocking.
+    control_type: detective
+    cost: low
+
+  - id: sqs-message-validation
+    name: SQS Consumer Message Validation
+    description: |
+      Validate message format and content before processing.
+      Reject messages that don't match expected schema.
+    control_type: preventive
+    cost: low

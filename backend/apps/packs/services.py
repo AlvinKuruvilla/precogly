@@ -18,7 +18,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.diagrams.models import DFDTemplatesLibrary
-from apps.organizations.models import Organization
 from apps.systems.models import ComponentLibrary
 from apps.threats.models import (
     ComponentLibraryThreat,
@@ -26,7 +25,7 @@ from apps.threats.models import (
     ThreatLibrary,
 )
 
-from .models import LibraryPack, LibraryPackDependency, OrganizationPackInstallation, PendingFrameworkOverlay
+from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +383,7 @@ def _extract_pack_preview_from_db(pack: "LibraryPack") -> dict:
     """
     # Query components from database
     components = []
-    for comp in ComponentLibrary.objects.filter(source_pack=pack, is_deleted=False):
+    for comp in ComponentLibrary.objects.filter(source_pack=pack):
         components.append({
             "slug": comp.slug,
             "name": comp.name,
@@ -395,7 +394,7 @@ def _extract_pack_preview_from_db(pack: "LibraryPack") -> dict:
 
     # Query threats from database
     threats = []
-    for threat in ThreatLibrary.objects.filter(source_pack=pack, is_deleted=False):
+    for threat in ThreatLibrary.objects.filter(source_pack=pack):
         threats.append({
             "slug": threat.slug,
             "name": threat.name,
@@ -406,7 +405,7 @@ def _extract_pack_preview_from_db(pack: "LibraryPack") -> dict:
 
     # Query countermeasures from database
     countermeasures = []
-    for cm in CountermeasureLibrary.objects.filter(source_pack=pack, is_deleted=False):
+    for cm in CountermeasureLibrary.objects.filter(source_pack=pack):
         countermeasures.append({
             "slug": cm.slug,
             "name": cm.name,
@@ -941,37 +940,35 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
 def _resolve_component_reference_exists(pack_slug: str, ref: str) -> bool:
     """Check if a component reference exists in the database."""
     if "/" in ref:
-        return ComponentLibrary.objects.filter(qualified_slug=ref, is_deleted=False).exists()
+        return ComponentLibrary.objects.filter(qualified_slug=ref).exists()
     else:
         qualified_slug = f"{pack_slug}/{ref}"
-        return ComponentLibrary.objects.filter(qualified_slug=qualified_slug, is_deleted=False).exists()
+        return ComponentLibrary.objects.filter(qualified_slug=qualified_slug).exists()
 
 
 def _resolve_threat_reference_exists(pack_slug: str, ref: str) -> bool:
     """Check if a threat reference exists in the database."""
     if "/" in ref:
-        return ThreatLibrary.objects.filter(qualified_slug=ref, is_deleted=False).exists()
+        return ThreatLibrary.objects.filter(qualified_slug=ref).exists()
     else:
         qualified_slug = f"{pack_slug}/{ref}"
-        if ThreatLibrary.objects.filter(qualified_slug=qualified_slug, is_deleted=False).exists():
+        if ThreatLibrary.objects.filter(qualified_slug=qualified_slug).exists():
             return True
         # Also check global threats
-        return ThreatLibrary.objects.filter(qualified_slug=f"global/{ref}", is_deleted=False).exists()
+        return ThreatLibrary.objects.filter(qualified_slug=f"global/{ref}").exists()
 
 
 def _resolve_countermeasure_reference_exists(pack_slug: str, ref: str) -> bool:
     """Check if a countermeasure reference exists in the database."""
     if "/" in ref:
-        return CountermeasureLibrary.objects.filter(qualified_slug=ref, is_deleted=False).exists()
+        return CountermeasureLibrary.objects.filter(qualified_slug=ref).exists()
     else:
         qualified_slug = f"{pack_slug}/{ref}"
-        return CountermeasureLibrary.objects.filter(qualified_slug=qualified_slug, is_deleted=False).exists()
+        return CountermeasureLibrary.objects.filter(qualified_slug=qualified_slug).exists()
 
 
 def import_pack_from_path(
     pack_path: Path,
-    organization: Optional[Organization] = None,
-    installed_by=None,
     force: bool = False,
     selected_overlays: Optional[list[str]] = None,
     dry_run: bool = False,
@@ -981,8 +978,6 @@ def import_pack_from_path(
 
     Args:
         pack_path: Path to the pack directory containing pack.yaml
-        organization: Optional organization to install the pack for
-        installed_by: User who is installing the pack
         force: If True, reinstall even if pack exists
         selected_overlays: Optional list of framework IDs to load overlays for.
                           If None, all overlays are loaded. If empty list, no overlays.
@@ -993,13 +988,11 @@ def import_pack_from_path(
     """
     if dry_run:
         return validate_pack_references(pack_path)
-    return _import_pack(pack_path, organization, installed_by, force, selected_overlays)
+    return _import_pack(pack_path, force, selected_overlays)
 
 
 def _import_pack(
     pack_path: Path,
-    organization: Optional[Organization] = None,
-    installed_by=None,
     force: bool = False,
     selected_overlays: Optional[list[str]] = None,
 ) -> ImportResult:
@@ -1016,8 +1009,6 @@ def _import_pack(
 
     Args:
         pack_path: Path to the pack directory
-        organization: Optional organization to install the pack for
-        installed_by: User who is installing the pack
         force: If True, reinstall even if pack exists
         selected_overlays: Optional list of framework IDs to load overlays for.
                           If None, all overlays are loaded. If empty list, no overlays.
@@ -1069,39 +1060,29 @@ def _import_pack(
     existing = LibraryPack.objects.filter(slug=slug).first()
 
     if existing and not force:
-        # Only count non-deleted items (soft-deleted items should trigger reimport)
-        active_components = ComponentLibrary.objects.filter(source_pack=existing, is_deleted=False).count()
-        active_threats = ThreatLibrary.objects.filter(source_pack=existing, is_deleted=False).count()
-        active_countermeasures = CountermeasureLibrary.objects.filter(source_pack=existing, is_deleted=False).count()
+        # Count items in database
+        active_components = ComponentLibrary.objects.filter(source_pack=existing).count()
+        active_threats = ThreatLibrary.objects.filter(source_pack=existing).count()
+        active_countermeasures = CountermeasureLibrary.objects.filter(source_pack=existing).count()
 
         has_active_items = active_components > 0 or active_threats > 0 or active_countermeasures > 0
 
         if has_active_items:
-            if organization and installed_by:
-                _create_installation(existing, organization, installed_by)
-                return ImportResult(
-                    success=True,
-                    pack_slug=slug,
-                    pack_name=name,
-                    version=existing.version,
-                    message=f"Pack '{slug}' already exists (v{existing.version}). Installed for your organization.",
-                )
             return ImportResult(
-                success=False,
+                success=True,
                 pack_slug=slug,
                 pack_name=name,
-                version=version,
-                message=f"Pack '{slug}' already exists (v{existing.version}). Use force=True to reinstall.",
-                errors=["Pack already exists"],
+                version=existing.version,
+                message=f"Pack '{slug}' already exists (v{existing.version}). Use force=True to reimport.",
             )
         else:
-            logger.info(f"Pack '{slug}' exists but has no active items. Creating items...")
+            logger.info(f"Pack '{slug}' exists but has no items. Creating items...")
 
     try:
         with transaction.atomic():
-            # Soft delete existing items if forcing reinstall
+            # Hard delete existing items if forcing reinstall
             if existing and force:
-                _soft_delete_pack_items(existing)
+                _hard_delete_pack_items(existing)
 
             # Create/update LibraryPack
             library_pack = _create_or_update_pack(pack_data)
@@ -1154,10 +1135,6 @@ def _import_pack(
             # Phase 5: Load frameworks and requirements (for compliance packs)
             frameworks_count = _load_frameworks(library_pack, pack_data)
 
-            # Create installation if organization specified
-            if organization and installed_by:
-                _create_installation(library_pack, organization, installed_by)
-
             return ImportResult(
                 success=True,
                 pack_slug=slug,
@@ -1184,16 +1161,12 @@ def _import_pack(
 
 def sync_all_packs_from_source(
     force: bool = False,
-    organization: Optional[Organization] = None,
-    installed_by=None,
 ) -> list[ImportResult]:
     """
     Sync all packs from the libraries folder to the database.
 
     Args:
         force: If True, reinstall all packs even if they exist
-        organization: Optional organization to install packs for
-        installed_by: User who is installing the packs
 
     Returns:
         List of ImportResult for each pack processed
@@ -1217,11 +1190,9 @@ def sync_all_packs_from_source(
                 )
                 continue
 
-        # Import the pack and auto-install for org if provided
+        # Import the pack
         result = import_pack_from_path(
             Path(pack_info.path),
-            organization=organization,
-            installed_by=installed_by,
             force=force,
         )
         results.append(result)
@@ -1234,13 +1205,16 @@ def sync_all_packs_from_source(
 # =============================================================================
 
 
-def _soft_delete_pack_items(pack: LibraryPack):
-    """Soft delete all library items from a pack."""
-    now = timezone.now()
-    ComponentLibrary.objects.filter(source_pack=pack).update(is_deleted=True, deleted_at=now)
-    ThreatLibrary.objects.filter(source_pack=pack).update(is_deleted=True, deleted_at=now)
-    CountermeasureLibrary.objects.filter(source_pack=pack).update(is_deleted=True, deleted_at=now)
-    DFDTemplatesLibrary.objects.filter(source_pack=pack).update(is_deleted=True, deleted_at=now)
+def _hard_delete_pack_items(pack: LibraryPack):
+    """Hard delete all library items from a pack.
+
+    Note: Instance models use SET_NULL for library FKs, so deleting library items
+    will orphan instances but not delete them. This preserves user work.
+    """
+    ComponentLibrary.objects.filter(source_pack=pack).delete()
+    ThreatLibrary.objects.filter(source_pack=pack).delete()
+    CountermeasureLibrary.objects.filter(source_pack=pack).delete()
+    DFDTemplatesLibrary.objects.filter(source_pack=pack).delete()
 
 
 def _create_or_update_pack(pack_data: dict) -> LibraryPack:
@@ -1302,131 +1276,19 @@ def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
 def _resolve_threat_reference(library_pack: LibraryPack, threat_ref: str) -> Optional[ThreatLibrary]:
     """Resolve a threat reference (slug or qualified slug)."""
     if "/" in threat_ref:
-        return ThreatLibrary.objects.filter(qualified_slug=threat_ref, is_deleted=False).first()
+        return ThreatLibrary.objects.filter(qualified_slug=threat_ref).first()
 
     # Try current pack first
     qualified = f"{library_pack.slug}/{threat_ref}"
-    threat = ThreatLibrary.objects.filter(qualified_slug=qualified, is_deleted=False).first()
+    threat = ThreatLibrary.objects.filter(qualified_slug=qualified).first()
 
     if not threat:
         # Try global
         threat = ThreatLibrary.objects.filter(
-            qualified_slug=f"global/{threat_ref}", is_deleted=False
+            qualified_slug=f"global/{threat_ref}"
         ).first()
 
     return threat
-
-
-def _copy_templates_for_organization(library_pack: LibraryPack, org: Organization) -> int:
-    """
-    Copy master templates (organization=null) to org-specific copies.
-
-    This enables per-organization template storage, so uninstalling a pack
-    only removes that org's templates without affecting other organizations.
-
-    Args:
-        library_pack: The pack being installed
-        org: The organization to copy templates for
-
-    Returns:
-        Number of templates copied
-    """
-    # Get master templates (organization=null) for this pack
-    master_templates = DFDTemplatesLibrary.objects.filter(
-        source_pack=library_pack,
-        organization__isnull=True,
-        is_deleted=False,
-    )
-
-    count = 0
-    for master in master_templates:
-        # Create org-specific qualified_slug to avoid conflicts
-        org_qualified_slug = f"org-{org.id}/{library_pack.slug}/{master.slug}"
-
-        # Create or update org-specific copy
-        DFDTemplatesLibrary.objects.update_or_create(
-            qualified_slug=org_qualified_slug,
-            defaults={
-                "organization": org,
-                "source_pack": library_pack,
-                "slug": master.slug,
-                "name": master.name,
-                "description": master.description,
-                "category": master.category,
-                "diagram_type": master.diagram_type,
-                "canvas_data": master.canvas_data,
-                "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
-            },
-        )
-        count += 1
-
-    logger.info(f"Copied {count} templates for org {org.id} from pack {library_pack.slug}")
-    return count
-
-
-def _create_installation(library_pack: LibraryPack, org: Organization, user) -> OrganizationPackInstallation:
-    """
-    Create installation record for organization.
-
-    Also copies templates to org-specific copies and restores any soft-deleted
-    library items from a previous uninstall.
-    """
-    installation, created = OrganizationPackInstallation.objects.update_or_create(
-        organization=org,
-        pack=library_pack,
-        defaults={
-            "installed_version": library_pack.version,
-            "installed_by": user,
-            "status": OrganizationPackInstallation.Status.INSTALLED,
-        },
-    )
-
-    if created:
-        library_pack.install_count += 1
-        library_pack.save(update_fields=["install_count"])
-
-    # Copy templates to org-specific copies
-    _copy_templates_for_organization(library_pack, org)
-
-    # Restore any soft-deleted library items from previous uninstall
-    _restore_library_items(library_pack)
-
-    return installation
-
-
-def _restore_library_items(library_pack: LibraryPack) -> None:
-    """
-    Restore soft-deleted library items for a pack.
-
-    Called when re-installing a pack that was previously uninstalled.
-    """
-    from apps.diagrams.models import DFDTemplatesLibrary
-
-    # Restore components
-    ComponentLibrary.objects.filter(
-        source_pack=library_pack,
-        is_deleted=True,
-    ).update(is_deleted=False, deleted_at=None)
-
-    # Restore threats
-    ThreatLibrary.objects.filter(
-        source_pack=library_pack,
-        is_deleted=True,
-    ).update(is_deleted=False, deleted_at=None)
-
-    # Restore countermeasures
-    CountermeasureLibrary.objects.filter(
-        source_pack=library_pack,
-        is_deleted=True,
-    ).update(is_deleted=False, deleted_at=None)
-
-    # Restore DFD templates
-    DFDTemplatesLibrary.objects.filter(
-        source_pack=library_pack,
-        is_deleted=True,
-    ).update(is_deleted=False, deleted_at=None)
 
 
 # =============================================================================
@@ -1467,8 +1329,6 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
                 "component_type": comp.get("type", comp.get("component_type", "")),
                 "provider": _infer_provider(library_pack.slug),
                 "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
             },
         )
         count += 1
@@ -1508,8 +1368,6 @@ def _load_threats(library_pack: LibraryPack, file_path: Path) -> int:
                 "source": threat.get("source", "custom"),
                 "source_id": threat.get("source_id", ""),
                 "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
             },
         )
         count += 1
@@ -1548,8 +1406,6 @@ def _load_countermeasures(library_pack: LibraryPack, file_path: Path) -> int:
                 "control_type": cm.get("control_type", "technical"),
                 "cost": cm.get("cost", "medium"),
                 "customization_status": "original",
-                "is_deleted": False,
-                "deleted_at": None,
             },
         )
         count += 1
@@ -1922,8 +1778,6 @@ def _load_templates(library_pack: LibraryPack, templates_dir: Path) -> int:
                     "diagram_type": template.get("diagram_type", "level1"),
                     "canvas_data": canvas_data,
                     "customization_status": "original",
-                    "is_deleted": False,
-                    "deleted_at": None,
                 },
             )
             count += 1
@@ -1957,17 +1811,11 @@ def _resolve_component_reference(library_pack: LibraryPack, ref: str) -> Optiona
     """
     if "/" in ref:
         # Cross-pack reference
-        return ComponentLibrary.objects.filter(
-            qualified_slug=ref,
-            is_deleted=False,
-        ).first()
+        return ComponentLibrary.objects.filter(qualified_slug=ref).first()
     else:
         # Current pack reference
         qualified_slug = f"{library_pack.slug}/{ref}"
-        return ComponentLibrary.objects.filter(
-            qualified_slug=qualified_slug,
-            is_deleted=False,
-        ).first()
+        return ComponentLibrary.objects.filter(qualified_slug=qualified_slug).first()
 
 
 def _resolve_countermeasure_reference(library_pack: LibraryPack, ref: str) -> Optional[CountermeasureLibrary]:
@@ -1980,17 +1828,11 @@ def _resolve_countermeasure_reference(library_pack: LibraryPack, ref: str) -> Op
     """
     if "/" in ref:
         # Cross-pack reference
-        return CountermeasureLibrary.objects.filter(
-            qualified_slug=ref,
-            is_deleted=False,
-        ).first()
+        return CountermeasureLibrary.objects.filter(qualified_slug=ref).first()
     else:
         # Current pack reference
         qualified_slug = f"{library_pack.slug}/{ref}"
-        return CountermeasureLibrary.objects.filter(
-            qualified_slug=qualified_slug,
-            is_deleted=False,
-        ).first()
+        return CountermeasureLibrary.objects.filter(qualified_slug=qualified_slug).first()
 
 
 def _infer_provider(pack_slug: str) -> str:
