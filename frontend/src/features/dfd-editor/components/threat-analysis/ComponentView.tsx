@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight, Shield } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -14,22 +14,9 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
-
-// Mock team members data
-const TEAM_MEMBERS = [
-  { id: '1', firstName: 'Sarah', lastName: 'Chen', email: 'sarah.chen@company.com', role: 'Security Engineer' },
-  { id: '2', firstName: 'Michael', lastName: 'Rodriguez', email: 'michael.rodriguez@company.com', role: 'DevOps Lead' },
-  { id: '3', firstName: 'Emily', lastName: 'Johnson', email: 'emily.johnson@company.com', role: 'Platform Engineer' },
-  { id: '4', firstName: 'David', lastName: 'Kim', email: 'david.kim@company.com', role: 'Security Architect' },
-  { id: '5', firstName: 'Jessica', lastName: 'Williams', email: 'jessica.williams@company.com', role: 'SRE' },
-  { id: '6', firstName: 'James', lastName: 'Brown', email: 'james.brown@company.com', role: 'Backend Engineer' },
-  { id: '7', firstName: 'Amanda', lastName: 'Davis', email: 'amanda.davis@company.com', role: 'Infrastructure Lead' },
-  { id: '8', firstName: 'Robert', lastName: 'Martinez', email: 'robert.martinez@company.com', role: 'Cloud Engineer' },
-  { id: '9', firstName: 'Lisa', lastName: 'Anderson', email: 'lisa.anderson@company.com', role: 'Security Analyst' },
-  { id: '10', firstName: 'Christopher', lastName: 'Taylor', email: 'christopher.taylor@company.com', role: 'Tech Lead' },
-]
-
-type TeamMember = typeof TEAM_MEMBERS[number]
+import { useWorkspace } from '@/contexts/WorkspaceContext'
+import { useTeamMembers, useTeams, useOrganizationMembers } from '@/api/organizations'
+import type { TeamMembership, TeamListItem, OrganizationMembership } from '@/types/organization'
 import type { DiagramNode, DataFlowEdge, CanvasData, TrustBoundaryNodeData } from '../../types'
 import { TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
 import type {
@@ -42,16 +29,18 @@ import {
   COUNTERMEASURE_STATUS_CONFIG,
   THREAT_STATUS_CONFIG,
 } from '../../types/threat-analysis'
-import {
-  getThreatById,
-  STRIDE_CONFIG,
-} from '../../lib/threat-registry'
+import { STRIDE_CONFIG } from '@/types/domain'
 import {
   getCountermeasureById,
   getCountermeasuresForThreat,
   SECURITY_STANDARDS,
 } from '../../lib/countermeasure-registry'
 import { getTechnologyById } from '../../lib/technology-registry'
+
+/** Unified assignee type for the combobox */
+export type Assignee =
+  | { type: 'member'; userId: number; email: string; name: string | null }
+  | { type: 'team'; teamId: number; name: string }
 
 // Icon map for node types
 const nodeTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -61,7 +50,45 @@ const nodeTypeIcons: Record<string, React.ComponentType<{ className?: string }>>
 }
 
 /**
- * Searchable user dropdown component
+ * Collapsible section header for the assignee selector
+ */
+function SectionHeader({
+  icon: Icon,
+  label,
+  count,
+  isOpen,
+  onClick,
+  hasBorderTop = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  count: number
+  isOpen: boolean
+  onClick: () => void
+  hasBorderTop?: boolean
+}) {
+  return (
+    <button
+      className={cn(
+        'flex w-full items-center justify-between px-2 py-2 text-xs font-medium text-muted-foreground hover:bg-accent',
+        hasBorderTop && 'border-t'
+      )}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="h-3 w-3" />
+        <span>{label}</span>
+        <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+          {count}
+        </Badge>
+      </div>
+      {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+    </button>
+  )
+}
+
+/**
+ * Searchable user/team dropdown component with collapsible sections
  */
 function UserSearchCombobox({
   value,
@@ -69,13 +96,70 @@ function UserSearchCombobox({
   onCancel,
 }: {
   value: string
-  onSelect: (user: TeamMember) => void
+  onSelect: (assignee: Assignee) => void
   onCancel: () => void
 }) {
   const [open, setOpen] = useState(true)
   const [search, setSearch] = useState('')
+  const [teamMembersOpen, setTeamMembersOpen] = useState(true)
+  const [teamsOpen, setTeamsOpen] = useState(false)
+  const [orgMembersOpen, setOrgMembersOpen] = useState(false)
 
-  const selectedUser = TEAM_MEMBERS.find((u) => u.email === value)
+  // Get current workspace context
+  const { currentTeam, currentOrganization } = useWorkspace()
+
+  // Fetch real data
+  const { data: teamMembers = [], isLoading: teamMembersLoading } = useTeamMembers(
+    currentTeam?.id ?? 0
+  )
+  const { data: teams = [], isLoading: teamsLoading } = useTeams(
+    currentOrganization?.id
+  )
+  const { data: orgMembers = [], isLoading: orgMembersLoading } = useOrganizationMembers(
+    currentOrganization?.id ?? 0
+  )
+
+  // Filter out current team from teams list
+  const otherTeams = teams.filter((t) => t.id !== currentTeam?.id)
+
+  // Filter org members to exclude those already in the current team
+  const teamMemberEmails = new Set(teamMembers.map((m) => m.userEmail))
+  const otherOrgMembers = orgMembers.filter((m) => !teamMemberEmails.has(m.userEmail))
+
+  // Find selected display value
+  const selectedTeamMember = teamMembers.find((m) => m.userEmail === value)
+  const selectedOrgMember = orgMembers.find((m) => m.userEmail === value)
+  const selectedName = selectedTeamMember?.userName ?? selectedOrgMember?.userEmail ?? value
+
+  // Filter functions
+  const filterTeamMember = (member: TeamMembership) => {
+    const searchLower = search.toLowerCase()
+    return (
+      member.userName.toLowerCase().includes(searchLower) ||
+      member.userEmail.toLowerCase().includes(searchLower)
+    )
+  }
+
+  const filterTeam = (team: TeamListItem) => {
+    const searchLower = search.toLowerCase()
+    return team.name.toLowerCase().includes(searchLower)
+  }
+
+  const filterOrgMember = (member: OrganizationMembership) => {
+    const searchLower = search.toLowerCase()
+    return member.userEmail.toLowerCase().includes(searchLower)
+  }
+
+  const filteredTeamMembers = teamMembers.filter(filterTeamMember)
+  const filteredTeams = otherTeams.filter(filterTeam)
+  const filteredOrgMembers = otherOrgMembers.filter(filterOrgMember)
+
+  const isLoading = teamMembersLoading || teamsLoading || orgMembersLoading
+  const hasNoResults =
+    !isLoading &&
+    filteredTeamMembers.length === 0 &&
+    filteredTeams.length === 0 &&
+    filteredOrgMembers.length === 0
 
   return (
     <div className="flex flex-col gap-2">
@@ -87,66 +171,158 @@ function UserSearchCombobox({
             aria-expanded={open}
             className="justify-between h-9 text-sm font-normal"
           >
-            {selectedUser ? (
-              <span className="truncate">
-                {selectedUser.firstName} {selectedUser.lastName}
-              </span>
+            {value ? (
+              <span className="truncate">{selectedName}</span>
             ) : (
               <span className="text-muted-foreground">Select team member...</span>
             )}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[280px] p-0" align="start">
+        <PopoverContent className="w-[320px] p-0" align="start">
           <Command>
             <CommandInput
               placeholder="Search by name or email..."
               value={search}
               onValueChange={setSearch}
             />
-            <CommandList>
-              <CommandEmpty>No team member found.</CommandEmpty>
-              <CommandGroup>
-                {TEAM_MEMBERS.filter((user) => {
-                  const searchLower = search.toLowerCase()
-                  return (
-                    user.firstName.toLowerCase().includes(searchLower) ||
-                    user.lastName.toLowerCase().includes(searchLower) ||
-                    user.email.toLowerCase().includes(searchLower) ||
-                    user.role.toLowerCase().includes(searchLower)
-                  )
-                }).map((user) => (
-                  <CommandItem
-                    key={user.id}
-                    value={`${user.firstName} ${user.lastName} ${user.email}`}
-                    onSelect={() => {
-                      onSelect(user)
-                      setOpen(false)
-                    }}
-                    className="flex flex-col items-start gap-0.5 py-2"
-                  >
-                    <div className="flex items-center gap-2 w-full">
-                      <Check
-                        className={cn(
-                          "h-4 w-4",
-                          value === user.email ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm">
-                          {user.firstName} {user.lastName}
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {user.email}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {user.role}
-                        </div>
-                      </div>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+            <CommandList className="max-h-[300px]">
+              {isLoading && (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Loading...
+                </div>
+              )}
+              {hasNoResults && (
+                <CommandEmpty>No results found.</CommandEmpty>
+              )}
+
+              {/* Team Members Section */}
+              {filteredTeamMembers.length > 0 && (
+                <div>
+                  <SectionHeader
+                    icon={User}
+                    label="Team Members"
+                    count={filteredTeamMembers.length}
+                    isOpen={teamMembersOpen}
+                    onClick={() => setTeamMembersOpen(!teamMembersOpen)}
+                  />
+                  {teamMembersOpen && (
+                    <CommandGroup>
+                      {filteredTeamMembers.map((member) => (
+                        <CommandItem
+                          key={member.id}
+                          value={`member-${member.userEmail}`}
+                          onSelect={() => {
+                            onSelect({ type: 'member', userId: member.user, email: member.userEmail, name: member.userName })
+                            setOpen(false)
+                          }}
+                          className="flex items-center gap-2 py-2"
+                        >
+                          <Check
+                            className={cn(
+                              'h-4 w-4 flex-shrink-0',
+                              value === member.userEmail ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {member.userName}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {member.userEmail}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </div>
+              )}
+
+              {/* Teams Section */}
+              {filteredTeams.length > 0 && (
+                <div>
+                  <SectionHeader
+                    icon={Users}
+                    label="Teams"
+                    count={filteredTeams.length}
+                    isOpen={teamsOpen}
+                    onClick={() => setTeamsOpen(!teamsOpen)}
+                    hasBorderTop
+                  />
+                  {teamsOpen && (
+                    <CommandGroup>
+                      {filteredTeams.map((team) => (
+                        <CommandItem
+                          key={team.id}
+                          value={`team-${team.id}-${team.name}`}
+                          onSelect={() => {
+                            onSelect({ type: 'team', teamId: team.id, name: team.name })
+                            setOpen(false)
+                          }}
+                          className="flex items-center gap-2 py-2"
+                        >
+                          <Check className="h-4 w-4 flex-shrink-0 opacity-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {team.name}
+                            </div>
+                            {team.businessUnitName && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                {team.businessUnitName}
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">
+                            {team.memberCount} members
+                          </Badge>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </div>
+              )}
+
+              {/* Org Members Section */}
+              {filteredOrgMembers.length > 0 && (
+                <div>
+                  <SectionHeader
+                    icon={Building2}
+                    label="Org Members"
+                    count={filteredOrgMembers.length}
+                    isOpen={orgMembersOpen}
+                    onClick={() => setOrgMembersOpen(!orgMembersOpen)}
+                    hasBorderTop
+                  />
+                  {orgMembersOpen && (
+                    <CommandGroup>
+                      {filteredOrgMembers.map((member) => (
+                        <CommandItem
+                          key={member.id}
+                          value={`org-${member.userEmail}`}
+                          onSelect={() => {
+                            onSelect({ type: 'member', userId: member.user, email: member.userEmail, name: null })
+                            setOpen(false)
+                          }}
+                          className="flex items-center gap-2 py-2"
+                        >
+                          <Check
+                            className={cn(
+                              'h-4 w-4 flex-shrink-0',
+                              value === member.userEmail ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {member.userEmail}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </div>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
@@ -155,8 +331,14 @@ function UserSearchCombobox({
         <Button
           size="sm"
           className="h-8 flex-1"
-          disabled={!selectedUser}
-          onClick={() => selectedUser && onSelect(selectedUser)}
+          disabled={!value}
+          onClick={() => {
+            if (selectedTeamMember) {
+              onSelect({ type: 'member', userId: selectedTeamMember.user, email: selectedTeamMember.userEmail, name: selectedTeamMember.userName })
+            } else if (selectedOrgMember) {
+              onSelect({ type: 'member', userId: selectedOrgMember.user, email: selectedOrgMember.userEmail, name: null })
+            }
+          }}
         >
           Assign
         </Button>
@@ -239,8 +421,8 @@ interface ComponentViewProps {
   ) => void
   onAssignOwner: (
     componentThreatId: string,
-    countermeasureId: string,
-    owner: string
+    countermeasureInstanceId: string,
+    assignee: Assignee
   ) => void
   onAddCustomThreat: (componentId: string, threatId: string) => void
   onDismissThreat: (componentThreatId: string) => void
@@ -422,11 +604,8 @@ export function ComponentView({
   const activeThreats = threatsForComponent.filter((t) => !t.dismissed)
   const dismissedThreats = threatsForComponent.filter((t) => t.dismissed)
 
-  // Get threat definition for selected threat
-  const selectedThreatDef = useMemo(() => {
-    if (!selectedComponentThreat) return null
-    return getThreatById(selectedComponentThreat.threatId)
-  }, [selectedComponentThreat])
+  // Selected threat already contains metadata from backend
+  const selectedThreatDef = selectedComponentThreat
 
   // Get countermeasures available but not added
   const availableCountermeasures = useMemo(() => {
@@ -441,13 +620,42 @@ export function ComponentView({
   }, [selectedComponentThreat])
 
   // Handle owner assignment from UserSearchCombobox
-  const handleAssignOwner = (countermeasureId: string, user: TeamMember) => {
+  const handleAssignOwner = (countermeasureInstanceId: string, assignee: Assignee) => {
+    console.log('=== [1] ComponentView.handleAssignOwner START ===')
+    console.log('[1] countermeasureInstanceId:', countermeasureInstanceId)
+    console.log('[1] assignee:', JSON.stringify(assignee, null, 2))
+    console.log('[1] selectedComponentThreat:', selectedComponentThreat ? {
+      id: selectedComponentThreat.id,
+      componentId: selectedComponentThreat.componentId,
+      threatId: selectedComponentThreat.threatId,
+      countermeasures: selectedComponentThreat.countermeasures.map(cm => ({
+        id: cm.id,
+        countermeasureId: cm.countermeasureId,
+        status: cm.status,
+        owner: cm.owner,
+      }))
+    } : null)
+
     if (selectedComponentThreat) {
-      onAssignOwner(selectedComponentThreat.id, countermeasureId, user.email)
+      console.log('[1] Calling parent onAssignOwner with:', {
+        componentThreatId: selectedComponentThreat.id,
+        countermeasureInstanceId,
+        assignee,
+      })
+      console.log('[1] onAssignOwner function:', onAssignOwner)
+      console.log('[1] typeof onAssignOwner:', typeof onAssignOwner)
+      try {
+        onAssignOwner(selectedComponentThreat.id, countermeasureInstanceId, assignee)
+        console.log('[1] onAssignOwner returned successfully')
+      } catch (error) {
+        console.error('[1] ERROR calling onAssignOwner:', error)
+      }
 
       // If this was triggered by clicking "Planned", also set the status to planned
-      if (pendingPlannedStatus === countermeasureId) {
-        onCountermeasureStatusChange(selectedComponentThreat.id, countermeasureId, 'planned')
+      // Find the countermeasure to get its library ID for status change
+      const cm = selectedComponentThreat.countermeasures.find((c) => c.id === countermeasureInstanceId)
+      if (pendingPlannedStatus && cm) {
+        onCountermeasureStatusChange(selectedComponentThreat.id, cm.countermeasureId, 'planned')
         setPendingPlannedStatus(null)
       }
 
@@ -769,8 +977,8 @@ export function ComponentView({
                 </p>
 
                 {activeThreats.map((ct) => {
-                  const threatDef = getThreatById(ct.threatId)
-                  if (!threatDef) return null
+                  // Use threat metadata from backend (stored in ComponentThreat)
+                  if (!ct.threatName || !ct.strideCategory) return null
 
                   const status = deriveThreatStatus(ct.countermeasures)
                   const isSelected = ct.id === selectedThreatId
@@ -795,11 +1003,11 @@ export function ComponentView({
                             style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
                           />
                           <span className="font-medium text-sm truncate">
-                            {threatDef.name}
+                            {ct.threatName}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 ml-4">
-                          {STRIDE_CONFIG[threatDef.strideCategory].label}
+                          {STRIDE_CONFIG[ct.strideCategory].label}
                         </div>
                       </button>
                       <ThreatStatusBadge status={status} />
@@ -859,8 +1067,8 @@ export function ComponentView({
                 {showDismissedThreats && (
                   <div className="mt-2 space-y-1">
                     {dismissedThreats.map((ct) => {
-                      const threatDef = getThreatById(ct.threatId)
-                      if (!threatDef) return null
+                      // Use threat metadata from backend (stored in ComponentThreat)
+                      if (!ct.threatName || !ct.strideCategory) return null
 
                       return (
                         <div
@@ -869,10 +1077,10 @@ export function ComponentView({
                         >
                           <div className="flex-1 min-w-0">
                             <span className="text-sm text-muted-foreground line-through truncate block">
-                              {threatDef.name}
+                              {ct.threatName}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {STRIDE_CONFIG[threatDef.strideCategory].label}
+                              {STRIDE_CONFIG[ct.strideCategory].label}
                             </span>
                           </div>
                           <Button
@@ -900,7 +1108,7 @@ export function ComponentView({
           <div>
             <div className="font-medium">Countermeasures</div>
             <div className="text-xs text-muted-foreground">
-              {selectedThreatDef?.name || 'Select a threat'}
+              {selectedThreatDef?.threatName || 'Select a threat'}
             </div>
           </div>
           {selectedComponentThreat && (
@@ -937,15 +1145,20 @@ export function ComponentView({
             {selectedComponentThreat?.countermeasures
               .filter((cm) => !cm.dismissed)
               .map((cm) => {
+                // Use backend metadata if available, fall back to registry for local countermeasures
                 const cmDef = getCountermeasureById(cm.countermeasureId)
-                if (!cmDef) return null
+                const cmName = cm.countermeasureName || cmDef?.name || cm.countermeasureId
+                const cmDescription = cm.countermeasureDescription || cmDef?.description
 
                 const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
                 const isAssigning = assigningOwnerFor === cm.id
                 const isWaiving = waivingReasonFor === cm.id
 
-                // Find user details if owner is set
-                const ownerUser = cm.owner ? TEAM_MEMBERS.find((u) => u.email === cm.owner) : null
+                // Parse owner - can be "team:TeamName" for teams or email for members
+                const isTeamOwner = cm.owner?.startsWith('team:')
+                const ownerDisplay = isTeamOwner
+                  ? cm.owner?.replace('team:', '')
+                  : cm.owner
 
                 return (
                   <div key={cm.id} className="border rounded-lg p-3">
@@ -956,12 +1169,14 @@ export function ComponentView({
                           style={{ backgroundColor: statusConfig.color }}
                         />
                         <div>
-                          <div className="font-medium text-sm">{cmDef.name}</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {cmDef.description}
-                          </div>
-                          {/* Standard badges - filtered by selected frameworks */}
-                          {(() => {
+                          <div className="font-medium text-sm">{cmName}</div>
+                          {cmDescription && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {cmDescription}
+                            </div>
+                          )}
+                          {/* Standard badges - filtered by selected frameworks (only for registry countermeasures) */}
+                          {cmDef?.standards && (() => {
                             const filteredStandards = cmDef.standards.filter(
                               (s) => selectedFrameworks.includes(s.standard)
                             )
@@ -998,12 +1213,12 @@ export function ComponentView({
                     {/* Owner display */}
                     {cm.owner && !isAssigning && (
                       <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {ownerUser ? (
-                          <span>{ownerUser.firstName} {ownerUser.lastName} ({ownerUser.email})</span>
+                        {isTeamOwner ? (
+                          <Users className="h-3 w-3" />
                         ) : (
-                          <span>{cm.owner}</span>
+                          <User className="h-3 w-3" />
                         )}
+                        <span>{ownerDisplay}</span>
                       </div>
                     )}
 
@@ -1043,7 +1258,7 @@ export function ComponentView({
                         </div>
                         <UserSearchCombobox
                           value={cm.owner || ''}
-                          onSelect={(user) => handleAssignOwner(cm.countermeasureId, user)}
+                          onSelect={(user) => handleAssignOwner(cm.id, user)}
                           onCancel={handleCancelAssignment}
                         />
                       </div>
@@ -1139,8 +1354,9 @@ export function ComponentView({
                   {showDismissedCountermeasures && (
                     <div className="mt-2 space-y-2">
                       {dismissedCms.map((cm) => {
+                        // Use backend metadata if available, fall back to registry for local countermeasures
                         const cmDef = getCountermeasureById(cm.countermeasureId)
-                        if (!cmDef) return null
+                        const cmName = cm.countermeasureName || cmDef?.name || cm.countermeasureId
 
                         return (
                           <div
@@ -1149,7 +1365,7 @@ export function ComponentView({
                           >
                             <div className="flex-1 min-w-0">
                               <span className="text-sm text-muted-foreground line-through truncate block">
-                                {cmDef.name}
+                                {cmName}
                               </span>
                             </div>
                             <Button

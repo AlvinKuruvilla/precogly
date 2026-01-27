@@ -78,6 +78,7 @@ export function ThreatAnalysisPage() {
   return (
     <div className="h-[calc(100vh-4rem)]">
       <ThreatAnalysisView
+        threatModelId={threatModelId || ''}
         diagramId={diagramId || ''}
         diagramTitle={diagram.name || ''}
         canvasData={{

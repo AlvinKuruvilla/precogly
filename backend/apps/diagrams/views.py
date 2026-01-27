@@ -187,13 +187,13 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         """
         Get all threats for this threat model, aggregated from all DFDs.
 
-        Returns threats with their countermeasures, organized by component.
+        Returns both component threats and data flow threats with their countermeasures.
         """
-        from apps.systems.models import OrgsystemComponent
-        from apps.threats.models import ComponentInstanceThreat, ComponentInstanceCountermeasure
-        from apps.threats.serializers import (
-            ComponentInstanceThreatSerializer,
-            ComponentInstanceCountermeasureSerializer,
+        from apps.systems.models import DataFlow, OrgsystemComponent
+        from apps.threats.models import (
+            ComponentInstanceCountermeasure,
+            ComponentInstanceThreat,
+            DataFlowInstanceThreat,
         )
 
         threat_model = self.get_object()
@@ -202,8 +202,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
         dfds = [assoc.dfd for assoc in dfd_associations]
 
-        # Build node_id -> component_id mapping from all DFDs
+        # Build node_id -> component_id mapping and edge_id -> dataflow_id mapping from all DFDs
         node_component_map = {}
+        edge_dataflow_map = {}
         for dfd in dfds:
             canvas_data = dfd.canvas_data or {}
             for node in canvas_data.get("nodes", []):
@@ -215,22 +216,45 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "dfd_id": str(dfd.id),
                         "dfd_name": dfd.name,
                     }
+            for edge in canvas_data.get("edges", []):
+                edge_id = edge.get("id")
+                dataflow_id = edge.get("data", {}).get("dataflow_id")
+                if edge_id and dataflow_id:
+                    edge_dataflow_map[edge_id] = {
+                        "dataflow_id": dataflow_id,
+                        "dfd_id": str(dfd.id),
+                        "dfd_name": dfd.name,
+                    }
 
-        # Get all component IDs
+        # Get all component IDs and dataflow IDs
         component_ids = [v["component_id"] for v in node_component_map.values()]
+        dataflow_ids = [v["dataflow_id"] for v in edge_dataflow_map.values()]
 
-        # Fetch all threats for these components
-        threats = ComponentInstanceThreat.objects.filter(
+        # Fetch all component threats
+        component_threats = ComponentInstanceThreat.objects.filter(
             component_id__in=component_ids
         ).select_related(
             "component", "threat_library"
         ).prefetch_related(
-            "countermeasures__countermeasure_library"
+            "countermeasures__countermeasure_library",
+            "countermeasures__assigned_owner",
+            "countermeasures__verified_by",
         )
 
-        # Build response with node mapping
+        # Fetch all data flow threats
+        flow_threats = DataFlowInstanceThreat.objects.filter(
+            data_flow_id__in=dataflow_ids
+        ).select_related(
+            "data_flow", "threat_library"
+        ).prefetch_related(
+            "countermeasures__countermeasure_library",
+            "countermeasures__assigned_owner",
+            "countermeasures__verified_by",
+        )
+
+        # Build response with component threats
         result = []
-        for threat in threats:
+        for threat in component_threats:
             # Find which node this component corresponds to
             node_info = None
             for node_id, info in node_component_map.items():
@@ -240,6 +264,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
             threat_data = {
                 "id": threat.id,
+                "type": "component",
                 "component_id": threat.component_id,
                 "component_name": threat.component.name if threat.component else None,
                 "node_id": node_info["node_id"] if node_info else None,
@@ -269,11 +294,56 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             }
             result.append(threat_data)
 
+        # Add data flow threats to the response
+        for threat in flow_threats:
+            # Find which edge this dataflow corresponds to
+            edge_info = None
+            for edge_id, info in edge_dataflow_map.items():
+                if info["dataflow_id"] == threat.data_flow_id:
+                    edge_info = {"edge_id": edge_id, **info}
+                    break
+
+            threat_data = {
+                "id": threat.id,
+                "type": "dataflow",
+                "dataflow_id": threat.data_flow_id,
+                "dataflow_label": threat.data_flow.label if threat.data_flow else None,
+                "edge_id": edge_info["edge_id"] if edge_info else None,
+                "node_id": edge_info["edge_id"] if edge_info else None,  # Use edge_id as node_id for compatibility
+                "component_id": threat.data_flow_id,  # Use dataflow_id as component_id for compatibility
+                "component_name": threat.data_flow.label if threat.data_flow else None,
+                "dfd_id": edge_info["dfd_id"] if edge_info else None,
+                "dfd_name": edge_info["dfd_name"] if edge_info else None,
+                "threat_library_id": threat.threat_library_id,
+                "threat_name": threat.threat_library.name if threat.threat_library else None,
+                "threat_description": threat.threat_library.description if threat.threat_library else None,
+                "stride_category": threat.threat_library.stride_category if threat.threat_library else None,
+                "inherent_severity": threat.inherent_severity,
+                "residual_severity": threat.residual_severity,
+                "status": threat.status,
+                "justification": "",
+                "countermeasures": [
+                    {
+                        "id": cm.id,
+                        "countermeasure_library_id": cm.countermeasure_library_id,
+                        "countermeasure_name": cm.countermeasure_library.name if cm.countermeasure_library else None,
+                        "control_type": cm.countermeasure_library.control_type if cm.countermeasure_library else None,
+                        "status": cm.status,
+                        "evidence_url": cm.evidence_url,
+                        "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                        "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                    }
+                    for cm in threat.countermeasures.all()
+                ],
+            }
+            result.append(threat_data)
+
         return Response({
             "threat_model_id": str(threat_model.id),
             "threats": result,
             "total_count": len(result),
             "node_component_map": node_component_map,
+            "edge_dataflow_map": edge_dataflow_map,
         })
 
 

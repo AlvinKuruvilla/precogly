@@ -27,20 +27,10 @@ import {
   Info,
 } from 'lucide-react'
 import { computeThreatsFromDiagrams, type DiagramData } from '@/lib/threat-computation'
-import { getThreatById } from '@/features/dfd-editor/lib/threat-registry'
 import { getCountermeasureById } from '@/features/dfd-editor/lib/countermeasure-registry'
+import { STRIDE_CONFIG } from '@/types/domain'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode } from '@/features/dfd-editor/types'
-
-// STRIDE category labels and colors
-const STRIDE_CATEGORIES: Record<string, { label: string; color: string }> = {
-  S: { label: 'Spoofing', color: 'bg-red-100 text-red-800' },
-  T: { label: 'Tampering', color: 'bg-orange-100 text-orange-800' },
-  R: { label: 'Repudiation', color: 'bg-yellow-100 text-yellow-800' },
-  I: { label: 'Info Disclosure', color: 'bg-blue-100 text-blue-800' },
-  D: { label: 'Denial of Service', color: 'bg-purple-100 text-purple-800' },
-  E: { label: 'Elevation of Privilege', color: 'bg-pink-100 text-pink-800' },
-}
 
 // Countermeasure status config
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof CheckCircle2; color: string }> = {
@@ -57,7 +47,9 @@ interface ReadOnlyThreatAnalysisViewProps {
 }
 
 function CountermeasureRow({ cm }: { cm: ComponentThreatCountermeasure }) {
+  // Use backend metadata if available, fall back to registry for local countermeasures
   const cmDef = getCountermeasureById(cm.countermeasureId)
+  const cmName = cm.countermeasureName || cmDef?.name || cm.countermeasureId
   const statusConfig = STATUS_CONFIG[cm.status] || STATUS_CONFIG.gap
   const StatusIcon = statusConfig.icon
 
@@ -65,7 +57,7 @@ function CountermeasureRow({ cm }: { cm: ComponentThreatCountermeasure }) {
     <div className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-md">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Shield className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        <span className="text-sm truncate">{cmDef?.name || cm.countermeasureId}</span>
+        <span className="text-sm truncate">{cmName}</span>
       </div>
       <div className="flex items-center gap-2">
         {cm.owner && (
@@ -87,9 +79,9 @@ interface ThreatCardProps {
 
 function ThreatCard({ threat, componentName }: ThreatCardProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const threatDef = getThreatById(threat.threatId)
-  const strideInfo = threatDef?.strideCategory
-    ? STRIDE_CATEGORIES[threatDef.strideCategory]
+  // Use threat metadata from ComponentThreat (set by threat-computation.ts)
+  const strideInfo = threat.strideCategory
+    ? STRIDE_CONFIG[threat.strideCategory]
     : null
 
   // Calculate threat status based on countermeasures
@@ -133,7 +125,7 @@ function ThreatCard({ threat, componentName }: ThreatCardProps) {
             <AlertTriangle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <CardTitle className="text-sm font-medium truncate">
-                {threatDef?.name || threat.threatId}
+                {threat.threatName || threat.threatId}
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Component: {componentName}
@@ -171,8 +163,8 @@ function ThreatCard({ threat, componentName }: ThreatCardProps) {
       </CardHeader>
       {isOpen && (
         <CardContent className="pt-0 pb-4">
-          {threatDef?.description && (
-            <p className="text-sm text-muted-foreground mb-4">{threatDef.description}</p>
+          {threat.threatDescription && (
+            <p className="text-sm text-muted-foreground mb-4">{threat.threatDescription}</p>
           )}
           {threat.countermeasures.length > 0 ? (
             <div className="space-y-2">
@@ -373,10 +365,9 @@ export function ReadOnlyThreatAnalysisView({
             </TableHeader>
             <TableBody>
               {filteredThreats.map((threat) => {
-                const threatDef = getThreatById(threat.threatId)
+                // Use threat metadata from ComponentThreat (set by threat-computation.ts)
                 const activeCountermeasures = threat.countermeasures.filter((cm) => !cm.dismissed)
                 const gaps = activeCountermeasures.filter((cm) => cm.status === 'gap').length
-                const platform = activeCountermeasures.filter((cm) => cm.status === 'platform').length
                 const planned = activeCountermeasures.filter((cm) => cm.status === 'planned').length
 
                 let status: 'mitigated' | 'addressable' | 'exposed' = 'exposed'
@@ -386,8 +377,8 @@ export function ReadOnlyThreatAnalysisView({
                   status = 'addressable'
                 }
 
-                const strideInfo = threatDef?.strideCategory
-                  ? STRIDE_CATEGORIES[threatDef.strideCategory]
+                const strideInfo = threat.strideCategory
+                  ? STRIDE_CONFIG[threat.strideCategory]
                   : null
 
                 return (
@@ -400,10 +391,10 @@ export function ReadOnlyThreatAnalysisView({
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>{threatDef?.name || threat.threatId}</TableCell>
+                    <TableCell>{threat.threatName || threat.threatId}</TableCell>
                     <TableCell>
                       {strideInfo ? (
-                        <Badge variant="outline" className={`text-xs ${strideInfo.color}`}>
+                        <Badge variant="outline" className="text-xs">
                           {strideInfo.label}
                         </Badge>
                       ) : (

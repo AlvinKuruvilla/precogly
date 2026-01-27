@@ -105,6 +105,9 @@ export function initializeThreatsForDiagram(
             : ('gap' as CountermeasureStatus),
           createdAt: timestamp,
           updatedAt: timestamp,
+          // Include countermeasure metadata for display
+          countermeasureName: cmDef.name,
+          countermeasureDescription: cmDef.description,
         })
       )
 
@@ -119,6 +122,10 @@ export function initializeThreatsForDiagram(
         countermeasures,
         createdAt: timestamp,
         updatedAt: timestamp,
+        // Include threat metadata for display
+        threatName: threatDef.name,
+        threatDescription: threatDef.description,
+        strideCategory: threatDef.strideCategory,
       })
     })
   })
@@ -148,6 +155,9 @@ export function initializeThreatsForDiagram(
             : ('gap' as CountermeasureStatus),
           createdAt: timestamp,
           updatedAt: timestamp,
+          // Include countermeasure metadata for display
+          countermeasureName: cmDef.name,
+          countermeasureDescription: cmDef.description,
         })
       )
 
@@ -162,6 +172,10 @@ export function initializeThreatsForDiagram(
         countermeasures,
         createdAt: timestamp,
         updatedAt: timestamp,
+        // Include threat metadata for display
+        threatName: threatDef.name,
+        threatDescription: threatDef.description,
+        strideCategory: threatDef.strideCategory,
       })
     })
   })
@@ -189,6 +203,9 @@ export function initializeThreatsForDiagram(
             : ('gap' as CountermeasureStatus),
           createdAt: timestamp,
           updatedAt: timestamp,
+          // Include countermeasure metadata for display
+          countermeasureName: cmDef.name,
+          countermeasureDescription: cmDef.description,
         })
       )
 
@@ -203,6 +220,10 @@ export function initializeThreatsForDiagram(
         countermeasures,
         createdAt: timestamp,
         updatedAt: timestamp,
+        // Include threat metadata for display
+        threatName: threatDef.name,
+        threatDescription: threatDef.description,
+        strideCategory: threatDef.strideCategory,
       })
     })
   })

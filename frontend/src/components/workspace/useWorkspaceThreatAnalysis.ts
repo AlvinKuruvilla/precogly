@@ -12,20 +12,11 @@ import type {
 } from '@/features/dfd-editor/types/threat-analysis'
 import { DEFAULT_PROGRESS_CHECKLIST, deriveThreatStatus } from '@/features/dfd-editor/types/threat-analysis'
 import {
-  THREAT_DEFINITIONS,
-  getThreatsForDataFlowByProperties,
-  getThreatsForTrustBoundary,
-} from '@/features/dfd-editor/lib/threat-registry'
-import {
-  getCountermeasuresForThreat,
-} from '@/features/dfd-editor/lib/countermeasure-registry'
-import {
-  getTechnologyById,
-  TECHNOLOGIES,
-  type TechnologyCategory,
-} from '@/features/dfd-editor/lib/technology-registry'
-import type { DiagramNode, DataFlowEdge, TrustBoundaryNodeData } from '@/features/dfd-editor/types'
-import { useThreatModelThreats, useUpdateCountermeasure } from '@/api/threats'
+  useThreatModelThreats,
+  useUpdateCountermeasure,
+  useUpdateFlowCountermeasure,
+  parseCountermeasureId,
+} from '@/api/threats'
 import { useUpdateThreatModel } from '@/api/threat-models'
 import { api } from '@/lib/api'
 
@@ -93,223 +84,13 @@ function extractWorkspaceState(
   }
 }
 
-/**
- * Infer technology category from node type and technology string
- */
-function inferTechnologyCategory(
-  nodeType: string,
-  techValue: string | undefined
-): TechnologyCategory | null {
-  if (techValue) {
-    const byId = getTechnologyById(techValue)
-    if (byId) return byId.category
-
-    const normalizedValue = techValue.toLowerCase()
-    const byName = TECHNOLOGIES.find(
-      (t) =>
-        t.name.toLowerCase() === normalizedValue ||
-        t.name.toLowerCase().includes(normalizedValue) ||
-        normalizedValue.includes(t.name.toLowerCase())
-    )
-    if (byName) return byName.category
-
-    const lower = normalizedValue
-    if (lower.includes('database') || lower.includes('sql') || lower.includes('db')) return 'database'
-    if (lower.includes('redis') || lower.includes('cache')) return 'cache'
-    if (lower.includes('s3') || lower.includes('blob') || lower.includes('storage')) return 'storage'
-    if (lower.includes('lambda') || lower.includes('function')) return 'compute'
-    if (lower.includes('kubernetes') || lower.includes('k8s')) return 'compute'
-    if (lower.includes('api') || lower.includes('gateway')) return 'networking'
-    if (lower.includes('auth') || lower.includes('oauth')) return 'auth'
-    if (lower.includes('kafka') || lower.includes('queue')) return 'messaging'
-  }
-
-  if (nodeType === 'datastore') return 'database'
-  if (nodeType === 'process') return 'backend'
-
-  return null
-}
-
-/**
- * Initialize threats for a diagram
- */
-function initializeThreatsForDiagram(
-  diagramId: string,
-  diagramTitle: string,
-  nodes: DiagramNode[],
-  edges: DataFlowEdge[]
-): ComponentThreat[] {
-  const componentThreats: ComponentThreat[] = []
-  const timestamp = new Date().toISOString()
-
-  // Process nodes (components - process and datastore)
-  const analyzableNodes = nodes.filter(
-    (node) => node.type === 'process' || node.type === 'datastore'
-  )
-
-  analyzableNodes.forEach((node) => {
-    const techValue = (node.data as { technology?: string }).technology
-    const category = inferTechnologyCategory(node.type as string, techValue)
-
-    if (!category) return
-
-    const applicableThreats = THREAT_DEFINITIONS.filter((threat) => {
-      const elementTypes = threat.applicableElementTypes || ['component']
-      return (
-        elementTypes.includes('component') &&
-        threat.applicableTechCategories.includes(category)
-      )
-    })
-
-    applicableThreats.forEach((threatDef) => {
-      const componentThreatId = `ct-${diagramId}-${node.id}-${threatDef.id}`
-      const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
-
-      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map(
-        (cmDef) => ({
-          id: `ctcm-${componentThreatId}-${cmDef.id}`,
-          countermeasureId: cmDef.id,
-          componentThreatId,
-          status: cmDef.isPlatformLevel
-            ? 'platform'
-            : ('gap' as CountermeasureStatus),
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        })
-      )
-
-      componentThreats.push({
-        id: componentThreatId,
-        diagramId,
-        sourceDiagramId: diagramId,
-        sourceDiagramTitle: diagramTitle,
-        componentId: node.id,
-        threatId: threatDef.id,
-        dismissed: false,
-        countermeasures,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      })
-    })
-  })
-
-  // Process trust boundary nodes
-  const trustBoundaryNodes = nodes.filter((node) => node.type === 'trustBoundary')
-
-  trustBoundaryNodes.forEach((node) => {
-    const boundaryData = node.data as TrustBoundaryNodeData
-    const boundaryType = boundaryData.boundaryType
-
-    if (!boundaryType) return
-
-    const applicableThreats = getThreatsForTrustBoundary(boundaryType)
-
-    applicableThreats.forEach((threatDef) => {
-      const componentThreatId = `ct-${diagramId}-${node.id}-${threatDef.id}`
-      const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
-
-      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map(
-        (cmDef) => ({
-          id: `ctcm-${componentThreatId}-${cmDef.id}`,
-          countermeasureId: cmDef.id,
-          componentThreatId,
-          status: cmDef.isPlatformLevel
-            ? 'platform'
-            : ('gap' as CountermeasureStatus),
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        })
-      )
-
-      componentThreats.push({
-        id: componentThreatId,
-        diagramId,
-        sourceDiagramId: diagramId,
-        sourceDiagramTitle: diagramTitle,
-        componentId: node.id,
-        threatId: threatDef.id,
-        dismissed: false,
-        countermeasures,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      })
-    })
-  })
-
-  // Process edges (data flows)
-  edges.forEach((edge) => {
-    const edgeData = edge.data || {}
-    const dataFlowThreats = getThreatsForDataFlowByProperties({
-      protocol: edgeData.protocol,
-      encrypted: edgeData.encrypted,
-      authenticated: edgeData.authenticated,
-    })
-
-    dataFlowThreats.forEach((threatDef) => {
-      const componentThreatId = `ct-${diagramId}-${edge.id}-${threatDef.id}`
-      const countermeasureDefs = getCountermeasuresForThreat(threatDef.id)
-
-      const countermeasures: ComponentThreatCountermeasure[] = countermeasureDefs.map(
-        (cmDef) => ({
-          id: `ctcm-${componentThreatId}-${cmDef.id}`,
-          countermeasureId: cmDef.id,
-          componentThreatId,
-          status: cmDef.isPlatformLevel
-            ? 'platform'
-            : ('gap' as CountermeasureStatus),
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        })
-      )
-
-      componentThreats.push({
-        id: componentThreatId,
-        diagramId,
-        sourceDiagramId: diagramId,
-        sourceDiagramTitle: diagramTitle,
-        componentId: edge.id,
-        threatId: threatDef.id,
-        dismissed: false,
-        countermeasures,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      })
-    })
-  })
-
-  return componentThreats
-}
-
-/**
- * Merge backend threats with local threats.
- * Backend threats take priority; local threats are kept for components not yet synced.
- */
-function mergeThreats(
-  localThreats: ComponentThreat[],
-  backendThreats: ComponentThreat[]
-): ComponentThreat[] {
-  // Create a map of backend threats by componentId + threatId combination
-  const backendThreatMap = new Map<string, ComponentThreat>()
-  backendThreats.forEach((bt) => {
-    const key = `${bt.componentId}-${bt.threatId}`
-    backendThreatMap.set(key, bt)
-  })
-
-  // Get set of component IDs that have backend threats
-  const backendComponentIds = new Set(backendThreats.map((bt) => bt.componentId))
-
-  // Keep local threats for components not in backend (unsaved components)
-  const localOnlyThreats = localThreats.filter((lt) => {
-    // Keep if this component has no backend threats
-    if (!backendComponentIds.has(lt.componentId)) return true
-    // If component has backend threats, check if this specific threat exists
-    const key = `${lt.componentId}-${lt.threatId}`
-    return !backendThreatMap.has(key)
-  })
-
-  // Combine backend threats (priority) with local-only threats
-  return [...backendThreats, ...localOnlyThreats]
-}
+// NOTE: Local threat generation has been removed from this hook.
+// The backend is now the single source of truth for threats.
+// Previously, this hook used frontend registries (threat-registry.ts, countermeasure-registry.ts)
+// to generate local threats with IDs like 'ct-...' and 'ctcm-...'.
+// These local IDs were not recognized by parseCountermeasureId() as backend IDs,
+// causing owner assignments to only update local state without persisting to the backend.
+// Now, only threats from useThreatModelThreats (backend API) are displayed and editable.
 
 export function useWorkspaceThreatAnalysis(
   threatModelId: string | undefined,
@@ -335,6 +116,7 @@ export function useWorkspaceThreatAnalysis(
 
   // Backend API mutations
   const updateCountermeasureMutation = useUpdateCountermeasure()
+  const updateFlowCountermeasureMutation = useUpdateFlowCountermeasure()
   const updateThreatModelMutation = useUpdateThreatModel()
 
   // Initialize state from backend workspaceData when threat model loads
@@ -389,18 +171,36 @@ export function useWorkspaceThreatAnalysis(
     }
   }, [state.status, state.systemContext, state.progressChecklist, state.currentVersion, state.previousVersions, threatModelId])
 
-  // Merge backend threats with local state when backend data loads
+  // Use backend threats directly - no local threat generation
+  // Backend is the single source of truth for threats
   useEffect(() => {
-    if (backendThreats?.componentThreats && backendThreats.componentThreats.length > 0) {
+    console.log('[useWorkspaceThreatAnalysis] Backend threats effect triggered:', {
+      hasBackendThreats: !!backendThreats?.componentThreats,
+      backendThreatsCount: backendThreats?.componentThreats?.length || 0,
+    })
+
+    if (backendThreats?.componentThreats) {
+      console.log('[useWorkspaceThreatAnalysis] Using backend threats directly (no local generation)')
+      if (backendThreats.componentThreats.length > 0) {
+        console.log('[useWorkspaceThreatAnalysis] Backend threats sample:',
+          backendThreats.componentThreats.slice(0, 2).map(t => ({
+            id: t.id,
+            componentId: t.componentId,
+            threatId: t.threatId,
+            countermeasures: t.countermeasures?.map(cm => ({ id: cm.id, countermeasureId: cm.countermeasureId }))
+          }))
+        )
+      }
+
       setState((prev) => ({
         ...prev,
-        // Use backend threats, keeping any local threats for unsaved components
-        componentThreats: mergeThreats(prev.componentThreats, backendThreats.componentThreats),
+        componentThreats: backendThreats.componentThreats,
       }))
     }
   }, [backendThreats])
 
-  // Sync threats when diagrams change (fallback for unsaved components)
+  // Filter threats when diagrams change (remove threats for deleted diagrams/components)
+  // NOTE: Local threat generation has been removed - backend is the single source of truth
   useEffect(() => {
     if (!diagrams || diagrams.length === 0) return
     // Skip if backend threats are loading
@@ -429,39 +229,11 @@ export function useWorkspaceThreatAnalysis(
         return true
       })
 
-      // Get existing diagram IDs that have threats (after filtering)
-      const existingDiagramIds = new Set(
-        filteredThreats.map((ct) => ct.sourceDiagramId || ct.diagramId)
-      )
-
-      // Find new diagrams that need threats initialized
-      const newDiagrams = diagrams.filter((d) => !existingDiagramIds.has(d.id))
-
-      if (newDiagrams.length === 0) {
-        // Return filtered threats if any were removed
-        if (filteredThreats.length !== prev.componentThreats.length) {
-          return { ...prev, componentThreats: filteredThreats }
-        }
-        return prev
+      // Only update state if threats were actually filtered out
+      if (filteredThreats.length !== prev.componentThreats.length) {
+        return { ...prev, componentThreats: filteredThreats }
       }
-
-      // Initialize threats for new diagrams (only for components without backend threats)
-      const newThreats: ComponentThreat[] = []
-      newDiagrams.forEach((diagram) => {
-        const canvasData = diagram.canvasData
-        const diagramThreats = initializeThreatsForDiagram(
-          diagram.id,
-          diagram.name || '',
-          canvasData?.nodes || [],
-          canvasData?.edges || []
-        )
-        newThreats.push(...diagramThreats)
-      })
-
-      return {
-        ...prev,
-        componentThreats: [...filteredThreats, ...newThreats],
-      }
+      return prev
     })
   }, [diagrams, isLoadingThreats])
 
@@ -477,18 +249,25 @@ export function useWorkspaceThreatAnalysis(
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.countermeasureId === countermeasureId)
 
-      // If this is a backend threat, also update via API
-      if (threat && countermeasure && countermeasure.id.startsWith('cm-')) {
-        // Extract backend countermeasure ID from the id string (format: "cm-{backendId}")
-        const backendCmId = parseInt(countermeasure.id.replace('cm-', ''), 10)
-        if (!isNaN(backendCmId)) {
-          // Map frontend status to backend status
-          const backendStatus = status === 'platform' ? 'verified' : status
+      // If this is a backend countermeasure, update via appropriate API
+      if (threat && countermeasure) {
+        const parsed = parseCountermeasureId(countermeasure.id)
+        const backendStatus = status === 'platform' ? 'verified' : status
+
+        if (parsed.type === 'component' && parsed.id !== null) {
           updateCountermeasureMutation.mutate({
-            countermeasureId: backendCmId,
+            countermeasureId: parsed.id,
             data: {
               status: backendStatus as 'gap' | 'planned' | 'verified' | 'waived',
-              ...(notes !== undefined && { evidence_url: notes }),
+              ...(notes !== undefined && { evidenceUrl: notes }),
+            },
+          })
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          updateFlowCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: {
+              status: backendStatus as 'gap' | 'planned' | 'verified' | 'waived',
+              ...(notes !== undefined && { evidenceUrl: notes }),
             },
           })
         }
@@ -515,12 +294,44 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [state.componentThreats, updateCountermeasureMutation]
+    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
   )
 
   // Assign owner to countermeasure
   const assignOwner = useCallback(
-    (componentThreatId: string, countermeasureId: string, owner: string) => {
+    (
+      componentThreatId: string,
+      countermeasureInstanceId: string,
+      assignee: { type: 'member' | 'team'; userId?: number; email?: string; name?: string | null; teamId?: number }
+    ) => {
+      // Determine owner string for local state storage
+      const ownerString =
+        assignee.type === 'team'
+          ? `team:${assignee.name}`
+          : assignee.email || ''
+
+      // Find the threat and countermeasure
+      const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+      const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
+
+      // If this is a backend countermeasure, call the appropriate API
+      if (assignee.type === 'member' && countermeasure && assignee.userId) {
+        const parsed = parseCountermeasureId(countermeasure.id)
+
+        if (parsed.type === 'component' && parsed.id !== null) {
+          updateCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { assignedOwner: assignee.userId },
+          })
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          updateFlowCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { assignedOwner: assignee.userId },
+          })
+        }
+      }
+
+      // Update local state immediately for responsiveness
       setState((prev) => ({
         ...prev,
         componentThreats: prev.componentThreats.map((ct) => {
@@ -529,10 +340,10 @@ export function useWorkspaceThreatAnalysis(
             ...ct,
             updatedAt: new Date().toISOString(),
             countermeasures: ct.countermeasures.map((cm) => {
-              if (cm.countermeasureId !== countermeasureId) return cm
+              if (cm.id !== countermeasureInstanceId) return cm
               return {
                 ...cm,
-                owner,
+                owner: ownerString,
                 status: cm.status === 'gap' ? 'planned' : cm.status,
                 updatedAt: new Date().toISOString(),
               }
@@ -541,7 +352,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    []
+    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
   )
 
   // Dismiss threat

@@ -1,4 +1,4 @@
-import type { STRIDECategory } from '../lib/threat-registry'
+import type { STRIDECategory } from '@/types/domain'
 import type { SecurityStandard } from '../lib/countermeasure-registry'
 
 /**
@@ -67,11 +67,11 @@ export const THREAT_STATUS_CONFIG: Record<
 
 /**
  * A countermeasure instance for a specific component-threat pair
- * (Runtime state, references definitions from countermeasure-registry)
+ * Includes countermeasure metadata from backend (name, controlType)
  */
 export interface ComponentThreatCountermeasure {
   id: string
-  // Reference to countermeasure definition
+  // Reference to countermeasure definition (e.g., "lib-123" for backend)
   countermeasureId: string
   // Reference to the component-threat this belongs to
   componentThreatId: string
@@ -88,11 +88,16 @@ export interface ComponentThreatCountermeasure {
   // Timestamps
   createdAt: string
   updatedAt: string
+
+  // Countermeasure metadata from backend (eliminates need for frontend registry lookup)
+  countermeasureName?: string
+  countermeasureDescription?: string
+  controlType?: string
 }
 
 /**
  * A threat instance for a specific component
- * (Runtime state, references definitions from threat-registry)
+ * Includes threat metadata from backend (name, description, STRIDE category)
  */
 export interface ComponentThreat {
   id: string
@@ -103,7 +108,7 @@ export interface ComponentThreat {
   sourceDiagramTitle?: string
   // Reference to the component (node ID from the DFD)
   componentId: string
-  // Reference to threat definition
+  // Reference to threat definition (e.g., "lib-123")
   threatId: string
   // Whether this threat was dismissed/hidden
   dismissed: boolean
@@ -114,6 +119,15 @@ export interface ComponentThreat {
   // Timestamps
   createdAt: string
   updatedAt: string
+
+  // Threat metadata from backend (eliminates need for frontend registry lookup)
+  threatName?: string
+  threatDescription?: string
+  strideCategory?: STRIDECategory
+  // Backend IDs for API operations
+  backendThreatId?: number
+  backendComponentId?: number
+  threatType?: 'component' | 'dataflow'
 }
 
 /**

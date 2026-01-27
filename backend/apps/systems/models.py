@@ -329,14 +329,29 @@ class DataFlow(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="incoming_flows",
     )
+    label = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Display label for the data flow",
+    )
+    edge_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        help_text="DFD edge ID this flow was created from",
+    )
     protocol = models.CharField(max_length=50, blank=True)
     port = models.IntegerField(null=True, blank=True)
+    encrypted = models.BooleanField(default=False)
+    authenticated = models.BooleanField(default=False)
     crosses_trust_boundary = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["source_component", "dest_component"]
 
     def __str__(self):
+        if self.label:
+            return self.label
         return f"{self.source_component} -> {self.dest_component}"
 
 

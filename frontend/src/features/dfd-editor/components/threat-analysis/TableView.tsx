@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import type { CanvasData } from '../../types'
 import type { ComponentThreat, CountermeasureStatus } from '../../types/threat-analysis'
 import { deriveThreatStatus, THREAT_STATUS_CONFIG } from '../../types/threat-analysis'
-import { getThreatById, STRIDE_CONFIG } from '../../lib/threat-registry'
+import { STRIDE_CONFIG } from '@/types/domain'
 import { getTechnologyById } from '../../lib/technology-registry'
 
 interface TableViewProps {
@@ -62,8 +62,8 @@ export function TableView({
         const node = canvasData.nodes.find((n) => n.id === ct.componentId)
         if (!node) return
 
-        const threatDef = getThreatById(ct.threatId)
-        if (!threatDef) return
+        // Use threat metadata from backend (stored in ComponentThreat)
+        if (!ct.threatName || !ct.strideCategory) return
 
         const techId = (node.data as { technology?: string }).technology
         const tech = techId ? getTechnologyById(techId) : null
@@ -81,9 +81,9 @@ export function TableView({
           componentType: node.type as string,
           technology: tech?.name,
           threatId: ct.threatId,
-          threatName: threatDef.name,
-          strideCategory: threatDef.strideCategory,
-          strideCategoryLabel: STRIDE_CONFIG[threatDef.strideCategory].label,
+          threatName: ct.threatName,
+          strideCategory: ct.strideCategory,
+          strideCategoryLabel: STRIDE_CONFIG[ct.strideCategory].label,
           status,
           countermeasuresTotal: ct.countermeasures.length,
           countermeasuresResolved: resolved,

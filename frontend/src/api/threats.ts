@@ -201,23 +201,84 @@ export function useUpdateThreat() {
 }
 
 /**
- * Update a countermeasure instance (e.g., status, evidenceUrl).
+ * Update a component countermeasure instance (e.g., status, evidenceUrl).
  */
 export function useUpdateCountermeasure() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       countermeasureId,
       data,
     }: {
       countermeasureId: number
       data: Partial<ComponentInstanceCountermeasure>
-    }) => api.patch<ComponentInstanceCountermeasure>(`/component-countermeasures/${countermeasureId}/`, data),
+    }) => {
+      const result = await api.patch<ComponentInstanceCountermeasure>(
+        `/component-countermeasures/${countermeasureId}/`,
+        data
+      )
+      return result
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
   })
+}
+
+/**
+ * Update a flow countermeasure instance (e.g., status, evidenceUrl).
+ */
+export function useUpdateFlowCountermeasure() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      countermeasureId,
+      data,
+    }: {
+      countermeasureId: number
+      data: Partial<ComponentInstanceCountermeasure>
+    }) => {
+      const result = await api.patch<ComponentInstanceCountermeasure>(
+        `/flow-countermeasures/${countermeasureId}/`,
+        data
+      )
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Parse a countermeasure ID string to determine type and numeric ID.
+ * Returns null if the ID format is not recognized.
+ *
+ * ID formats:
+ * - "cm-123" -> component countermeasure with ID 123
+ * - "fcm-123" -> flow countermeasure with ID 123
+ * - "ctcm-..." -> local countermeasure (not backend)
+ */
+export function parseCountermeasureId(idString: string): {
+  type: 'component' | 'flow' | 'local'
+  id: number | null
+} {
+  if (idString.startsWith('cm-')) {
+    const numId = parseInt(idString.slice(3), 10)
+    return { type: 'component', id: isNaN(numId) ? null : numId }
+  }
+  if (idString.startsWith('fcm-')) {
+    const numId = parseInt(idString.slice(4), 10)
+    return { type: 'flow', id: isNaN(numId) ? null : numId }
+  }
+  if (idString.startsWith('ctcm-')) {
+    return { type: 'local', id: null }
+  }
+  return { type: 'local', id: null }
 }
 
 // ============================================
@@ -239,9 +300,13 @@ export interface ThreatModelThreatsResponse {
  */
 export interface BackendThreat {
   id: number
+  type: 'component' | 'dataflow'
   componentId: number
   componentName: string | null
   nodeId: string | null
+  edgeId?: string | null
+  dataflowId?: number
+  dataflowLabel?: string | null
   dfdId: string | null
   dfdName: string | null
   threatLibraryId: number
@@ -290,10 +355,13 @@ export function transformBackendThreatsToComponentThreats(
   const now = new Date().toISOString()
 
   return backendThreats.map((bt) => {
-    const componentThreatId = `backend-${bt.id}`
+    // Use different prefixes for component vs dataflow threats
+    const isDataflow = bt.type === 'dataflow'
+    const componentThreatId = isDataflow ? `backend-flow-${bt.id}` : `backend-${bt.id}`
 
+    // Use different countermeasure prefixes based on threat type
     const countermeasures: ComponentThreatCountermeasure[] = bt.countermeasures.map((cm) => ({
-      id: `cm-${cm.id}`,
+      id: isDataflow ? `fcm-${cm.id}` : `cm-${cm.id}`,
       countermeasureId: `lib-${cm.countermeasureLibraryId}`,
       componentThreatId,
       status: transformCountermeasureStatus(cm.status),
@@ -301,6 +369,9 @@ export function transformBackendThreatsToComponentThreats(
       notes: cm.evidenceUrl || undefined,
       createdAt: now,
       updatedAt: now,
+      // Countermeasure metadata from backend (eliminates need for frontend registry lookup)
+      countermeasureName: cm.countermeasureName || undefined,
+      controlType: cm.controlType || undefined,
     }))
 
     return {
@@ -308,25 +379,24 @@ export function transformBackendThreatsToComponentThreats(
       diagramId: bt.dfdId || '',
       sourceDiagramId: bt.dfdId || undefined,
       sourceDiagramTitle: bt.dfdName || undefined,
-      componentId: bt.nodeId || `component-${bt.componentId}`,
+      // For dataflows, use the edge_id as componentId (for grouping in UI)
+      componentId: isDataflow
+        ? (bt.edgeId || `dataflow-${bt.dataflowId}`)
+        : (bt.nodeId || `component-${bt.componentId}`),
       threatId: `lib-${bt.threatLibraryId}`,
       dismissed: bt.status === 'accepted',
       notes: bt.justification || undefined,
       countermeasures,
       createdAt: now,
       updatedAt: now,
-      // Store backend IDs for API operations
-      _backendThreatId: bt.id,
-      _backendComponentId: bt.componentId,
-      _threatName: bt.threatName,
-      _threatDescription: bt.threatDescription,
-      _strideCategory: bt.strideCategory,
-    } as ComponentThreat & {
-      _backendThreatId: number
-      _backendComponentId: number
-      _threatName: string | null
-      _threatDescription: string | null
-      _strideCategory: STRIDECategory | null
+      // Threat metadata from backend (eliminates need for frontend registry lookup)
+      threatName: bt.threatName || undefined,
+      threatDescription: bt.threatDescription || undefined,
+      strideCategory: bt.strideCategory || undefined,
+      // Backend IDs for API operations
+      backendThreatId: bt.id,
+      backendComponentId: bt.componentId,
+      threatType: bt.type,
     }
   })
 }

@@ -21,6 +21,49 @@ export const STRIDE_CATEGORIES: { value: STRIDECategory; label: string }[] = [
   { value: 'elevationOfPrivilege', label: 'Elevation of Privilege' },
 ]
 
+// STRIDE display configuration with colors
+export const STRIDE_CONFIG: Record<
+  STRIDECategory,
+  { label: string; shortLabel: string; description: string; color: string }
+> = {
+  spoofing: {
+    label: 'Spoofing',
+    shortLabel: 'S',
+    description: 'Pretending to be something or someone else',
+    color: '#ef4444', // red
+  },
+  tampering: {
+    label: 'Tampering',
+    shortLabel: 'T',
+    description: 'Modifying data or code without authorization',
+    color: '#f97316', // orange
+  },
+  repudiation: {
+    label: 'Repudiation',
+    shortLabel: 'R',
+    description: 'Denying having performed an action',
+    color: '#eab308', // yellow
+  },
+  informationDisclosure: {
+    label: 'Information Disclosure',
+    shortLabel: 'I',
+    description: 'Exposing information to unauthorized parties',
+    color: '#22c55e', // green
+  },
+  denialOfService: {
+    label: 'Denial of Service',
+    shortLabel: 'D',
+    description: 'Making a system unavailable or degraded',
+    color: '#3b82f6', // blue
+  },
+  elevationOfPrivilege: {
+    label: 'Elevation of Privilege',
+    shortLabel: 'E',
+    description: 'Gaining unauthorized capabilities or access',
+    color: '#8b5cf6', // purple
+  },
+}
+
 // Threat Model Status - matches backend ThreatModel.Status
 export type ThreatModelStatus = 'draft' | 'inProgress' | 'pendingReview' | 'approved' | 'archived'
 
