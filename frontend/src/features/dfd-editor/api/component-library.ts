@@ -39,7 +39,10 @@ function mapProviderToVendor(provider: string): Technology['vendor'] {
 
 // Map backend component_type to frontend TechnologyCategory
 function mapComponentTypeToCategory(componentType: string): TechnologyCategory {
-  const typeMap: Record<string, TechnologyCategory> = {
+  const type = componentType.toLowerCase()
+
+  // Exact matches first
+  const exactMap: Record<string, TechnologyCategory> = {
     database: 'database',
     storage: 'storage',
     cache: 'cache',
@@ -53,18 +56,38 @@ function mapComponentTypeToCategory(componentType: string): TechnologyCategory {
     monitoring: 'monitoring',
     infrastructure: 'infrastructure',
   }
-  return typeMap[componentType.toLowerCase()] || 'other'
+
+  if (exactMap[type]) {
+    return exactMap[type]
+  }
+
+  // Partial matches for descriptive backend values
+  if (type.includes('database')) return 'database'
+  if (type.includes('storage')) return 'storage'
+  if (type.includes('cache')) return 'cache'
+  if (type.includes('queue') || type.includes('messaging') || type.includes('event')) return 'messaging'
+  if (type.includes('function') || type.includes('lambda') || type.includes('compute') || type.includes('container')) return 'compute'
+  if (type.includes('api') || type.includes('gateway') || type.includes('backend') || type.includes('server')) return 'backend'
+  if (type.includes('network') || type.includes('vpc') || type.includes('load balancer') || type.includes('cdn')) return 'networking'
+  if (type.includes('auth') || type.includes('identity') || type.includes('iam')) return 'auth'
+  if (type.includes('security') || type.includes('firewall') || type.includes('waf')) return 'security'
+  if (type.includes('monitor') || type.includes('logging') || type.includes('metric')) return 'monitoring'
+
+  return 'other'
 }
 
 // Transform backend item to frontend Technology format
 function transformToTechnology(item: ComponentLibraryItem): Technology {
-  return {
+  const result = {
     id: item.slug || item.qualifiedSlug || String(item.id),
     name: item.name,
     category: mapComponentTypeToCategory(item.componentType),
     vendor: mapProviderToVendor(item.provider),
     description: item.sourcePackName ? `From ${item.sourcePackName}` : undefined,
   }
+  // DEBUG [4]: Log transformation
+  console.log('[DEBUG 4] transformToTechnology:', { input: item, output: result })
+  return result
 }
 
 /**
@@ -79,9 +102,16 @@ export function useComponentLibrary() {
       const allItems: ComponentLibraryItem[] = []
       let url: string | null = '/component-library/'
 
+      console.log('[DEBUG 3] useComponentLibrary - starting fetch')
+
       while (url) {
+        console.log('[DEBUG 3] Fetching URL:', url)
         const response: PaginatedResponse<ComponentLibraryItem> = await api.get<PaginatedResponse<ComponentLibraryItem>>(url)
+        console.log('[DEBUG 3] Raw API response:', response)
+        console.log('[DEBUG 3] Response type:', typeof response)
+        console.log('[DEBUG 3] Response.results:', response.results)
         allItems.push(...response.results)
+        console.log('[DEBUG 3] allItems after push:', allItems.length)
         // Get next page URL - extract just the path after /api
         if (response.next) {
           const parsedUrl: URL = new URL(response.next)
@@ -92,7 +122,10 @@ export function useComponentLibrary() {
         }
       }
 
-      return allItems.map(transformToTechnology)
+      console.log('[DEBUG 3] All items fetched:', allItems)
+      const transformed = allItems.map(transformToTechnology)
+      console.log('[DEBUG 3] Transformed technologies:', transformed)
+      return transformed
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })

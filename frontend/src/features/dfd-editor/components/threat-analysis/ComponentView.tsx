@@ -35,7 +35,6 @@ import {
   getCountermeasuresForThreat,
   SECURITY_STANDARDS,
 } from '../../lib/countermeasure-registry'
-import { getTechnologyById } from '../../lib/technology-registry'
 
 /** Unified assignee type for the combobox */
 export type Assignee =
@@ -422,7 +421,8 @@ interface ComponentViewProps {
   onAssignOwner: (
     componentThreatId: string,
     countermeasureInstanceId: string,
-    assignee: Assignee
+    assignee: Assignee,
+    newStatus?: CountermeasureStatus // Optional: also update status in the same API call
   ) => void
   onAddCustomThreat: (componentId: string, threatId: string) => void
   onDismissThreat: (componentThreatId: string) => void
@@ -597,8 +597,21 @@ export function ComponentView({
 
   // Get threats for selected component
   const threatsForComponent = useMemo(() => {
+    // DEBUG [1]: Log threat filtering for selected component
+    console.log('[DEBUG 1] ComponentView.threatsForComponent:', {
+      selectedComponentId,
+      totalComponentThreats: componentThreats.length,
+      allComponentIds: componentThreats.map(ct => ct.componentId),
+      threatsWithDetails: componentThreats.map(ct => ({
+        id: ct.id,
+        componentId: ct.componentId,
+        threatName: ct.threatName,
+      })),
+    })
     if (!selectedComponentId) return []
-    return componentThreats.filter((ct) => ct.componentId === selectedComponentId)
+    const filtered = componentThreats.filter((ct) => ct.componentId === selectedComponentId)
+    console.log('[DEBUG 1] Filtered threats count:', filtered.length)
+    return filtered
   }, [componentThreats, selectedComponentId])
 
   const activeThreats = threatsForComponent.filter((t) => !t.dismissed)
@@ -644,18 +657,19 @@ export function ComponentView({
       })
       console.log('[1] onAssignOwner function:', onAssignOwner)
       console.log('[1] typeof onAssignOwner:', typeof onAssignOwner)
+      console.log('[1] pendingPlannedStatus:', pendingPlannedStatus)
       try {
-        onAssignOwner(selectedComponentThreat.id, countermeasureInstanceId, assignee)
+        // If there's a pending planned status, pass it to onAssignOwner so both updates
+        // happen in a single API call (avoids race condition)
+        const statusToSet = pendingPlannedStatus ? 'planned' as CountermeasureStatus : undefined
+        onAssignOwner(selectedComponentThreat.id, countermeasureInstanceId, assignee, statusToSet)
         console.log('[1] onAssignOwner returned successfully')
       } catch (error) {
         console.error('[1] ERROR calling onAssignOwner:', error)
       }
 
-      // If this was triggered by clicking "Planned", also set the status to planned
-      // Find the countermeasure to get its library ID for status change
-      const cm = selectedComponentThreat.countermeasures.find((c) => c.id === countermeasureInstanceId)
-      if (pendingPlannedStatus && cm) {
-        onCountermeasureStatusChange(selectedComponentThreat.id, cm.countermeasureId, 'planned')
+      // Clear pending status (already handled by onAssignOwner)
+      if (pendingPlannedStatus) {
         setPendingPlannedStatus(null)
       }
 
@@ -737,8 +751,12 @@ export function ComponentView({
               const Icon = nodeTypeIcons[node.type as string] || Cog
               const summary = getComponentThreatSummary(node.id, componentThreats)
               const isSelected = node.id === selectedComponentId
-              const techId = (node.data as { technology?: string }).technology
-              const tech = techId ? getTechnologyById(techId) : null
+              const technologyName = (node.data as { technology?: string }).technology
+              const nodeLabel = String(node.data.label)
+              // Show technology name as primary if available, otherwise show label
+              // Show label as secondary only if it differs from technology name
+              const displayName = technologyName || nodeLabel
+              const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
 
               return (
                 <button
@@ -756,11 +774,11 @@ export function ComponentView({
                       <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <div className="font-medium text-sm truncate">
-                          {String(node.data.label)}
+                          {displayName}
                         </div>
-                        {tech && (
+                        {showSecondaryLabel && (
                           <div className="text-xs text-muted-foreground truncate">
-                            {tech.name}
+                            {nodeLabel}
                           </div>
                         )}
                       </div>
@@ -955,7 +973,7 @@ export function ComponentView({
           </div>
           <div className="text-xs text-muted-foreground">
             {selectedComponent
-              ? String(selectedComponent.data.label)
+              ? (selectedComponent.data as { technology?: string }).technology || String(selectedComponent.data.label)
               : selectedTrustBoundary
                 ? String(selectedTrustBoundary.data.label)
                 : selectedDataFlow
@@ -1007,7 +1025,7 @@ export function ComponentView({
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 ml-4">
-                          {STRIDE_CONFIG[ct.strideCategory].label}
+                          {STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory}
                         </div>
                       </button>
                       <ThreatStatusBadge status={status} />
@@ -1080,7 +1098,7 @@ export function ComponentView({
                               {ct.threatName}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {STRIDE_CONFIG[ct.strideCategory].label}
+                              {STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory}
                             </span>
                           </div>
                           <Button
@@ -1273,7 +1291,7 @@ export function ComponentView({
                       <div className="mt-2 flex items-center justify-between">
                         <CountermeasureStatusButtons
                           status={cm.status}
-                          isPlatformLevel={cmDef.isPlatformLevel}
+                          isPlatformLevel={cmDef?.isPlatformLevel ?? false}
                           hasOwner={!!cm.owner}
                           onChange={(status) =>
                             onCountermeasureStatusChange(

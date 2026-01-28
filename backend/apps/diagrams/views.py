@@ -198,18 +198,25 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
         threat_model = self.get_object()
 
+        # DEBUG [8]: Log threat model threats request
+        print(f"[DEBUG 8] ThreatModelViewSet.threats() - threat_model_id: {threat_model.id}")
+
         # Get all DFDs for this threat model
         dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
         dfds = [assoc.dfd for assoc in dfd_associations]
+        print(f"[DEBUG 8] DFD count: {len(dfds)}")
 
         # Build node_id -> component_id mapping and edge_id -> dataflow_id mapping from all DFDs
         node_component_map = {}
         edge_dataflow_map = {}
         for dfd in dfds:
             canvas_data = dfd.canvas_data or {}
+            print(f"[DEBUG 8] DFD {dfd.id} nodes:")
             for node in canvas_data.get("nodes", []):
                 node_id = node.get("id")
-                component_id = node.get("data", {}).get("component_id")
+                node_data = node.get("data", {})
+                component_id = node_data.get("component_id")
+                print(f"[DEBUG 8]   Node {node_id}: label={node_data.get('label')}, component_id={component_id}, technology={node_data.get('technology')}")
                 if node_id and component_id:
                     node_component_map[node_id] = {
                         "component_id": component_id,
@@ -229,6 +236,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         # Get all component IDs and dataflow IDs
         component_ids = [v["component_id"] for v in node_component_map.values()]
         dataflow_ids = [v["dataflow_id"] for v in edge_dataflow_map.values()]
+        print(f"[DEBUG 8] component_ids to query: {component_ids}")
+        print(f"[DEBUG 8] node_component_map: {node_component_map}")
 
         # Fetch all component threats
         component_threats = ComponentInstanceThreat.objects.filter(
@@ -252,6 +261,11 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             "countermeasures__verified_by",
         )
 
+        # DEBUG [5]: Log component threats found
+        print(f"[DEBUG 5] Component threats found: {component_threats.count()}")
+        for t in component_threats:
+            print(f"[DEBUG 5]   Threat {t.id}: component_id={t.component_id}, threat={t.threat_library.name if t.threat_library else None}")
+
         # Build response with component threats
         result = []
         for threat in component_threats:
@@ -261,6 +275,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 if info["component_id"] == threat.component_id:
                     node_info = {"node_id": node_id, **info}
                     break
+
+            # DEBUG [5]: Log node mapping for each threat
+            print(f"[DEBUG 5] Threat {threat.id} -> component_id={threat.component_id} -> node_info={node_info}")
 
             threat_data = {
                 "id": threat.id,
@@ -417,12 +434,24 @@ class DFDViewSet(viewsets.ModelViewSet):
         """Set updated_by to current user and sync nodes to components."""
         dfd = serializer.save(updated_by=self.request.user)
 
+        # DEBUG [4]: Log incoming canvas_data
+        canvas_data = dfd.canvas_data or {}
+        nodes = canvas_data.get("nodes", [])
+        print(f"[DEBUG 4] DFDViewSet.perform_update() - DFD {dfd.id}")
+        print(f"[DEBUG 4] Node count: {len(nodes)}")
+        for node in nodes:
+            node_data = node.get("data", {})
+            print(f"[DEBUG 4]   Node {node.get('id')}: type={node.get('type')}, label={node_data.get('label')}, technology={node_data.get('technology')}, component_library_id={node_data.get('component_library_id')}")
+
         # Sync DFD nodes to OrgsystemComponent records
         threat_model = get_threat_model_for_dfd(dfd)
         if threat_model:
             sync_result = sync_dfd_nodes_to_components(dfd, threat_model)
+            print(f"[DEBUG 4] Sync result: {sync_result}")
             # Store sync result in response headers for debugging
             self._sync_result = sync_result
+        else:
+            print("[DEBUG 4] No threat model found for DFD, skipping sync")
 
     @action(detail=False, methods=["post"])
     def create_for_threat_model(self, request):

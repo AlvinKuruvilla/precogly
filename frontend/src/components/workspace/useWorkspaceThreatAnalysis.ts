@@ -208,24 +208,25 @@ export function useWorkspaceThreatAnalysis(
 
     setState((prev) => {
       // Build a set of all valid component IDs (nodes + edges) across all diagrams
+      // Note: Convert IDs to strings to handle type mismatches (backend may return string or number)
       const validComponentIds = new Set<string>()
       const currentDiagramIds = new Set<string>()
       diagrams.forEach((d) => {
-        currentDiagramIds.add(d.id)
+        currentDiagramIds.add(String(d.id))
         const canvasData = d.canvasData
         if (canvasData) {
-          canvasData.nodes?.forEach((node) => validComponentIds.add(node.id))
-          canvasData.edges?.forEach((edge) => validComponentIds.add(edge.id))
+          canvasData.nodes?.forEach((node) => validComponentIds.add(String(node.id)))
+          canvasData.edges?.forEach((edge) => validComponentIds.add(String(edge.id)))
         }
       })
 
       // Filter out threats for deleted diagrams OR deleted components
       const filteredThreats = prev.componentThreats.filter((ct) => {
-        const diagramId = ct.sourceDiagramId || ct.diagramId
+        const diagramId = String(ct.sourceDiagramId || ct.diagramId)
         // Remove if diagram was deleted
         if (!currentDiagramIds.has(diagramId)) return false
         // Remove if component was deleted from the diagram
-        if (!validComponentIds.has(ct.componentId)) return false
+        if (!validComponentIds.has(String(ct.componentId))) return false
         return true
       })
 
@@ -302,8 +303,16 @@ export function useWorkspaceThreatAnalysis(
     (
       componentThreatId: string,
       countermeasureInstanceId: string,
-      assignee: { type: 'member' | 'team'; userId?: number; email?: string; name?: string | null; teamId?: number }
+      assignee: { type: 'member' | 'team'; userId?: number; email?: string; name?: string | null; teamId?: number },
+      newStatus?: CountermeasureStatus // Optional: also update status in the same API call
     ) => {
+      console.log('[DEBUG 2] assignOwner called:', {
+        componentThreatId,
+        countermeasureInstanceId,
+        assignee,
+        newStatus,
+      })
+
       // Determine owner string for local state storage
       const ownerString =
         assignee.type === 'team'
@@ -314,24 +323,52 @@ export function useWorkspaceThreatAnalysis(
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
 
+      console.log('[DEBUG 2] Found threat:', threat ? { id: threat.id, countermeasuresCount: threat.countermeasures.length } : null)
+      console.log('[DEBUG 2] Found countermeasure:', countermeasure ? { id: countermeasure.id, countermeasureId: countermeasure.countermeasureId } : null)
+
       // If this is a backend countermeasure, call the appropriate API
       if (assignee.type === 'member' && countermeasure && assignee.userId) {
         const parsed = parseCountermeasureId(countermeasure.id)
+        console.log('[DEBUG 2] Parsed countermeasure ID:', parsed)
+
+        // Build the data payload - include status if provided
+        const backendStatus = newStatus === 'platform' ? 'verified' : newStatus
+        const data: { assignedOwner: number; status?: string } = { assignedOwner: assignee.userId }
+        if (backendStatus) {
+          data.status = backendStatus
+        }
 
         if (parsed.type === 'component' && parsed.id !== null) {
+          console.log('[DEBUG 2] Calling updateCountermeasureMutation with:', {
+            countermeasureId: parsed.id,
+            data,
+          })
           updateCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
-            data: { assignedOwner: assignee.userId },
+            data,
           })
         } else if (parsed.type === 'flow' && parsed.id !== null) {
+          console.log('[DEBUG 2] Calling updateFlowCountermeasureMutation with:', {
+            countermeasureId: parsed.id,
+            data,
+          })
           updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
-            data: { assignedOwner: assignee.userId },
+            data,
           })
+        } else {
+          console.log('[DEBUG 2] NOT calling API - parsed type/id not valid:', parsed)
         }
+      } else {
+        console.log('[DEBUG 2] NOT calling API - conditions not met:', {
+          assigneeType: assignee.type,
+          hasCountermeasure: !!countermeasure,
+          hasUserId: !!assignee.userId,
+        })
       }
 
       // Update local state immediately for responsiveness
+      const finalStatus = newStatus || (countermeasure?.status === 'gap' ? 'planned' : countermeasure?.status)
       setState((prev) => ({
         ...prev,
         componentThreats: prev.componentThreats.map((ct) => {
@@ -344,7 +381,7 @@ export function useWorkspaceThreatAnalysis(
               return {
                 ...cm,
                 owner: ownerString,
-                status: cm.status === 'gap' ? 'planned' : cm.status,
+                status: finalStatus || cm.status,
                 updatedAt: new Date().toISOString(),
               }
             }),

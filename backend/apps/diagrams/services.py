@@ -65,6 +65,9 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         if node.get("type") in ("process", "datastore")
     ]
 
+    # DEBUG [5]: Log sync start
+    print(f"[DEBUG 5] sync_dfd_nodes_to_components() - analyzable nodes: {len(analyzable_nodes)}")
+
     synced_count = 0
     created_count = 0
     threats_generated = 0
@@ -79,17 +82,43 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
 
             # Get component name from node
             label = node_data.get("label", f"Unnamed {node_type}")
-            technology = node_data.get("technology", "")
+
+            # DEBUG [5]: Log each node being processed
+            print(f"[DEBUG 5] Processing node {node_id}:")
+            print(f"[DEBUG 5]   label: {label}")
+            print(f"[DEBUG 5]   technology: {node_data.get('technology')}")
+            print(f"[DEBUG 5]   component_library_id: {node_data.get('component_library_id')}")
+            print(f"[DEBUG 5]   component_ref: {node_data.get('component_ref')}")
+            print(f"[DEBUG 5]   existing component_id: {node_data.get('component_id')}")
 
             # Check if this node already has a component_id stored
             existing_component_id = node_data.get("component_id")
 
-            # Find matching ComponentLibrary based on technology
-            component_library = _find_component_library(technology, node_type)
+            # Find matching ComponentLibrary - try multiple sources
+            component_library = None
 
-            # Skip nodes without a technology - they're visual placeholders only
-            # Components are only created when a technology is assigned
+            # 1. Try component_library_id first (already resolved reference)
+            component_library_id = node_data.get("component_library_id")
+            if component_library_id:
+                component_library = ComponentLibrary.objects.filter(id=component_library_id).first()
+
+            # 2. Try component_ref (slug reference from template)
             if not component_library:
+                component_ref = node_data.get("component_ref")
+                if component_ref:
+                    component_library = ComponentLibrary.objects.filter(slug=component_ref).first()
+
+            # 3. Try technology field (legacy/manual assignment)
+            if not component_library:
+                technology = node_data.get("technology", "")
+                component_library = _find_component_library(technology, node_type)
+
+            # DEBUG [5]: Log component library lookup result
+            print(f"[DEBUG 5]   Found component_library: {component_library}")
+
+            # Skip nodes without a component library - they're visual placeholders only
+            if not component_library:
+                print(f"[DEBUG 5]   SKIPPING - no component library found")
                 continue
 
             if existing_component_id:

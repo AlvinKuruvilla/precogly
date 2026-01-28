@@ -98,9 +98,22 @@ export function ThreatAnalysisView({
 
   // Get all analyzable components (process and datastore nodes)
   const analyzableComponents = useMemo(() => {
-    return canvasData.nodes.filter((node) =>
+    const filtered = canvasData.nodes.filter((node) =>
       node.type === 'process' || node.type === 'datastore'
     )
+    // DEBUG [7]: Log analyzable components from canvasData
+    console.log('[DEBUG 7] ThreatAnalysisView.analyzableComponents:', {
+      totalNodes: canvasData.nodes.length,
+      analyzableCount: filtered.length,
+      components: filtered.map(n => ({
+        id: n.id,
+        type: n.type,
+        label: n.data?.label,
+        technology: n.data?.technology,
+        component_id: n.data?.component_id,
+      })),
+    })
+    return filtered
   }, [canvasData.nodes])
 
   // Get all trust boundaries (for threat analysis)
@@ -115,10 +128,18 @@ export function ThreatAnalysisView({
 
   // Get threats for selected component
   const threatsForSelectedComponent = useMemo(() => {
+    // DEBUG [2]: Log threat filtering in ThreatAnalysisView
+    console.log('[DEBUG 2] ThreatAnalysisView.threatsForSelectedComponent:', {
+      selectedComponentId,
+      componentThreatsCount: componentThreats.length,
+      componentThreatIds: componentThreats.map(ct => ({ id: ct.id, componentId: ct.componentId })),
+    })
     if (!selectedComponentId) return []
-    return componentThreats.filter(
+    const filtered = componentThreats.filter(
       (ct) => ct.componentId === selectedComponentId && !ct.dismissed
     )
+    console.log('[DEBUG 2] Filtered threats:', filtered.length)
+    return filtered
   }, [componentThreats, selectedComponentId])
 
   // Get selected component threat
@@ -211,13 +232,19 @@ export function ThreatAnalysisView({
 
   // Assign owner to countermeasure
   const handleAssignOwner = useCallback(
-    (componentThreatId: string, countermeasureInstanceId: string, assignee: Assignee) => {
+    (
+      componentThreatId: string,
+      countermeasureInstanceId: string,
+      assignee: Assignee,
+      newStatus?: CountermeasureStatus // Optional: also update status in the same API call
+    ) => {
       console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
       console.log('=== [2] ThreatAnalysisView.handleAssignOwner START ===')
       console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
       console.log('[2] componentThreatId:', componentThreatId)
       console.log('[2] countermeasureInstanceId:', countermeasureInstanceId)
       console.log('[2] assignee:', JSON.stringify(assignee, null, 2))
+      console.log('[2] newStatus:', newStatus)
 
       // Find the threat to update
       const threat = componentThreats.find((ct) => ct.id === componentThreatId)
@@ -240,14 +267,17 @@ export function ThreatAnalysisView({
           : assignee.email
       console.log('[2] ownerString:', ownerString)
 
+      // Determine final status - use explicit newStatus if provided, otherwise auto-set to planned
+      const currentCm = threat.countermeasures.find(cm => cm.id === countermeasureInstanceId)
+      const finalStatus = newStatus || (currentCm?.status === 'gap' ? 'planned' : currentCm?.status)
+
       const updatedCountermeasures = threat.countermeasures.map((cm) => {
         if (cm.id !== countermeasureInstanceId) return cm
         console.log('[2] Found matching countermeasure to update:', cm.id)
         return {
           ...cm,
           owner: ownerString,
-          // Auto-set to planned when owner is assigned
-          status: cm.status === 'gap' ? 'planned' : cm.status,
+          status: finalStatus || cm.status,
           updatedAt: new Date().toISOString(),
         }
       })
@@ -281,15 +311,23 @@ export function ThreatAnalysisView({
         if (!isNaN(backendId)) {
           // Use the correct mutation based on countermeasure type
           const mutation = isFlowCm ? updateFlowCountermeasureMutation : updateCountermeasureMutation
+
+          // Build data payload - include status if provided to avoid race condition
+          const backendStatus = newStatus === 'platform' ? 'verified' : newStatus
+          const data: { assignedOwner?: number; status?: string } = { assignedOwner: assignee.userId }
+          if (backendStatus) {
+            data.status = backendStatus
+          }
+
           console.log('[2] Calling mutation.mutate with:', {
             countermeasureId: backendId,
-            data: { assignedOwner: assignee.userId },
+            data,
             mutationType: isFlowCm ? 'flow' : 'component',
           })
           mutation.mutate(
             {
               countermeasureId: backendId,
-              data: { assignedOwner: assignee.userId },
+              data,
             },
             {
               onSuccess: (data) => {

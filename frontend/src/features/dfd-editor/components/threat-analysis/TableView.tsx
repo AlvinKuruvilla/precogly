@@ -83,7 +83,7 @@ export function TableView({
           threatId: ct.threatId,
           threatName: ct.threatName,
           strideCategory: ct.strideCategory,
-          strideCategoryLabel: STRIDE_CONFIG[ct.strideCategory].label,
+          strideCategoryLabel: STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory,
           status,
           countermeasuresTotal: ct.countermeasures.length,
           countermeasuresResolved: resolved,
@@ -158,6 +158,8 @@ export function TableView({
             {flattenedThreats.map((row) => {
               const statusConfig = THREAT_STATUS_CONFIG[row.status]
               const strideConfig = STRIDE_CONFIG[row.strideCategory as keyof typeof STRIDE_CONFIG]
+              const strideColor = strideConfig?.color ?? '#6b7280' // gray fallback
+              const strideShortLabel = strideConfig?.shortLabel ?? '?'
 
               return (
                 <TableRow key={row.componentThreatId}>
@@ -189,11 +191,11 @@ export function TableView({
                       variant="outline"
                       className="text-xs"
                       style={{
-                        borderColor: strideConfig.color,
-                        color: strideConfig.color,
+                        borderColor: strideColor,
+                        color: strideColor,
                       }}
                     >
-                      {strideConfig.shortLabel}
+                      {strideShortLabel}
                     </Badge>
                     <span className="ml-2 text-sm text-muted-foreground">
                       {row.strideCategoryLabel}

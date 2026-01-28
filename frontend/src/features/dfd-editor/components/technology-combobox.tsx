@@ -50,6 +50,15 @@ export function TechnologyCombobox({
   // Fetch technologies from installed packs
   const { technologies, isLoading, isEmpty } = useTechnologies()
 
+  // DEBUG [5]: Log useTechnologies result
+  console.log('[DEBUG 5] useTechnologies result:', {
+    technologies,
+    technologiesLength: technologies?.length,
+    isLoading,
+    isEmpty,
+    filterNodeType
+  })
+
   // Determine which categories to filter by
   const filterCategories = useMemo(() => {
     if (filterCategory) return [filterCategory]
@@ -80,6 +89,15 @@ export function TechnologyCombobox({
       filtered = filtered.filter((tech) => TRUST_BOUNDARY_TECHNOLOGY_IDS.includes(tech.id))
     }
 
+    // DEBUG [6]: Log filtering result
+    console.log('[DEBUG 6] filteredTechnologies:', {
+      inputCount: technologies.length,
+      outputCount: filtered.length,
+      filterCategories,
+      filterNodeType,
+      filtered
+    })
+
     return filtered
   }, [technologies, searchQuery, filterCategories, filterNodeType])
 
@@ -93,6 +111,13 @@ export function TechnologyCombobox({
       }
       groups[tech.category].push(tech)
     }
+
+    // DEBUG [7]: Log grouping result
+    console.log('[DEBUG 7] groupedTechnologies:', {
+      inputCount: filteredTechnologies.length,
+      groups,
+      groupKeys: Object.keys(groups)
+    })
 
     return groups
   }, [filteredTechnologies])

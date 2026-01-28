@@ -116,7 +116,6 @@ class ComponentLibrarySerializer(serializers.ModelSerializer):
             "category",
             "component_type",
             "provider",
-            "organization",
             "source_pack",
             "source_pack_name",
             "source_pack_slug",

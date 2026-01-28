@@ -67,6 +67,13 @@ export const NodeEditPanel = memo(function NodeEditPanel({
     : null
 
   const updateNodeData = (updates: Partial<DiagramNode['data']>) => {
+    // DEBUG [1]: Log what's being updated
+    console.log('[DEBUG 1] NodeEditPanel.updateNodeData:', {
+      nodeId: node.id,
+      nodeType: node.type,
+      currentData: node.data,
+      updates,
+    })
     setNodes((nodes) =>
       nodes.map((n) =>
         n.id === node.id ? { ...n, data: { ...n.data, ...updates } } : n
