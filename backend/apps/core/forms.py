@@ -2,6 +2,8 @@
 Custom forms for authentication.
 """
 
+import logging
+
 from django.conf import settings
 from django.contrib.auth.forms import PasswordResetForm as DjangoPasswordResetForm
 
@@ -10,6 +12,8 @@ if 'allauth' in settings.INSTALLED_APPS:
     from allauth.account.forms import default_token_generator
 else:
     from django.contrib.auth.tokens import default_token_generator
+
+logger = logging.getLogger(__name__)
 
 
 class CustomPasswordResetForm(DjangoPasswordResetForm):
@@ -46,28 +50,42 @@ class CustomPasswordResetForm(DjangoPasswordResetForm):
         email = self.cleaned_data["email"]
         email_field_name = UserModel.get_email_field_name()
 
+        logger.info("Password reset requested for email: %s", email)
+
         # Get the frontend URL from settings
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
 
-        for user in self.get_users(email):
-            user_email = getattr(user, email_field_name)
-            context = {
-                'email': user_email,
-                # Use allauth's base36 encoding for compatibility with dj-rest-auth
-                'uid': user_pk_to_url_str(user),
-                'user': user,
-                'token': token_generator.make_token(user),
-                'protocol': 'https' if use_https else 'http',
-                'frontend_url': frontend_url,
-            }
-            if extra_email_context is not None:
-                context.update(extra_email_context)
+        users = list(self.get_users(email))
+        if not users:
+            logger.warning("Password reset: No active users found for email: %s", email)
+            return
 
-            self.send_mail(
-                subject_template_name,
-                email_template_name,
-                context,
-                from_email,
-                user_email,
-                html_email_template_name=html_email_template_name,
-            )
+        logger.info("Password reset: Found %d user(s) for email: %s", len(users), email)
+
+        for user in users:
+            try:
+                user_email = getattr(user, email_field_name)
+                context = {
+                    'email': user_email,
+                    # Use allauth's base36 encoding for compatibility with dj-rest-auth
+                    'uid': user_pk_to_url_str(user),
+                    'user': user,
+                    'token': token_generator.make_token(user),
+                    'protocol': 'https' if use_https else 'http',
+                    'frontend_url': frontend_url,
+                }
+                if extra_email_context is not None:
+                    context.update(extra_email_context)
+
+                self.send_mail(
+                    subject_template_name,
+                    email_template_name,
+                    context,
+                    from_email,
+                    user_email,
+                    html_email_template_name=html_email_template_name,
+                )
+                logger.info("Password reset email sent to: %s", user_email)
+            except Exception as e:
+                logger.exception("Failed to send password reset email to %s: %s", email, e)
+                raise

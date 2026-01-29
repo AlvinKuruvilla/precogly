@@ -192,10 +192,10 @@ REST_FRAMEWORK = {
     ),
 }
 
-# CamelCase parser settings - ignore password fields used by dj-rest-auth
+# CamelCase parser settings - ignore auth fields used by dj-rest-auth
 JSON_CAMEL_CASE = {
     "JSON_UNDERSCOREIZE": {
-        "ignore_keys": ("password1", "password2", "new_password1", "new_password2"),
+        "ignore_keys": ("password1", "password2", "new_password1", "new_password2", "email"),
     },
 }
 
