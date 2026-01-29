@@ -243,6 +243,24 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    def _serialize_standard_mappings(self, countermeasure_library):
+        """Serialize standard mappings for a countermeasure library."""
+        if not countermeasure_library:
+            return []
+
+        mappings = []
+        for mapping in countermeasure_library.standard_mappings.all():
+            if mapping.requirement and mapping.requirement.framework:
+                mappings.append({
+                    "id": mapping.id,
+                    "framework_name": mapping.requirement.framework.name,
+                    "framework_slug": mapping.requirement.framework.slug,
+                    "section_code": mapping.requirement.section_code,
+                    "requirement_description": mapping.requirement.description,
+                    "sufficiency": mapping.sufficiency,
+                })
+        return mappings
+
     @action(detail=True, methods=["get"])
     def threats(self, request, pk=None):
         """
@@ -299,6 +317,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             "component", "threat_library"
         ).prefetch_related(
             "countermeasures__countermeasure_library",
+            "countermeasures__countermeasure_library__standard_mappings__requirement__framework",
             "countermeasures__assigned_owner",
             "countermeasures__verified_by",
         )
@@ -310,6 +329,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             "data_flow", "threat_library"
         ).prefetch_related(
             "countermeasures__countermeasure_library",
+            "countermeasures__countermeasure_library__standard_mappings__requirement__framework",
             "countermeasures__assigned_owner",
             "countermeasures__verified_by",
         )
@@ -352,6 +372,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "evidence_url": cm.evidence_url,
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                        "standard_mappings": self._serialize_standard_mappings(cm.countermeasure_library),
                     }
                     for cm in threat.countermeasures.all()
                 ],
@@ -398,6 +419,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "evidence_url": cm.evidence_url,
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                        "standard_mappings": self._serialize_standard_mappings(cm.countermeasure_library),
                     }
                     for cm in threat.countermeasures.all()
                 ],

@@ -2,6 +2,18 @@ import type { STRIDECategory } from '@/types/domain'
 import type { SecurityStandard } from '../lib/countermeasure-registry'
 
 /**
+ * Compliance standard mapping from backend
+ */
+export interface ComplianceStandardMapping {
+  id: number
+  frameworkName: string
+  frameworkSlug: string
+  sectionCode: string
+  requirementDescription: string
+  sufficiency: 'full' | 'partial'
+}
+
+/**
  * Status of a countermeasure for a specific component-threat
  */
 export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'waived'
@@ -93,6 +105,8 @@ export interface ComponentThreatCountermeasure {
   countermeasureName?: string
   countermeasureDescription?: string
   controlType?: string
+  // Compliance standard mappings from backend
+  standardMappings?: ComplianceStandardMapping[]
 }
 
 /**

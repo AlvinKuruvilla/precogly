@@ -319,6 +319,18 @@ export interface BackendThreat {
 }
 
 /**
+ * Backend standard mapping format.
+ */
+export interface BackendStandardMapping {
+  id: number
+  frameworkName: string
+  frameworkSlug: string
+  sectionCode: string
+  requirementDescription: string
+  sufficiency: 'full' | 'partial'
+}
+
+/**
  * Backend countermeasure format.
  */
 export interface BackendCountermeasure {
@@ -330,6 +342,7 @@ export interface BackendCountermeasure {
   evidenceUrl: string
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
+  standardMappings: BackendStandardMapping[]
 }
 
 /**
@@ -370,6 +383,7 @@ export function transformBackendThreatsToComponentThreats(
       // Countermeasure metadata from backend (eliminates need for frontend registry lookup)
       countermeasureName: cm.countermeasureName || undefined,
       controlType: cm.controlType || undefined,
+      standardMappings: cm.standardMappings || [],
     }))
 
     return {

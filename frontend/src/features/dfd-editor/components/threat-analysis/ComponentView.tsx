@@ -23,6 +23,7 @@ import type {
   ComponentThreat,
   CountermeasureStatus,
   ThreatStatus,
+  ComplianceStandardMapping,
 } from '../../types/threat-analysis'
 import {
   deriveThreatStatus,
@@ -401,6 +402,100 @@ function WaiverReasonInput({
   )
 }
 
+/**
+ * Compliance badge showing framework and section code
+ */
+function ComplianceBadge({
+  frameworkName,
+  sectionCode,
+  sufficiency
+}: {
+  frameworkName: string
+  sectionCode: string
+  sufficiency: 'full' | 'partial'
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border',
+        sufficiency === 'full'
+          ? 'bg-green-50 text-green-700 border-green-200'
+          : 'bg-amber-50 text-amber-700 border-amber-200'
+      )}
+      title={`${sufficiency === 'full' ? 'Fully' : 'Partially'} addresses ${frameworkName} ${sectionCode}`}
+    >
+      {frameworkName && <span className="mr-0.5">{frameworkName}</span>}
+      <span>{sectionCode}</span>
+      {sufficiency === 'partial' && <span className="ml-0.5 opacity-70">(partial)</span>}
+    </span>
+  )
+}
+
+/**
+ * Expandable compliance detail section for countermeasures
+ */
+function ComplianceDetailSection({
+  mappings,
+  isExpanded,
+  onToggle,
+}: {
+  mappings: ComplianceStandardMapping[]
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  if (mappings.length === 0) return null
+
+  const groupedByFramework = mappings.reduce((acc, mapping) => {
+    if (!acc[mapping.frameworkName]) {
+      acc[mapping.frameworkName] = []
+    }
+    acc[mapping.frameworkName].push(mapping)
+    return acc
+  }, {} as Record<string, ComplianceStandardMapping[]>)
+
+  return (
+    <div className="mt-2 pt-2 border-t">
+      <button
+        className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-1.5">
+          <Shield className="h-3 w-3" />
+          <span className="font-medium">Compliance Coverage</span>
+          <Badge variant="outline" className="h-4 px-1 text-[10px]">
+            {mappings.length}
+          </Badge>
+        </div>
+        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 space-y-2">
+          {Object.entries(groupedByFramework).map(([framework, fwMappings]) => (
+            <div key={framework} className="pl-2 border-l-2 border-slate-200">
+              <div className="text-xs font-medium text-slate-600 mb-1">{framework}</div>
+              <div className="space-y-1">
+                {fwMappings.map((mapping) => (
+                  <div key={mapping.id} className="flex items-start gap-2 text-xs">
+                    <ComplianceBadge
+                      frameworkName=""
+                      sectionCode={mapping.sectionCode}
+                      sufficiency={mapping.sufficiency}
+                    />
+                    <span className="text-muted-foreground flex-1 line-clamp-2">
+                      {mapping.requirementDescription}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface ComponentViewProps {
   canvasData: CanvasData
   analyzableComponents: DiagramNode[]
@@ -570,6 +665,20 @@ export function ComponentView({
   const [pendingPlannedStatus, setPendingPlannedStatus] = useState<string | null>(null)
   // Track which countermeasure is being waived (needs reason input)
   const [waivingReasonFor, setWaivingReasonFor] = useState<string | null>(null)
+  // Track which countermeasures have expanded compliance sections
+  const [expandedComplianceFor, setExpandedComplianceFor] = useState<Set<string>>(new Set())
+
+  const toggleComplianceExpanded = (cmId: string) => {
+    setExpandedComplianceFor(prev => {
+      const next = new Set(prev)
+      if (next.has(cmId)) {
+        next.delete(cmId)
+      } else {
+        next.add(cmId)
+      }
+      return next
+    })
+  }
 
   // Get selected component or data flow
   const selectedComponent = useMemo(() => {
@@ -1181,29 +1290,6 @@ export function ComponentView({
                               {cmDescription}
                             </div>
                           )}
-                          {/* Standard badges - filtered by selected frameworks (only for registry countermeasures) */}
-                          {cmDef?.standards && (() => {
-                            const filteredStandards = cmDef.standards.filter(
-                              (s) => selectedFrameworks.includes(s.standard)
-                            )
-                            if (filteredStandards.length === 0) return null
-                            return (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {filteredStandards.map((s) => (
-                                  <span
-                                    key={`${s.standard}-${s.reference}`}
-                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
-                                    title={SECURITY_STANDARDS[s.standard]?.description}
-                                  >
-                                    {s.standard}
-                                    {s.reference && (
-                                      <span className="ml-0.5 text-slate-500">{s.reference}</span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                            )
-                          })()}
                         </div>
                       </div>
                       <Button
@@ -1215,6 +1301,15 @@ export function ComponentView({
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
+
+                    {/* Compliance mappings - expandable detail */}
+                    {cm.standardMappings && cm.standardMappings.length > 0 && (
+                      <ComplianceDetailSection
+                        mappings={cm.standardMappings}
+                        isExpanded={expandedComplianceFor.has(cm.id)}
+                        onToggle={() => toggleComplianceExpanded(cm.id)}
+                      />
+                    )}
 
                     {/* Owner display */}
                     {cm.owner && !isAssigning && (
