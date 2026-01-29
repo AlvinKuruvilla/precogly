@@ -117,7 +117,6 @@ LibraryPacks {
     int install_count
     boolean is_published
     datetime published_at "nullable"
-    int owner_organization_id FK "nullable"
     datetime created_at
     datetime updated_at
 }
@@ -130,19 +129,6 @@ LibraryPackDependencies {
     boolean is_optional
     datetime created_at
     datetime updated_at
-}
-
-OrganizationPackInstallations {
-    int id PK
-    int organization_id FK
-    int pack_id FK
-    string installed_version
-    string status "installed/pending_update/failed"
-    int installed_by_id FK
-    datetime installed_at
-    datetime last_updated_at
-    string license_key "nullable"
-    datetime license_expires_at "nullable"
 }
 
 PendingFrameworkOverlays {
@@ -181,7 +167,6 @@ IntegrationSources {
 
 TrustBoundaries {
     int id PK
-    int organization_id FK "nullable"
     string name
     int trust_level "0-100"
     string description "nullable"
@@ -192,19 +177,16 @@ TrustBoundaries {
 
 ComponentLibrary {
     int id PK
-    int organization_id FK "nullable"
     int source_pack_id FK "nullable"
     string slug
-    string qualified_slug "partial UK where is_deleted=false"
+    string qualified_slug UK
     string name
-    string category "process/datastore/external"
+    string category "process/datastore/external/human_actor/system_actor"
     string component_type
     string provider "nullable"
     string customization_status "original/customized/detached"
     string base_item_qualified_slug "nullable"
     array aliases
-    boolean is_deleted
-    datetime deleted_at "nullable"
     datetime created_at
     datetime updated_at
 }
@@ -213,9 +195,12 @@ OrgsystemComponents {
     int id PK
     string name
     int orgsystem_id FK "nullable"
-    int component_library_id FK
+    int component_library_id FK "nullable"
     int trust_boundary_id FK "nullable"
     int source_integration_id FK "nullable"
+    string category "nullable, copied from library"
+    string component_type "nullable, copied from library"
+    string provider "nullable, copied from library"
     datetime created_at
     datetime updated_at
 }
@@ -244,8 +229,12 @@ DataFlows {
     int id PK
     int source_component_id FK
     int dest_component_id FK
+    string label "nullable"
+    string edge_id "nullable"
     string protocol "nullable"
     int port "nullable"
+    boolean encrypted
+    boolean authenticated
     boolean crosses_trust_boundary
     datetime created_at
     datetime updated_at
@@ -263,10 +252,9 @@ DataFlowAssets {
 
 ThreatLibrary {
     int id PK
-    int organization_id FK "nullable"
     int source_pack_id FK "nullable"
     string slug
-    string qualified_slug "partial UK where is_deleted=false"
+    string qualified_slug UK
     string name
     string description
     string stride_category
@@ -275,8 +263,6 @@ ThreatLibrary {
     string customization_status "original/customized/detached"
     string base_item_qualified_slug "nullable"
     array aliases
-    boolean is_deleted
-    datetime deleted_at "nullable"
     datetime created_at
     datetime updated_at
 }
@@ -292,11 +278,14 @@ ComponentLibraryThreats {
 ComponentInstanceThreats {
     int id PK
     int component_id FK
-    int threat_library_id FK
+    int threat_library_id FK "nullable"
     string inherent_severity "low/medium/high/critical"
     string residual_severity "nullable"
     string status "open/mitigated/accepted"
     string justification "nullable"
+    string threat_name "nullable, copied from library"
+    string threat_description "nullable, copied from library"
+    string stride_category "nullable, copied from library"
     datetime created_at
     datetime updated_at
 }
@@ -304,20 +293,22 @@ ComponentInstanceThreats {
 DataFlowInstanceThreats {
     int id PK
     int data_flow_id FK
-    int threat_library_id FK
+    int threat_library_id FK "nullable"
     string inherent_severity "low/medium/high/critical"
     string residual_severity "nullable"
     string status "open/mitigated/accepted"
+    string threat_name "nullable, copied from library"
+    string threat_description "nullable, copied from library"
+    string stride_category "nullable, copied from library"
     datetime created_at
     datetime updated_at
 }
 
 CountermeasureLibrary {
     int id PK
-    int organization_id FK "nullable"
     int source_pack_id FK "nullable"
     string slug
-    string qualified_slug "partial UK where is_deleted=false"
+    string qualified_slug UK
     string name
     string description
     string control_type "technical/procedural"
@@ -325,8 +316,6 @@ CountermeasureLibrary {
     string customization_status "original/customized/detached"
     string base_item_qualified_slug "nullable"
     array aliases
-    boolean is_deleted
-    datetime deleted_at "nullable"
     datetime created_at
     datetime updated_at
 }
@@ -339,12 +328,15 @@ CountermeasureApplicableThreats {
 ComponentInstanceCountermeasures {
     int id PK
     int instance_threat_id FK
-    int countermeasure_library_id FK
+    int countermeasure_library_id FK "nullable"
     string status "gap/planned/verified/waived"
     int verified_by_id FK "nullable"
     string evidence_url "nullable"
     boolean required_for_release
     int assigned_owner_id FK "nullable"
+    string countermeasure_name "nullable, copied from library"
+    string countermeasure_description "nullable, copied from library"
+    string control_type "nullable, copied from library"
     datetime created_at
     datetime updated_at
 }
@@ -352,21 +344,23 @@ ComponentInstanceCountermeasures {
 FlowInstanceCountermeasures {
     int id PK
     int flow_threat_id FK
-    int countermeasure_library_id FK
+    int countermeasure_library_id FK "nullable"
     string status "gap/planned/verified/waived"
     int verified_by_id FK "nullable"
     string evidence_url "nullable"
     boolean required_for_release
     int assigned_owner_id FK "nullable"
+    string countermeasure_name "nullable, copied from library"
+    string countermeasure_description "nullable, copied from library"
+    string control_type "nullable, copied from library"
     datetime created_at
     datetime updated_at
 }
 
 VerificationTests {
     int id PK
-    int organization_id FK "nullable"
     string name
-    string method "pentest/auto/codereview"
+    string method "pentest/auto/code_review"
     datetime last_run_at "nullable"
     boolean passed
     string evidence "nullable"
@@ -432,10 +426,9 @@ CountermeasureLibraryStandards {
 
 DFDTemplatesLibrary {
     int id PK
-    int organization_id FK "nullable"
     int source_pack_id FK "nullable"
     string slug
-    string qualified_slug "partial UK where is_deleted=false"
+    string qualified_slug UK
     string name
     string description "nullable"
     string category "webapp/microservices/iot/api/mobile"
@@ -445,8 +438,6 @@ DFDTemplatesLibrary {
     string customization_status "original/customized/detached"
     string base_item_qualified_slug "nullable"
     array aliases
-    boolean is_deleted
-    datetime deleted_at "nullable"
     datetime created_at
     datetime updated_at
 }
@@ -516,14 +507,6 @@ Organizations ||--o{ BusinessUnits : "has_units"
 Organizations ||--o{ Teams : "has_teams"
 Organizations ||--o{ Orgsystems : "owns"
 Organizations ||--o{ ThreatModels : "owns"
-Organizations ||--o{ ComponentLibrary : "customizes"
-Organizations ||--o{ ThreatLibrary : "customizes"
-Organizations ||--o{ CountermeasureLibrary : "customizes"
-Organizations ||--o{ DFDTemplatesLibrary : "customizes"
-Organizations ||--o{ TrustBoundaries : "defines"
-Organizations ||--o{ VerificationTests : "owns"
-Organizations ||--o{ OrganizationPackInstallations : "has_installed"
-Organizations ||--o{ LibraryPacks : "owns_private"
 Organizations ||--o{ ShadowUsers : "has_shadow_users"
 
 BusinessUnits ||--o| BusinessUnits : "nested_in"
@@ -537,7 +520,6 @@ ThreatModels ||--o{ MagicLinks : "shared_via"
 MagicLinks ||--o{ SharedWithMe : "accessed_through"
 
 LibraryPacks ||--o{ LibraryPackDependencies : "depends_on"
-LibraryPacks ||--o{ OrganizationPackInstallations : "installed_by"
 LibraryPacks ||--o{ ComponentLibrary : "provides"
 LibraryPacks ||--o{ ThreatLibrary : "provides"
 LibraryPacks ||--o{ CountermeasureLibrary : "provides"
