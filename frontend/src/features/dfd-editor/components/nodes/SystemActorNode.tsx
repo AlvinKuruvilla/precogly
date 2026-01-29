@@ -2,14 +2,14 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ExternalSystemNodeData } from '../../types'
+import type { SystemActorNodeData } from '../../types'
 
-type ExternalSystemNodeType = Node<ExternalSystemNodeData, 'externalSystem'>
+type SystemActorNodeType = Node<SystemActorNodeData, 'systemActor'>
 
-export const ExternalSystemNode = memo(function ExternalSystemNode({
+export const SystemActorNode = memo(function SystemActorNode({
   data,
   selected,
-}: NodeProps<ExternalSystemNodeType>) {
+}: NodeProps<SystemActorNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 

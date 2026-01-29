@@ -54,11 +54,11 @@ export interface DataStoreNodeData extends BaseNodeData {
   dataSensitivity?: DataSensitivity
 }
 
-export interface ActorNodeData extends BaseNodeData {
-  actorType?: 'user' | 'system' | 'external'
+export interface HumanActorNodeData extends BaseNodeData {
+  actorType?: 'user' | 'admin' | 'attacker' | 'customer'
 }
 
-export interface ExternalSystemNodeData extends BaseNodeData {
+export interface SystemActorNodeData extends BaseNodeData {
   systemType?: 'api' | 'legacy' | 'partner' | 'thirdParty' | 'other'
   vendor?: string
 }
@@ -81,8 +81,8 @@ export interface SystemScopeNodeData extends BaseNodeData {
 export type DiagramNodeData =
   | ProcessNodeData
   | DataStoreNodeData
-  | ActorNodeData
-  | ExternalSystemNodeData
+  | HumanActorNodeData
+  | SystemActorNodeData
   | TrustBoundaryNodeData
   | SystemScopeNodeData
 
@@ -171,12 +171,12 @@ export function isDataStoreNode(node: DiagramNode): node is Node<DataStoreNodeDa
   return node.type === 'datastore'
 }
 
-export function isActorNode(node: DiagramNode): node is Node<ActorNodeData, 'actor'> {
-  return node.type === 'actor'
+export function isHumanActorNode(node: DiagramNode): node is Node<HumanActorNodeData, 'humanActor'> {
+  return node.type === 'humanActor'
 }
 
-export function isExternalSystemNode(node: DiagramNode): node is Node<ExternalSystemNodeData, 'externalSystem'> {
-  return node.type === 'externalSystem'
+export function isSystemActorNode(node: DiagramNode): node is Node<SystemActorNodeData, 'systemActor'> {
+  return node.type === 'systemActor'
 }
 
 export function isTrustBoundaryNode(node: DiagramNode): node is Node<TrustBoundaryNodeData, 'trustBoundary'> {

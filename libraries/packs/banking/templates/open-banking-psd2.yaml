@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External actors
     - id: "actor-customer"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 180 }
       data:
         label: "Bank Customer"
@@ -17,7 +17,7 @@ canvas_data:
         description: "Account holder authorizing TPP access"
 
     - id: "actor-tpp"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 450 }
       data:
         label: "Third Party Provider"
@@ -25,7 +25,7 @@ canvas_data:
         description: "Fintech app (AISP/PISP) accessing bank APIs"
 
     - id: "actor-regulator"
-      type: "actor"
+      type: "humanActor"
       position: { x: 1150, y: 550 }
       data:
         label: "Regulatory Authority"

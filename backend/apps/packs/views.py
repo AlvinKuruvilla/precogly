@@ -10,6 +10,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from django.db import transaction
+
 from .models import LibraryPack
 from .serializers import (
     LibraryPackDetailSerializer,
@@ -302,3 +304,83 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         result = validate_pack_references(Path(pack_info.path))
 
         return Response(result.to_dict())
+
+    @action(detail=True, methods=["delete"])
+    def unimport(self, request, pk=None):
+        """
+        Unimport a pack by deleting all its library items and the pack record.
+
+        This will:
+        1. Delete all ComponentLibrary entries from this pack
+        2. Delete all ThreatLibrary entries from this pack
+        3. Delete all CountermeasureLibrary entries from this pack
+        4. Delete the LibraryPack record itself
+
+        Note: Instances (ComponentInstanceThreat, etc.) that reference the deleted
+        library items will have their library FK set to NULL but remain intact
+        with their copied metadata.
+
+        Query parameters:
+            dry_run: If "true", returns what would be deleted without actually deleting
+        """
+        from apps.systems.models import ComponentLibrary
+        from apps.threats.models import CountermeasureLibrary, ThreatLibrary
+
+        pack = self.get_object()
+        dry_run = request.query_params.get("dry_run", "false").lower() == "true"
+
+        # Check if any other packs depend on this pack
+        dependent_packs = list(
+            pack.dependents.filter(is_optional=False)
+            .select_related("pack")
+            .values_list("pack__slug", flat=True)
+        )
+        if dependent_packs:
+            return Response(
+                {
+                    "error": "Cannot unimport: other packs depend on this one",
+                    "dependent_packs": dependent_packs,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Count what will be deleted
+        component_count = ComponentLibrary.objects.filter(source_pack=pack).count()
+        threat_count = ThreatLibrary.objects.filter(source_pack=pack).count()
+        countermeasure_count = CountermeasureLibrary.objects.filter(source_pack=pack).count()
+
+        summary = {
+            "pack": {
+                "id": pack.id,
+                "slug": pack.slug,
+                "name": pack.name,
+                "version": pack.version,
+            },
+            "to_delete": {
+                "components": component_count,
+                "threats": threat_count,
+                "countermeasures": countermeasure_count,
+            },
+            "dry_run": dry_run,
+        }
+
+        if dry_run:
+            summary["message"] = "Dry run - no changes made"
+            return Response(summary)
+
+        # Perform the deletion within a transaction
+        with transaction.atomic():
+            # Delete library items (order matters for FK constraints)
+            # Countermeasures reference threats via M2M, so delete them first
+            CountermeasureLibrary.objects.filter(source_pack=pack).delete()
+            # Threats can now be deleted
+            ThreatLibrary.objects.filter(source_pack=pack).delete()
+            # Components can now be deleted (ComponentLibraryThreat cascades)
+            ComponentLibrary.objects.filter(source_pack=pack).delete()
+            # Finally delete the pack itself
+            pack.delete()
+
+        summary["message"] = "Pack unimported successfully"
+        summary["deleted"] = True
+
+        return Response(summary)

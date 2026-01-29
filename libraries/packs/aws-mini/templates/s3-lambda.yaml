@@ -8,7 +8,7 @@ template:
 canvas_data:
   nodes:
     - id: "actor-user"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 150 }
       data:
         label: "User"

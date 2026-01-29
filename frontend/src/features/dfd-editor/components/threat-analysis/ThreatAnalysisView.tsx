@@ -96,24 +96,12 @@ export function ThreatAnalysisView({
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null)
 
-  // Get all analyzable components (process and datastore nodes)
+  // Get all analyzable components (process, datastore, humanActor, and systemActor nodes)
   const analyzableComponents = useMemo(() => {
-    const filtered = canvasData.nodes.filter((node) =>
-      node.type === 'process' || node.type === 'datastore'
+    return canvasData.nodes.filter((node) =>
+      node.type === 'process' || node.type === 'datastore' ||
+      node.type === 'humanActor' || node.type === 'systemActor'
     )
-    // DEBUG [7]: Log analyzable components from canvasData
-    console.log('[DEBUG 7] ThreatAnalysisView.analyzableComponents:', {
-      totalNodes: canvasData.nodes.length,
-      analyzableCount: filtered.length,
-      components: filtered.map(n => ({
-        id: n.id,
-        type: n.type,
-        label: n.data?.label,
-        technology: n.data?.technology,
-        component_id: n.data?.component_id,
-      })),
-    })
-    return filtered
   }, [canvasData.nodes])
 
   // Get all trust boundaries (for threat analysis)
@@ -128,18 +116,10 @@ export function ThreatAnalysisView({
 
   // Get threats for selected component
   const threatsForSelectedComponent = useMemo(() => {
-    // DEBUG [2]: Log threat filtering in ThreatAnalysisView
-    console.log('[DEBUG 2] ThreatAnalysisView.threatsForSelectedComponent:', {
-      selectedComponentId,
-      componentThreatsCount: componentThreats.length,
-      componentThreatIds: componentThreats.map(ct => ({ id: ct.id, componentId: ct.componentId })),
-    })
     if (!selectedComponentId) return []
-    const filtered = componentThreats.filter(
+    return componentThreats.filter(
       (ct) => ct.componentId === selectedComponentId && !ct.dismissed
     )
-    console.log('[DEBUG 2] Filtered threats:', filtered.length)
-    return filtered
   }, [componentThreats, selectedComponentId])
 
   // Get selected component threat

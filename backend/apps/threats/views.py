@@ -289,53 +289,6 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
         "required_for_release",
     ]
 
-    def update(self, request, *args, **kwargs):
-        """Override update to add logging for debugging."""
-        print("=== [4] ComponentInstanceCountermeasureViewSet.update() START ===")
-        print(f"[4] kwargs: {kwargs}")
-        print(f"[4] request.data: {request.data}")
-        print(f"[4] user: {request.user}")
-
-        try:
-            response = super().update(request, *args, **kwargs)
-            print(f"[4] ✅ update() SUCCESS")
-            print(f"[4] response.data: {response.data}")
-            print("=== [4] ComponentInstanceCountermeasureViewSet.update() END ===")
-            return response
-        except Exception as e:
-            print(f"[4] ❌ update() ERROR: {e}")
-            print("=== [4] ComponentInstanceCountermeasureViewSet.update() END (error) ===")
-            raise
-
-    def partial_update(self, request, *args, **kwargs):
-        """Override partial_update (PATCH) to add logging for debugging."""
-        print("=== [4] ComponentInstanceCountermeasureViewSet.partial_update() START ===")
-        print(f"[4] kwargs: {kwargs}")
-        print(f"[4] request.data: {request.data}")
-        print(f"[4] user: {request.user}")
-
-        # Get the object before update
-        pk = kwargs.get("pk")
-        print(f"[4] Fetching countermeasure with pk={pk}")
-        try:
-            obj = self.get_object()
-            print(f"[4] Found countermeasure: id={obj.id}, status={obj.status}, assigned_owner={obj.assigned_owner}")
-        except Exception as e:
-            print(f"[4] ❌ Could not fetch object: {e}")
-
-        try:
-            response = super().partial_update(request, *args, **kwargs)
-            print(f"[4] ✅ partial_update() SUCCESS")
-            print(f"[4] response.data: {response.data}")
-            print("=== [4] ComponentInstanceCountermeasureViewSet.partial_update() END ===")
-            return response
-        except Exception as e:
-            print(f"[4] ❌ partial_update() ERROR: {e}")
-            import traceback
-            traceback.print_exc()
-            print("=== [4] ComponentInstanceCountermeasureViewSet.partial_update() END (error) ===")
-            raise
-
 
 class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for FlowInstanceCountermeasure."""

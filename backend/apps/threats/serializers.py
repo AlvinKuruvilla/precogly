@@ -220,30 +220,6 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "assigned_owner_email",
         ]
 
-    def update(self, instance, validated_data):
-        """Override update to add logging for debugging."""
-        print("=== [5] ComponentInstanceCountermeasureSerializer.update() START ===")
-        print(f"[5] instance.id: {instance.id}")
-        print(f"[5] validated_data: {validated_data}")
-        print(f"[5] BEFORE - instance.assigned_owner: {instance.assigned_owner}")
-        print(f"[5] BEFORE - instance.assigned_owner_id: {instance.assigned_owner_id}")
-        print(f"[5] BEFORE - instance.status: {instance.status}")
-
-        try:
-            updated_instance = super().update(instance, validated_data)
-            print(f"[5] ✅ update() SUCCESS")
-            print(f"[5] AFTER - instance.assigned_owner: {updated_instance.assigned_owner}")
-            print(f"[5] AFTER - instance.assigned_owner_id: {updated_instance.assigned_owner_id}")
-            print(f"[5] AFTER - instance.status: {updated_instance.status}")
-            print("=== [5] ComponentInstanceCountermeasureSerializer.update() END ===")
-            return updated_instance
-        except Exception as e:
-            print(f"[5] ❌ update() ERROR: {e}")
-            import traceback
-            traceback.print_exc()
-            print("=== [5] ComponentInstanceCountermeasureSerializer.update() END (error) ===")
-            raise
-
 
 class FlowInstanceCountermeasureSerializer(serializers.ModelSerializer):
     """Serializer for FlowInstanceCountermeasure."""

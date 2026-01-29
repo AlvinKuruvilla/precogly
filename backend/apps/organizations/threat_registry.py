@@ -379,7 +379,8 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
     # Component counts
     processes = 0
     datastores = 0
-    actors = 0
+    human_actors = 0
+    system_actors = 0
     boundaries = 0
 
     # Threat and countermeasure tracking
@@ -422,8 +423,11 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
                             threat_id, 1
                         )
 
-            elif node_type == "actor":
-                actors += 1
+            elif node_type == "humanActor":
+                human_actors += 1
+
+            elif node_type == "systemActor":
+                system_actors += 1
 
             elif node_type == "trustBoundary":
                 boundaries += 1
@@ -489,10 +493,11 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
 
     return {
         "components": {
-            "total": processes + datastores + actors,
+            "total": processes + datastores + human_actors + system_actors,
             "processes": processes,
             "datastores": datastores,
-            "actors": actors,
+            "humanActors": human_actors,
+            "systemActors": system_actors,
             "boundaries": boundaries,
         },
         "threats": {

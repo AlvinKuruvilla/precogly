@@ -142,7 +142,8 @@ export interface ThreatModelStats {
     total: number
     processes: number
     datastores: number
-    actors: number
+    humanActors: number
+    systemActors: number
     boundaries: number
   }
   threats: {

@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External actors
     - id: "actor-cardholder"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 150 }
       data:
         label: "Cardholder"
@@ -17,7 +17,7 @@ canvas_data:
         description: "Customer making card payment"
 
     - id: "actor-merchant"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 400 }
       data:
         label: "Merchant POS/eCommerce"
@@ -25,7 +25,7 @@ canvas_data:
         description: "Point of sale or online checkout"
 
     - id: "actor-card-network"
-      type: "actor"
+      type: "humanActor"
       position: { x: 1200, y: 280 }
       data:
         label: "Card Network"

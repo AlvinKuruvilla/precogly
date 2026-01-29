@@ -195,8 +195,8 @@ function DFDEditorContent() {
     (_event: React.MouseEvent, node: DiagramNode) => {
       // In connection mode, handle click-to-connect
       if (connectionMode) {
-        // Only allow connecting process, datastore, actor, and externalSystem nodes
-        const connectableTypes = ['process', 'datastore', 'actor', 'externalSystem']
+        // Only allow connecting process, datastore, humanActor, and systemActor nodes
+        const connectableTypes = ['process', 'datastore', 'humanActor', 'systemActor']
         if (!connectableTypes.includes(node.type || '')) {
           return
         }

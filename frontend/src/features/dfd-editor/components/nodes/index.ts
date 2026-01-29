@@ -1,6 +1,6 @@
 export { ProcessNode } from './ProcessNode'
 export { DataStoreNode } from './DataStoreNode'
-export { ActorNode } from './ActorNode'
-export { ExternalSystemNode } from './ExternalSystemNode'
+export { HumanActorNode } from './HumanActorNode'
+export { SystemActorNode } from './SystemActorNode'
 export { TrustBoundaryNode } from './TrustBoundaryNode'
 export { SystemScopeNode } from './SystemScopeNode'

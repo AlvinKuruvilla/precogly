@@ -96,3 +96,27 @@ mappings:
       - sqs-queue-policy
       - sqs-dlq
       - apigw-throttling
+
+  # Data Flow Threat → Countermeasure mappings
+  - threat: dataflow-mitm
+    countermeasures:
+      - tls-encryption
+      - mutual-tls
+      - vpc-private-link
+
+  - threat: dataflow-eavesdropping
+    countermeasures:
+      - tls-encryption
+      - vpc-private-link
+      - api-gateway-private
+
+  - threat: dataflow-replay-attack
+    countermeasures:
+      - request-signing
+      - mutual-tls
+
+  - threat: dataflow-injection
+    countermeasures:
+      - tls-encryption
+      - request-signing
+      - lambda-input-validation

@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External actors
     - id: "actor-channels"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 200 }
       data:
         label: "Banking Channels"
@@ -17,7 +17,7 @@ canvas_data:
         description: "Mobile, Web, ATM, Branch systems"
 
     - id: "actor-analyst"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 480 }
       data:
         label: "Fraud Analyst"
@@ -25,7 +25,7 @@ canvas_data:
         description: "Investigates alerts and manages cases"
 
     - id: "actor-watchlist"
-      type: "actor"
+      type: "humanActor"
       position: { x: 1150, y: 100 }
       data:
         label: "External Watchlists"
@@ -33,7 +33,7 @@ canvas_data:
         description: "OFAC, sanctions lists, fraud consortiums"
 
     - id: "actor-customer"
-      type: "actor"
+      type: "humanActor"
       position: { x: 1150, y: 500 }
       data:
         label: "Customer"

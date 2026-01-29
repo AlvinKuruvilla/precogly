@@ -75,21 +75,6 @@ export function ThreatAnalysisPage() {
 
   const canvasData = diagram.canvasData
 
-  // DEBUG [6]: Log fetched diagram data
-  console.log('[DEBUG 6] ThreatAnalysisPage - diagram data:', {
-    diagramId: diagram.id,
-    diagramName: diagram.name,
-    nodeCount: canvasData?.nodes?.length,
-    nodes: canvasData?.nodes?.map((n: Record<string, unknown>) => ({
-      id: n.id,
-      type: n.type,
-      label: (n.data as Record<string, unknown>)?.label,
-      technology: (n.data as Record<string, unknown>)?.technology,
-      component_id: (n.data as Record<string, unknown>)?.component_id,
-      component_library_id: (n.data as Record<string, unknown>)?.component_library_id,
-    })),
-  })
-
   return (
     <div className="h-[calc(100vh-4rem)]">
       <ThreatAnalysisView

@@ -17,6 +17,8 @@ import {
   Shield,
   Bug,
   ClipboardList,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -45,6 +47,7 @@ import {
   useImportSinglePack,
   usePacks,
   usePackOverlays,
+  useUnimportPack,
 } from '@/api/packs'
 import { useComponentLibraries, useThreatLibraries, useCountermeasureLibraries, useRequirements } from '@/api/libraries'
 import type { PackFilters } from '@/types/packs'
@@ -473,6 +476,56 @@ function ImportPackDialog({
 }
 
 /**
+ * Dialog for confirming pack unimport
+ */
+function UnimportPackDialog({
+  packName,
+  open,
+  onOpenChange,
+  onConfirm,
+}: {
+  packName: string | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Unimport {packName}?</DialogTitle>
+          <DialogDescription>
+            This will remove all library items (components, threats, countermeasures) from this pack.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4 space-y-3">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-sm text-amber-800">
+              <strong>Note:</strong> Existing threats and countermeasures in your diagrams will remain intact
+              but will no longer be linked to library definitions.
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            You can re-import this pack later from the catalog.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Unimport
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
  * Pack card component for the catalog view
  */
 function PackCard({
@@ -581,6 +634,15 @@ function PackCard({
 function ImportedView() {
   const { data: dbPacks, isLoading } = usePacks({})
   const [expandedPacks, setExpandedPacks] = useState<Set<number>>(new Set())
+  const [unimportDialogPack, setUnimportDialogPack] = useState<{
+    id: number
+    name: string
+    slug: string
+  } | null>(null)
+  const [unimportingId, setUnimportingId] = useState<number | null>(null)
+  const [unimportError, setUnimportError] = useState<string | null>(null)
+
+  const unimportMutation = useUnimportPack()
 
   // Filter to only imported packs
   const importedPacks = useMemo(() => {
@@ -597,6 +659,33 @@ function ImportedView() {
       }
       return next
     })
+  }
+
+  const handleUnimportClick = (pack: { id: number; name: string; slug: string }) => {
+    setUnimportError(null)
+    setUnimportDialogPack(pack)
+  }
+
+  const handleUnimportConfirm = async () => {
+    if (!unimportDialogPack) return
+    setUnimportingId(unimportDialogPack.id)
+    setUnimportDialogPack(null)
+    setUnimportError(null)
+    try {
+      await unimportMutation.mutateAsync({ packId: unimportDialogPack.id })
+    } catch (error: unknown) {
+      // Check for dependency error
+      const errorData = (error as { response?: { data?: { error?: string; dependentPacks?: string[] } } })?.response?.data
+      if (errorData?.dependentPacks) {
+        setUnimportError(`Cannot unimport: other packs depend on this one (${errorData.dependentPacks.join(', ')})`)
+      } else if (errorData?.error) {
+        setUnimportError(errorData.error)
+      } else {
+        setUnimportError('Failed to unimport pack')
+      }
+    } finally {
+      setUnimportingId(null)
+    }
   }
 
   if (isLoading) {
@@ -623,14 +712,41 @@ function ImportedView() {
 
   return (
     <div className="space-y-3">
+      {/* Error banner */}
+      {unimportError && (
+        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-destructive">{unimportError}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-destructive hover:text-destructive"
+            onClick={() => setUnimportError(null)}
+          >
+            ×
+          </Button>
+        </div>
+      )}
+
       {importedPacks.map((pack) => (
         <ImportedPackRow
           key={pack.id}
           pack={pack}
           isExpanded={expandedPacks.has(pack.id)}
           onToggleExpand={() => toggleExpanded(pack.id)}
+          onUnimport={() => handleUnimportClick({ id: pack.id, name: pack.name, slug: pack.slug })}
+          isUnimporting={unimportingId === pack.id}
         />
       ))}
+
+      <UnimportPackDialog
+        packName={unimportDialogPack?.name ?? null}
+        open={unimportDialogPack !== null}
+        onOpenChange={(open) => !open && setUnimportDialogPack(null)}
+        onConfirm={handleUnimportConfirm}
+      />
     </div>
   )
 }
@@ -642,6 +758,8 @@ function ImportedPackRow({
   pack,
   isExpanded,
   onToggleExpand,
+  onUnimport,
+  isUnimporting,
 }: {
   pack: {
     id: number
@@ -653,6 +771,8 @@ function ImportedPackRow({
   }
   isExpanded: boolean
   onToggleExpand: () => void
+  onUnimport: () => void
+  isUnimporting: boolean
 }) {
   const packTypeColors: Record<string, string> = {
     technology: 'bg-blue-100 text-blue-800',
@@ -661,6 +781,11 @@ function ImportedPackRow({
     compliance: 'bg-purple-100 text-purple-800',
     template: 'bg-yellow-100 text-yellow-800',
     full: 'bg-gray-100 text-gray-800',
+  }
+
+  const handleUnimportClick = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent row expansion
+    onUnimport()
   }
 
   return (
@@ -691,10 +816,21 @@ function ImportedPackRow({
           >
             {pack.packType}
           </Badge>
-          <Badge variant="outline" className="text-green-600 border-green-600">
-            <Check className="mr-1 h-3 w-3" />
-            Imported
-          </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleUnimportClick}
+            disabled={isUnimporting}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            title="Unimport this pack"
+          >
+            {isUnimporting ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : (
+              <Trash2 className="h-3 w-3 mr-1" />
+            )}
+            Unimport
+          </Button>
         </div>
       </div>
 

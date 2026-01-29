@@ -84,25 +84,7 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
 
         Returns all components that have been imported into the database.
         """
-        queryset = ComponentLibrary.objects.all().select_related("source_pack").order_by("name")
-        # DEBUG [1]: Log queryset
-        print(f"[DEBUG 1] ComponentLibraryViewSet.get_queryset() - count: {queryset.count()}")
-        for item in queryset:
-            print(f"[DEBUG 1]   - {item.id}: {item.name} (category: {item.category}, type: {item.component_type})")
-        return queryset
-
-    def list(self, request, *args, **kwargs):
-        """Override list to add debugging."""
-        print(f"[DEBUG 2] ComponentLibraryViewSet.list() - request path: {request.path}")
-        response = super().list(request, *args, **kwargs)
-        print(f"[DEBUG 2] Response status: {response.status_code}")
-        print(f"[DEBUG 2] Response data type: {type(response.data)}")
-        if isinstance(response.data, dict):
-            print(f"[DEBUG 2] Response keys: {response.data.keys()}")
-            print(f"[DEBUG 2] Results count: {len(response.data.get('results', []))}")
-        else:
-            print(f"[DEBUG 2] Response data (first 500 chars): {str(response.data)[:500]}")
-        return response
+        return ComponentLibrary.objects.all().select_related("source_pack").order_by("name")
 
 
 class OrgsystemComponentViewSet(viewsets.ModelViewSet):

@@ -41,8 +41,8 @@ const nodeTypeConfig: Record<
 > = {
   process: { label: 'Process', icon: Cog, color: 'text-blue-600' },
   datastore: { label: 'Data Store', icon: Database, color: 'text-purple-600' },
-  actor: { label: 'Actor', icon: User, color: 'text-green-600' },
-  externalSystem: { label: 'External System', icon: Server, color: 'text-slate-600' },
+  humanActor: { label: 'Human Actor', icon: User, color: 'text-green-600' },
+  systemActor: { label: 'System Actor', icon: Server, color: 'text-slate-600' },
   trustBoundary: { label: 'Trust Boundary', icon: Shield, color: 'text-orange-600' },
   systemScope: { label: 'System Scope', icon: Box, color: 'text-gray-600' },
 }
@@ -67,13 +67,6 @@ export const NodeEditPanel = memo(function NodeEditPanel({
     : null
 
   const updateNodeData = (updates: Partial<DiagramNode['data']>) => {
-    // DEBUG [1]: Log what's being updated
-    console.log('[DEBUG 1] NodeEditPanel.updateNodeData:', {
-      nodeId: node.id,
-      nodeType: node.type,
-      currentData: node.data,
-      updates,
-    })
     setNodes((nodes) =>
       nodes.map((n) =>
         n.id === node.id ? { ...n, data: { ...n.data, ...updates } } : n
@@ -335,7 +328,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           </>
         )}
 
-        {node.type === 'externalSystem' && (
+        {node.type === 'systemActor' && (
           <>
             <div className="space-y-2">
               <Label htmlFor="node-systemType">System Type</Label>

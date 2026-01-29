@@ -29,18 +29,18 @@ interface ToolbarButtonConfig {
 
 const nodeButtons: ToolbarButtonConfig[] = [
   {
-    type: 'actor',
-    label: 'Actor',
+    type: 'humanActor',
+    label: 'Human Actor',
     icon: User,
     color: 'text-green-600 hover:bg-green-50',
-    description: 'Human external entity: users, admins, customers',
+    description: 'External human user: customer, admin, attacker',
   },
   {
-    type: 'externalSystem',
-    label: 'External System',
+    type: 'systemActor',
+    label: 'System Actor',
     icon: Server,
     color: 'text-slate-600 hover:bg-slate-50',
-    description: 'Non-human external entity: third-party APIs, partner systems',
+    description: 'External system: third-party API, partner system',
   },
   {
     type: 'process',
@@ -92,8 +92,8 @@ export const DiagramToolbar = memo(function DiagramToolbar({
 
     // Default data based on node type
     const defaultData: Record<DiagramNodeType, Record<string, unknown>> = {
-      actor: { label: 'New Actor' },
-      externalSystem: { label: 'New External System' },
+      humanActor: { label: 'New Human Actor' },
+      systemActor: { label: 'New System Actor' },
       process: { label: 'New Process', technology: '' },
       datastore: { label: 'New Data Store', technology: '' },
       trustBoundary: { label: 'Trust Boundary', trustLevel: 'internal' },

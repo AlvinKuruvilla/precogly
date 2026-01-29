@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External actor (outside all boundaries)
     - id: "actor-user"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 250 }
       data:
         label: "Mobile User"

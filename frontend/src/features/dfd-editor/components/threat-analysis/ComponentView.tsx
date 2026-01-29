@@ -45,7 +45,8 @@ export type Assignee =
 const nodeTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   process: Cog,
   datastore: Database,
-  actor: User,
+  humanActor: User,
+  systemActor: Building2,
 }
 
 /**
@@ -597,21 +598,8 @@ export function ComponentView({
 
   // Get threats for selected component
   const threatsForComponent = useMemo(() => {
-    // DEBUG [1]: Log threat filtering for selected component
-    console.log('[DEBUG 1] ComponentView.threatsForComponent:', {
-      selectedComponentId,
-      totalComponentThreats: componentThreats.length,
-      allComponentIds: componentThreats.map(ct => ct.componentId),
-      threatsWithDetails: componentThreats.map(ct => ({
-        id: ct.id,
-        componentId: ct.componentId,
-        threatName: ct.threatName,
-      })),
-    })
     if (!selectedComponentId) return []
-    const filtered = componentThreats.filter((ct) => ct.componentId === selectedComponentId)
-    console.log('[DEBUG 1] Filtered threats count:', filtered.length)
-    return filtered
+    return componentThreats.filter((ct) => ct.componentId === selectedComponentId)
   }, [componentThreats, selectedComponentId])
 
   const activeThreats = threatsForComponent.filter((t) => !t.dismissed)

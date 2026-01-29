@@ -1506,18 +1506,26 @@ def _load_component_threat_joins(library_pack: LibraryPack, file_path: Path) -> 
             logger.warning(f"Component not found: {component_ref}")
             continue
 
-        for threat_ref in mapping.get("threats", []):
+        for threat_entry in mapping.get("threats", []):
+            # Expect dict format: {threat: "threat-id", applies_to: "component|flow|both"}
+            if not isinstance(threat_entry, dict):
+                logger.warning(f"Invalid threat entry format (expected dict): {threat_entry}")
+                continue
+
+            threat_ref = threat_entry.get("threat", "")
+            applies_to = threat_entry.get("applies_to", "component")
+
             threat = _resolve_threat_reference(library_pack, threat_ref)
             if not threat:
                 logger.warning(f"Threat not found: {threat_ref}")
                 continue
 
-            ComponentLibraryThreat.objects.get_or_create(
+            ComponentLibraryThreat.objects.update_or_create(
                 component_library=component,
                 threat_library=threat,
                 defaults={
                     "default_severity": mapping.get("severity", "medium"),
-                    "applies_to": mapping.get("applies_to", "component"),
+                    "applies_to": applies_to,
                 },
             )
             count += 1

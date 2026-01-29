@@ -28,8 +28,8 @@ export type TechnologyCategory =
 export const NODE_TYPE_CATEGORIES: Record<DiagramNodeType, TechnologyCategory[]> = {
   datastore: ['database', 'storage', 'cache'],
   process: ['compute', 'backend', 'messaging', 'security'],
-  actor: [], // Actors typically don't have technologies
-  externalSystem: [], // External systems typically don't have internal technologies
+  humanActor: [], // Human actors typically don't have technologies
+  systemActor: [], // System actors (external systems) typically don't have internal technologies
   trustBoundary: ['networking'], // Will be further filtered by TRUST_BOUNDARY_TECHNOLOGY_IDS
   systemScope: ['infrastructure', 'networking'],
 }

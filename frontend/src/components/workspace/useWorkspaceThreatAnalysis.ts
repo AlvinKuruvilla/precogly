@@ -306,13 +306,6 @@ export function useWorkspaceThreatAnalysis(
       assignee: { type: 'member' | 'team'; userId?: number; email?: string; name?: string | null; teamId?: number },
       newStatus?: CountermeasureStatus // Optional: also update status in the same API call
     ) => {
-      console.log('[DEBUG 2] assignOwner called:', {
-        componentThreatId,
-        countermeasureInstanceId,
-        assignee,
-        newStatus,
-      })
-
       // Determine owner string for local state storage
       const ownerString =
         assignee.type === 'team'
@@ -323,13 +316,9 @@ export function useWorkspaceThreatAnalysis(
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
 
-      console.log('[DEBUG 2] Found threat:', threat ? { id: threat.id, countermeasuresCount: threat.countermeasures.length } : null)
-      console.log('[DEBUG 2] Found countermeasure:', countermeasure ? { id: countermeasure.id, countermeasureId: countermeasure.countermeasureId } : null)
-
       // If this is a backend countermeasure, call the appropriate API
       if (assignee.type === 'member' && countermeasure && assignee.userId) {
         const parsed = parseCountermeasureId(countermeasure.id)
-        console.log('[DEBUG 2] Parsed countermeasure ID:', parsed)
 
         // Build the data payload - include status if provided
         const backendStatus = newStatus === 'platform' ? 'verified' : newStatus
@@ -339,32 +328,16 @@ export function useWorkspaceThreatAnalysis(
         }
 
         if (parsed.type === 'component' && parsed.id !== null) {
-          console.log('[DEBUG 2] Calling updateCountermeasureMutation with:', {
-            countermeasureId: parsed.id,
-            data,
-          })
           updateCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data,
           })
         } else if (parsed.type === 'flow' && parsed.id !== null) {
-          console.log('[DEBUG 2] Calling updateFlowCountermeasureMutation with:', {
-            countermeasureId: parsed.id,
-            data,
-          })
           updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data,
           })
-        } else {
-          console.log('[DEBUG 2] NOT calling API - parsed type/id not valid:', parsed)
         }
-      } else {
-        console.log('[DEBUG 2] NOT calling API - conditions not met:', {
-          assigneeType: assignee.type,
-          hasCountermeasure: !!countermeasure,
-          hasUserId: !!assignee.userId,
-        })
       }
 
       // Update local state immediately for responsiveness
@@ -516,11 +489,12 @@ export function useWorkspaceThreatAnalysis(
     const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
     const componentSummary = {
       total: allNodes.filter(
-        (n) => n.type === 'process' || n.type === 'datastore' || n.type === 'actor'
+        (n) => n.type === 'process' || n.type === 'datastore' || n.type === 'humanActor' || n.type === 'systemActor'
       ).length,
       processes: allNodes.filter((n) => n.type === 'process').length,
       datastores: allNodes.filter((n) => n.type === 'datastore').length,
-      actors: allNodes.filter((n) => n.type === 'actor').length,
+      humanActors: allNodes.filter((n) => n.type === 'humanActor').length,
+      systemActors: allNodes.filter((n) => n.type === 'systemActor').length,
       trustBoundaries: allNodes.filter((n) => n.type === 'trustBoundary').length,
     }
 

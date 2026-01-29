@@ -6,7 +6,8 @@ interface ComponentSummary {
   total: number
   processes: number
   datastores: number
-  actors: number
+  humanActors: number
+  systemActors: number
   trustBoundaries: number
 }
 
@@ -67,8 +68,11 @@ export function SummaryCards({
             {components.datastores > 0 && (
               <span>{components.datastores} datastores</span>
             )}
-            {components.actors > 0 && (
-              <span>{components.actors} actors</span>
+            {components.humanActors > 0 && (
+              <span>{components.humanActors} human actors</span>
+            )}
+            {components.systemActors > 0 && (
+              <span>{components.systemActors} system actors</span>
             )}
             {components.trustBoundaries > 0 && (
               <span>{components.trustBoundaries} boundaries</span>

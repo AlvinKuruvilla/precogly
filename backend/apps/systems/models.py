@@ -113,7 +113,9 @@ class ComponentLibrary(TimestampedModel):
     class Category(models.TextChoices):
         PROCESS = "process", "Process"
         DATASTORE = "datastore", "Data Store"
-        EXTERNAL = "external", "External Entity"
+        EXTERNAL = "external", "External Entity"  # Legacy, kept for backwards compat
+        HUMAN_ACTOR = "human_actor", "Human Actor"
+        SYSTEM_ACTOR = "system_actor", "System Actor"
 
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"

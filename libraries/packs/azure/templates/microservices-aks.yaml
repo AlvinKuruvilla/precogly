@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External actors (outside all boundaries)
     - id: "actor-client"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 220 }
       data:
         label: "Client App"
@@ -17,7 +17,7 @@ canvas_data:
         description: "Mobile or web client application"
 
     - id: "actor-admin"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 550 }
       data:
         label: "DevOps Admin"

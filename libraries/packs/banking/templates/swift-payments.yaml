@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External actors (outside all boundaries)
     - id: "actor-correspondent"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 180 }
       data:
         label: "Correspondent Bank"
@@ -17,7 +17,7 @@ canvas_data:
         description: "Partner bank initiating/receiving SWIFT messages"
 
     - id: "actor-swiftnet"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 380 }
       data:
         label: "SWIFTNet"

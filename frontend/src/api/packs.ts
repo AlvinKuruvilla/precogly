@@ -297,3 +297,54 @@ export function useSourcePackPreview(slug: string | null) {
     enabled: slug !== null,
   })
 }
+
+// =============================================================================
+// Pack Unimport
+// =============================================================================
+
+export interface UnimportResult {
+  pack: {
+    id: number
+    slug: string
+    name: string
+    version: string
+  }
+  toDelete: {
+    components: number
+    threats: number
+    countermeasures: number
+  }
+  dryRun: boolean
+  deleted?: boolean
+  message: string
+}
+
+/**
+ * Unimport a pack by deleting all its library items and the pack record.
+ */
+export function useUnimportPack() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      packId,
+      dryRun = false,
+    }: {
+      packId: number
+      dryRun?: boolean
+    }) => {
+      const params = dryRun ? '?dry_run=true' : ''
+      return api.delete<UnimportResult>(`/packs/${packId}/unimport/${params}`)
+    },
+    onSuccess: (_, { dryRun }) => {
+      // Only invalidate queries if this was not a dry run
+      if (!dryRun) {
+        queryClient.invalidateQueries({ queryKey: packKeys.all })
+        queryClient.invalidateQueries({ queryKey: packKeys.availableFromSource })
+        queryClient.invalidateQueries({ queryKey: ['component-library'] })
+        queryClient.invalidateQueries({ queryKey: ['threat-library'] })
+        queryClient.invalidateQueries({ queryKey: ['countermeasure-library'] })
+      }
+    },
+  })
+}

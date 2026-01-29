@@ -10,6 +10,7 @@ from apps.threats.models import (
     ComponentLibraryThreat,
     DataFlowInstanceThreat,
     FlowInstanceCountermeasure,
+    ThreatLibrary,
 )
 
 
@@ -18,7 +19,7 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
     Sync DFD canvas nodes and edges to backend records.
 
     When a DFD is saved, this function:
-    1. Extracts process/datastore nodes from canvas_data
+    1. Extracts analyzable nodes (process, datastore, humanActor, systemActor) from canvas_data
     2. Creates or updates OrgsystemComponent records for each
     3. Links to ComponentLibrary based on technology if available
     4. Stores the component_id back in the node data
@@ -59,14 +60,12 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
             "flow_threats_generated": 0,
         }
 
-    # Filter to analyzable nodes (process, datastore)
+    # Filter to analyzable nodes (process, datastore, humanActor, systemActor)
+    # All of these can have associated threats and participate in data flows
     analyzable_nodes = [
         node for node in nodes
-        if node.get("type") in ("process", "datastore")
+        if node.get("type") in ("process", "datastore", "humanActor", "systemActor")
     ]
-
-    # DEBUG [5]: Log sync start
-    print(f"[DEBUG 5] sync_dfd_nodes_to_components() - analyzable nodes: {len(analyzable_nodes)}")
 
     synced_count = 0
     created_count = 0
@@ -82,14 +81,6 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
 
             # Get component name from node
             label = node_data.get("label", f"Unnamed {node_type}")
-
-            # DEBUG [5]: Log each node being processed
-            print(f"[DEBUG 5] Processing node {node_id}:")
-            print(f"[DEBUG 5]   label: {label}")
-            print(f"[DEBUG 5]   technology: {node_data.get('technology')}")
-            print(f"[DEBUG 5]   component_library_id: {node_data.get('component_library_id')}")
-            print(f"[DEBUG 5]   component_ref: {node_data.get('component_ref')}")
-            print(f"[DEBUG 5]   existing component_id: {node_data.get('component_id')}")
 
             # Check if this node already has a component_id stored
             existing_component_id = node_data.get("component_id")
@@ -113,13 +104,18 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                 technology = node_data.get("technology", "")
                 component_library = _find_component_library(technology, node_type)
 
-            # DEBUG [5]: Log component library lookup result
-            print(f"[DEBUG 5]   Found component_library: {component_library}")
+            # For actors without component_library, still create component records
+            # so they can participate in data flows and have threats generated
+            # Map node types to ComponentLibrary.Category choices
+            node_type_to_category = {
+                "process": "process",
+                "datastore": "datastore",
+                "humanActor": "human_actor",
+                "systemActor": "system_actor",
+            }
 
-            # Skip nodes without a component library - they're visual placeholders only
-            if not component_library:
-                print(f"[DEBUG 5]   SKIPPING - no component library found")
-                continue
+            # Get category for the component
+            category = node_type_to_category.get(node_type, "process")
 
             if existing_component_id:
                 # Update existing component
@@ -127,6 +123,7 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                     component = OrgsystemComponent.objects.get(id=existing_component_id)
                     component.name = label
                     component.component_library = component_library
+                    component.category = category
                     # NOTE: Don't overwrite orgsystem - preserve user's system assignment
                     component.save()
                     synced_count += 1
@@ -136,15 +133,18 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                         name=label,
                         orgsystem=None,  # No automatic system assignment
                         component_library=component_library,
+                        category=category,
                     )
                     created_count += 1
                     new_components.append(component)
             else:
                 # Create new component with no system assigned
+                # component_library may be None for actors without technology
                 component = OrgsystemComponent.objects.create(
                     name=label,
                     orgsystem=None,  # No automatic system assignment
                     component_library=component_library,
+                    category=category,
                 )
                 created_count += 1
                 new_components.append(component)
@@ -181,7 +181,7 @@ def _find_component_library(technology: str, node_type: str):
 
     Args:
         technology: Technology string from node data (e.g., "aws-s3", "PostgreSQL")
-        node_type: The node type ("process" or "datastore")
+        node_type: The node type ("process", "datastore", "humanActor", or "systemActor")
 
     Returns:
         ComponentLibrary instance or None
@@ -249,7 +249,13 @@ def _generate_countermeasures_for_threat(threat_instance):
         _, created = ComponentInstanceCountermeasure.objects.get_or_create(
             instance_threat=threat_instance,
             countermeasure_library=countermeasure_library,
-            defaults={"status": "gap"},
+            defaults={
+                "status": "gap",
+                # Copy metadata for self-sufficiency if library is later removed
+                "countermeasure_name": countermeasure_library.name if countermeasure_library else "",
+                "countermeasure_description": countermeasure_library.description if countermeasure_library else "",
+                "control_type": countermeasure_library.control_type if countermeasure_library else "",
+            },
         )
         if created:
             created_count += 1
@@ -267,19 +273,29 @@ def _generate_threats_for_component(component):
         return 0
 
     # Get threats linked to this component's library type
+    # Only include threats that apply to components (not flow-only threats)
     library_threats = ComponentLibraryThreat.objects.filter(
         component_library=component.component_library,
-            ).select_related("threat_library")
+        applies_to__in=[
+            ComponentLibraryThreat.AppliesTo.COMPONENT,
+            ComponentLibraryThreat.AppliesTo.BOTH,
+        ],
+    ).select_related("threat_library")
 
     created_count = 0
 
     for lib_threat in library_threats:
+        threat_lib = lib_threat.threat_library
         threat_instance, created = ComponentInstanceThreat.objects.get_or_create(
             component=component,
-            threat_library=lib_threat.threat_library,
+            threat_library=threat_lib,
             defaults={
                 "inherent_severity": lib_threat.default_severity,
                 "status": ComponentInstanceThreat.Status.OPEN,
+                # Copy metadata for self-sufficiency if library is later removed
+                "threat_name": threat_lib.name if threat_lib else "",
+                "threat_description": threat_lib.description if threat_lib else "",
+                "stride_category": threat_lib.stride_category if threat_lib else "",
             },
         )
         if created:
@@ -444,39 +460,70 @@ def _generate_threats_for_dataflow(dataflow):
     if dest_component and dest_component.component_library:
         component_libraries.append(dest_component.component_library)
 
-    if not component_libraries:
-        return 0
-
-    # Get threats that apply to data flows for these component types
-    library_threats = ComponentLibraryThreat.objects.filter(
-        component_library__in=component_libraries,
-        applies_to__in=[
-            ComponentLibraryThreat.AppliesTo.FLOW,
-            ComponentLibraryThreat.AppliesTo.BOTH,
-        ],
-            ).select_related("threat_library").distinct()
-
     created_count = 0
     seen_threat_ids = set()
 
-    for lib_threat in library_threats:
-        # Avoid duplicate threats if both endpoints have the same threat
-        if lib_threat.threat_library_id in seen_threat_ids:
-            continue
-        seen_threat_ids.add(lib_threat.threat_library_id)
+    # If we have component libraries, get threats specific to those components
+    if component_libraries:
+        # Get threats that apply to data flows for these component types
+        library_threats = ComponentLibraryThreat.objects.filter(
+            component_library__in=component_libraries,
+            applies_to__in=[
+                ComponentLibraryThreat.AppliesTo.FLOW,
+                ComponentLibraryThreat.AppliesTo.BOTH,
+            ],
+        ).select_related("threat_library").distinct()
 
-        threat_instance, created = DataFlowInstanceThreat.objects.get_or_create(
-            data_flow=dataflow,
-            threat_library=lib_threat.threat_library,
-            defaults={
-                "inherent_severity": lib_threat.default_severity,
-                "status": DataFlowInstanceThreat.Status.OPEN,
-            },
-        )
-        if created:
-            created_count += 1
-            # Auto-generate countermeasures for this new threat
-            _generate_countermeasures_for_flow_threat(threat_instance)
+        for lib_threat in library_threats:
+            # Avoid duplicate threats if both endpoints have the same threat
+            if lib_threat.threat_library_id in seen_threat_ids:
+                continue
+            seen_threat_ids.add(lib_threat.threat_library_id)
+
+            threat_lib = lib_threat.threat_library
+            threat_instance, created = DataFlowInstanceThreat.objects.get_or_create(
+                data_flow=dataflow,
+                threat_library=threat_lib,
+                defaults={
+                    "inherent_severity": lib_threat.default_severity,
+                    "status": DataFlowInstanceThreat.Status.OPEN,
+                    # Copy metadata for self-sufficiency if library is later removed
+                    "threat_name": threat_lib.name if threat_lib else "",
+                    "threat_description": threat_lib.description if threat_lib else "",
+                    "stride_category": threat_lib.stride_category if threat_lib else "",
+                },
+            )
+            if created:
+                created_count += 1
+                # Auto-generate countermeasures for this new threat
+                _generate_countermeasures_for_flow_threat(threat_instance)
+
+    # If no component-specific threats were found, use generic dataflow threats
+    # This ensures data flows from/to actors still get threat coverage
+    if created_count == 0:
+        # Get generic dataflow threats (those with "dataflow" in slug)
+        generic_threats = ThreatLibrary.objects.filter(slug__icontains="dataflow")
+
+        for threat_lib in generic_threats:
+            if threat_lib.id in seen_threat_ids:
+                continue
+            seen_threat_ids.add(threat_lib.id)
+
+            threat_instance, created = DataFlowInstanceThreat.objects.get_or_create(
+                data_flow=dataflow,
+                threat_library=threat_lib,
+                defaults={
+                    "inherent_severity": "medium",  # Default severity for generic threats
+                    "status": DataFlowInstanceThreat.Status.OPEN,
+                    "threat_name": threat_lib.name if threat_lib else "",
+                    "threat_description": threat_lib.description if threat_lib else "",
+                    "stride_category": threat_lib.stride_category if threat_lib else "",
+                },
+            )
+            if created:
+                created_count += 1
+                # Auto-generate countermeasures for this new threat
+                _generate_countermeasures_for_flow_threat(threat_instance)
 
     return created_count
 
@@ -503,7 +550,13 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
         _, created = FlowInstanceCountermeasure.objects.get_or_create(
             flow_threat=threat_instance,
             countermeasure_library=countermeasure_library,
-            defaults={"status": "gap"},
+            defaults={
+                "status": "gap",
+                # Copy metadata for self-sufficiency if library is later removed
+                "countermeasure_name": countermeasure_library.name if countermeasure_library else "",
+                "countermeasure_description": countermeasure_library.description if countermeasure_library else "",
+                "control_type": countermeasure_library.control_type if countermeasure_library else "",
+            },
         )
         if created:
             created_count += 1

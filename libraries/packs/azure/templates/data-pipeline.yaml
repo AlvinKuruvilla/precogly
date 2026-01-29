@@ -9,7 +9,7 @@ canvas_data:
   nodes:
     # External data sources (outside all boundaries)
     - id: "actor-iot-devices"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 130 }
       data:
         label: "IoT Devices"
@@ -17,7 +17,7 @@ canvas_data:
         description: "Sensors and edge devices sending telemetry"
 
     - id: "actor-app-events"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 300 }
       data:
         label: "Application Events"
@@ -25,7 +25,7 @@ canvas_data:
         description: "Business applications emitting events"
 
     - id: "actor-external-api"
-      type: "actor"
+      type: "humanActor"
       position: { x: 50, y: 470 }
       data:
         label: "External APIs"
@@ -34,7 +34,7 @@ canvas_data:
 
     # Consumers (outside boundaries)
     - id: "actor-analyst"
-      type: "actor"
+      type: "humanActor"
       position: { x: 1100, y: 130 }
       data:
         label: "Data Analyst"
@@ -42,7 +42,7 @@ canvas_data:
         description: "Business analyst accessing reports"
 
     - id: "actor-ml-service"
-      type: "actor"
+      type: "humanActor"
       position: { x: 1100, y: 470 }
       data:
         label: "ML Pipeline"

@@ -45,7 +45,7 @@ const DEFAULT_DIAGRAMS = [
       nodes: [
         {
           id: 'actor-1',
-          type: 'actor',
+          type: 'humanActor',
           position: { x: 50, y: 200 },
           data: { label: 'Customer', description: 'End user making payment' },
         },
@@ -115,7 +115,7 @@ const DEFAULT_DIAGRAMS = [
       nodes: [
         {
           id: 'actor-1',
-          type: 'actor',
+          type: 'humanActor',
           position: { x: 50, y: 150 },
           data: { label: 'User', description: 'Application user' },
         },

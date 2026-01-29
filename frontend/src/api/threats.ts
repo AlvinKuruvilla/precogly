@@ -214,25 +214,12 @@ export function useUpdateCountermeasure() {
       countermeasureId: number
       data: Partial<ComponentInstanceCountermeasure>
     }) => {
-      console.log('[DEBUG 3] useUpdateCountermeasure mutationFn called:', {
-        countermeasureId,
-        data,
-        url: `/component-countermeasures/${countermeasureId}/`,
-      })
-      try {
-        const result = await api.patch<ComponentInstanceCountermeasure>(
-          `/component-countermeasures/${countermeasureId}/`,
-          data
-        )
-        console.log('[DEBUG 3] useUpdateCountermeasure SUCCESS:', result)
-        return result
-      } catch (error) {
-        console.error('[DEBUG 3] useUpdateCountermeasure ERROR:', error)
-        throw error
-      }
+      return api.patch<ComponentInstanceCountermeasure>(
+        `/component-countermeasures/${countermeasureId}/`,
+        data
+      )
     },
     onSuccess: () => {
-      console.log('[DEBUG 3] useUpdateCountermeasure onSuccess - invalidating queries')
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
@@ -253,25 +240,12 @@ export function useUpdateFlowCountermeasure() {
       countermeasureId: number
       data: Partial<ComponentInstanceCountermeasure>
     }) => {
-      console.log('[DEBUG 3] useUpdateFlowCountermeasure mutationFn called:', {
-        countermeasureId,
-        data,
-        url: `/flow-countermeasures/${countermeasureId}/`,
-      })
-      try {
-        const result = await api.patch<ComponentInstanceCountermeasure>(
-          `/flow-countermeasures/${countermeasureId}/`,
-          data
-        )
-        console.log('[DEBUG 3] useUpdateFlowCountermeasure SUCCESS:', result)
-        return result
-      } catch (error) {
-        console.error('[DEBUG 3] useUpdateFlowCountermeasure ERROR:', error)
-        throw error
-      }
+      return api.patch<ComponentInstanceCountermeasure>(
+        `/flow-countermeasures/${countermeasureId}/`,
+        data
+      )
     },
     onSuccess: () => {
-      console.log('[DEBUG 3] useUpdateFlowCountermeasure onSuccess - invalidating queries')
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
@@ -436,25 +410,7 @@ export function useThreatModelThreats(threatModelId: string | null | undefined) 
           const response = await api.get<ThreatModelThreatsResponse>(
             `/threat-models/${threatModelId}/threats/`
           )
-          // DEBUG [4]: Log raw backend response and transformation
-          console.log('[DEBUG 4] useThreatModelThreats - raw response:', {
-            threatModelId,
-            totalCount: response.totalCount,
-            nodeComponentMap: response.nodeComponentMap,
-            threats: response.threats.map(t => ({
-              id: t.id,
-              type: t.type,
-              componentId: t.componentId,
-              nodeId: t.nodeId,
-              threatName: t.threatName,
-            })),
-          })
           const transformed = transformBackendThreatsToComponentThreats(response.threats)
-          console.log('[DEBUG 4] Transformed componentThreats:', transformed.map(ct => ({
-            id: ct.id,
-            componentId: ct.componentId,
-            threatName: ct.threatName,
-          })))
           return {
             ...response,
             componentThreats: transformed,

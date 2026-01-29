@@ -2,8 +2,8 @@
 export * from './nodes'
 import { ProcessNode } from './nodes/ProcessNode'
 import { DataStoreNode } from './nodes/DataStoreNode'
-import { ActorNode } from './nodes/ActorNode'
-import { ExternalSystemNode } from './nodes/ExternalSystemNode'
+import { HumanActorNode } from './nodes/HumanActorNode'
+import { SystemActorNode } from './nodes/SystemActorNode'
 import { TrustBoundaryNode } from './nodes/TrustBoundaryNode'
 import { SystemScopeNode } from './nodes/SystemScopeNode'
 
@@ -23,8 +23,8 @@ export { TechnologyCombobox } from './technology-combobox'
 export const nodeTypes = {
   process: ProcessNode,
   datastore: DataStoreNode,
-  actor: ActorNode,
-  externalSystem: ExternalSystemNode,
+  humanActor: HumanActorNode,
+  systemActor: SystemActorNode,
   trustBoundary: TrustBoundaryNode,
   systemScope: SystemScopeNode,
 } as const

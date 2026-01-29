@@ -232,4 +232,6 @@ export type DiagramTypeValue = 'context' | 'level1' | 'level2'
 export type ThreatFramework = 'stride' | 'linddun' | 'cia'
 
 // Node types for DFD
-export type DiagramNodeType = 'process' | 'datastore' | 'actor' | 'externalSystem' | 'trustBoundary' | 'systemScope'
+// humanActor = external human entity (customer, admin, attacker)
+// systemActor = external non-human system (third-party API, partner system)
+export type DiagramNodeType = 'process' | 'datastore' | 'humanActor' | 'systemActor' | 'trustBoundary' | 'systemScope'

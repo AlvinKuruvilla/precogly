@@ -1,32 +1,74 @@
 mappings:
   - component: s3
     threats:
-      - s3-public-exposure
-      - s3-data-tampering
-      - s3-deletion
+      - threat: s3-public-exposure
+        applies_to: component
+      - threat: s3-data-tampering
+        applies_to: component
+      - threat: s3-deletion
+        applies_to: component
+      # Data flow threats for S3 connections
+      - threat: dataflow-eavesdropping
+        applies_to: flow
+      - threat: dataflow-mitm
+        applies_to: flow
 
   - component: lambda
     threats:
-      - lambda-injection
-      - lambda-privilege-escalation
-      - lambda-secret-exposure
-      - lambda-dos
+      - threat: lambda-injection
+        applies_to: component
+      - threat: lambda-privilege-escalation
+        applies_to: component
+      - threat: lambda-secret-exposure
+        applies_to: component
+      - threat: lambda-dos
+        applies_to: component
+      # Data flow threats for Lambda connections
+      - threat: dataflow-injection
+        applies_to: flow
+      - threat: dataflow-replay-attack
+        applies_to: flow
 
   - component: api-gateway
     threats:
-      - apigw-unauthorized-access
-      - apigw-injection
-      - apigw-rate-limit-bypass
-      - apigw-logging-gap
+      - threat: apigw-unauthorized-access
+        applies_to: component
+      - threat: apigw-injection
+        applies_to: both
+      - threat: apigw-rate-limit-bypass
+        applies_to: component
+      - threat: apigw-logging-gap
+        applies_to: component
+      # Data flow threats for API Gateway connections
+      - threat: dataflow-mitm
+        applies_to: flow
+      - threat: dataflow-eavesdropping
+        applies_to: flow
+      - threat: dataflow-replay-attack
+        applies_to: flow
 
   - component: dynamodb
     threats:
-      - dynamodb-unauthorized-access
-      - dynamodb-injection
-      - dynamodb-capacity-exhaustion
+      - threat: dynamodb-unauthorized-access
+        applies_to: component
+      - threat: dynamodb-injection
+        applies_to: component
+      - threat: dynamodb-capacity-exhaustion
+        applies_to: component
+      # Data flow threats for DynamoDB connections
+      - threat: dataflow-eavesdropping
+        applies_to: flow
 
   - component: sqs
     threats:
-      - sqs-message-tampering
-      - sqs-message-injection
-      - sqs-queue-flooding
+      - threat: sqs-message-tampering
+        applies_to: both
+      - threat: sqs-message-injection
+        applies_to: both
+      - threat: sqs-queue-flooding
+        applies_to: component
+      # Data flow threats for SQS connections
+      - threat: dataflow-mitm
+        applies_to: flow
+      - threat: dataflow-replay-attack
+        applies_to: flow

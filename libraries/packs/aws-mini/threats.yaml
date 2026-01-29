@@ -149,3 +149,38 @@ threats:
       costs, and potential denial of service to consumers.
     stride_category: denial_of_service
     source: custom
+
+  # ============================================================================
+  # Data Flow Threats (apply to connections between components)
+  # ============================================================================
+  - id: dataflow-mitm
+    name: Man-in-the-Middle Attack
+    description: |
+      Attacker intercepts and potentially modifies data in transit between
+      components. Can lead to data theft, tampering, or credential capture.
+    stride_category: tampering
+    source: custom
+
+  - id: dataflow-eavesdropping
+    name: Data Eavesdropping
+    description: |
+      Unauthorized interception and reading of data transmitted between
+      components, exposing sensitive information to attackers.
+    stride_category: informationDisclosure
+    source: custom
+
+  - id: dataflow-replay-attack
+    name: Replay Attack
+    description: |
+      Attacker captures legitimate requests and re-transmits them to perform
+      unauthorized actions or duplicate transactions.
+    stride_category: spoofing
+    source: custom
+
+  - id: dataflow-injection
+    name: Data Injection in Transit
+    description: |
+      Malicious data injected into the communication channel between components,
+      potentially exploiting downstream systems or corrupting data.
+    stride_category: tampering
+    source: custom

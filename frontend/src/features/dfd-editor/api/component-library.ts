@@ -78,16 +78,13 @@ function mapComponentTypeToCategory(componentType: string): TechnologyCategory {
 
 // Transform backend item to frontend Technology format
 function transformToTechnology(item: ComponentLibraryItem): Technology {
-  const result = {
+  return {
     id: item.slug || item.qualifiedSlug || String(item.id),
     name: item.name,
     category: mapComponentTypeToCategory(item.componentType),
     vendor: mapProviderToVendor(item.provider),
     description: item.sourcePackName ? `From ${item.sourcePackName}` : undefined,
   }
-  // DEBUG [4]: Log transformation
-  console.log('[DEBUG 4] transformToTechnology:', { input: item, output: result })
-  return result
 }
 
 /**
@@ -102,16 +99,9 @@ export function useComponentLibrary() {
       const allItems: ComponentLibraryItem[] = []
       let url: string | null = '/component-library/'
 
-      console.log('[DEBUG 3] useComponentLibrary - starting fetch')
-
       while (url) {
-        console.log('[DEBUG 3] Fetching URL:', url)
         const response: PaginatedResponse<ComponentLibraryItem> = await api.get<PaginatedResponse<ComponentLibraryItem>>(url)
-        console.log('[DEBUG 3] Raw API response:', response)
-        console.log('[DEBUG 3] Response type:', typeof response)
-        console.log('[DEBUG 3] Response.results:', response.results)
         allItems.push(...response.results)
-        console.log('[DEBUG 3] allItems after push:', allItems.length)
         // Get next page URL - extract just the path after /api
         if (response.next) {
           const parsedUrl: URL = new URL(response.next)
@@ -122,10 +112,7 @@ export function useComponentLibrary() {
         }
       }
 
-      console.log('[DEBUG 3] All items fetched:', allItems)
-      const transformed = allItems.map(transformToTechnology)
-      console.log('[DEBUG 3] Transformed technologies:', transformed)
-      return transformed
+      return allItems.map(transformToTechnology)
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })

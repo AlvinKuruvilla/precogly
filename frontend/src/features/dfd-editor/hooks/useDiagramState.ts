@@ -49,18 +49,6 @@ async function saveDiagram(
   diagramId: string,
   data: { nodes: DiagramNode[]; edges: DataFlowEdge[] }
 ): Promise<Diagram> {
-  // DEBUG [3]: Log what's being saved to backend
-  console.log('[DEBUG 3] saveDiagram - sending to backend:', {
-    diagramId,
-    nodeCount: data.nodes.length,
-    nodes: data.nodes.map(n => ({
-      id: n.id,
-      type: n.type,
-      label: n.data?.label,
-      technology: n.data?.technology,
-      component_library_id: n.data?.component_library_id,
-    })),
-  })
   return api.patch<Diagram>(`/diagrams/${diagramId}/`, {
     canvas_data: {
       nodes: data.nodes,
@@ -94,11 +82,6 @@ export function useDiagramState({
   // Wrap setNodes to also mark as changed (after initial load)
   const setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>> = useCallback(
     (value) => {
-      // DEBUG [2]: Log node state changes
-      console.log('[DEBUG 2] useDiagramState.setNodes called', {
-        initialLoadComplete: initialLoadRef.current,
-        valueType: typeof value,
-      })
       setNodesInternal(value)
       if (initialLoadRef.current) {
         setHasUnsavedChanges(true)

@@ -130,7 +130,8 @@ export function SharedThreatModelView() {
     total: 0,
     processes: 0,
     datastores: 0,
-    actors: 0,
+    humanActors: 0,
+    systemActors: 0,
     boundaries: 0,
   }
 
@@ -277,7 +278,8 @@ export function SharedThreatModelView() {
                     <p className="text-sm text-muted-foreground mt-1">
                       {componentStats.processes} processes{' '}
                       {componentStats.datastores} datastores{' '}
-                      {componentStats.actors} actors
+                      {componentStats.humanActors > 0 && `${componentStats.humanActors} human actors `}
+                      {componentStats.systemActors > 0 && `${componentStats.systemActors} system actors`}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {componentStats.boundaries} boundaries

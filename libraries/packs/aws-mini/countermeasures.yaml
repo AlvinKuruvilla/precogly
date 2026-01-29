@@ -221,3 +221,46 @@ countermeasures:
       Reject messages that don't match expected schema.
     control_type: preventive
     cost: low
+
+  # ============================================================================
+  # Data Flow Countermeasures (protect data in transit)
+  # ============================================================================
+  - id: tls-encryption
+    name: TLS/SSL Encryption
+    description: |
+      Encrypt all data in transit using TLS 1.2 or higher.
+      Protects against eavesdropping and ensures data integrity.
+    control_type: preventive
+    cost: low
+
+  - id: mutual-tls
+    name: Mutual TLS Authentication
+    description: |
+      Require both client and server to present certificates for authentication.
+      Prevents unauthorized clients from connecting to services.
+    control_type: preventive
+    cost: medium
+
+  - id: request-signing
+    name: Request Signing (HMAC/SigV4)
+    description: |
+      Sign all requests with HMAC or AWS Signature Version 4.
+      Prevents replay attacks and ensures request integrity.
+    control_type: preventive
+    cost: low
+
+  - id: vpc-private-link
+    name: VPC PrivateLink
+    description: |
+      Use AWS PrivateLink to keep traffic within AWS network.
+      Eliminates exposure to public internet for service communication.
+    control_type: preventive
+    cost: medium
+
+  - id: api-gateway-private
+    name: Private API Gateway Endpoint
+    description: |
+      Configure API Gateway with private endpoints accessible only from VPC.
+      Reduces attack surface by eliminating public access.
+    control_type: preventive
+    cost: low
