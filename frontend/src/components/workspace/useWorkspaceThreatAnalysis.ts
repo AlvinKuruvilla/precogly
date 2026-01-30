@@ -221,7 +221,13 @@ export function useWorkspaceThreatAnalysis(
       })
 
       // Filter out threats for deleted diagrams OR deleted components
+      // BUT preserve analysis-only component threats (they have no diagram association)
       const filteredThreats = prev.componentThreats.filter((ct) => {
+        // Analysis-only components have synthetic IDs like "analysis-33" and no diagram
+        const isAnalysisOnly = String(ct.componentId).startsWith('analysis-') ||
+                               (!ct.sourceDiagramId && !ct.diagramId)
+        if (isAnalysisOnly) return true  // Always keep analysis-only threats
+
         const diagramId = String(ct.sourceDiagramId || ct.diagramId)
         // Remove if diagram was deleted
         if (!currentDiagramIds.has(diagramId)) return false

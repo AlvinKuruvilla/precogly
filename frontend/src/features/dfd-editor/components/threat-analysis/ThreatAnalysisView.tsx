@@ -1,9 +1,31 @@
-import { useState, useMemo, useCallback } from 'react'
-import { ChevronLeft, Loader2, AlertCircle } from 'lucide-react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { ChevronLeft, Loader2, AlertCircle, Plus, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { ComponentView, type Assignee } from './ComponentView'
-import { useUpdateCountermeasure, useUpdateFlowCountermeasure, useThreatModelThreats } from '@/api/threats'
+import { AddThreatDialog } from './AddThreatDialog'
+import { AddCountermeasureDialog } from './AddCountermeasureDialog'
+import { AddCustomComponentDialog } from './AddCustomComponentDialog'
+import {
+  useUpdateCountermeasure,
+  useUpdateFlowCountermeasure,
+  useThreatModelThreats,
+  useDismissThreat,
+  useRestoreThreat,
+  useDismissFlowThreat,
+  useRestoreFlowThreat,
+  useDeleteCountermeasure,
+  useDeleteFlowCountermeasure,
+  parseCountermeasureId,
+} from '@/api/threats'
 import { TableView } from './TableView'
 import type { CanvasData } from '../../types'
 import type {
@@ -41,6 +63,11 @@ export function ThreatAnalysisView({
   backLabel = 'Back',
 }: ThreatAnalysisViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('component')
+
+  // Dialog states
+  const [addThreatDialogOpen, setAddThreatDialogOpen] = useState(false)
+  const [addCountermeasureDialogOpen, setAddCountermeasureDialogOpen] = useState(false)
+  const [addComponentDialogOpen, setAddComponentDialogOpen] = useState(false)
 
   // Fetch backend threats for this threat model
   const {
@@ -156,6 +183,12 @@ export function ThreatAnalysisView({
   // Mutations for backend persistence
   const updateCountermeasureMutation = useUpdateCountermeasure()
   const updateFlowCountermeasureMutation = useUpdateFlowCountermeasure()
+  const dismissThreatMutation = useDismissThreat()
+  const restoreThreatMutation = useRestoreThreat()
+  const dismissFlowThreatMutation = useDismissFlowThreat()
+  const restoreFlowThreatMutation = useRestoreFlowThreat()
+  const deleteCountermeasureMutation = useDeleteCountermeasure()
+  const deleteFlowCountermeasureMutation = useDeleteFlowCountermeasure()
 
   // Helper to update local modifications for backend threats
   const updateLocalModification = useCallback(
@@ -330,46 +363,92 @@ export function ThreatAnalysisView({
     [componentThreats, updateLocalModification, updateCountermeasureMutation, updateFlowCountermeasureMutation]
   )
 
-  // Add custom threat - disabled (requires backend API support)
-  // TODO: Implement backend API for adding custom threats
-  const handleAddCustomThreat = useCallback(
-    (_componentId: string, _threatId: string) => {
-      console.warn('[ThreatAnalysisView] handleAddCustomThreat is disabled - backend API not yet implemented')
-    },
-    []
-  )
+  // Add custom threat - opens the AddThreatDialog
+  const handleAddCustomThreat = useCallback(() => {
+    setAddThreatDialogOpen(true)
+  }, [])
 
-  // Dismiss threat (local modification only - TODO: persist to backend)
-  const handleDismissThreat = useCallback((componentThreatId: string) => {
+  // Dismiss threat (persisted to backend)
+  const handleDismissThreat = useCallback((componentThreatId: string, reason: string = 'Not applicable') => {
+    // Optimistic update
     updateLocalModification(componentThreatId, {
       dismissed: true,
+      dismissalReason: reason,
       updatedAt: new Date().toISOString(),
     })
-  }, [updateLocalModification])
 
-  // Restore dismissed threat (local modification only - TODO: persist to backend)
+    // Persist to backend
+    // Parse threat ID: "backend-{id}" for component threats, "backend-flow-{id}" for flow threats
+    const isFlowThreat = componentThreatId.startsWith('backend-flow-')
+    const backendId = isFlowThreat
+      ? parseInt(componentThreatId.replace('backend-flow-', ''), 10)
+      : parseInt(componentThreatId.replace('backend-', ''), 10)
+
+    if (!isNaN(backendId)) {
+      const mutation = isFlowThreat ? dismissFlowThreatMutation : dismissThreatMutation
+      mutation.mutate(
+        { threatId: backendId, reason },
+        {
+          onError: () => {
+            // Revert optimistic update on error
+            updateLocalModification(componentThreatId, {
+              dismissed: false,
+              dismissalReason: '',
+              updatedAt: new Date().toISOString(),
+            })
+          },
+        }
+      )
+    }
+  }, [updateLocalModification, dismissThreatMutation, dismissFlowThreatMutation])
+
+  // Restore dismissed threat (persisted to backend)
   const handleRestoreThreat = useCallback((componentThreatId: string) => {
+    // Optimistic update
     updateLocalModification(componentThreatId, {
       dismissed: false,
+      dismissalReason: '',
       updatedAt: new Date().toISOString(),
     })
-  }, [updateLocalModification])
 
-  // Add custom countermeasure - disabled (requires backend API support)
-  // TODO: Implement backend API for adding custom countermeasures
+    // Persist to backend
+    const isFlowThreat = componentThreatId.startsWith('backend-flow-')
+    const backendId = isFlowThreat
+      ? parseInt(componentThreatId.replace('backend-flow-', ''), 10)
+      : parseInt(componentThreatId.replace('backend-', ''), 10)
+
+    if (!isNaN(backendId)) {
+      const mutation = isFlowThreat ? restoreFlowThreatMutation : restoreThreatMutation
+      mutation.mutate(backendId, {
+        onError: () => {
+          // Revert optimistic update on error
+          updateLocalModification(componentThreatId, {
+            dismissed: true,
+            updatedAt: new Date().toISOString(),
+          })
+        },
+      })
+    }
+  }, [updateLocalModification, restoreThreatMutation, restoreFlowThreatMutation])
+
+  // Add custom countermeasure - opens the AddCountermeasureDialog
   const handleAddCustomCountermeasure = useCallback(
-    (_componentThreatId: string, _countermeasureId: string) => {
-      console.warn('[ThreatAnalysisView] handleAddCustomCountermeasure is disabled - backend API not yet implemented')
+    () => {
+      setAddCountermeasureDialogOpen(true)
     },
     []
   )
 
-  // Remove countermeasure (local modification only - TODO: persist to backend)
+  // Remove countermeasure (persisted to backend)
   const handleRemoveCountermeasure = useCallback(
     (componentThreatId: string, countermeasureInstanceId: string) => {
       const threat = componentThreats.find((ct) => ct.id === componentThreatId)
       if (!threat) return
 
+      // Store original countermeasures for potential rollback
+      const originalCountermeasures = [...threat.countermeasures]
+
+      // Optimistic update - remove from local state
       const updatedCountermeasures = threat.countermeasures.filter(
         (cm) => cm.id !== countermeasureInstanceId
       )
@@ -378,8 +457,24 @@ export function ThreatAnalysisView({
         countermeasures: updatedCountermeasures,
         updatedAt: new Date().toISOString(),
       })
+
+      // Persist to backend
+      const { type, id } = parseCountermeasureId(countermeasureInstanceId)
+
+      if (id !== null && (type === 'component' || type === 'flow')) {
+        const mutation = type === 'flow' ? deleteFlowCountermeasureMutation : deleteCountermeasureMutation
+        mutation.mutate(id, {
+          onError: () => {
+            // Rollback optimistic update on error
+            updateLocalModification(componentThreatId, {
+              countermeasures: originalCountermeasures,
+              updatedAt: new Date().toISOString(),
+            })
+          },
+        })
+      }
     },
-    [componentThreats, updateLocalModification]
+    [componentThreats, updateLocalModification, deleteCountermeasureMutation, deleteFlowCountermeasureMutation]
   )
 
   // Restore a dismissed countermeasure (local modification only - TODO: persist to backend)
@@ -399,6 +494,65 @@ export function ThreatAnalysisView({
     },
     [componentThreats, updateLocalModification]
   )
+
+  // Compute dialog props
+  const nodeComponentMap = backendData?.nodeComponentMap || {}
+
+  // Get backend component/dataflow ID for selected component
+  const selectedBackendInfo = useMemo(() => {
+    if (!selectedComponentId) return null
+
+    // Check if it's a data flow (edge)
+    const isDataflow = dataFlows.some(df => df.id === selectedComponentId)
+
+    if (isDataflow) {
+      // For data flows, find a threat that has this edge ID to get the dataflow backend ID
+      const flowThreat = backendThreats.find(
+        t => t.componentId === selectedComponentId && t.threatType === 'dataflow'
+      )
+      if (flowThreat?.backendComponentId) {
+        const edge = dataFlows.find(df => df.id === selectedComponentId)
+        return {
+          backendId: flowThreat.backendComponentId,
+          type: 'dataflow' as const,
+          name: edge?.data?.label || `${edge?.source} → ${edge?.target}` || 'Data Flow',
+        }
+      }
+      return null
+    }
+
+    // For components, use the nodeComponentMap
+    const mapping = nodeComponentMap[selectedComponentId]
+    if (mapping) {
+      const node = canvasData.nodes.find(n => n.id === selectedComponentId)
+      const nodeName = node ? String(node.data.label) : selectedComponentId
+      return {
+        backendId: mapping.componentId,
+        type: 'component' as const,
+        name: nodeName,
+      }
+    }
+
+    return null
+  }, [selectedComponentId, dataFlows, backendThreats, nodeComponentMap, canvasData.nodes])
+
+  // Get backend threat info for the selected threat (for AddCountermeasureDialog)
+  const selectedThreatBackendInfo = useMemo(() => {
+    if (!selectedComponentThreat) return null
+    if (!selectedComponentThreat.backendThreatId) return null
+
+    // Parse threatLibraryId from threatId (format: "lib-{id}")
+    const threatLibraryId = selectedComponentThreat.threatId.startsWith('lib-')
+      ? parseInt(selectedComponentThreat.threatId.slice(4), 10)
+      : null
+
+    return {
+      backendId: selectedComponentThreat.backendThreatId,
+      type: selectedComponentThreat.threatType || 'component',
+      name: selectedComponentThreat.threatName || 'Unknown Threat',
+      threatLibraryId: isNaN(threatLibraryId || NaN) ? null : threatLibraryId,
+    }
+  }, [selectedComponentThreat])
 
   // Loading state
   if (isLoading) {
@@ -438,30 +592,43 @@ export function ThreatAnalysisView({
           </h1>
         </div>
 
-        {/* View Toggle */}
-        <div className="flex items-center rounded-lg border bg-muted p-1">
+        <div className="flex items-center gap-3">
+          {/* Add Component Button */}
           <Button
-            variant={viewMode === 'component' ? 'default' : 'ghost'}
+            variant="outline"
             size="sm"
-            onClick={() => setViewMode('component')}
-            className={cn(
-              'rounded-md px-3',
-              viewMode === 'component' ? '' : 'hover:bg-transparent'
-            )}
+            onClick={() => setAddComponentDialogOpen(true)}
+            className="gap-1"
           >
-            Component View
+            <Plus className="h-4 w-4" />
+            Add Component
           </Button>
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-            className={cn(
-              'rounded-md px-3',
-              viewMode === 'table' ? '' : 'hover:bg-transparent'
-            )}
-          >
-            Table View
-          </Button>
+
+          {/* View Toggle */}
+          <div className="flex items-center rounded-lg border bg-muted p-1">
+            <Button
+              variant={viewMode === 'component' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('component')}
+              className={cn(
+                'rounded-md px-3',
+                viewMode === 'component' ? '' : 'hover:bg-transparent'
+              )}
+            >
+              Component View
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className={cn(
+                'rounded-md px-3',
+                viewMode === 'table' ? '' : 'hover:bg-transparent'
+              )}
+            >
+              Table View
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -482,7 +649,7 @@ export function ThreatAnalysisView({
             onSelectThreat={setSelectedThreatId}
             onCountermeasureStatusChange={handleCountermeasureStatusChange}
             onAssignOwner={handleAssignOwner}
-            onAddCustomThreat={handleAddCustomThreat}
+            onAddCustomThreat={() => setAddThreatDialogOpen(true)}
             onDismissThreat={handleDismissThreat}
             onRestoreThreat={handleRestoreThreat}
             onAddCustomCountermeasure={handleAddCustomCountermeasure}
@@ -502,6 +669,87 @@ export function ThreatAnalysisView({
           />
         )}
       </div>
+
+      {/* Add Threat Dialog */}
+      {selectedBackendInfo ? (
+        <AddThreatDialog
+          open={addThreatDialogOpen}
+          onOpenChange={setAddThreatDialogOpen}
+          targetId={selectedBackendInfo.backendId}
+          targetType={selectedBackendInfo.type}
+          targetName={selectedBackendInfo.name}
+          onSuccess={() => {
+            refetch()
+          }}
+        />
+      ) : (
+        <Dialog open={addThreatDialogOpen} onOpenChange={setAddThreatDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5 text-blue-500" />
+                  Component Not Synced
+                </DialogTitle>
+                <DialogDescription>
+                  This component hasn't been synced to the backend yet. To add threats,
+                  please save the DFD first to sync all components.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 text-sm text-muted-foreground">
+                <p>When you save the DFD diagram, components are automatically synced and you'll be able to add threats to them.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddThreatDialogOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+      )}
+
+      {/* Add Countermeasure Dialog */}
+      {selectedThreatBackendInfo ? (
+        <AddCountermeasureDialog
+          open={addCountermeasureDialogOpen}
+          onOpenChange={setAddCountermeasureDialogOpen}
+          threatId={selectedThreatBackendInfo.backendId}
+          threatType={selectedThreatBackendInfo.type}
+          threatName={selectedThreatBackendInfo.name}
+          threatLibraryId={selectedThreatBackendInfo.threatLibraryId}
+          onSuccess={() => {
+            refetch()
+          }}
+        />
+      ) : (
+        <Dialog open={addCountermeasureDialogOpen} onOpenChange={setAddCountermeasureDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-blue-500" />
+                Threat Not Available
+              </DialogTitle>
+              <DialogDescription>
+                Please select a threat first to add countermeasures.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddCountermeasureDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Add Custom Component Dialog */}
+      <AddCustomComponentDialog
+        open={addComponentDialogOpen}
+        onOpenChange={setAddComponentDialogOpen}
+        threatModelId={threatModelId}
+        onSuccess={() => {
+          refetch()
+        }}
+      />
     </div>
   )
 }

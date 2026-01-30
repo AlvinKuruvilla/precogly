@@ -22,6 +22,8 @@ export interface ComponentInstanceThreat {
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
   justification: string
+  isDismissed: boolean
+  dismissalReason: string
   createdAt: string
   updatedAt: string
 }
@@ -29,8 +31,18 @@ export interface ComponentInstanceThreat {
 export interface CountermeasureLibraryItem {
   id: number
   name: string
+  description?: string
   controlType: string
   cost: string
+  sourcePackName: string | null
+  sourcePackSlug: string | null
+}
+
+export interface ThreatLibraryItem {
+  id: number
+  name: string
+  description: string
+  strideCategory: STRIDECategory | null
   sourcePackName: string | null
   sourcePackSlug: string | null
 }
@@ -87,6 +99,8 @@ export const threatKeys = {
   componentThreats: (componentId: number) => [...threatKeys.all, 'component', componentId] as const,
   threatCountermeasures: (threatId: number) => [...threatKeys.all, 'countermeasures', threatId] as const,
   suggestedCountermeasures: (threatId: number) => [...threatKeys.all, 'suggested', threatId] as const,
+  threatLibrary: ['threat-library'] as const,
+  countermeasureLibrary: ['countermeasure-library'] as const,
 }
 
 // Query Hooks
@@ -120,6 +134,38 @@ export function useSuggestedCountermeasures(threatId: number | null) {
   })
 }
 
+/**
+ * Fetch all threats from the threat library.
+ */
+export function useThreatLibrary() {
+  return useQuery({
+    queryKey: threatKeys.threatLibrary,
+    queryFn: async () => {
+      const response = await api.get<{ results: ThreatLibraryItem[] } | ThreatLibraryItem[]>(
+        '/threat-library/'
+      )
+      return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
+/**
+ * Fetch all countermeasures from the countermeasure library.
+ * Optionally filter by applicable threat library ID.
+ */
+export function useCountermeasureLibrary(threatLibraryId?: number | null) {
+  return useQuery({
+    queryKey: [...threatKeys.countermeasureLibrary, threatLibraryId],
+    queryFn: async () => {
+      const url = threatLibraryId
+        ? `/countermeasure-library/?applicable_threats=${threatLibraryId}`
+        : '/countermeasure-library/'
+      const response = await api.get<{ results: CountermeasureLibraryItem[] } | CountermeasureLibraryItem[]>(url)
+      return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
 // Mutation Hooks
 
 /**
@@ -134,6 +180,100 @@ export function useGenerateThreats() {
     onSuccess: (_, componentId) => {
       queryClient.invalidateQueries({ queryKey: threatKeys.componentThreats(componentId) })
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
+    },
+  })
+}
+
+/**
+ * Create a new component threat instance.
+ * Can be from library (threatLibrary set) or custom (threatLibrary null).
+ */
+export function useCreateComponentThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: {
+      component: number
+      threatLibrary?: number | null
+      threatName?: string
+      threatDescription?: string
+      strideCategory?: string
+      inherentSeverity: string
+      status?: string
+    }) => api.post<ComponentInstanceThreat>('/component-threats/', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Create a new flow threat instance.
+ * Can be from library (threatLibrary set) or custom (threatLibrary null).
+ */
+export function useCreateFlowThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: {
+      dataFlow: number
+      threatLibrary?: number | null
+      threatName?: string
+      threatDescription?: string
+      strideCategory?: string
+      inherentSeverity: string
+      status?: string
+    }) => api.post('/flow-threats/', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Create a new component countermeasure instance.
+ * Can be from library (countermeasureLibrary set) or custom (countermeasureLibrary null).
+ */
+export function useCreateComponentCountermeasure() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: {
+      instanceThreat: number
+      countermeasureLibrary?: number | null
+      countermeasureName?: string
+      countermeasureDescription?: string
+      controlType?: string
+      status?: string
+    }) => api.post<ComponentInstanceCountermeasure>('/component-countermeasures/', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Create a new flow countermeasure instance.
+ * Can be from library (countermeasureLibrary set) or custom (countermeasureLibrary null).
+ */
+export function useCreateFlowCountermeasure() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: {
+      flowThreat: number
+      countermeasureLibrary?: number | null
+      countermeasureName?: string
+      countermeasureDescription?: string
+      controlType?: string
+      status?: string
+    }) => api.post('/flow-countermeasures/', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
   })
 }
@@ -201,6 +341,94 @@ export function useUpdateThreat() {
 }
 
 /**
+ * Dismiss a component threat.
+ */
+export function useDismissThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      threatId,
+      reason,
+    }: {
+      threatId: number
+      reason: string
+    }) =>
+      api.patch<ComponentInstanceThreat>(`/component-threats/${threatId}/`, {
+        isDismissed: true,
+        dismissalReason: reason,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Restore a dismissed component threat.
+ */
+export function useRestoreThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (threatId: number) =>
+      api.patch<ComponentInstanceThreat>(`/component-threats/${threatId}/`, {
+        isDismissed: false,
+        dismissalReason: '',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Dismiss a flow threat.
+ */
+export function useDismissFlowThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      threatId,
+      reason,
+    }: {
+      threatId: number
+      reason: string
+    }) =>
+      api.patch(`/flow-threats/${threatId}/`, {
+        isDismissed: true,
+        dismissalReason: reason,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Restore a dismissed flow threat.
+ */
+export function useRestoreFlowThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (threatId: number) =>
+      api.patch(`/flow-threats/${threatId}/`, {
+        isDismissed: false,
+        dismissalReason: '',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
  * Update a component countermeasure instance (e.g., status, evidenceUrl).
  */
 export function useUpdateCountermeasure() {
@@ -245,6 +473,38 @@ export function useUpdateFlowCountermeasure() {
         data
       )
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Delete a component countermeasure instance.
+ */
+export function useDeleteCountermeasure() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (countermeasureId: number) =>
+      api.delete(`/component-countermeasures/${countermeasureId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Delete a flow countermeasure instance.
+ */
+export function useDeleteFlowCountermeasure() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (countermeasureId: number) =>
+      api.delete(`/flow-countermeasures/${countermeasureId}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
@@ -315,6 +575,8 @@ export interface BackendThreat {
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
   justification: string
+  isDismissed: boolean
+  dismissalReason: string
   countermeasures: BackendCountermeasure[]
 }
 
@@ -396,7 +658,8 @@ export function transformBackendThreatsToComponentThreats(
         ? (bt.edgeId || `dataflow-${bt.dataflowId}`)
         : (bt.nodeId || `component-${bt.componentId}`),
       threatId: `lib-${bt.threatLibraryId}`,
-      dismissed: bt.status === 'accepted',
+      dismissed: bt.isDismissed,
+      dismissalReason: bt.dismissalReason || undefined,
       notes: bt.justification || undefined,
       countermeasures,
       createdAt: now,

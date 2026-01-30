@@ -93,7 +93,7 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
     serializer_class = OrgsystemComponentSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["orgsystem", "trust_boundary"]
+    filterset_fields = ["orgsystem", "trust_boundary", "threat_model"]
     search_fields = ["name"]
 
     def get_queryset(self):
@@ -161,26 +161,41 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
             )
 
         # Get threats linked to this component's library type
+        # Only include component-level threats (not flow-only threats)
         library_threats = ComponentLibraryThreat.objects.filter(
             component_library=component.component_library,
+            applies_to__in=[
+                ComponentLibraryThreat.AppliesTo.COMPONENT,
+                ComponentLibraryThreat.AppliesTo.BOTH,
+            ],
         ).select_related("threat_library")
 
         created_threats = []
         existing_threats = []
 
+        # Import here to avoid circular imports
+        from apps.diagrams.services import _generate_countermeasures_for_threat
+
         with transaction.atomic():
             for lib_threat in library_threats:
+                threat_lib = lib_threat.threat_library
                 instance_threat, created = ComponentInstanceThreat.objects.get_or_create(
                     component=component,
-                    threat_library=lib_threat.threat_library,
+                    threat_library=threat_lib,
                     defaults={
                         "inherent_severity": lib_threat.default_severity,
                         "status": ComponentInstanceThreat.Status.OPEN,
+                        # Copy metadata for self-sufficiency if library is later removed
+                        "threat_name": threat_lib.name if threat_lib else "",
+                        "threat_description": threat_lib.description if threat_lib else "",
+                        "stride_category": threat_lib.stride_category if threat_lib else "",
                     },
                 )
 
                 if created:
                     created_threats.append(instance_threat)
+                    # Auto-generate countermeasures for this new threat
+                    _generate_countermeasures_for_threat(instance_threat)
                 else:
                     existing_threats.append(instance_threat)
 

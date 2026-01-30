@@ -306,9 +306,27 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "dfd_name": dfd.name,
                     }
 
-        # Get all component IDs and dataflow IDs
+        # Get all component IDs and dataflow IDs from canvas nodes
         component_ids = [v["component_id"] for v in node_component_map.values()]
         dataflow_ids = [v["dataflow_id"] for v in edge_dataflow_map.values()]
+
+        # Also include analysis-only components (linked directly to threat model, not via DFD canvas)
+        analysis_only_components = OrgsystemComponent.objects.filter(
+            threat_model=threat_model
+        ).exclude(
+            id__in=component_ids  # Exclude components already on canvas
+        )
+
+        # Add analysis-only components to the node_component_map with synthetic node IDs
+        for comp in analysis_only_components:
+            synthetic_node_id = f"analysis-{comp.id}"
+            node_component_map[synthetic_node_id] = {
+                "component_id": comp.id,
+                "dfd_id": None,
+                "dfd_name": None,
+                "is_analysis_only": True,
+            }
+            component_ids.append(comp.id)
 
         # Fetch all component threats
         component_threats = ComponentInstanceThreat.objects.filter(
@@ -361,6 +379,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
                 "justification": threat.justification,
+                "is_dismissed": threat.is_dismissed,
+                "dismissal_reason": threat.dismissal_reason,
                 "countermeasures": [
                     {
                         "id": cm.id,
@@ -408,6 +428,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
                 "justification": "",
+                "is_dismissed": threat.is_dismissed,
+                "dismissal_reason": threat.dismissal_reason,
                 "countermeasures": [
                     {
                         "id": cm.id,

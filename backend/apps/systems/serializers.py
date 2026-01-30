@@ -144,11 +144,13 @@ class OrgsystemComponentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "category",
             "orgsystem",
             "component_library",
             "component_library_name",
             "trust_boundary",
             "source_integration",
+            "threat_model",
             "created_at",
             "updated_at",
         ]

@@ -225,6 +225,14 @@ class OrgsystemComponent(TimestampedModel):
         blank=True,
         related_name="discovered_components",
     )
+    threat_model = models.ForeignKey(
+        "diagrams.ThreatModel",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="analysis_components",
+        help_text="For analysis-only components not linked to a DFD. Null means linked via DFD sync.",
+    )
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     category = models.CharField(

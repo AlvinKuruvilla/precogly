@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText, Share2 } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText, Share2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -28,6 +28,11 @@ import { useWorkspaceThreatAnalysis } from '@/components/workspace/useWorkspaceT
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/ComponentView'
 import { TableView } from '@/features/dfd-editor/components/threat-analysis/TableView'
+import { AddThreatDialog } from '@/features/dfd-editor/components/threat-analysis/AddThreatDialog'
+import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat-analysis/AddCountermeasureDialog'
+import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threat-analysis/AddCustomComponentDialog'
+import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
+import { useAnalysisComponents } from '@/api/components'
 import type { ThreatModel, Diagram, System } from '@/types'
 import type { WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
 import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
@@ -91,6 +96,11 @@ export function ThreatModelDetail() {
   const [deleteDFDDialogOpen, setDeleteDFDDialogOpen] = useState(false)
   const [dfdToDelete, setDfdToDelete] = useState<{ id: string; name: string } | null>(null)
 
+  // Add threat/countermeasure dialog states
+  const [addThreatDialogOpen, setAddThreatDialogOpen] = useState(false)
+  const [addCountermeasureDialogOpen, setAddCountermeasureDialogOpen] = useState(false)
+  const [addComponentDialogOpen, setAddComponentDialogOpen] = useState(false)
+
   // Delete mutations
   const deleteMutation = useDeleteThreatModel()
   const deleteDFDMutation = useDeleteDFD()
@@ -143,6 +153,14 @@ export function ThreatModelDetail() {
     toggleChecklistItem,
   } = useWorkspaceThreatAnalysis(id, diagrams)
 
+  // Fetch threat model threats data (for nodeComponentMap)
+  const { data: threatData, refetch: refetchThreats } = useThreatModelThreats(id)
+  const nodeComponentMap = threatData?.nodeComponentMap || {}
+
+  // Fetch analysis-only components (linked directly to threat model, not via DFD canvas)
+  const { data: analysisComponents = [] } = useAnalysisComponents(id ?? null)
+
+
   // Create diagram mutation
   const createDiagramMutation = useMutation({
     mutationFn: (title: string) => createDiagram(id!, title),
@@ -194,10 +212,41 @@ export function ThreatModelDetail() {
 
   // Get analyzable components, trust boundaries, and data flows
   const analyzableComponents = useMemo(() => {
-    return aggregatedCanvasData.nodes.filter(
-      (node) => node.type === 'process' || node.type === 'datastore'
+    // Get components from DFD canvas nodes
+    const canvasComponents = aggregatedCanvasData.nodes.filter(
+      (node) => node.type === 'process' || node.type === 'datastore' ||
+        node.type === 'humanActor' || node.type === 'systemActor'
     )
-  }, [aggregatedCanvasData.nodes])
+
+    // Get IDs of components already on canvas to avoid duplicates
+    const canvasComponentIds = new Set(
+      canvasComponents
+        .map((node) => node.data?.component_id)
+        .filter(Boolean)
+    )
+
+    // Create synthetic DiagramNode objects for analysis-only components
+    // Only include components not already on canvas (when not filtering by specific DFD)
+    const analysisOnlyNodes: DiagramNode[] = !selectedDiagramId
+      ? analysisComponents
+          .filter((comp) => !canvasComponentIds.has(comp.id))
+          .map((comp) => ({
+            id: `analysis-${comp.id}`,
+            type: comp.category === 'process' ? 'process' :
+                  comp.category === 'datastore' ? 'datastore' :
+                  comp.category === 'human_actor' ? 'humanActor' :
+                  comp.category === 'system_actor' ? 'systemActor' : 'process',
+            position: { x: 0, y: 0 },
+            data: {
+              label: comp.name,
+              component_id: comp.id,
+              isAnalysisOnly: true,
+            },
+          }))
+      : []
+
+    return [...canvasComponents, ...analysisOnlyNodes]
+  }, [aggregatedCanvasData.nodes, analysisComponents, selectedDiagramId])
 
   const trustBoundaries = useMemo(() => {
     return aggregatedCanvasData.nodes.filter((node) => node.type === 'trustBoundary')
@@ -212,6 +261,76 @@ export function ThreatModelDetail() {
     if (!selectedThreatId) return null
     return filteredComponentThreats.find((ct) => ct.id === selectedThreatId) || null
   }, [filteredComponentThreats, selectedThreatId])
+
+  // Get backend info for selected component (for AddThreatDialog)
+  const selectedBackendInfo = useMemo(() => {
+    if (!selectedComponentId) return null
+
+    // Check if it's a data flow (edge)
+    const isDataflow = dataFlows.some(df => df.id === selectedComponentId)
+
+    if (isDataflow) {
+      // For data flows, find a threat that has this edge ID to get the dataflow backend ID
+      const flowThreat = filteredComponentThreats.find(
+        t => t.componentId === selectedComponentId && t.threatType === 'dataflow'
+      )
+      if (flowThreat?.backendComponentId) {
+        const edge = dataFlows.find(df => df.id === selectedComponentId)
+        return {
+          backendId: flowThreat.backendComponentId,
+          type: 'dataflow' as const,
+          name: edge?.data?.label || `${edge?.source} → ${edge?.target}` || 'Data Flow',
+        }
+      }
+      return null
+    }
+
+    // Check if it's an analysis-only component (ID starts with "analysis-")
+    if (selectedComponentId.startsWith('analysis-')) {
+      const backendId = parseInt(selectedComponentId.replace('analysis-', ''), 10)
+      const analysisComp = analysisComponents.find(c => c.id === backendId)
+      if (analysisComp) {
+        return {
+          backendId,
+          type: 'component' as const,
+          name: analysisComp.name,
+        }
+      }
+      return null
+    }
+
+    // For canvas components, use the nodeComponentMap
+    const mapping = nodeComponentMap[selectedComponentId]
+    if (mapping) {
+      const node = aggregatedCanvasData.nodes.find(n => n.id === selectedComponentId)
+      const nodeName = node ? String(node.data.label) : selectedComponentId
+      return {
+        backendId: mapping.componentId,
+        type: 'component' as const,
+        name: nodeName,
+      }
+    }
+
+    return null
+  }, [selectedComponentId, dataFlows, filteredComponentThreats, nodeComponentMap, aggregatedCanvasData.nodes, analysisComponents])
+
+  // Get backend info for selected threat (for AddCountermeasureDialog)
+  const selectedThreatBackendInfo = useMemo(() => {
+    if (!selectedComponentThreat) return null
+    if (!selectedComponentThreat.backendThreatId) return null
+
+    // Parse threatLibraryId from threatId (format: "lib-{id}")
+    const threatLibraryId = selectedComponentThreat.threatId.startsWith('lib-')
+      ? parseInt(selectedComponentThreat.threatId.slice(4), 10)
+      : null
+
+    return {
+      backendId: selectedComponentThreat.backendThreatId,
+      type: selectedComponentThreat.threatType || 'component',
+      name: selectedComponentThreat.threatName || 'Unknown Threat',
+      threatLibraryId,
+    }
+  }, [selectedComponentThreat])
 
   // Handlers
   const handleStatusChange = (newStatus: WorkspaceStatus) => {
@@ -544,6 +663,16 @@ export function ThreatModelDetail() {
                       ))}
                     </select>
                   </div>
+                  {/* Add Component Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddComponentDialogOpen(true)}
+                    className="gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Component
+                  </Button>
                 </div>
                 <div className="flex items-center rounded-lg border bg-background p-1">
                   <Button
@@ -588,10 +717,10 @@ export function ThreatModelDetail() {
                     onSelectThreat={setSelectedThreatId}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}
-                    onAddCustomThreat={() => {}}
+                    onAddCustomThreat={() => setAddThreatDialogOpen(true)}
                     onDismissThreat={dismissThreat}
                     onRestoreThreat={restoreThreat}
-                    onAddCustomCountermeasure={addCountermeasure}
+                    onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
                     onRemoveCountermeasure={removeCountermeasure}
                     onRestoreCountermeasure={restoreCountermeasure}
                   />
@@ -710,6 +839,45 @@ export function ThreatModelDetail() {
         threatModelName={threatModel.name}
         open={shareLinkDialogOpen}
         onOpenChange={setShareLinkDialogOpen}
+      />
+
+      {/* Add Threat Dialog */}
+      {selectedBackendInfo && (
+        <AddThreatDialog
+          open={addThreatDialogOpen}
+          onOpenChange={setAddThreatDialogOpen}
+          targetId={selectedBackendInfo.backendId}
+          targetType={selectedBackendInfo.type}
+          targetName={selectedBackendInfo.name}
+          onSuccess={() => {
+            refetchThreats()
+          }}
+        />
+      )}
+
+      {/* Add Countermeasure Dialog */}
+      {selectedThreatBackendInfo && (
+        <AddCountermeasureDialog
+          open={addCountermeasureDialogOpen}
+          onOpenChange={setAddCountermeasureDialogOpen}
+          threatId={selectedThreatBackendInfo.backendId}
+          threatType={selectedThreatBackendInfo.type as 'component' | 'dataflow'}
+          threatName={selectedThreatBackendInfo.name}
+          threatLibraryId={selectedThreatBackendInfo.threatLibraryId}
+          onSuccess={() => {
+            refetchThreats()
+          }}
+        />
+      )}
+
+      {/* Add Custom Component Dialog */}
+      <AddCustomComponentDialog
+        open={addComponentDialogOpen}
+        onOpenChange={setAddComponentDialogOpen}
+        threatModelId={id!}
+        onSuccess={() => {
+          refetchThreats()
+        }}
       />
     </div>
   )

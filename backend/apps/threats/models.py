@@ -271,6 +271,17 @@ class ComponentInstanceThreat(TimestampedModel):
     )
     justification = models.TextField(blank=True)
 
+    # Dismiss functionality
+    is_dismissed = models.BooleanField(
+        default=False,
+        help_text="Dismissed threats are hidden from active view but preserved for audit",
+    )
+    dismissal_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Reason for dismissing the threat",
+    )
+
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     threat_name = models.CharField(
         max_length=255,
@@ -332,6 +343,17 @@ class DataFlowInstanceThreat(TimestampedModel):
         max_length=20,
         choices=Status.choices,
         default=Status.OPEN,
+    )
+
+    # Dismiss functionality
+    is_dismissed = models.BooleanField(
+        default=False,
+        help_text="Dismissed threats are hidden from active view but preserved for audit",
+    )
+    dismissal_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Reason for dismissing the threat",
     )
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
@@ -597,3 +619,75 @@ class PentestFinding(TimestampedModel):
 
     def __str__(self):
         return f"Finding: {self.finding_description[:50]}..."
+
+
+class ComponentInstanceCountermeasureStandard(TimestampedModel):
+    """Instance-level compliance mapping for component countermeasures.
+
+    Allows overriding library-level compliance mappings for specific countermeasure instances.
+    Instance mappings take precedence over library mappings for the same requirement.
+    """
+
+    class Sufficiency(models.TextChoices):
+        FULL = "full", "Full"
+        PARTIAL = "partial", "Partial"
+
+    component_countermeasure = models.ForeignKey(
+        ComponentInstanceCountermeasure,
+        on_delete=models.CASCADE,
+        related_name="instance_standard_mappings",
+    )
+    requirement = models.ForeignKey(
+        "compliance.StandardRequirement",
+        on_delete=models.CASCADE,
+        related_name="component_instance_countermeasure_mappings",
+    )
+    sufficiency = models.CharField(
+        max_length=10,
+        choices=Sufficiency.choices,
+        default=Sufficiency.PARTIAL,
+    )
+
+    class Meta:
+        unique_together = ["component_countermeasure", "requirement"]
+        verbose_name = "Component countermeasure compliance mapping"
+        verbose_name_plural = "Component countermeasure compliance mappings"
+
+    def __str__(self):
+        return f"{self.component_countermeasure} - {self.requirement} ({self.sufficiency})"
+
+
+class FlowInstanceCountermeasureStandard(TimestampedModel):
+    """Instance-level compliance mapping for flow countermeasures.
+
+    Allows overriding library-level compliance mappings for specific countermeasure instances.
+    Instance mappings take precedence over library mappings for the same requirement.
+    """
+
+    class Sufficiency(models.TextChoices):
+        FULL = "full", "Full"
+        PARTIAL = "partial", "Partial"
+
+    flow_countermeasure = models.ForeignKey(
+        FlowInstanceCountermeasure,
+        on_delete=models.CASCADE,
+        related_name="instance_standard_mappings",
+    )
+    requirement = models.ForeignKey(
+        "compliance.StandardRequirement",
+        on_delete=models.CASCADE,
+        related_name="flow_instance_countermeasure_mappings",
+    )
+    sufficiency = models.CharField(
+        max_length=10,
+        choices=Sufficiency.choices,
+        default=Sufficiency.PARTIAL,
+    )
+
+    class Meta:
+        unique_together = ["flow_countermeasure", "requirement"]
+        verbose_name = "Flow countermeasure compliance mapping"
+        verbose_name_plural = "Flow countermeasure compliance mappings"
+
+    def __str__(self):
+        return f"{self.flow_countermeasure} - {self.requirement} ({self.sufficiency})"

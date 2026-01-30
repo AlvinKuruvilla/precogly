@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2 } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -31,11 +31,9 @@ import {
   THREAT_STATUS_CONFIG,
 } from '../../types/threat-analysis'
 import { STRIDE_CONFIG } from '@/types/domain'
-import {
-  getCountermeasureById,
-  getCountermeasuresForThreat,
-  SECURITY_STANDARDS,
-} from '../../lib/countermeasure-registry'
+import { getCountermeasureById } from '../../lib/countermeasure-registry'
+import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
+import { parseCountermeasureId } from '@/api/threats'
 
 /** Unified assignee type for the combobox */
 export type Assignee =
@@ -438,10 +436,12 @@ function ComplianceDetailSection({
   mappings,
   isExpanded,
   onToggle,
+  onEdit,
 }: {
   mappings: ComplianceStandardMapping[]
   isExpanded: boolean
   onToggle: () => void
+  onEdit?: () => void
 }) {
   if (mappings.length === 0) return null
 
@@ -455,19 +455,35 @@ function ComplianceDetailSection({
 
   return (
     <div className="mt-2 pt-2 border-t">
-      <button
-        className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground"
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-1.5">
-          <Shield className="h-3 w-3" />
-          <span className="font-medium">Compliance Coverage</span>
-          <Badge variant="outline" className="h-4 px-1 text-[10px]">
-            {mappings.length}
-          </Badge>
-        </div>
-        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          className="flex-1 flex items-center justify-between text-xs text-muted-foreground hover:text-foreground"
+          onClick={onToggle}
+        >
+          <div className="flex items-center gap-1.5">
+            <Shield className="h-3 w-3" />
+            <span className="font-medium">Compliance Coverage</span>
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {mappings.length}
+            </Badge>
+          </div>
+          {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 ml-1 text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+            title="Edit compliance mappings"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
 
       {isExpanded && (
         <div className="mt-2 space-y-2">
@@ -520,10 +536,10 @@ interface ComponentViewProps {
     assignee: Assignee,
     newStatus?: CountermeasureStatus // Optional: also update status in the same API call
   ) => void
-  onAddCustomThreat: (componentId: string, threatId: string) => void
+  onAddCustomThreat: () => void
   onDismissThreat: (componentThreatId: string) => void
   onRestoreThreat: (componentThreatId: string) => void
-  onAddCustomCountermeasure: (componentThreatId: string, countermeasureId: string) => void
+  onAddCustomCountermeasure: () => void
   onRemoveCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
   onRestoreCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
 }
@@ -648,15 +664,13 @@ export function ComponentView({
   onSelectThreat,
   onCountermeasureStatusChange,
   onAssignOwner,
-  onAddCustomThreat: _onAddCustomThreat,
+  onAddCustomThreat,
   onDismissThreat,
   onRestoreThreat,
   onAddCustomCountermeasure,
   onRemoveCountermeasure,
   onRestoreCountermeasure,
 }: ComponentViewProps) {
-  // Mark as unused for now - may use later for adding custom threats
-  void _onAddCustomThreat
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
   const [showDismissedCountermeasures, setShowDismissedCountermeasures] = useState(false)
   // Track which countermeasure is being assigned an owner (by countermeasure instance id)
@@ -667,6 +681,14 @@ export function ComponentView({
   const [waivingReasonFor, setWaivingReasonFor] = useState<string | null>(null)
   // Track which countermeasures have expanded compliance sections
   const [expandedComplianceFor, setExpandedComplianceFor] = useState<Set<string>>(new Set())
+  // Track which countermeasure is having its compliance mappings edited
+  const [editingComplianceFor, setEditingComplianceFor] = useState<{
+    id: string
+    backendId: number
+    type: 'component' | 'flow'
+    name: string
+    mappings: ComplianceStandardMapping[]
+  } | null>(null)
 
   const toggleComplianceExpanded = (cmId: string) => {
     setExpandedComplianceFor(prev => {
@@ -716,18 +738,6 @@ export function ComponentView({
 
   // Selected threat already contains metadata from backend
   const selectedThreatDef = selectedComponentThreat
-
-  // Get countermeasures available but not added
-  const availableCountermeasures = useMemo(() => {
-    if (!selectedComponentThreat) return []
-
-    const existingCmIds = new Set(
-      selectedComponentThreat.countermeasures.map((cm) => cm.countermeasureId)
-    )
-
-    const forThreat = getCountermeasuresForThreat(selectedComponentThreat.threatId)
-    return forThreat.filter((cm) => !existingCmIds.has(cm.id))
-  }, [selectedComponentThreat])
 
   // Handle owner assignment from UserSearchCombobox
   const handleAssignOwner = (countermeasureInstanceId: string, assignee: Assignee) => {
@@ -1062,11 +1072,24 @@ export function ComponentView({
         <div className="px-3 py-2 border-b">
           <div className="flex items-center justify-between">
             <div className="font-medium">Threats</div>
-            {activeThreats.length > 0 && (
-              <Badge variant="outline" className="text-xs">
-                {activeThreats.length} active
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {activeThreats.length > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  {activeThreats.length} active
+                </Badge>
+              )}
+              {selectedComponentId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={onAddCustomThreat}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add
+                </Button>
+              )}
+            </div>
           </div>
           <div className="text-xs text-muted-foreground">
             {selectedComponent
@@ -1093,7 +1116,7 @@ export function ComponentView({
 
                 {activeThreats.map((ct) => {
                   // Use threat metadata from backend (stored in ComponentThreat)
-                  if (!ct.threatName || !ct.strideCategory) return null
+                  if (!ct.threatName) return null
 
                   const status = deriveThreatStatus(ct.countermeasures)
                   const isSelected = ct.id === selectedThreatId
@@ -1122,7 +1145,7 @@ export function ComponentView({
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 ml-4">
-                          {STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory}
+                          {ct.strideCategory ? (STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory) : 'Custom'}
                         </div>
                       </button>
                       <ThreatStatusBadge status={status} />
@@ -1183,7 +1206,7 @@ export function ComponentView({
                   <div className="mt-2 space-y-1">
                     {dismissedThreats.map((ct) => {
                       // Use threat metadata from backend (stored in ComponentThreat)
-                      if (!ct.threatName || !ct.strideCategory) return null
+                      if (!ct.threatName) return null
 
                       return (
                         <div
@@ -1195,7 +1218,7 @@ export function ComponentView({
                               {ct.threatName}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory}
+                              {ct.strideCategory ? (STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory) : 'Custom'}
                             </span>
                           </div>
                           <Button
@@ -1303,12 +1326,43 @@ export function ComponentView({
                     </div>
 
                     {/* Compliance mappings - expandable detail */}
-                    {cm.standardMappings && cm.standardMappings.length > 0 && (
+                    {cm.standardMappings && cm.standardMappings.length > 0 ? (
                       <ComplianceDetailSection
                         mappings={cm.standardMappings}
                         isExpanded={expandedComplianceFor.has(cm.id)}
                         onToggle={() => toggleComplianceExpanded(cm.id)}
+                        onEdit={() => {
+                          const parsed = parseCountermeasureId(cm.id)
+                          if (parsed) {
+                            setEditingComplianceFor({
+                              id: cm.id,
+                              backendId: parsed.id,
+                              type: parsed.type,
+                              name: cmName,
+                              mappings: cm.standardMappings || [],
+                            })
+                          }
+                        }}
                       />
+                    ) : (
+                      <button
+                        className="mt-2 text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                        onClick={() => {
+                          const parsed = parseCountermeasureId(cm.id)
+                          if (parsed) {
+                            setEditingComplianceFor({
+                              id: cm.id,
+                              backendId: parsed.id,
+                              type: parsed.type,
+                              name: cmName,
+                              mappings: [],
+                            })
+                          }
+                        }}
+                      >
+                        <Shield className="h-3 w-3" />
+                        <span>Add compliance mapping</span>
+                      </button>
                     )}
 
                     {/* Owner display */}
@@ -1408,23 +1462,14 @@ export function ComponentView({
               })}
 
             {/* Add countermeasure */}
-            {selectedComponentThreat && availableCountermeasures.length > 0 && (
+            {selectedComponentThreat && (
               <div className="pt-2 border-t">
                 <button
                   className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                  onClick={() => {
-                    // Add first available countermeasure for now
-                    // Could expand to a dropdown/modal
-                    if (availableCountermeasures[0]) {
-                      onAddCustomCountermeasure(
-                        selectedComponentThreat.id,
-                        availableCountermeasures[0].id
-                      )
-                    }
-                  }}
+                  onClick={onAddCustomCountermeasure}
                 >
                   <Plus className="h-4 w-4" />
-                  Add Custom Countermeasure
+                  Add Countermeasure
                 </button>
               </div>
             )}
@@ -1496,6 +1541,20 @@ export function ComponentView({
           </div>
         )}
       </div>
+
+      {/* Edit Compliance Mappings Dialog */}
+      {editingComplianceFor && (
+        <EditComplianceMappingsDialog
+          open={!!editingComplianceFor}
+          onOpenChange={(open) => {
+            if (!open) setEditingComplianceFor(null)
+          }}
+          countermeasureId={editingComplianceFor.backendId}
+          countermeasureType={editingComplianceFor.type}
+          countermeasureName={editingComplianceFor.name}
+          libraryMappings={editingComplianceFor.mappings}
+        />
+      )}
     </div>
   )
 }

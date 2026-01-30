@@ -10,23 +10,27 @@ from rest_framework.response import Response
 
 from .models import (
     ComponentInstanceCountermeasure,
+    ComponentInstanceCountermeasureStandard,
     ComponentInstanceThreat,
     ComponentLibraryThreat,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
     FlowInstanceCountermeasure,
+    FlowInstanceCountermeasureStandard,
     PentestFinding,
     ThreatLibrary,
     VerificationTest,
 )
 from .serializers import (
     ComponentInstanceCountermeasureSerializer,
+    ComponentInstanceCountermeasureStandardSerializer,
     ComponentInstanceThreatSerializer,
     ComponentLibraryThreatSerializer,
     CountermeasureLibraryListSerializer,
     CountermeasureLibrarySerializer,
     DataFlowInstanceThreatSerializer,
     FlowInstanceCountermeasureSerializer,
+    FlowInstanceCountermeasureStandardSerializer,
     PentestFindingSerializer,
     ThreatLibraryListSerializer,
     ThreatLibrarySerializer,
@@ -40,7 +44,7 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["stride_category", "source", "organization"]
+    filterset_fields = ["stride_category", "source"]
     search_fields = ["name", "description", "source_id"]
     ordering_fields = ["name", "stride_category", "created_at"]
     ordering = ["name"]
@@ -336,3 +340,37 @@ class PentestFindingViewSet(viewsets.ModelViewSet):
     filterset_fields = ["threat_model", "reconciliation_status", "severity"]
     ordering_fields = ["severity", "created_at"]
     ordering = ["-created_at"]
+
+
+class ComponentInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
+    """ViewSet for ComponentInstanceCountermeasureStandard (instance-level compliance mappings).
+
+    These mappings override library-level compliance mappings for specific countermeasure instances.
+    """
+
+    queryset = ComponentInstanceCountermeasureStandard.objects.select_related(
+        "component_countermeasure",
+        "requirement",
+        "requirement__framework",
+    ).all()
+    serializer_class = ComponentInstanceCountermeasureStandardSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["component_countermeasure", "requirement", "sufficiency"]
+
+
+class FlowInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
+    """ViewSet for FlowInstanceCountermeasureStandard (instance-level compliance mappings).
+
+    These mappings override library-level compliance mappings for specific flow countermeasure instances.
+    """
+
+    queryset = FlowInstanceCountermeasureStandard.objects.select_related(
+        "flow_countermeasure",
+        "requirement",
+        "requirement__framework",
+    ).all()
+    serializer_class = FlowInstanceCountermeasureStandardSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["flow_countermeasure", "requirement", "sufficiency"]

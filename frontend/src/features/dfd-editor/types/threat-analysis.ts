@@ -126,6 +126,8 @@ export interface ComponentThreat {
   threatId: string
   // Whether this threat was dismissed/hidden
   dismissed: boolean
+  // Reason for dismissal (if dismissed)
+  dismissalReason?: string
   // Custom notes
   notes?: string
   // Countermeasures for this component-threat

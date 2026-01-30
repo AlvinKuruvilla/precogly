@@ -121,12 +121,23 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                 # Update existing component
                 try:
                     component = OrgsystemComponent.objects.get(id=existing_component_id)
+
+                    # Track if library is being assigned for the first time
+                    library_newly_assigned = (
+                        component.component_library is None and component_library is not None
+                    )
+
                     component.name = label
                     component.component_library = component_library
                     component.category = category
                     # NOTE: Don't overwrite orgsystem - preserve user's system assignment
                     component.save()
                     synced_count += 1
+
+                    # Generate threats if library was just assigned to existing component
+                    if library_newly_assigned:
+                        new_components.append(component)
+
                 except OrgsystemComponent.DoesNotExist:
                     # Component was deleted, create new one
                     component = OrgsystemComponent.objects.create(

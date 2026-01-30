@@ -6,11 +6,13 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    ComponentInstanceCountermeasureStandardViewSet,
     ComponentInstanceCountermeasureViewSet,
     ComponentInstanceThreatViewSet,
     ComponentLibraryThreatViewSet,
     CountermeasureLibraryViewSet,
     DataFlowInstanceThreatViewSet,
+    FlowInstanceCountermeasureStandardViewSet,
     FlowInstanceCountermeasureViewSet,
     PentestFindingViewSet,
     ThreatLibraryViewSet,
@@ -58,6 +60,16 @@ router.register(
     r"pentest-findings",
     PentestFindingViewSet,
     basename="pentest-finding",
+)
+router.register(
+    r"instance-countermeasure-standards",
+    ComponentInstanceCountermeasureStandardViewSet,
+    basename="instance-countermeasure-standard",
+)
+router.register(
+    r"flow-instance-countermeasure-standards",
+    FlowInstanceCountermeasureStandardViewSet,
+    basename="flow-instance-countermeasure-standard",
 )
 
 urlpatterns = [
