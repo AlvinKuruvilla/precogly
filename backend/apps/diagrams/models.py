@@ -5,6 +5,8 @@ Diagrams models - DFDs, threat models.
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 from apps.core.models import TimestampedModel
 from apps.organizations.models import Organization
@@ -388,3 +390,13 @@ class ThreatModelReferenceImage(TimestampedModel):
 
     def __str__(self):
         return f"{self.filename} - {self.threat_model.name}"
+
+
+@receiver(post_delete, sender=ThreatModelReferenceImage)
+def delete_reference_image_file(sender, instance, **kwargs):
+    """
+    Delete the image file from storage when the model instance is deleted.
+    """
+    if instance.image:
+        # Delete the file from storage
+        instance.image.delete(save=False)

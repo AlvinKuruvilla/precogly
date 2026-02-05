@@ -76,8 +76,8 @@ export function AddThreatDialog({
   const filteredThreats = threatLibrary?.filter((threat) => {
     const query = searchQuery.toLowerCase()
     return (
-      threat.name.toLowerCase().includes(query) ||
-      threat.description.toLowerCase().includes(query) ||
+      threat.name?.toLowerCase().includes(query) ||
+      threat.description?.toLowerCase().includes(query) ||
       (threat.strideCategory?.toLowerCase().includes(query) ?? false)
     )
   }) ?? []

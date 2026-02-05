@@ -41,7 +41,7 @@ export interface CountermeasureLibraryItem {
 export interface ThreatLibraryItem {
   id: number
   name: string
-  description: string
+  description?: string  // Optional for defensive programming
   strideCategory: STRIDECategory | null
   sourcePackName: string | null
   sourcePackSlug: string | null

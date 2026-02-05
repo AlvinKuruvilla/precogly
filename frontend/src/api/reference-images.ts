@@ -5,10 +5,12 @@ import type { ReferenceImage } from '@/types'
 export function useReferenceImages(threatModelId: string | null) {
   return useQuery({
     queryKey: ['reference-images', threatModelId],
-    queryFn: () =>
-      api.get<ReferenceImage[]>(
+    queryFn: async () => {
+      const response = await api.get<{ results: ReferenceImage[] }>(
         `/threat-models/${threatModelId}/reference-images/`
-      ),
+      )
+      return response.results
+    },
     enabled: !!threatModelId,
   })
 }
