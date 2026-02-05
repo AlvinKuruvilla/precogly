@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   ProgressChecklist,
+  ReferenceImageGallery,
+  ReferenceImageUploader,
+  ReferenceImageViewer,
   RelationshipCards,
   DFDCarousel,
   SummaryCards,
@@ -41,6 +44,7 @@ import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useDeleteThreatModel, useDeleteDFD } from '@/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
+import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/api/reference-images'
 
 async function fetchThreatModel(id: string): Promise<ThreatModel> {
   return api.get<ThreatModel>(`/threat-models/${id}/`)
@@ -101,9 +105,18 @@ export function ThreatModelDetail() {
   const [addCountermeasureDialogOpen, setAddCountermeasureDialogOpen] = useState(false)
   const [addComponentDialogOpen, setAddComponentDialogOpen] = useState(false)
 
+  // Reference image states
+  const [referenceImageViewerOpen, setReferenceImageViewerOpen] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+
   // Delete mutations
   const deleteMutation = useDeleteThreatModel()
   const deleteDFDMutation = useDeleteDFD()
+
+  // Reference images
+  const { data: referenceImages = [] } = useReferenceImages(id || null)
+  const uploadImageMutation = useUploadReferenceImage()
+  const deleteImageMutation = useDeleteReferenceImage()
 
 
   // Data fetching
@@ -633,6 +646,40 @@ export function ThreatModelDetail() {
               </Button>
             </div>
           )}
+
+          {/* Reference Images */}
+          <div className="border rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-semibold">Reference Images</h3>
+            <p className="text-sm text-muted-foreground">
+              Upload diagrams, whiteboard photos, or architecture screenshots for reference
+            </p>
+
+            <ReferenceImageUploader
+              onUpload={async (file, description) => {
+                await uploadImageMutation.mutateAsync({
+                  threatModelId: id!,
+                  file,
+                  description,
+                })
+              }}
+              isUploading={uploadImageMutation.isPending}
+            />
+
+            {referenceImages.length > 0 && (
+              <div className="pt-4">
+                <ReferenceImageGallery
+                  images={referenceImages}
+                  onImageClick={(index) => {
+                    setSelectedImageIndex(index)
+                    setReferenceImageViewerOpen(true)
+                  }}
+                  onDelete={async (imageId) => {
+                    await deleteImageMutation.mutateAsync(imageId)
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* Threat Analysis Tab */}
@@ -641,28 +688,30 @@ export function ThreatModelDetail() {
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : diagrams.length > 0 ? (
+          ) : (
             <>
               {/* DFD Filter + View Toggle Bar */}
               <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 flex-shrink-0">
                 <div className="flex items-center gap-4">
                   <h2 className="font-semibold">Threat Analysis</h2>
-                  {/* DFD Filter */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Filter by DFD:</span>
-                    <select
-                      value={selectedDiagramId || ''}
-                      onChange={(e) => setSelectedDiagramId(e.target.value || null)}
-                      className="text-sm border rounded-md px-2 py-1 bg-background"
-                    >
-                      <option value="">All DFDs</option>
-                      {diagrams.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* DFD Filter - only show if DFDs exist */}
+                  {diagrams.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Filter by DFD:</span>
+                      <select
+                        value={selectedDiagramId || ''}
+                        onChange={(e) => setSelectedDiagramId(e.target.value || null)}
+                        className="text-sm border rounded-md px-2 py-1 bg-background"
+                      >
+                        <option value="">All DFDs</option>
+                        {diagrams.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {/* Add Component Button */}
                   <Button
                     variant="outline"
@@ -738,17 +787,6 @@ export function ThreatModelDetail() {
                 )}
               </div>
             </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-muted-foreground mb-4">
-                  No DFDs created yet. Create a data flow diagram to start threat analysis.
-                </p>
-                <Button onClick={handleCreateDFD} disabled={createDiagramMutation.isPending}>
-                  {createDiagramMutation.isPending ? 'Creating...' : 'Create First DFD'}
-                </Button>
-              </div>
-            </div>
           )}
         </TabsContent>
 
@@ -878,6 +916,14 @@ export function ThreatModelDetail() {
         onSuccess={() => {
           refetchThreats()
         }}
+      />
+
+      {/* Reference Image Viewer */}
+      <ReferenceImageViewer
+        images={referenceImages}
+        initialIndex={selectedImageIndex}
+        open={referenceImageViewerOpen}
+        onOpenChange={setReferenceImageViewerOpen}
       />
     </div>
   )

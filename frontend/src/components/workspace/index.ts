@@ -12,3 +12,6 @@ export {
   ManageDFDsModal,
 } from './ManageModals'
 export { useWorkspaceThreatAnalysis } from './useWorkspaceThreatAnalysis'
+export { ReferenceImageGallery } from './ReferenceImageGallery'
+export { ReferenceImageUploader } from './ReferenceImageUploader'
+export { ReferenceImageViewer } from './ReferenceImageViewer'

@@ -153,6 +153,68 @@ export const api = {
 
   delete: <T>(endpoint: string) =>
     apiFetch<T>(endpoint, { method: 'DELETE' }),
+
+  uploadFile: async <T>(
+    endpoint: string,
+    file: File,
+    additionalData?: Record<string, string>
+  ): Promise<T> => {
+    const formData = new FormData()
+    formData.append('image', file)
+    formData.append('filename', file.name)
+
+    if (additionalData) {
+      Object.entries(additionalData).forEach(([key, value]) => {
+        formData.append(key, value)
+      })
+    }
+
+    const url = endpoint.startsWith('/') ? `${API_BASE}${endpoint}` : `${API_BASE}/${endpoint}`
+
+    // Build headers (don't set Content-Type - browser sets it with boundary for FormData)
+    const headers = new Headers()
+    let token = getAccessToken()
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
+
+    // Make request
+    let response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    // If 401, try to refresh token and retry
+    if (response.status === 401 && token) {
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        headers.set('Authorization', `Bearer ${newToken}`)
+        response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: formData,
+        })
+      }
+    }
+
+    // Handle errors
+    if (!response.ok) {
+      let errorData: unknown
+      try {
+        errorData = await response.json()
+      } catch {
+        errorData = await response.text()
+      }
+      throw new ApiError(
+        `API Error: ${response.status} ${response.statusText}`,
+        response.status,
+        errorData
+      )
+    }
+
+    return response.json()
+  },
 }
 
 // Auth API

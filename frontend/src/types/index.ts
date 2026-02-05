@@ -29,7 +29,20 @@ export type {
 export * from '@/features/dfd-editor/types'
 
 // Import types from domain for use in this file
-import type { ThreatModelStatus, Criticality, SystemType } from './domain'
+import type { ThreatModelStatus, Criticality, SystemType, ModelingMode } from './domain'
+
+export interface ReferenceImage {
+  id: number
+  threatModel: number
+  image: string
+  imageUrl: string
+  filename: string
+  description: string
+  displayOrder: number
+  uploadedBy: number | null
+  uploadedByEmail: string | null
+  createdAt: string
+}
 
 export interface ThreatModel {
   id: string
@@ -37,10 +50,12 @@ export interface ThreatModel {
   description: string
   criticality?: Criticality
   status: ThreatModelStatus
+  modelingMode?: ModelingMode
   frameworks?: string[]
   owner?: string
   systemIds?: string[]
   referencedModelIds?: string[]
+  referenceImages?: ReferenceImage[]
   createdAt?: string
   updatedAt?: string
   createdBy?: string
@@ -53,6 +68,7 @@ export interface CreateThreatModelInput {
   name: string
   description?: string
   criticality?: Criticality
+  modelingMode?: ModelingMode
   frameworkIds?: number[]
   systemIds?: number[]
   referencedModelIds?: number[]

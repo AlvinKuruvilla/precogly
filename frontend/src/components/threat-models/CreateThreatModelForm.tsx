@@ -24,7 +24,8 @@ import {
   useCreateThreatModel,
 } from '@/api/threat-models'
 import { AddSystemModal } from './AddSystemModal'
-import type { Criticality, CreateThreatModelInput, System } from '@/types'
+import type { Criticality, CreateThreatModelInput, ModelingMode, System } from '@/types'
+import { MODELING_MODES } from '@/types/domain'
 
 type SystemLinkOption = 'existing' | 'create' | 'none'
 
@@ -46,6 +47,7 @@ export function CreateThreatModelForm() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [criticality, setCriticality] = useState<Criticality | ''>('')
+  const [modelingMode, setModelingMode] = useState<ModelingMode>('dfdBased')
   const [selectedFrameworkIds, setSelectedFrameworkIds] = useState<number[]>([])
   const [selectedSystemIds, setSelectedSystemIds] = useState<number[]>([])
   const [selectedModelIds, setSelectedModelIds] = useState<number[]>([])
@@ -105,6 +107,7 @@ export function CreateThreatModelForm() {
       name,
       description: description || undefined,
       criticality: criticality || undefined,
+      modelingMode,
       frameworkIds: selectedFrameworkIds.length > 0 ? selectedFrameworkIds : undefined,
       systemIds: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
       referencedModelIds: selectedModelIds.length > 0 ? selectedModelIds : undefined,
@@ -170,6 +173,39 @@ export function CreateThreatModelForm() {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Modeling Approach */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Modeling Approach</CardTitle>
+          <CardDescription>
+            Choose how you'll create and analyze threats for this model.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={modelingMode}
+            onValueChange={(value) => setModelingMode(value as ModelingMode)}
+          >
+            {MODELING_MODES.map((mode) => (
+              <div key={mode.value} className="flex items-start space-x-3 space-y-0 py-2">
+                <RadioGroupItem value={mode.value} id={mode.value} />
+                <div className="space-y-1 leading-none">
+                  <Label htmlFor={mode.value} className="font-normal cursor-pointer">
+                    {mode.label}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {mode.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </RadioGroup>
+          <p className="text-xs text-muted-foreground mt-4">
+            You can change this later and switch between approaches at any time.
+          </p>
         </CardContent>
       </Card>
 
