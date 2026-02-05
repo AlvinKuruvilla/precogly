@@ -10,13 +10,15 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import DFD, DFDTemplatesLibrary, ThreatModel, ThreatModelDFD
+from .models import DFD, DFDTemplatesLibrary, ThreatModel, ThreatModelDFD, ThreatModelReferenceImage
 from .serializers import (
     DFDListSerializer,
     DFDSerializer,
     DFDTemplatesLibrarySerializer,
     ThreatModelCreateSerializer,
     ThreatModelListSerializer,
+    ThreatModelReferenceImageSerializer,
+    ThreatModelReferenceImageUploadSerializer,
     ThreatModelSerializer,
 )
 from .services import get_threat_model_for_dfd, sync_dfd_nodes_to_components
@@ -774,3 +776,56 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
             "resolutionResults": resolution_results,
             "allResolved": all(r.get("resolved", False) for r in resolution_results if r),
         })
+
+
+class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing threat model reference images."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ThreatModelReferenceImageSerializer
+
+    def get_queryset(self):
+        """Filter by user's organization access."""
+        user = self.request.user
+        user_orgs = user.organization_memberships.values_list("organization_id", flat=True)
+        return ThreatModelReferenceImage.objects.filter(
+            threat_model__organization_id__in=user_orgs
+        ).select_related("threat_model", "uploaded_by")
+
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action."""
+        if self.action in ["create", "upload_for_threat_model"]:
+            return ThreatModelReferenceImageUploadSerializer
+        return ThreatModelReferenceImageSerializer
+
+    def perform_create(self, serializer):
+        """Set uploaded_by to current user."""
+        serializer.save(uploaded_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="upload")
+    def upload_for_threat_model(self, request, threat_model_pk=None):
+        """Upload a reference image for a specific threat model."""
+        from django.shortcuts import get_object_or_404
+
+        threat_model = get_object_or_404(ThreatModel, pk=threat_model_pk)
+
+        # Verify user has access to this threat model's organization
+        user_orgs = request.user.organization_memberships.values_list("organization_id", flat=True)
+        if threat_model.organization_id not in user_orgs:
+            return Response(
+                {"detail": "Not authorized"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ThreatModelReferenceImageUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        image = serializer.save(
+            threat_model=threat_model,
+            uploaded_by=request.user,
+        )
+
+        return Response(
+            ThreatModelReferenceImageSerializer(image, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )

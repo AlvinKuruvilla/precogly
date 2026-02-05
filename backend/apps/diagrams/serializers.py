@@ -11,6 +11,7 @@ from .models import (
     ThreatModelDFD,
     ThreatModelFramework,
     ThreatModelOrgsystem,
+    ThreatModelReferenceImage,
     ThreatModelRelationship,
 )
 
@@ -45,6 +46,43 @@ class DFDListSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "diagram_type", "updated_at"]
 
 
+class ThreatModelReferenceImageSerializer(serializers.ModelSerializer):
+    """Serializer for ThreatModelReferenceImage model."""
+
+    image_url = serializers.SerializerMethodField()
+    uploaded_by_email = serializers.CharField(source="uploaded_by.email", read_only=True)
+
+    class Meta:
+        model = ThreatModelReferenceImage
+        fields = [
+            "id",
+            "threat_model",
+            "image",
+            "image_url",
+            "filename",
+            "description",
+            "display_order",
+            "uploaded_by",
+            "uploaded_by_email",
+            "created_at",
+        ]
+        read_only_fields = ["id", "threat_model", "uploaded_by", "created_at"]
+
+    def get_image_url(self, obj):
+        request = self.context.get("request")
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
+
+class ThreatModelReferenceImageUploadSerializer(serializers.ModelSerializer):
+    """Serializer for uploading reference images."""
+
+    class Meta:
+        model = ThreatModelReferenceImage
+        fields = ["image", "filename", "description"]
+
+
 class ThreatModelSerializer(serializers.ModelSerializer):
     """Serializer for ThreatModel model."""
 
@@ -54,6 +92,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
     frameworks = serializers.SerializerMethodField()
     system_ids = serializers.SerializerMethodField()
     referenced_model_ids = serializers.SerializerMethodField()
+    reference_images = ThreatModelReferenceImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = ThreatModel
@@ -70,11 +109,13 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "created_by_email",
             "owner",
             "previous_version",
+            "modeling_mode",
             "workspace_data",
             "dfds",
             "frameworks",
             "system_ids",
             "referenced_model_ids",
+            "reference_images",
             "created_at",
             "updated_at",
         ]
@@ -171,6 +212,7 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "description",
             "organization",
             "criticality",
+            "modeling_mode",
             "framework_ids",
             "system_ids",
             "referenced_model_ids",
@@ -179,6 +221,7 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "organization": {"required": False},
             "criticality": {"required": False},
+            "modeling_mode": {"required": False},
         }
 
     def create(self, validated_data):

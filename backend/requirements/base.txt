@@ -27,3 +27,6 @@ djangorestframework-camel-case>=1.4.2,<2.0
 
 # Utilities
 python-dateutil>=2.9,<3.0
+
+# Image processing
+Pillow>=11.0,<12.0

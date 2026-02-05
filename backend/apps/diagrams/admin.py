@@ -7,6 +7,7 @@ from .models import (
     ThreatModel,
     ThreatModelDFD,
     ThreatModelOrgsystem,
+    ThreatModelReferenceImage,
     ThreatModelRelationship,
 )
 
@@ -53,3 +54,11 @@ class ThreatModelDFDAdmin(admin.ModelAdmin):
 @admin.register(DFDOrgsystem)
 class DFDOrgsystemAdmin(admin.ModelAdmin):
     list_display = ["dfd", "orgsystem"]
+
+
+@admin.register(ThreatModelReferenceImage)
+class ThreatModelReferenceImageAdmin(admin.ModelAdmin):
+    list_display = ["filename", "threat_model", "uploaded_by", "display_order", "created_at"]
+    list_filter = ["threat_model", "uploaded_by"]
+    search_fields = ["filename", "description"]
+    readonly_fields = ["created_at", "uploaded_by"]

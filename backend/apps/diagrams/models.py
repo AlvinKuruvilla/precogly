@@ -133,6 +133,11 @@ class ThreatModel(TimestampedModel):
         HIGH = "high", "High"
         CRITICAL = "critical", "Critical"
 
+    class ModelingMode(models.TextChoices):
+        DFD_BASED = "dfdBased", "DFD-Based"
+        MANUAL = "manual", "Manual Entry"
+        HYBRID = "hybrid", "Hybrid (Both)"
+
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -176,6 +181,12 @@ class ThreatModel(TimestampedModel):
         null=True,
         blank=True,
         related_name="next_versions",
+    )
+    modeling_mode = models.CharField(
+        max_length=20,
+        choices=ModelingMode.choices,
+        default=ModelingMode.DFD_BASED,
+        help_text="Primary threat modeling approach for this model",
     )
     # Store system context, progress, etc.
     workspace_data = models.JSONField(default=dict, blank=True)
@@ -339,3 +350,41 @@ class DFDOrgsystem(models.Model):
 
     def __str__(self):
         return f"{self.dfd} - {self.orgsystem}"
+
+
+class ThreatModelReferenceImage(TimestampedModel):
+    """Reference image for threat model (whiteboard photos, architecture diagrams, etc.)."""
+
+    threat_model = models.ForeignKey(
+        ThreatModel,
+        on_delete=models.CASCADE,
+        related_name="reference_images",
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="uploaded_reference_images",
+    )
+    image = models.ImageField(
+        upload_to="reference_images/%Y/%m/",
+        help_text="Reference image file (JPEG, PNG, WebP)",
+    )
+    filename = models.CharField(
+        max_length=255,
+        help_text="Original filename for display",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional description of what this image shows",
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Order in gallery (lower = first)",
+    )
+
+    class Meta:
+        ordering = ["display_order", "-created_at"]
+
+    def __str__(self):
+        return f"{self.filename} - {self.threat_model.name}"
