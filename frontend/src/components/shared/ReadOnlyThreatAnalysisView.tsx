@@ -28,9 +28,10 @@ import {
 } from 'lucide-react'
 import { computeThreatsFromDiagrams, type DiagramData } from '@/lib/threat-computation'
 import { getCountermeasureById } from '@/features/dfd-editor/lib/countermeasure-registry'
-import { STRIDE_CONFIG } from '@/types/domain'
+import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode } from '@/features/dfd-editor/types'
+import type { ThreatAnalysisData, SharedThreat } from '@/types/organization'
 
 // Countermeasure status config
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof CheckCircle2; color: string }> = {
@@ -42,8 +43,49 @@ const STATUS_CONFIG: Record<string, { label: string; icon: typeof CheckCircle2; 
 }
 
 interface ReadOnlyThreatAnalysisViewProps {
-  diagrams: DiagramData[]
+  diagrams?: DiagramData[]
+  threatAnalysisData?: ThreatAnalysisData
   className?: string
+}
+
+/**
+ * Convert SharedThreat from backend to ComponentThreat format for display.
+ * Handles both component threats and flow threats.
+ */
+function convertSharedThreatToComponentThreat(sharedThreat: SharedThreat): ComponentThreat {
+  const timestamp = new Date().toISOString()
+
+  // Use node_id or edge_id as component_id for mapping
+  const componentId = sharedThreat.type === 'component'
+    ? (sharedThreat.nodeId || `component-${sharedThreat.componentId}`)
+    : (sharedThreat.edgeId || `flow-${sharedThreat.flowId}`)
+
+  return {
+    id: `shared-threat-${sharedThreat.id}`,
+    diagramId: sharedThreat.dfdId || 'unknown',
+    sourceDiagramId: sharedThreat.dfdId || 'unknown',
+    sourceDiagramTitle: sharedThreat.dfdName || 'Unknown Diagram',
+    componentId,
+    threatId: sharedThreat.threatLibraryId?.toString() || 'custom',
+    dismissed: sharedThreat.isDismissed,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    threatName: sharedThreat.threatName || 'Unknown Threat',
+    threatDescription: sharedThreat.threatDescription || '',
+    strideCategory: sharedThreat.strideCategory as STRIDECategory | undefined,
+    countermeasures: sharedThreat.countermeasures.map((cm): ComponentThreatCountermeasure => ({
+      id: `shared-cm-${cm.id}`,
+      countermeasureId: cm.countermeasureLibraryId?.toString() || 'custom',
+      componentThreatId: `shared-threat-${sharedThreat.id}`,
+      status: cm.status,
+      dismissed: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      countermeasureName: cm.countermeasureName || 'Unknown Countermeasure',
+      countermeasureDescription: cm.countermeasureDescription || '',
+      owner: cm.assignedOwnerEmail || undefined,
+    })),
+  }
 }
 
 function CountermeasureRow({ cm }: { cm: ComponentThreatCountermeasure }) {
@@ -192,6 +234,7 @@ function ThreatCard({ threat, componentName }: ThreatCardProps) {
 
 export function ReadOnlyThreatAnalysisView({
   diagrams,
+  threatAnalysisData,
   className,
 }: ReadOnlyThreatAnalysisViewProps) {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
@@ -200,35 +243,89 @@ export function ReadOnlyThreatAnalysisView({
   // Ensure diagrams is an array
   const safeDiagrams = diagrams ?? []
 
-  // Compute threats from canvas data (same as authenticated view)
-  const allThreats = useMemo(() => {
-    return computeThreatsFromDiagrams(safeDiagrams)
-  }, [safeDiagrams])
+  console.log('\n' + '='.repeat(80))
+  console.log('DEBUG: ReadOnlyThreatAnalysisView - Props received')
+  console.log('DEBUG: diagrams?.length:', diagrams?.length)
+  console.log('DEBUG: threatAnalysisData exists:', !!threatAnalysisData)
+  if (threatAnalysisData) {
+    console.log('DEBUG: threatAnalysisData.totalCount:', threatAnalysisData.totalCount)
+    console.log('DEBUG: threatAnalysisData.threats.length:', threatAnalysisData.threats.length)
+  }
 
-  // Build component name lookup from all diagrams
+  // Compute threats - use backend data if available, otherwise compute from canvas
+  const allThreats = useMemo(() => {
+    console.log('DEBUG: Computing threats...')
+    if (threatAnalysisData) {
+      console.log('DEBUG: Using backend threatAnalysisData')
+      console.log('DEBUG: Converting', threatAnalysisData.threats.length, 'shared threats')
+      const converted = threatAnalysisData.threats.map(convertSharedThreatToComponentThreat)
+      console.log('DEBUG: Converted to', converted.length, 'component threats')
+      if (converted.length > 0) {
+        console.log('DEBUG: First converted threat:', {
+          id: converted[0].id,
+          threatName: converted[0].threatName,
+          countermeasures: converted[0].countermeasures.length,
+        })
+      }
+      return converted
+    }
+    // Fall back to computing from canvas data (for backward compatibility)
+    console.log('DEBUG: Falling back to computeThreatsFromDiagrams')
+    const computed = computeThreatsFromDiagrams(safeDiagrams)
+    console.log('DEBUG: Computed', computed.length, 'threats from diagrams')
+    return computed
+  }, [threatAnalysisData, safeDiagrams])
+
+  console.log('DEBUG: allThreats.length:', allThreats.length)
+  console.log('='.repeat(80) + '\n')
+
+  // Build component name lookup from diagrams or from backend data
   const componentNameMap = useMemo(() => {
     const map = new Map<string, string>()
-    safeDiagrams.forEach((diagram) => {
-      const nodes = diagram.canvasData?.nodes || []
-      nodes.forEach((node) => {
-        const n = node as DiagramNode
-        const label = (n.data as { label?: string })?.label || n.type || 'Unknown'
-        map.set(n.id, label)
+
+    if (threatAnalysisData) {
+      // Build from backend threat data
+      threatAnalysisData.threats.forEach((threat) => {
+        if (threat.type === 'component' && threat.nodeId) {
+          map.set(threat.nodeId, threat.componentName || 'Unknown Component')
+        } else if (threat.type === 'flow' && threat.edgeId) {
+          map.set(threat.edgeId, threat.flowLabel || 'Data Flow')
+        }
       })
-      // Also map edges
-      const edges = diagram.canvasData?.edges || []
-      edges.forEach((edge) => {
-        const e = edge as { id: string; data?: { label?: string } }
-        map.set(e.id, e.data?.label || 'Data Flow')
+    } else {
+      // Build from canvas data
+      safeDiagrams.forEach((diagram) => {
+        const nodes = diagram.canvasData?.nodes || []
+        nodes.forEach((node) => {
+          const n = node as DiagramNode
+          const label = (n.data as { label?: string })?.label || n.type || 'Unknown'
+          map.set(n.id, label)
+        })
+        // Also map edges
+        const edges = diagram.canvasData?.edges || []
+        edges.forEach((edge) => {
+          const e = edge as { id: string; data?: { label?: string } }
+          map.set(e.id, e.data?.label || 'Data Flow')
+        })
       })
-    })
+    }
     return map
-  }, [safeDiagrams])
+  }, [threatAnalysisData, safeDiagrams])
 
   // Get unique DFDs for filter
   const dfdOptions = useMemo(() => {
+    if (threatAnalysisData) {
+      // Extract unique DFDs from threat data
+      const dfdMap = new Map<string, string>()
+      threatAnalysisData.threats.forEach((threat) => {
+        if (threat.dfdId && threat.dfdName) {
+          dfdMap.set(threat.dfdId, threat.dfdName)
+        }
+      })
+      return Array.from(dfdMap.entries()).map(([id, name]) => ({ id, name }))
+    }
     return safeDiagrams.map((d) => ({ id: String(d.id), name: d.name }))
-  }, [safeDiagrams])
+  }, [threatAnalysisData, safeDiagrams])
 
   // Filter threats by DFD (exclude dismissed)
   const filteredThreats = useMemo(() => {
@@ -369,6 +466,7 @@ export function ReadOnlyThreatAnalysisView({
                 const activeCountermeasures = threat.countermeasures.filter((cm) => !cm.dismissed)
                 const gaps = activeCountermeasures.filter((cm) => cm.status === 'gap').length
                 const planned = activeCountermeasures.filter((cm) => cm.status === 'planned').length
+                const platform = activeCountermeasures.filter((cm) => cm.status === 'platform').length
 
                 let status: 'mitigated' | 'addressable' | 'exposed' = 'exposed'
                 if (gaps === 0 && activeCountermeasures.length > 0) {

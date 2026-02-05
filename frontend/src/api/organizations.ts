@@ -291,7 +291,35 @@ export function useRevokeMagicLink() {
 export function useMagicLinkAccess(token: string) {
   return useQuery({
     queryKey: magicLinkKeys.access(token),
-    queryFn: () => api.get<MagicLinkAccessResponse>(`/share/${token}/`),
+    queryFn: async () => {
+      console.log('\n' + '='.repeat(80))
+      console.log('DEBUG: useMagicLinkAccess - Fetching data')
+      console.log(`DEBUG: Token: ${token}`)
+
+      const response = await api.get<MagicLinkAccessResponse>(`/share/${token}/`)
+
+      console.log('DEBUG: Response received from backend:')
+      console.log('DEBUG: Response keys:', Object.keys(response))
+      console.log('DEBUG: threatAnalysis exists:', 'threatAnalysis' in response)
+
+      if (response.threatAnalysis) {
+        console.log('DEBUG: threatAnalysis.totalCount:', response.threatAnalysis.totalCount)
+        console.log('DEBUG: threatAnalysis.threats.length:', response.threatAnalysis.threats?.length)
+        if (response.threatAnalysis.threats?.length > 0) {
+          console.log('DEBUG: First threat:', {
+            id: response.threatAnalysis.threats[0].id,
+            type: response.threatAnalysis.threats[0].type,
+            threatName: response.threatAnalysis.threats[0].threatName,
+            countermeasures: response.threatAnalysis.threats[0].countermeasures?.length,
+          })
+        }
+      } else {
+        console.warn('WARNING: threatAnalysis is missing from response!')
+      }
+      console.log('='.repeat(80) + '\n')
+
+      return response
+    },
     enabled: !!token,
     retry: false, // Don't retry on 404/410
   })

@@ -12,8 +12,10 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ReadOnlyDFDViewer } from '@/components/shared/ReadOnlyDFDViewer'
 import { ReadOnlyThreatAnalysisView } from '@/components/shared/ReadOnlyThreatAnalysisView'
+import { ReferenceImageViewer } from '@/components/workspace/ReferenceImageViewer'
 import type { ThreatModelStats } from '@/types/organization'
 import type { DiagramData } from '@/lib/threat-computation'
+import type { ReferenceImage } from '@/types'
 import {
   AlertCircle,
   Clock,
@@ -42,23 +44,6 @@ interface DFD {
   }
 }
 
-interface ThreatModelData {
-  id: number
-  name: string
-  description: string
-  version: string
-  status: string
-  criticality: string
-  workspaceData?: {
-    systemContext?: {
-      description?: string
-      assets?: Array<{ name: string; description?: string }>
-      outOfScopeItems?: string[]
-    }
-  }
-  dfds?: DFD[]
-}
-
 // Progress checklist items with labels
 // Note: Backend returns snake_case but DRF converts to camelCase at API boundary
 const PROGRESS_ITEMS = [
@@ -77,6 +62,8 @@ export function SharedThreatModelView() {
   const { data, isLoading, error } = useMagicLinkAccess(token ?? '')
   const [expandedDFDId, setExpandedDFDId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string>('overview')
+  const [referenceImageViewerOpen, setReferenceImageViewerOpen] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
 
   if (isLoading) {
     return (
@@ -113,9 +100,29 @@ export function SharedThreatModelView() {
     )
   }
 
-  const { threatModel, stats, expiresAt, isAuthenticated, savedToAccount } = data
-  const tm = threatModel as ThreatModelData
+  const { threatModel, stats, threatAnalysis, expiresAt, isAuthenticated, savedToAccount } = data
+  const tm = threatModel
   const serverStats = stats as ThreatModelStats
+
+  console.log('\n' + '='.repeat(80))
+  console.log('DEBUG: SharedThreatModelView - Data received')
+  console.log('DEBUG: data keys:', Object.keys(data))
+  console.log('DEBUG: threatAnalysis exists:', !!threatAnalysis)
+  if (threatAnalysis) {
+    console.log('DEBUG: threatAnalysis.totalCount:', threatAnalysis.totalCount)
+    console.log('DEBUG: threatAnalysis.threats?.length:', threatAnalysis.threats?.length)
+  }
+  console.log('DEBUG: referenceImages exists:', !!tm.referenceImages)
+  if (tm.referenceImages && tm.referenceImages.length > 0) {
+    console.log('DEBUG: referenceImages.length:', tm.referenceImages.length)
+    console.log('DEBUG: First image:', {
+      id: tm.referenceImages[0].id,
+      filename: tm.referenceImages[0].filename,
+      imageUrl: tm.referenceImages[0].imageUrl,
+      image: tm.referenceImages[0].image,
+    })
+  }
+  console.log('='.repeat(80) + '\n')
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(undefined, {
@@ -397,6 +404,39 @@ export function SharedThreatModelView() {
                 </CardContent>
               </Card>
 
+              {/* Reference Images */}
+              {tm.referenceImages && tm.referenceImages.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Reference Images</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {tm.referenceImages.map((image, index) => (
+                        <div
+                          key={image.id}
+                          className="relative aspect-square border rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                          onClick={() => {
+                            setSelectedImageIndex(index)
+                            setReferenceImageViewerOpen(true)
+                          }}
+                        >
+                          <img
+                            src={image.imageUrl}
+                            alt={image.filename}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Filename tooltip */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 truncate">
+                            {image.filename}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* DFD List */}
               {dfds.length > 0 && (
                 <Card>
@@ -470,6 +510,7 @@ export function SharedThreatModelView() {
             {/* Threat Analysis Tab */}
             <TabsContent value="threats" className="m-0">
               <ReadOnlyThreatAnalysisView
+                threatAnalysisData={threatAnalysis}
                 diagrams={dfds.map((dfd) => ({
                   id: dfd.id,
                   name: dfd.name,
@@ -527,6 +568,16 @@ export function SharedThreatModelView() {
           </Card>
         </div>
       </main>
+
+      {/* Reference Image Viewer */}
+      {tm.referenceImages && tm.referenceImages.length > 0 && (
+        <ReferenceImageViewer
+          images={tm.referenceImages as ReferenceImage[]}
+          initialIndex={selectedImageIndex}
+          open={referenceImageViewerOpen}
+          onOpenChange={setReferenceImageViewerOpen}
+        />
+      )}
     </div>
   )
 }

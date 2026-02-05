@@ -420,7 +420,7 @@ class MagicLinkAccessView(APIView):
         # Return read-only threat model data
         from apps.diagrams.serializers import ThreatModelSerializer
 
-        serializer = ThreatModelSerializer(link.threat_model)
+        serializer = ThreatModelSerializer(link.threat_model, context={'request': request})
 
         # Compute summary stats
         stats = self._compute_threat_model_stats(link.threat_model)
@@ -428,7 +428,11 @@ class MagicLinkAccessView(APIView):
         # Get threat analysis data
         threat_analysis = self._get_threat_analysis_data(link.threat_model)
 
-        return Response({
+        print("\nDEBUG: MagicLinkAccessView.get() - Building response")
+        print(f"DEBUG: threat_analysis['total_count']: {threat_analysis.get('total_count')}")
+        print(f"DEBUG: threat_analysis['threats'] length: {len(threat_analysis.get('threats', []))}")
+
+        response_data = {
             "threat_model": serializer.data,
             "stats": stats,
             "threat_analysis": threat_analysis,
@@ -436,7 +440,12 @@ class MagicLinkAccessView(APIView):
             "expires_at": link.expires_at,
             "is_authenticated": is_authenticated,
             "saved_to_account": saved_to_account,
-        })
+        }
+
+        print(f"DEBUG: Response keys: {list(response_data.keys())}")
+        print("DEBUG: Response being sent to frontend\n")
+
+        return Response(response_data)
 
     def _compute_threat_model_stats(self, threat_model):
         """
@@ -451,19 +460,30 @@ class MagicLinkAccessView(APIView):
     def _get_threat_analysis_data(self, threat_model):
         """
         Get threat analysis data for the threat model.
-        Returns threats with their countermeasures, organized by component.
-        Same format as ThreatModelViewSet.threats() action.
+        Returns threats with their countermeasures and compliance mappings.
+        Includes both component threats and data flow threats, including custom threats.
         """
-        from apps.threats.models import ComponentInstanceThreat
+        from apps.threats.models import (
+            ComponentInstanceThreat,
+            DataFlowInstanceThreat,
+        )
+
+        print("\n" + "="*80)
+        print("DEBUG: _get_threat_analysis_data called")
+        print(f"DEBUG: Threat Model ID: {threat_model.id}")
+        print(f"DEBUG: Threat Model Name: {threat_model.name}")
+        print("="*80)
 
         # Get all DFDs for this threat model
         dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
         dfds = [assoc.dfd for assoc in dfd_associations]
 
-        # Build node_id -> component_id mapping from all DFDs
+        # Build node_id -> component_id mapping and edge_id -> flow_id mapping from all DFDs
         node_component_map = {}
+        edge_flow_map = {}
         for dfd in dfds:
             canvas_data = dfd.canvas_data or {}
+            # Map nodes to components
             for node in canvas_data.get("nodes", []):
                 node_id = node.get("id")
                 component_id = node.get("data", {}).get("component_id")
@@ -473,75 +493,261 @@ class MagicLinkAccessView(APIView):
                         "dfd_id": str(dfd.id),
                         "dfd_name": dfd.name,
                     }
-
-        # Get all component IDs
-        component_ids = [v["component_id"] for v in node_component_map.values()]
-
-        if not component_ids:
-            return {
-                "threat_model_id": str(threat_model.id),
-                "threats": [],
-                "total_count": 0,
-                "node_component_map": node_component_map,
-            }
-
-        # Fetch all threats for these components
-        threats = ComponentInstanceThreat.objects.filter(
-            component_id__in=component_ids
-        ).select_related(
-            "component", "threat_library"
-        ).prefetch_related(
-            "countermeasures__countermeasure_library",
-            "countermeasures__assigned_owner",
-            "countermeasures__verified_by",
-        )
-
-        # Build response with node mapping
-        result = []
-        for threat in threats:
-            # Find which node this component corresponds to
-            node_info = None
-            for node_id, info in node_component_map.items():
-                if info["component_id"] == threat.component_id:
-                    node_info = {"node_id": node_id, **info}
-                    break
-
-            threat_data = {
-                "id": threat.id,
-                "component_id": threat.component_id,
-                "component_name": threat.component.name if threat.component else None,
-                "node_id": node_info["node_id"] if node_info else None,
-                "dfd_id": node_info["dfd_id"] if node_info else None,
-                "dfd_name": node_info["dfd_name"] if node_info else None,
-                "threat_library_id": threat.threat_library_id,
-                "threat_name": threat.threat_library.name if threat.threat_library else None,
-                "threat_description": threat.threat_library.description if threat.threat_library else None,
-                "stride_category": threat.threat_library.stride_category if threat.threat_library else None,
-                "inherent_severity": threat.inherent_severity,
-                "residual_severity": threat.residual_severity,
-                "status": threat.status,
-                "justification": threat.justification,
-                "countermeasures": [
-                    {
-                        "id": cm.id,
-                        "countermeasure_library_id": cm.countermeasure_library_id,
-                        "countermeasure_name": cm.countermeasure_library.name if cm.countermeasure_library else None,
-                        "control_type": cm.countermeasure_library.control_type if cm.countermeasure_library else None,
-                        "status": cm.status,
-                        "evidence_url": cm.evidence_url,
-                        "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-                        "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+            # Map edges to data flows
+            for edge in canvas_data.get("edges", []):
+                edge_id = edge.get("id")
+                flow_id = edge.get("data", {}).get("flow_id")
+                if edge_id and flow_id:
+                    edge_flow_map[edge_id] = {
+                        "flow_id": flow_id,
+                        "dfd_id": str(dfd.id),
+                        "dfd_name": dfd.name,
                     }
-                    for cm in threat.countermeasures.all()
-                ],
-            }
-            result.append(threat_data)
+
+        # Get component IDs from DFD canvas (DFD-based modeling)
+        canvas_component_ids = [v["component_id"] for v in node_component_map.values()]
+        canvas_flow_ids = [v["flow_id"] for v in edge_flow_map.values()]
+
+        # Get analysis-only components (DFD-free modeling)
+        # These are components directly linked to the threat model via threat_model FK
+        analysis_only_components = threat_model.analysis_components.all()
+        analysis_component_ids = [comp.id for comp in analysis_only_components]
+
+        # Combine both sources
+        component_ids = list(set(canvas_component_ids + analysis_component_ids))
+        flow_ids = canvas_flow_ids  # Flows are currently only via DFD
+
+        print(f"\nDEBUG: Found {len(dfds)} DFDs")
+        print(f"DEBUG: node_component_map has {len(node_component_map)} entries")
+        print(f"DEBUG: edge_flow_map has {len(edge_flow_map)} entries")
+        print(f"DEBUG: canvas_component_ids: {canvas_component_ids[:5]}..." if len(canvas_component_ids) > 5 else f"DEBUG: canvas_component_ids: {canvas_component_ids}")
+        print(f"DEBUG: analysis_component_ids: {analysis_component_ids[:5]}..." if len(analysis_component_ids) > 5 else f"DEBUG: analysis_component_ids: {analysis_component_ids}")
+        print(f"DEBUG: combined component_ids: {component_ids[:5]}..." if len(component_ids) > 5 else f"DEBUG: combined component_ids: {component_ids}")
+        print(f"DEBUG: flow_ids: {flow_ids[:5]}..." if len(flow_ids) > 5 else f"DEBUG: flow_ids: {flow_ids}")
+
+        result = []
+
+        # Fetch component threats
+        if component_ids:
+            component_threats = ComponentInstanceThreat.objects.filter(
+                component_id__in=component_ids
+            ).select_related(
+                "component", "threat_library"
+            ).prefetch_related(
+                "countermeasures__countermeasure_library",
+                "countermeasures__assigned_owner",
+                "countermeasures__verified_by",
+                "countermeasures__instance_standard_mappings__requirement__framework",
+            )
+
+            print(f"\nDEBUG: Queried ComponentInstanceThreat with {len(component_ids)} component_ids")
+            print(f"DEBUG: Found {component_threats.count()} component threats")
+
+            for i, threat in enumerate(component_threats):
+                if i == 0:  # Print details of first threat
+                    print(f"\nDEBUG: First Component Threat Details:")
+                    print(f"  - ID: {threat.id}")
+                    print(f"  - Component ID: {threat.component_id}")
+                    print(f"  - Component Name: {threat.component.name if threat.component else None}")
+                    print(f"  - Threat Library: {threat.threat_library.name if threat.threat_library else 'CUSTOM'}")
+                    print(f"  - Threat Name (custom): {threat.threat_name}")
+                    print(f"  - Countermeasures: {threat.countermeasures.count()}")
+
+            for threat in component_threats:
+                # Find which node this component corresponds to (if it's in a DFD)
+                node_info = None
+                for node_id, info in node_component_map.items():
+                    if info["component_id"] == threat.component_id:
+                        node_info = {"node_id": node_id, **info}
+                        break
+
+                # If not in DFD, it's an analysis-only component (DFD-free modeling)
+                # Use component ID directly without node mapping
+                if not node_info and threat.component_id in analysis_component_ids:
+                    # Analysis-only component - create a synthetic mapping
+                    node_info = {
+                        "node_id": f"analysis-{threat.component_id}",
+                        "component_id": threat.component_id,
+                        "dfd_id": None,
+                        "dfd_name": None,
+                    }
+
+                # Support custom threats (threat_library can be null)
+                threat_name = threat.threat_name or (
+                    threat.threat_library.name if threat.threat_library else None
+                )
+                threat_description = (
+                    threat.threat_library.description if threat.threat_library else None
+                )
+                stride_category = threat.stride_category or (
+                    threat.threat_library.stride_category if threat.threat_library else None
+                )
+
+                threat_data = {
+                    "id": threat.id,
+                    "type": "component",
+                    "component_id": threat.component_id,
+                    "component_name": threat.component.name if threat.component else None,
+                    "node_id": node_info["node_id"] if node_info else None,
+                    "dfd_id": node_info["dfd_id"] if node_info else None,
+                    "dfd_name": node_info["dfd_name"] if node_info else None,
+                    "threat_library_id": threat.threat_library_id,
+                    "threat_name": threat_name,
+                    "threat_description": threat_description,
+                    "stride_category": stride_category,
+                    "inherent_severity": threat.inherent_severity,
+                    "residual_severity": threat.residual_severity,
+                    "status": threat.status,
+                    "justification": threat.justification,
+                    "is_dismissed": threat.is_dismissed,
+                    "countermeasures": [
+                        {
+                            "id": cm.id,
+                            "countermeasure_library_id": cm.countermeasure_library_id,
+                            "countermeasure_name": cm.countermeasure_name or (
+                                cm.countermeasure_library.name if cm.countermeasure_library else None
+                            ),
+                            "countermeasure_description": cm.countermeasure_description or (
+                                cm.countermeasure_library.description if cm.countermeasure_library else None
+                            ),
+                            "control_type": cm.control_type or (
+                                cm.countermeasure_library.control_type if cm.countermeasure_library else None
+                            ),
+                            "status": cm.status,
+                            "evidence_url": cm.evidence_url,
+                            "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                            "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                            "compliance_standards": [
+                                {
+                                    "id": std.id,
+                                    "requirement_id": std.requirement_id,
+                                    "framework_name": std.requirement.framework.name,
+                                    "framework_slug": std.requirement.framework.slug,
+                                    "section_code": std.requirement.section_code,
+                                    "requirement_description": std.requirement.description,
+                                    "sufficiency": std.sufficiency,
+                                }
+                                for std in cm.instance_standard_mappings.all()
+                            ],
+                        }
+                        for cm in threat.countermeasures.all()
+                    ],
+                }
+                result.append(threat_data)
+
+        # Fetch data flow threats
+        if flow_ids:
+            flow_threats = DataFlowInstanceThreat.objects.filter(
+                data_flow_id__in=flow_ids
+            ).select_related(
+                "data_flow", "threat_library"
+            ).prefetch_related(
+                "countermeasures__countermeasure_library",
+                "countermeasures__assigned_owner",
+                "countermeasures__verified_by",
+                "countermeasures__instance_standard_mappings__requirement__framework",
+            )
+
+            for threat in flow_threats:
+                # Find which edge this flow corresponds to
+                edge_info = None
+                for edge_id, info in edge_flow_map.items():
+                    if info["flow_id"] == threat.data_flow_id:
+                        edge_info = {"edge_id": edge_id, **info}
+                        break
+
+                # Support custom threats (threat_library can be null)
+                threat_name = threat.threat_name or (
+                    threat.threat_library.name if threat.threat_library else None
+                )
+                threat_description = (
+                    threat.threat_library.description if threat.threat_library else None
+                )
+                stride_category = threat.stride_category or (
+                    threat.threat_library.stride_category if threat.threat_library else None
+                )
+
+                threat_data = {
+                    "id": threat.id,
+                    "type": "flow",
+                    "flow_id": threat.data_flow_id,
+                    "flow_label": threat.data_flow.label if threat.data_flow else None,
+                    "edge_id": edge_info["edge_id"] if edge_info else None,
+                    "dfd_id": edge_info["dfd_id"] if edge_info else None,
+                    "dfd_name": edge_info["dfd_name"] if edge_info else None,
+                    "threat_library_id": threat.threat_library_id,
+                    "threat_name": threat_name,
+                    "threat_description": threat_description,
+                    "stride_category": stride_category,
+                    "inherent_severity": threat.inherent_severity,
+                    "residual_severity": threat.residual_severity,
+                    "status": threat.status,
+                    "is_dismissed": threat.is_dismissed,
+                    "countermeasures": [
+                        {
+                            "id": cm.id,
+                            "countermeasure_library_id": cm.countermeasure_library_id,
+                            "countermeasure_name": cm.countermeasure_name or (
+                                cm.countermeasure_library.name if cm.countermeasure_library else None
+                            ),
+                            "countermeasure_description": cm.countermeasure_description or (
+                                cm.countermeasure_library.description if cm.countermeasure_library else None
+                            ),
+                            "control_type": cm.control_type or (
+                                cm.countermeasure_library.control_type if cm.countermeasure_library else None
+                            ),
+                            "status": cm.status,
+                            "evidence_url": cm.evidence_url,
+                            "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                            "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                            "compliance_standards": [
+                                {
+                                    "id": std.id,
+                                    "requirement_id": std.requirement_id,
+                                    "framework_name": std.requirement.framework.name,
+                                    "framework_slug": std.requirement.framework.slug,
+                                    "section_code": std.requirement.section_code,
+                                    "requirement_description": std.requirement.description,
+                                    "sufficiency": std.sufficiency,
+                                }
+                                for std in cm.instance_standard_mappings.all()
+                            ],
+                        }
+                        for cm in threat.countermeasures.all()
+                    ],
+                }
+                result.append(threat_data)
+
+        # Add analysis-only components to the node_component_map
+        # Use synthetic node IDs for frontend compatibility
+        for comp_id in analysis_component_ids:
+            if comp_id not in [v["component_id"] for v in node_component_map.values()]:
+                node_component_map[f"analysis-{comp_id}"] = {
+                    "component_id": comp_id,
+                    "dfd_id": None,
+                    "dfd_name": "Analysis-Only",
+                }
+
+        print(f"\nDEBUG: Built threat_analysis response:")
+        print(f"  - Total threats: {len(result)}")
+        print(f"  - Component threats: {sum(1 for t in result if t.get('type') == 'component')}")
+        print(f"  - Flow threats: {sum(1 for t in result if t.get('type') == 'flow')}")
+        print(f"  - Analysis-only components: {len(analysis_component_ids)}")
+        if result:
+            print(f"\nDEBUG: First threat in result:")
+            first = result[0]
+            print(f"  - type: {first.get('type')}")
+            print(f"  - threat_name: {first.get('threat_name')}")
+            print(f"  - node_id: {first.get('node_id')}")
+            print(f"  - countermeasures: {len(first.get('countermeasures', []))}")
+        print("="*80 + "\n")
 
         return {
             "threat_model_id": str(threat_model.id),
             "threats": result,
             "total_count": len(result),
             "node_component_map": node_component_map,
+            "edge_flow_map": edge_flow_map,
         }
 
 

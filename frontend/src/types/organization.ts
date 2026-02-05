@@ -170,32 +170,52 @@ export interface ThreatModelStats {
 }
 
 // Threat Analysis types for magic link sharing
+export interface ComplianceStandard {
+  id: number
+  requirementId: number
+  frameworkName: string
+  frameworkSlug: string
+  sectionCode: string
+  requirementDescription: string
+  sufficiency: 'full' | 'partial' | 'supplemental'
+}
+
 export interface SharedCountermeasure {
   id: number
-  countermeasureLibraryId: number
+  countermeasureLibraryId: number | null
   countermeasureName: string | null
+  countermeasureDescription: string | null
   controlType: string | null
-  status: 'gap' | 'planned' | 'verified' | 'waived'
+  status: 'gap' | 'planned' | 'verified' | 'waived' | 'platform'
   evidenceUrl: string
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
+  complianceStandards: ComplianceStandard[]
 }
 
 export interface SharedThreat {
   id: number
-  componentId: number
-  componentName: string | null
-  nodeId: string | null
+  type: 'component' | 'flow'
+  // Component threat fields
+  componentId?: number
+  componentName?: string | null
+  nodeId?: string | null
+  // Flow threat fields
+  flowId?: number
+  flowLabel?: string | null
+  edgeId?: string | null
+  // Common fields
   dfdId: string | null
   dfdName: string | null
-  threatLibraryId: number
+  threatLibraryId: number | null
   threatName: string | null
   threatDescription: string | null
   strideCategory: string | null
   inherentSeverity: string
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
-  justification: string
+  justification?: string
+  isDismissed: boolean
   countermeasures: SharedCountermeasure[]
 }
 
@@ -204,10 +224,45 @@ export interface ThreatAnalysisData {
   threats: SharedThreat[]
   totalCount: number
   nodeComponentMap: Record<string, { componentId: number; dfdId: string; dfdName: string }>
+  edgeFlowMap: Record<string, { flowId: number; dfdId: string; dfdName: string }>
 }
 
 export interface MagicLinkAccessResponse {
-  threatModel: unknown // ThreatModel type from threat-models
+  threatModel: {
+    id: number
+    name: string
+    description: string
+    version: string
+    status: string
+    criticality: string
+    workspaceData?: {
+      systemContext?: {
+        description?: string
+        assets?: Array<{ name: string; description?: string }>
+        outOfScopeItems?: string[]
+      }
+    }
+    referenceImages?: Array<{
+      id: number
+      threatModel: number
+      image: string
+      imageUrl: string
+      filename: string
+      description: string
+      displayOrder: number
+      uploadedBy: number | null
+      uploadedByEmail: string | null
+      createdAt: string
+    }>
+    dfds?: Array<{
+      id: number
+      name: string
+      canvasData?: {
+        nodes?: unknown[]
+        edges?: unknown[]
+      }
+    }>
+  }
   stats: ThreatModelStats
   threatAnalysis: ThreatAnalysisData
   readOnly: boolean
