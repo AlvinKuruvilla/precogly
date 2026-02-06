@@ -785,12 +785,20 @@ class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):
     serializer_class = ThreatModelReferenceImageSerializer
 
     def get_queryset(self):
-        """Filter by user's organization access."""
+        """Filter by user's organization access and specific threat model."""
         user = self.request.user
         user_orgs = user.organization_memberships.values_list("organization_id", flat=True)
-        return ThreatModelReferenceImage.objects.filter(
+
+        queryset = ThreatModelReferenceImage.objects.filter(
             threat_model__organization_id__in=user_orgs
         ).select_related("threat_model", "uploaded_by")
+
+        # Filter by threat_model if accessed via nested route
+        threat_model_id = self.kwargs.get('threat_model_pk')
+        if threat_model_id:
+            queryset = queryset.filter(threat_model_id=threat_model_id)
+
+        return queryset
 
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
