@@ -12,7 +12,7 @@ canvas_data:
       position: { x: 50, y: 150 }
       data:
         label: "User"
-        actorType: "external"
+        actorType: "user"
         description: "End user uploading files"
 
     - id: "sb-aws"
@@ -21,8 +21,6 @@ canvas_data:
       style: { width: 500, height: 300 }
       data:
         label: "AWS Serverless"
-        owner: "Dev Team"
-        classification: "Production"
 
     - id: "tb-aws"
       type: "trustBoundary"
@@ -31,7 +29,7 @@ canvas_data:
       style: { width: 440, height: 220 }
       data:
         label: "AWS Account"
-        boundaryType: "privateSecured"
+        boundaryType: "zoneRestricted"
         technology: "AWS"
 
     - id: "datastore-s3"

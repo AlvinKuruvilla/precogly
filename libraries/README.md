@@ -1,1264 +1,533 @@
-# Library Packs Architecture
+# Library Packs — Author Guide
 
-> **Last Updated:** December 29, 2025 (Added FAQ section on stub components and compliance linking)
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Data Model](#data-model)
-3. [Namespace & Qualified Slugs](#namespace--qualified-slugs)
-4. [Customization Tracking](#customization-tracking)
-5. [Dependency Version Constraints](#dependency-version-constraints)
-6. [Soft Delete & Deletion Cascades](#soft-delete--deletion-cascades)
-7. [Pack File Structure](#pack-file-structure)
-8. [Pack YAML Schema](#pack-yaml-schema)
-9. [DFD Templates](#dfd-templates)
-10. [Import Process](#import-process)
-11. [Multi-Tenant Query Logic](#multi-tenant-query-logic)
-12. [Compliance Mapping](#compliance-mapping)
-13. [Pack Catalog Examples](#pack-catalog-examples)
-14. [Onboarding Flow](#onboarding-flow)
-15. [Validation Rules](#validation-rules)
-16. [Error Handling](#error-handling)
-17. [FAQ](#faq)
+Library packs are modular bundles of threat-modeling content (components, threats, countermeasures, DFD templates, and compliance frameworks) that organizations install into Precogly. This guide covers everything you need to create a pack.
 
 ---
 
-## Overview
+## Pack Types
 
-Library Packs are modular, installable bundles of threat modeling content that organizations can install to populate their libraries. This architecture enables:
-
-- **Community Contributions**: Open-source packs maintained via GitHub
-- **Industry-Specific Content**: Banking, healthcare, fintech starter kits
-- **Monetization**: Premium/enterprise packs with licensing
-- **Multi-Tenant SaaS**: Different orgs see different libraries based on installed packs
-- **Version Control**: Semantic versioning with dependency management
-
-### Key Concepts
-
-| Term               | Definition                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| **Pack**           | A bundle of components, threats, countermeasures, and/or DFD templates             |
-| **Slug**           | Identifier within a pack (e.g., `aws-s3`, `sql-injection`)                         |
-| **Qualified Slug** | Namespace-safe identifier: `{pack-slug}/{item-slug}` (e.g., `aws-technologies/s3`) |
-| **Source Pack**    | FK on library items indicating which pack they came from                           |
-| **Installation**   | Record of which packs an organization has installed                                |
-| **Customization**  | Status tracking for forked items: `original`, `customized`, `detached`             |
-| **Aliases**        | Previous slugs for backward compatibility after renames                            |
+| `pack_type` | What it contains | Example |
+|---|---|---|
+| `technology` | Components only | `aws`, `azure`, `gcp` |
+| `threat` | Threats + countermeasures | `base-stride` |
+| `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
+| `industry` | Industry-specific components + templates | `banking` |
+| `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
+| `template` | DFD templates only | — |
 
 ---
 
-## Data Model
+## Directory Structure
 
-### LibraryPack
+Every pack is a directory. Only `pack.yaml` is required; all other files are optional depending on pack type.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         LibraryPack                             │
-├─────────────────────────────────────────────────────────────────┤
-│ slug: "banking-technologies"        (unique identifier)         │
-│ name: "Banking Technologies Pack"                               │
-│ description: "Core banking system components..."                │
-│ version: "1.2.0"                    (semantic versioning)       │
-│ pack_type: technology|threat|countermeasure|compliance|         │
-│            template|full                                        │
-│ tier: free|premium|enterprise                                   │
-│ source: official|partner|community|private                      │
-│ author: "Precogly Team"                                         │
-│ industries: ["banking", "fintech"]                              │
-│ tags: ["payments", "swift", "core-banking"]                     │
-│ repository_url: "github.com/precogly/packs/banking"             │
-│ content: { ... }                    (JSON - see schema below)   │
-│                                                                 │
-│ # Dependencies via LibraryPackDependency model                  │
-│ dependencies: [                                                 │
-│   { pack: base-stride, version: "^1.0.0" }                      │
-│ ]                                                               │
-│ install_count: 42                                               │
-│ is_published: true                                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                 OrganizationPackInstallation                    │
-├─────────────────────────────────────────────────────────────────┤
-│ organization: Acme Bank                                         │
-│ pack: banking-technologies                                      │
-│ installed_version: "1.2.0"                                      │
-│ status: installed|pending_update|failed                         │
-│ installed_by: admin@acmebank.com                                │
-│ installed_at: 2025-01-15                                        │
-│ license_key: "..."                  (for premium packs)         │
-│ license_expires_at: 2026-01-15                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Library Models with source_pack FK
-
-All library models have these common pack-related fields:
-
-```python
-class ComponentLibrary(TimestampedModel):
-    # Organization scoping
-    organization = FK(Organization, null=True)  # null = global/shared
-    source_pack = FK(LibraryPack, null=True)    # null = custom item
-
-    # Identifiers
-    slug = SlugField(max_length=100)            # e.g., "s3"
-    qualified_slug = CharField(db_index=True)   # e.g., "aws-technologies/s3"
-    name = CharField(max_length=255)
-
-    # Customization tracking
-    customization_status = CharField(choices=['original', 'customized', 'detached'])
-    base_item_qualified_slug = CharField(db_index=True)  # Original item if forked
-
-    # Backward compatibility
-    aliases = ArrayField(CharField())           # Previous slugs
-
-    # Soft delete
-    is_deleted = BooleanField(default=False)
-    deleted_at = DateTimeField(null=True)
-
-    # ... other fields
-
-    class Meta:
-        constraints = [
-            # Partial unique constraint: only active records must be unique
-            UniqueConstraint(
-                fields=['qualified_slug'],
-                condition=Q(is_deleted=False),
-                name='unique_active_component_qualified_slug'
-            )
-        ]
-
-# Same pattern applies to:
-# - ThreatLibrary (unique_active_threat_qualified_slug)
-# - CountermeasureLibrary (unique_active_countermeasure_qualified_slug)
-# - DFDTemplatesLibrary (unique_active_dfdtemplate_qualified_slug)
+aws-mini/
+├── pack.yaml                              # Pack metadata (required)
+├── components.yaml                        # Component definitions
+├── threats.yaml                           # Threat definitions
+├── countermeasures.yaml                   # Countermeasure definitions
+├── joins/
+│   ├── components-threats.yaml            # Which threats apply to which components
+│   ├── threats-countermeasures.yaml        # Which countermeasures mitigate which threats
+│   ├── countermeasures-nist-csf.yaml      # Compliance mapping to NIST CSF
+│   ├── countermeasures-owasp.yaml         # Compliance mapping to OWASP
+│   └── countermeasures-soc2.yaml          # Compliance mapping to SOC 2
+└── templates/
+    └── s3-lambda.yaml                     # DFD template
 ```
 
 ---
 
-## Namespace & Qualified Slugs
+## pack.yaml
 
-### The Problem: Namespace Collision
-
-Without namespacing, two packs could define the same slug (e.g., both `aws-technologies` and `banking-core` could define a component with slug `api-gateway`). This causes non-deterministic behavior when resolving slugs.
-
-### Solution: Qualified Slugs
-
-Every library item has a `qualified_slug` that combines the pack slug and item slug:
-
-```
-qualified_slug = "{pack_slug}/{item_slug}"
-
-Examples:
-- aws-technologies/s3
-- aws-technologies/api-gateway
-- banking-core/api-gateway      # Different from above!
-- global/custom-component       # For items without a pack
-- org-42/custom-threat          # For org-specific items
-```
-
-### Auto-Generation Logic
-
-```python
-def save(self, *args, **kwargs):
-    if not self.qualified_slug and self.slug:
-        if self.source_pack:
-            self.qualified_slug = f"{self.source_pack.slug}/{self.slug}"
-        elif self.organization:
-            self.qualified_slug = f"org-{self.organization.id}/{self.slug}"
-        else:
-            self.qualified_slug = f"global/{self.slug}"
-    super().save(*args, **kwargs)
-```
-
-### Slug Resolution (Updated)
-
-```python
-def resolve_slug(slug: str, pack: LibraryPack, org: Organization, model_class):
-    """
-    Resolve a slug to a library item using qualified_slug.
-    """
-    # If slug contains '/', it's a qualified slug - use directly
-    if '/' in slug:
-        return model_class.objects.filter(
-            qualified_slug=slug,
-            is_deleted=False
-        ).first()
-
-    # Otherwise, try to build qualified slug from current pack
-    qualified = f"{pack.slug}/{slug}"
-    item = model_class.objects.filter(
-        qualified_slug=qualified,
-        is_deleted=False
-    ).first()
-
-    if not item:
-        # Try aliases for backward compatibility
-        item = model_class.objects.filter(
-            aliases__contains=[slug],
-            source_pack=pack,
-            is_deleted=False
-        ).first()
-
-    return item
-```
-
----
-
-## Customization Tracking
-
-### The Problem: Update vs Fork Dilemma
-
-When an organization edits a pack-provided item, should pack updates overwrite their changes? This creates a conflict between:
-- **Receiving upstream fixes** (good)
-- **Preserving local customizations** (also good)
-
-### Solution: Customization Status
-
-Each library item tracks its customization state:
-
-| Status        | Meaning                                      | Update Behavior                     |
-| ------------- | -------------------------------------------- | ----------------------------------- |
-| `original`    | Unchanged from pack                          | Safe to update automatically        |
-| `customized`  | Org edited but wants upstream updates        | Flag for review, don't auto-update  |
-| `detached`    | Org explicitly unlinked from pack            | Never update, treated as custom     |
-
-### Workflow
-
-```
-Pack Installed
-      │
-      ▼
-┌─────────────────┐
-│    original     │◀───── Default state
-└────────┬────────┘
-         │ Org edits item
-         ▼
-┌─────────────────┐
-│   customized    │◀───── base_item_qualified_slug tracks original
-└────────┬────────┘
-         │ User clicks "Detach from pack"
-         ▼
-┌─────────────────┐
-│    detached     │◀───── No longer linked to pack
-└─────────────────┘
-```
-
-### Fields
-
-```python
-customization_status = CharField(choices=[
-    ('original', 'Original'),
-    ('customized', 'Customized'),
-    ('detached', 'Detached')
-], default='original')
-
-base_item_qualified_slug = CharField(blank=True)  # e.g., "aws-technologies/s3"
-```
-
-### Update Logic
-
-```python
-def update_pack_items(pack, org):
-    for item in ComponentLibrary.objects.filter(source_pack=pack, organization=org):
-        if item.customization_status == 'original':
-            # Safe to update
-            update_from_pack(item)
-        elif item.customization_status == 'customized':
-            # Flag for review
-            create_update_notification(org, item, "Review required: upstream changes")
-        # 'detached' items are skipped entirely
-```
-
----
-
-## Dependency Version Constraints
-
-### The Problem: Breaking Changes
-
-When Pack B depends on Pack A, updating Pack A might break Pack B if APIs change. Terraform and npm solve this with version constraints.
-
-### Solution: SemVer Constraints
-
-The `LibraryPackDependency` model supports semantic versioning:
-
-```python
-class LibraryPackDependency(TimestampedModel):
-    pack = FK(LibraryPack)              # The dependent pack
-    depends_on_pack = FK(LibraryPack)   # The dependency
-    version_constraint = CharField()     # e.g., "^1.0.0"
-    is_optional = BooleanField()         # Optional dependencies
-```
-
-### Supported Constraints
-
-| Constraint      | Meaning                        | Example Match         |
-| --------------- | ------------------------------ | --------------------- |
-| `^1.0.0`        | Compatible with 1.x.x          | 1.0.0, 1.5.0, 1.99.0  |
-| `~1.2.0`        | Compatible with 1.2.x          | 1.2.0, 1.2.5, 1.2.99  |
-| `>=2.0.0`       | At least version 2.0.0         | 2.0.0, 3.0.0, etc.    |
-| `>=1.0.0 <2.0.0`| Range constraint               | 1.0.0 to 1.99.99      |
-| `1.5.0`         | Exact version                  | 1.5.0 only            |
-| (empty)         | Any version (latest)           | Any                   |
-
-### YAML Syntax
+Pack metadata. This is the only required file.
 
 ```yaml
 pack:
-  slug: banking-technologies
-  depends_on:
-    - pack: base-stride
-      version: "^1.0.0"
-    - pack: aws-technologies
-      version: ">=2.0.0"
-    - pack: ai-threats
-      version: "~1.5.0"
-      optional: true
-```
-
-### Installation Check
-
-```python
-def check_dependencies(pack, org):
-    errors = []
-    for dep in pack.dependencies.all():
-        installation = OrganizationPackInstallation.objects.filter(
-            organization=org,
-            pack=dep.depends_on_pack
-        ).first()
-
-        if not installation:
-            if not dep.is_optional:
-                errors.append(f"Missing required dependency: {dep.depends_on_pack.slug}")
-        elif not version_matches(installation.installed_version, dep.version_constraint):
-            errors.append(
-                f"Version mismatch: {dep.depends_on_pack.slug} "
-                f"requires {dep.version_constraint}, got {installation.installed_version}"
-            )
-    return errors
-```
-
----
-
-## Soft Delete & Deletion Cascades
-
-### The Problem: Deletion Cascades
-
-When a pack is uninstalled, what happens to DFD nodes that reference pack components? Hard delete could break existing diagrams.
-
-### Solution: Soft Delete with Partial Unique Constraints
-
-Library items use soft delete to preserve historical data:
-
-```python
-is_deleted = BooleanField(default=False)
-deleted_at = DateTimeField(null=True)
-```
-
-### The Zombie Record Trap (and how we avoid it)
-
-**The Problem:** If `qualified_slug` has a simple `unique=True` constraint, and we soft-delete a record, we can't reinstall the same pack because the soft-deleted record still occupies the unique slug.
-
-**The Solution:** PostgreSQL partial unique constraint that only enforces uniqueness on **active** records:
-
-```python
-class Meta:
-    constraints = [
-        models.UniqueConstraint(
-            fields=['qualified_slug'],
-            condition=models.Q(is_deleted=False),
-            name='unique_active_component_qualified_slug'
-        )
-    ]
-```
-
-This allows:
-- Multiple soft-deleted records with the same `qualified_slug`
-- Only ONE active record per `qualified_slug`
-- Reinstalling packs works correctly (soft-delete first, then update or create)
-
-### Query Patterns
-
-```python
-# Active items only (default)
-ComponentLibrary.objects.filter(is_deleted=False)
-
-# Include soft-deleted for historical views
-ComponentLibrary.objects.all()
-
-# Custom manager for convenience
-class ActiveManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
-
-class ComponentLibrary(TimestampedModel):
-    objects = ActiveManager()
-    all_objects = models.Manager()  # Includes soft-deleted
-```
-
-### Uninstall Behavior
-
-```
-Pack Uninstall Requested
-         │
-         ▼
-┌────────────────────────┐
-│ Check for dependents   │──▶ Error if other packs depend on this
-└────────┬───────────────┘
-         │
-         ▼
-┌────────────────────────┐
-│ Check for usage        │──▶ Warning if items used in threat models
-└────────┬───────────────┘
-         │
-         ▼
-┌────────────────────────┐
-│ Soft delete all items  │
-│ - Set is_deleted=True  │
-│ - Set deleted_at=now() │
-└────────┬───────────────┘
-         │
-         ▼
-┌────────────────────────┐
-│ Delete installation    │
-│ record                 │
-└────────────────────────┘
-```
-
-### DFD Preservation
-
-DFD nodes that reference soft-deleted components:
-- Still render (with visual indicator of "archived" state)
-- Cannot be used in new threat models
-- Can be replaced with active components via UI action
-
----
-
-## Pack File Structure
-
-Packs are stored as directories with the following structure:
-
-```
-banking-pack/
-├── pack.yaml                    # Main pack file (required)
-│   ├── metadata
-│   ├── components (with nested threats/countermeasures)
-│   ├── standalone threats
-│   ├── standalone countermeasures
-│   └── standards mappings
-│
-└── DFDTemplates/                # Separate directory for templates (optional)
-    ├── banking-webapp-l1.yaml
-    ├── banking-api-l2.yaml
-    └── payment-flow.yaml
-```
-
-### Why This Structure?
-
-1. **`pack.yaml`** contains all components, threats, countermeasures, and standards in a **single file** for data integrity
-2. **`DFDTemplates/`** are separate files because:
-   - `canvas_data` is verbose ReactFlow JSON
-   - Templates can be large and complex
-   - Each template references component slugs from `pack.yaml`
-
----
-
-## Pack YAML Schema
-
-### Complete Example: `pack.yaml`
-
-```yaml
-# =============================================================================
-# PACK METADATA
-# =============================================================================
-pack:
-  slug: banking-technologies
-  name: "Banking Technologies Pack"
-  description: "Core banking system components, threats, and controls"
-  version: "1.0.0"
-  author: "Precogly Team"
-  pack_type: full # technology|threat|countermeasure|compliance|template|full
-  tier: free # free|premium|enterprise
-  source: official # official|partner|community|private
+  slug: aws-mini
+  name: AWS Mini
+  version: 1.1.0
+  pack_type: full
+  description: |
+    A minimal AWS pack demonstrating core AWS services with
+    associated threats and countermeasures.
+  tier: free
+  source: official
+  author: Precogly
   industries:
-    - banking
-    - fintech
-    - payments
+    - technology
+    - saas
   tags:
-    - core-banking
-    - swift
-    - pci-dss
-  repository_url: "https://github.com/precogly/packs/banking"
-  documentation_url: "https://docs.precogly.dev/packs/banking"
-  depends_on:
+    - aws
+    - cloud
+    - serverless
+  repository_url: "https://github.com/precogly/precogly"
+  documentation_url: "https://docs.precogly.dev/packs/aws-mini"
+  depends_on:                          # optional
     - pack: base-stride
-      version: "^1.0.0"      # SemVer constraint
-
-# =============================================================================
-# COMPONENTS (with nested threats and countermeasures)
-# =============================================================================
-# Components are the primary organizational unit. Each component has its own
-# threats, and each threat has its own countermeasures. This hierarchical
-# structure ensures data integrity and makes relationships explicit.
-
-components:
-  # ---------------------------------------------------------------------------
-  # Core Banking System
-  # ---------------------------------------------------------------------------
-  - slug: core-banking-system
-    name: "Core Banking System"
-    category: process # process|datastore|external
-    component_type: "Banking Platform"
-    provider: internal
-
-    threats:
-      - slug: transaction-fraud
-        name: "Transaction Fraud"
-        description: "Unauthorized or manipulated financial transactions"
-        stride_category: tampering
-        severity: critical
-
-        countermeasures:
-          - slug: transaction-monitoring
-            name: "Real-time Transaction Monitoring"
-            description: "Monitor all transactions for anomalous patterns"
-            control_type: technical
-            cost: high
-
-          - slug: fraud-detection-ml
-            name: "ML-based Fraud Detection"
-            description: "Machine learning models to detect fraud patterns"
-            control_type: technical
-            cost: high
-
-      - slug: unauthorized-account-access
-        name: "Unauthorized Account Access"
-        description: "Attackers gaining access to customer accounts"
-        stride_category: spoofing
-        severity: high
-
-        countermeasures:
-          - slug: mfa
-            name: "Multi-Factor Authentication"
-            description: "Require multiple authentication factors"
-            control_type: technical
-            cost: medium
-
-          - slug: session-management
-            name: "Secure Session Management"
-            description: "Proper session timeouts and token handling"
-            control_type: technical
-            cost: low
-
-  # ---------------------------------------------------------------------------
-  # SWIFT Gateway
-  # ---------------------------------------------------------------------------
-  - slug: swift-gateway
-    name: "SWIFT Gateway"
-    category: external
-    component_type: "Payment Network"
-    provider: SWIFT
-
-    threats:
-      - slug: swift-message-tampering
-        name: "SWIFT Message Tampering"
-        description: "Manipulation of SWIFT payment messages"
-        stride_category: tampering
-        severity: critical
-
-        countermeasures:
-          - slug: swift-csp
-            name: "SWIFT CSP Compliance"
-            description: "Implement SWIFT Customer Security Programme controls"
-            control_type: technical
-            cost: high
-
-  # ---------------------------------------------------------------------------
-  # Customer Database
-  # ---------------------------------------------------------------------------
-  - slug: customer-database
-    name: "Customer Database"
-    category: datastore
-    component_type: "Database"
-    provider: aws
-
-    threats:
-      - slug: customer-data-breach
-        name: "Customer Data Breach"
-        description: "Unauthorized access to customer PII"
-        stride_category: information_disclosure
-        severity: critical
-
-        countermeasures:
-          - slug: encryption-at-rest
-            name: "Encryption at Rest"
-            description: "AES-256 encryption for all stored data"
-            control_type: technical
-            cost: medium
-
-          - slug: database-access-controls
-            name: "Database Access Controls"
-            description: "Role-based access and audit logging"
-            control_type: technical
-            cost: low
-
-# =============================================================================
-# STANDALONE THREATS (not component-specific)
-# =============================================================================
-# These threats can be applied to multiple components or are industry-wide.
-
-threats:
-  - slug: insider-threat
-    name: "Insider Threat"
-    description: "Malicious actions by authorized internal users"
-    stride_category: elevation_of_privilege
-    source: custom
-    severity: high
-
-  - slug: regulatory-non-compliance
-    name: "Regulatory Non-Compliance"
-    description: "Failure to meet banking regulatory requirements"
-    stride_category: repudiation
-    source: custom
-    severity: high
-
-# =============================================================================
-# STANDALONE COUNTERMEASURES (reusable across threats)
-# =============================================================================
-# These countermeasures can be applied to multiple threats.
-
-countermeasures:
-  - slug: security-logging
-    name: "Security Logging"
-    description: "Comprehensive logging of security events"
-    control_type: technical
-    cost: low
-    applicable_threats:
-      - insider-threat
-      - unauthorized-account-access
-
-  - slug: employee-training
-    name: "Security Awareness Training"
-    description: "Regular security training for all employees"
-    control_type: procedural
-    cost: medium
-    applicable_threats:
-      - insider-threat
-
-# =============================================================================
-# COMPLIANCE STANDARDS MAPPING
-# =============================================================================
-# Maps countermeasures to compliance framework requirements.
-
-standards:
-  - countermeasure: transaction-monitoring
-    requirement: pci-dss-10.1
-    sufficiency: full
-
-  - countermeasure: transaction-monitoring
-    requirement: pci-dss-10.2
-    sufficiency: partial
-
-  - countermeasure: encryption-at-rest
-    requirement: pci-dss-3.4
-    sufficiency: full
-
-  - countermeasure: mfa
-    requirement: pci-dss-8.3
-    sufficiency: full
-
-  - countermeasure: security-logging
-    requirement: pci-dss-10.2
-    sufficiency: partial
-
-  - countermeasure: security-logging
-    requirement: soc2-cc6.1
-    sufficiency: partial
+      version: "^1.0.0"               # SemVer constraint
+      optional: false                  # default false
 ```
 
 ### Field Reference
 
-| Pack Field                       | Django Model Field                          | Required | Description                                               |
-| -------------------------------- | ------------------------------------------- | -------- | --------------------------------------------------------- |
-| `pack.slug`                      | `LibraryPack.slug`                          | Yes      | Unique pack identifier                                    |
-| `pack.version`                   | `LibraryPack.version`                       | Yes      | Semantic version                                          |
-| `pack.pack_type`                 | `LibraryPack.pack_type`                     | Yes      | technology/threat/countermeasure/compliance/template/full |
-| `pack.tier`                      | `LibraryPack.tier`                          | No       | free (default)/premium/enterprise                         |
-| `pack.source`                    | `LibraryPack.source`                        | No       | official/partner/community (default)/private              |
-| `pack.depends_on[].pack`         | `LibraryPackDependency.depends_on_pack`     | No       | Dependency pack slug                                      |
-| `pack.depends_on[].version`      | `LibraryPackDependency.version_constraint`  | No       | SemVer constraint (e.g., "^1.0.0")                        |
-| `pack.depends_on[].optional`     | `LibraryPackDependency.is_optional`         | No       | Whether dependency is optional                            |
-| `components[].slug`              | `ComponentLibrary.slug`                     | Yes      | Component identifier within pack                          |
-| `components[].category`          | `ComponentLibrary.category`                 | Yes      | process/datastore/external                                |
-| `threats[].slug`                 | `ThreatLibrary.slug`                        | Yes      | Threat identifier within pack                             |
-| `threats[].stride_category`      | `ThreatLibrary.stride_category`             | Yes      | STRIDE category                                           |
-| `countermeasures[].slug`         | `CountermeasureLibrary.slug`                | Yes      | Countermeasure identifier within pack                     |
-| `countermeasures[].control_type` | `CountermeasureLibrary.control_type`        | Yes      | technical/procedural                                      |
-| `standards[].requirement`        | `StandardRequirement.section_code`          | Yes      | Framework requirement code                                |
-| `standards[].sufficiency`        | `CountermeasureLibraryStandard.sufficiency` | Yes      | full/partial                                              |
+| Field | Required | Description |
+|---|---|---|
+| `slug` | yes | Unique identifier. Lowercase alphanumeric + hyphens. |
+| `name` | yes | Display name. |
+| `version` | yes | Semantic version (`X.Y.Z`). |
+| `pack_type` | yes | `technology`, `threat`, `countermeasure`, `compliance`, `template`, `full`, or `industry` |
+| `description` | yes | Multi-line description. |
+| `tier` | no | `free` (default), `premium`, `enterprise` |
+| `source` | no | `official`, `partner`, `community` (default), `private` |
+| `author` | no | Author name. |
+| `industries` | no | List of industry tags. |
+| `tags` | no | Searchable tags. |
+| `repository_url` | no | Source code URL. |
+| `documentation_url` | no | Documentation URL. |
+| `depends_on` | no | List of pack dependencies (see below). |
+
+### Dependencies
+
+```yaml
+depends_on:
+  - pack: base-stride        # pack slug
+    version: "^1.0.0"        # ^=compatible, ~=patch-only, >=, exact
+    optional: true            # optional dependency (default false)
+```
+
+| Constraint | Meaning |
+|---|---|
+| `^1.0.0` | Compatible with 1.x.x |
+| `~1.2.0` | Compatible with 1.2.x |
+| `>=2.0.0` | At least 2.0.0 |
+| `1.5.0` | Exact version |
+
+---
+
+## components.yaml
+
+Defines the technology components in your pack.
+
+```yaml
+components:
+  - id: s3
+    name: Amazon S3
+    category: datastore
+    type: Object Storage
+    provider: aws
+    description: |
+      Amazon Simple Storage Service (S3) provides scalable object storage
+      for data backup, archival, and analytics.
+
+  - id: lambda
+    name: AWS Lambda
+    category: process
+    type: Serverless Function
+    provider: aws
+    description: |
+      AWS Lambda lets you run code without provisioning servers.
+
+  - id: api-gateway
+    name: Amazon API Gateway
+    category: process
+    type: API Management
+    provider: aws
+    description: |
+      Managed service for creating, publishing, and securing APIs.
+```
+
+### Field Reference
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Unique within pack. Lowercase + hyphens. |
+| `name` | yes | Display name. |
+| `category` | yes | `process`, `datastore`, `human_actor`, `system_actor` |
+| `type` | yes | Free-text component type (e.g. "Object Storage", "NoSQL Database"). |
+| `provider` | no | Provider name (e.g. `aws`, `azure`, `gcp`). |
+| `description` | no | Multi-line description. |
+
+---
+
+## threats.yaml
+
+Defines threats. Can be component-specific or general-purpose.
+
+```yaml
+threats:
+  - id: s3-public-exposure
+    name: S3 Bucket Public Exposure
+    description: |
+      S3 bucket is publicly accessible, exposing sensitive data
+      to unauthorized users.
+    stride_category: information_disclosure
+    source: custom
+
+  - id: lambda-injection
+    name: Lambda Code Injection
+    description: |
+      Malicious input exploits Lambda function leading to code execution.
+    stride_category: tampering
+    source: custom
+```
+
+### Field Reference
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Unique within pack. |
+| `name` | yes | Display name. |
+| `description` | yes | What the threat is and how it occurs. |
+| `stride_category` | yes | One of the STRIDE categories (see below). |
+| `source` | no | `custom` (default). |
+| `severity` | no | `critical`, `high`, `medium`, `low` |
+
+### STRIDE Categories
+
+| Value | Category |
+|---|---|
+| `spoofing` | Pretending to be something or someone else |
+| `tampering` | Modifying data or code |
+| `repudiation` | Denying having performed an action |
+| `information_disclosure` | Exposing information to unauthorized parties |
+| `denial_of_service` | Denying or degrading service to users |
+| `elevation_of_privilege` | Gaining capabilities beyond what is authorized |
+
+---
+
+## countermeasures.yaml
+
+Defines security controls that mitigate threats.
+
+```yaml
+countermeasures:
+  - id: s3-block-public-access
+    name: S3 Block Public Access
+    description: |
+      Enable S3 Block Public Access settings at account and bucket level.
+      Prevents accidental public exposure.
+    control_type: preventive
+    cost: low
+
+  - id: s3-versioning
+    name: S3 Versioning
+    description: |
+      Enable versioning to protect against accidental or malicious
+      deletions/modifications.
+    control_type: detective
+    cost: low
+```
+
+### Field Reference
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Unique within pack. |
+| `name` | yes | Display name. |
+| `description` | yes | What the control does and how it helps. |
+| `control_type` | yes | `preventive`, `detective`, or `corrective` |
+| `cost` | yes | `low`, `medium`, or `high` |
+
+---
+
+## Join Files
+
+Join files live in the `joins/` directory and define the relationships between items.
+
+### components-threats.yaml
+
+Maps threats to the components they apply to.
+
+```yaml
+mappings:
+  - component: s3
+    threats:
+      - threat: s3-public-exposure
+        applies_to: component
+      - threat: s3-data-tampering
+        applies_to: component
+      - threat: dataflow-eavesdropping
+        applies_to: flow
+      - threat: dataflow-mitm
+        applies_to: flow
+
+  - component: api-gateway
+    threats:
+      - threat: apigw-injection
+        applies_to: both
+```
+
+`applies_to` values:
+
+| Value | Meaning |
+|---|---|
+| `component` | Threat applies to the component itself |
+| `flow` | Threat applies to data flows involving the component |
+| `both` | Threat applies to both |
+
+### threats-countermeasures.yaml
+
+Maps countermeasures to the threats they mitigate.
+
+```yaml
+mappings:
+  - threat: s3-public-exposure
+    countermeasures:
+      - s3-block-public-access
+      - s3-bucket-policy
+      - s3-access-logging
+
+  - threat: lambda-injection
+    countermeasures:
+      - lambda-input-validation
+      - lambda-vpc
+      - lambda-code-signing
+```
+
+### Compliance Overlay Files
+
+Map countermeasures to compliance framework requirements. File naming convention: `countermeasures-{framework-slug}.yaml`.
+
+```yaml
+# joins/countermeasures-nist-csf.yaml
+framework: nist-csf-2
+
+mappings:
+  - countermeasure: s3-bucket-policy
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: lambda-least-privilege
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `framework` | yes | Slug of the compliance framework (must match a compliance pack). |
+| `countermeasure` | yes | ID of a countermeasure in this pack. |
+| `requirements` | yes | List of `section_code` values from the framework. |
+| `sufficiency` | yes | `full` (fully satisfies) or `partial` (partially satisfies). |
 
 ---
 
 ## DFD Templates
 
-DFD Templates are stored in separate YAML files in the `DFDTemplates/` directory. Each template references component slugs from `pack.yaml`.
-
-### Template File Structure
+Templates are pre-built Data Flow Diagrams stored in the `templates/` directory. Each template produces a ready-to-use diagram when a user selects it.
 
 ```yaml
-# DFDTemplates/banking-webapp-l1.yaml
-
+# templates/s3-lambda.yaml
 template:
-  slug: banking-webapp-l1
-  name: "Banking Web Application (Level 1)"
-  description: "Standard banking web application architecture"
-  category: webapp # webapp|microservices|iot|api|mobile
-  diagram_type: level1 # context|level1|level2
+  slug: aws-mini-s3-lambda
+  name: "S3 + Lambda"
+  description: "Simple serverless pattern with S3 storage and Lambda processing"
+  category: serverless
+  diagram_type: level1
 
-# Node-to-component mappings
-# Each node in the DFD references a component slug from pack.yaml
-node_components:
-  - node_id: "node-1"
-    component_ref: customer-database # References slug from pack.yaml
-    label: "Customer Database"
-
-  - node_id: "node-2"
-    component_ref: core-banking-system
-    label: "Core Banking System"
-
-  - node_id: "node-3"
-    component_ref: swift-gateway
-    label: "SWIFT Gateway"
-
-  - node_id: "node-ext-1"
-    component_ref: null # External entity, no component
-    label: "Customer"
-    is_external: true
-
-# ReactFlow canvas data
 canvas_data:
   nodes:
-    - id: "node-1"
+    - id: "actor-user"
+      type: "humanActor"
+      position: { x: 50, y: 150 }
+      data:
+        label: "User"
+        actorType: "user"
+        description: "End user uploading files"
+
+    - id: "sb-aws"
+      type: "systemScope"
+      position: { x: 180, y: 50 }
+      style: { width: 500, height: 300 }
+      data:
+        label: "AWS Serverless"
+
+    - id: "tb-aws"
+      type: "trustBoundary"
+      parentId: "sb-aws"
+      position: { x: 30, y: 50 }
+      style: { width: 440, height: 220 }
+      data:
+        label: "AWS Account"
+        boundaryType: "zoneRestricted"
+        technology: "AWS"
+
+    - id: "datastore-s3"
       type: "datastore"
-      position: { x: 400, y: 300 }
+      parentId: "tb-aws"
+      position: { x: 50, y: 60 }
       data:
-        label: "Customer Database"
+        label: "S3 Bucket"
+        component_ref: "s3"
+        description: "Object storage for uploaded files"
+        dataSensitivity: "confidential"
 
-    - id: "node-2"
+    - id: "process-lambda"
       type: "process"
-      position: { x: 200, y: 200 }
+      parentId: "tb-aws"
+      position: { x: 250, y: 60 }
       data:
-        label: "Core Banking System"
-
-    - id: "node-3"
-      type: "external"
-      position: { x: 400, y: 100 }
-      data:
-        label: "SWIFT Gateway"
-
-    - id: "node-ext-1"
-      type: "external"
-      position: { x: 50, y: 200 }
-      data:
-        label: "Customer"
+        label: "Lambda"
+        component_ref: "lambda"
+        description: "Processes uploaded files"
 
   edges:
     - id: "edge-1"
-      source: "node-ext-1"
-      target: "node-2"
-      label: "HTTPS"
+      source: "actor-user"
+      target: "datastore-s3"
+      type: "dataFlow"
       data:
+        label: "Upload File"
         protocol: "HTTPS"
-        port: 443
+        encrypted: true
 
     - id: "edge-2"
-      source: "node-2"
-      target: "node-1"
-      label: "SQL/TLS"
+      source: "datastore-s3"
+      target: "process-lambda"
+      type: "dataFlow"
       data:
-        protocol: "PostgreSQL"
-        port: 5432
-
-    - id: "edge-3"
-      source: "node-2"
-      target: "node-3"
-      label: "SWIFT"
-      data:
-        protocol: "SWIFT"
-        port: 443
+        label: "S3 Event Trigger"
+        protocol: "AWS Internal"
+        encrypted: true
 ```
 
-### Template Import Logic
+### Template Metadata
 
-When a user creates a DFD from a template:
+| Field | Required | Description |
+|---|---|---|
+| `slug` | yes | Unique template identifier. |
+| `name` | yes | Display name. |
+| `description` | yes | What the template represents. |
+| `category` | yes | See template categories below. |
+| `diagram_type` | yes | `context`, `level1`, or `level2` |
 
-1. Parse `node_components` section
-2. For each `component_ref`, lookup `ComponentLibrary` by slug
-3. Create DFD nodes linked to component instances
-4. Threats and countermeasures automatically available via component relationships
+### Template Categories
 
----
+`webApplication`, `mobileApplication`, `microservices`, `dataPipeline`, `authentication`, `paymentProcessing`, `cloudInfrastructure`, `iot`, `apiGateway`, `other`
 
-## Import Process
+### Node Types
 
-### Two-Pass Import Flow
+| `type` | Use for | Key `data` fields |
+|---|---|---|
+| `process` | Applications, services, functions | `technology`, `dataSensitivity`, `component_ref` |
+| `datastore` | Databases, file storage, caches | `technology`, `dataSensitivity`, `component_ref` |
+| `humanActor` | Users, admins, attackers | `actorType` |
+| `systemActor` | External APIs, third-party services | `systemType`, `vendor` |
+| `trustBoundary` | Network zones, security perimeters | `boundaryType`, `technology` |
+| `systemScope` | Top-level system containers | `owner`, `classification` |
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      PACK IMPORT FLOW                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. VALIDATION PHASE                                            │
-│     ├─ Parse pack.yaml                                          │
-│     ├─ Validate required fields                                 │
-│     ├─ Check dependencies are installed                         │
-│     ├─ Validate all slugs are unique within pack                │
-│     └─ Validate cross-references exist (threat refs, etc.)      │
-│                                                                 │
-│  2. CREATION PHASE (Pass 1)                                     │
-│     ├─ Create/update LibraryPack record                         │
-│     ├─ Create ComponentLibrary records (with source_pack FK)    │
-│     ├─ Create ThreatLibrary records (with source_pack FK)       │
-│     ├─ Create CountermeasureLibrary records (with source_pack)  │
-│     └─ Create DFDTemplatesLibrary records (with source_pack)    │
-│                                                                 │
-│  3. LINKING PHASE (Pass 2)                                      │
-│     ├─ Create ComponentLibraryThreat records                    │
-│     ├─ Link countermeasures to threats (applicable_threats M2M) │
-│     └─ Create CountermeasureLibraryStandard records             │
-│                                                                 │
-│  4. FINALIZATION                                                │
-│     ├─ Create OrganizationPackInstallation record               │
-│     ├─ Increment pack install_count                             │
-│     └─ Log installation audit trail                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+Containers (`trustBoundary`, `systemScope`) support nesting via `parentId` and must set `style: { width, height }`.
 
-### Slug Resolution Logic
+### Trust Boundary Types
 
-> **Note:** See [Namespace & Qualified Slugs](#namespace--qualified-slugs) for the updated resolution logic using `qualified_slug`.
+| `boundaryType` | Label |
+|---|---|
+| `zoneInternet` | Internet / Public Zone |
+| `zoneDmz` | DMZ |
+| `zoneInternal` | Internal Network |
+| `zoneRestricted` | Restricted Zone |
 
-```python
-def resolve_slug(slug: str, pack: LibraryPack, org: Organization, model_class):
-    """
-    Resolve a slug to a library item using qualified_slug.
-    Supports both qualified slugs (pack/item) and simple slugs.
-    """
-    # If qualified slug, resolve directly
-    if '/' in slug:
-        return model_class.objects.filter(
-            qualified_slug=slug,
-            is_deleted=False
-        ).first()
+### Edge Type
 
-    # Build qualified slug from current pack context
-    qualified = f"{pack.slug}/{slug}"
-    item = model_class.objects.filter(
-        qualified_slug=qualified,
-        is_deleted=False
-    ).first()
+All edges use `type: "dataFlow"`.
 
-    # Try aliases for backward compatibility
-    if not item:
-        item = model_class.objects.filter(
-            aliases__contains=[slug],
-            source_pack=pack,
-            is_deleted=False
-        ).first()
+| `data` field | Required | Description |
+|---|---|---|
+| `label` | no | Display label on the edge. |
+| `protocol` | no | `HTTP`, `HTTPS`, `gRPC`, `WebSocket`, `TCP`, `UDP`, `MQTT`, `AMQP`, `SQL`, `Custom` |
+| `encrypted` | no | `true` or `false` |
+| `authenticated` | no | `true` or `false` |
+| `dataClassification` | no | List of: `PII`, `Customer Data`, `Financial`, `PHI`, `Confidential`, `Internal`, `Public` |
+| `description` | no | Edge description. |
 
-    return item
-```
+### Linking Nodes to Components
 
----
-
-## Multi-Tenant Query Logic
-
-### How Different Orgs See Different Libraries
-
-```
-Org A (Bank)                          Org B (Healthcare)
-├── Installed Packs:                  ├── Installed Packs:
-│   ├── base-stride                   │   ├── base-stride
-│   ├── banking-technologies          │   ├── healthcare-technologies
-│   └── pci-dss-controls              │   └── hipaa-controls
-│                                     │
-└── Sees:                             └── Sees:
-    ├── STRIDE threats                    ├── STRIDE threats
-    ├── Core Banking System               ├── EHR systems
-    ├── SWIFT Gateway                     ├── Medical devices
-    ├── PCI-DSS controls                  ├── HIPAA controls
-    └── + Custom items                    └── + Custom items
-```
-
-### Query Implementation
-
-```python
-def get_components_for_org(org: Organization):
-    """Get all active components visible to an organization."""
-    installed_pack_ids = OrganizationPackInstallation.objects.filter(
-        organization=org
-    ).values_list('pack_id', flat=True)
-
-    return ComponentLibrary.objects.filter(
-        Q(organization=org) |                      # Org's custom items
-        Q(source_pack_id__in=installed_pack_ids),  # From installed packs
-        is_deleted=False                           # Exclude soft-deleted
-    )
-
-def get_threats_for_org(org: Organization):
-    """Get all active threats visible to an organization."""
-    installed_pack_ids = OrganizationPackInstallation.objects.filter(
-        organization=org
-    ).values_list('pack_id', flat=True)
-
-    return ThreatLibrary.objects.filter(
-        Q(organization=org) |
-        Q(source_pack_id__in=installed_pack_ids),
-        is_deleted=False                           # Exclude soft-deleted
-    )
-```
-
-### Item Visibility Matrix
-
-| organization | source_pack | Who Sees It                           |
-| ------------ | ----------- | ------------------------------------- |
-| null         | Pack A      | Orgs that installed Pack A            |
-| Acme Bank    | null        | Only Acme Bank (custom item)          |
-| Acme Bank    | Pack A      | Only Acme Bank (forked/modified copy) |
-
----
-
-## Compliance Mapping
-
-### Relationship Chain
-
-```
-Component
-    └── has Threats
-            └── have Countermeasures
-                    └── map to StandardRequirements
-                            └── belong to StandardFrameworks
-```
-
-### Compliance Query
-
-To answer "Is my Core Banking System PCI-DSS compliant?":
-
-```python
-def get_compliance_status(component_slug: str, framework_slug: str):
-    """
-    Get compliance coverage for a component against a framework.
-    """
-    # Get all threats for this component
-    component = ComponentLibrary.objects.get(slug=component_slug)
-    threats = component.threats.all()
-
-    # Get all countermeasures for those threats
-    countermeasures = CountermeasureLibrary.objects.filter(
-        applicable_threats__in=threats
-    ).distinct()
-
-    # Get framework requirements
-    framework = StandardFramework.objects.get(name__icontains=framework_slug)
-    requirements = framework.requirements.all()
-
-    # Check coverage
-    covered = []
-    partial = []
-    gaps = []
-
-    for req in requirements:
-        mappings = CountermeasureLibraryStandard.objects.filter(
-            requirement=req,
-            countermeasure_library__in=countermeasures
-        )
-        if mappings.filter(sufficiency='full').exists():
-            covered.append(req)
-        elif mappings.exists():
-            partial.append(req)
-        else:
-            gaps.append(req)
-
-    return {
-        'covered': covered,
-        'partial': partial,
-        'gaps': gaps,
-        'coverage_percentage': len(covered) / len(requirements) * 100
-    }
-```
-
----
-
-## Pack Catalog Examples
-
-| Pack                 | Type       | Tier    | Description                        |
-| -------------------- | ---------- | ------- | ---------------------------------- |
-| Base STRIDE          | Threat     | Free    | Core STRIDE threat categories      |
-| OWASP Top 10         | Threat     | Free    | Web application threats            |
-| CAPEC Injection      | Threat     | Free    | CAPEC injection attack patterns    |
-| AWS Technologies     | Technology | Free    | AWS services catalog               |
-| Azure Technologies   | Technology | Free    | Azure services catalog             |
-| Banking Technologies | Full       | Free    | Banking-specific systems + threats |
-| PCI-DSS Controls     | Compliance | Free    | PCI-DSS requirements & controls    |
-| DORA Controls        | Compliance | Free    | EU DORA requirements               |
-| SOC 2 Controls       | Compliance | Free    | SOC 2 trust criteria               |
-| Agentic AI Threats   | Threat     | Premium | LLM/Agent-specific threats         |
-| Healthcare HIPAA     | Full       | Premium | Full healthcare stack              |
-| SWIFT Integration    | Template   | Premium | SWIFT connectivity templates       |
-
----
-
-## Onboarding Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Welcome to Precogly!                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Step 1: Tell us about your organization                        │
-│  Industry: [ Banking               ▼ ]                          │
-│                                                                 │
-│  Step 2: Select starter packs (recommended for Banking)         │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ ✅ Base Infrastructure (AWS, Azure, GCP)           [Free]   ││
-│  │ ✅ Banking Technologies                            [Free]   ││
-│  │ ✅ Base STRIDE Threats                             [Free]   ││
-│  │ ✅ PCI-DSS Compliance Pack                         [Free]   ││
-│  │ ☐  Agentic AI Threats                      [Premium $99/mo] ││
-│  │ ☐  SWIFT Integration Templates             [Premium $49/mo] ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│                    [ Install Selected Packs ]                   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Validation Rules
-
-### Pack Validation
-
-| Rule             | Description                                                                 |
-| ---------------- | --------------------------------------------------------------------------- |
-| `pack.slug`      | Required, unique, lowercase with hyphens only                               |
-| `pack.version`   | Required, semantic version format (X.Y.Z)                                   |
-| `pack.pack_type` | Required, one of: technology/threat/countermeasure/compliance/template/full |
-| `depends_on`     | Each dependency must be a valid, published pack slug                        |
-
-### Slug Validation
-
-| Rule            | Description                                                      |
-| --------------- | ---------------------------------------------------------------- |
-| Format          | Lowercase, alphanumeric with hyphens: `^[a-z0-9]+(-[a-z0-9]+)*$` |
-| Length          | 3-100 characters                                                 |
-| Uniqueness      | Unique within a pack (can duplicate across packs)                |
-| Qualified Slug  | Must be unique globally (enforced by DB constraint)              |
-| Reserved        | Cannot use: `custom`, `legacy`, `null`, `undefined`              |
-
-### Reference Validation
-
-| Rule                      | Description                                      |
-| ------------------------- | ------------------------------------------------ |
-| Threat refs               | Must exist in this pack or declared dependencies |
-| Countermeasure refs       | Must exist in this pack or declared dependencies |
-| Standard requirement refs | Must exist in installed compliance packs         |
-| Template component refs   | Must exist in this pack or declared dependencies |
-
----
-
-## Error Handling
-
-### Import Errors
-
-| Error                    | Cause                                | Resolution                            |
-| ------------------------ | ------------------------------------ | ------------------------------------- |
-| `DependencyNotInstalled` | Pack depends on uninstalled pack     | Install dependency first              |
-| `DuplicateSlug`          | Slug already exists in org's library | Rename slug or skip item              |
-| `InvalidReference`       | Referenced slug doesn't exist        | Fix reference or install missing pack |
-| `SchemaValidationError`  | YAML doesn't match expected schema   | Fix YAML structure                    |
-| `VersionConflict`        | Pack version already installed       | Use --force to reinstall              |
-
-### Error Response Format
-
-```json
-{
-  "success": false,
-  "error": "DependencyNotInstalled",
-  "message": "Pack 'banking-technologies' requires 'base-stride' to be installed first",
-  "details": {
-    "pack": "banking-technologies",
-    "missing_dependency": "base-stride"
-  },
-  "resolution": "Install the 'base-stride' pack before installing 'banking-technologies'"
-}
-```
-
-### Pack Uninstall Behavior
-
-> **Note:** See [Soft Delete & Deletion Cascades](#soft-delete--deletion-cascades) for detailed uninstall behavior.
-
-When a pack is uninstalled:
-
-1. Check for dependent packs (prevent uninstall if others depend on it)
-2. Check for references in org's threat models (warn user)
-3. **Soft delete** all library items with `source_pack = this_pack`:
-   - Set `is_deleted = True`
-   - Set `deleted_at = now()`
-4. Delete `OrganizationPackInstallation` record
-5. Decrement pack's `install_count`
-
-Soft-deleted items:
-- Are excluded from normal queries
-- Preserve DFD references (displayed as "archived")
-- Can be restored if pack is reinstalled
-
----
-
-## Workflow: GitHub to Production
-
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   GitHub     │     │   Precogly   │     │    Org's     │
-│  Pack Repo   │────▶│   Registry   │────▶│   Instance   │
-└──────────────┘     └──────────────┘     └──────────────┘
-       │                    │                    │
-       │ Community          │ Sync/Index         │ Install
-       │ PRs & Reviews      │ Packs              │ Pack
-       ▼                    ▼                    ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   packs/     │     │ Browse Packs │     │  Org Library │
-│ ├─ banking/  │     │ by Industry  │     │  (imported   │
-│ ├─ healthcare│     │   & Type     │     │   items)     │
-│ └─ ai-agents/│     └──────────────┘     └──────────────┘
-└──────────────┘
-```
-
----
-
-## FAQ
-
-### Q1: Should technology components without threats/countermeasures be banned?
-
-**No.** Allowing "stub" components (components with metadata but no threats) is essential for three reasons:
-
-#### 1. Architectural Necessity (The "Skeleton" Argument)
-
-A threat model is primarily a diagram of a system. Users often need to model components just to show data flow or connectivity, even if that specific node has no known threats *yet*.
-
-**Example:** If a user needs to draw `Web App → Load Balancer → Database`, they need a "Load Balancer" component. If it's banned because the pack has zero threats defined, the diagram becomes incomplete and unusable.
-
-#### 2. The "Stub" Strategy for Open Source
-
-Since Precogly is open-source, stub components serve as invitations for contribution:
-- If a user sees an empty "Redis" component, they might submit a PR to add threats
-- If the component doesn't exist at all, they assume the platform doesn't support Redis
-
-#### 3. Separation of Concerns
-
-- A **Technology Pack** (like `aws-technologies`) defines *what things are* (icons, names, categories)
-- A **Threat Pack** (like `base-stride`) defines *what can go wrong*
-
-It is valid to have a component that inherits threats from a different pack via the `ComponentLibraryThreat` junction table.
-
-#### Recommendation: Content Maturity Indicators
-
-Instead of banning stub components, use UI indicators to show content completeness:
-
-| Badge | Status | Description |
-|-------|--------|-------------|
-| 🟢 | **Complete** | Has threats + countermeasures + standards mappings |
-| 🟡 | **Partial** | Has some threats, missing countermeasures or mappings |
-| ⚪ | **Stub** | Metadata only, awaiting threat definitions |
-
----
-
-### Q2: How do we link compliance requirements (e.g., PCI-DSS) to components?
-
-**Short answer:** Through the **Countermeasure** as a bridge. You never link standards directly to components (that would be brittle).
-
-#### The Compliance Chain
-
-```
-Standard Requirement → Countermeasure → Threat → Component
-        ↑                    ↑
-   (compliance pack)    (full/threat pack)
-```
-
-#### Step-by-Step Example
-
-**Step 1: Define the Requirement (in a Compliance Pack)**
-
-The `pci-dss` compliance pack defines frameworks and requirements:
+Use `component_ref` in a node's `data` to link it to a component defined in `components.yaml`:
 
 ```yaml
-# pci-dss/pack.yaml
+data:
+  label: "S3 Bucket"
+  component_ref: "s3"     # matches id in components.yaml
+```
+
+When a user creates a DFD from this template, the node will be linked to the S3 component, automatically inheriting its associated threats and countermeasures.
+
+---
+
+## Compliance Packs
+
+Compliance packs define frameworks and their requirements. Other packs reference these requirements in their compliance overlay join files.
+
+```yaml
+# frameworks/nist-csf/pack.yaml
 pack:
-  slug: pci-dss
+  slug: nist-csf
+  name: "NIST CSF 2.0"
+  version: "1.0.0"
   pack_type: compliance
+  tier: free
+  author: "Precogly"
+  description: "NIST Cybersecurity Framework 2.0"
+  tags:
+    - compliance
+    - security
+    - government
 
 frameworks:
-  - slug: pci-dss-v4
-    name: "PCI-DSS v4.0"
+  - slug: nist-csf-2
+    name: "NIST CSF"
+    version: "2.0"
+    issuer: "NIST"
+    description: "NIST Cybersecurity Framework"
     requirements:
-      - section_code: "3.4"
-        title: "Render PAN unreadable anywhere it is stored"
-      - section_code: "8.3"
-        title: "Implement multi-factor authentication"
+      - section_code: "PR.AC-1"
+        description: "Identities and credentials are managed"
+      - section_code: "PR.AC-4"
+        description: "Access permissions managed with least privilege"
+      - section_code: "SC-8"
+        description: "Transmission confidentiality and integrity"
 ```
-
-**Step 2: Define Component + Threat + Countermeasure (in a Full Pack)**
-
-The `banking-technologies` pack defines the actual implementations:
-
-```yaml
-# banking-technologies/pack.yaml
-components:
-  - slug: customer-database
-    threats:
-      - slug: data-breach
-        countermeasures:
-          - slug: encryption-at-rest  # <-- The Bridge
-```
-
-**Step 3: Create the Link (in the same Full Pack)**
-
-The `standards` section maps countermeasures to requirement IDs:
-
-```yaml
-standards:
-  - countermeasure: encryption-at-rest
-    requirement: pci-dss-3.4    # References external requirement
-    sufficiency: full           # "This control fully satisfies the requirement"
-```
-
-#### Query Logic: "Is my Customer Database PCI compliant?"
-
-When a user asks this question, Precogly executes:
-
-1. **Lookup:** Get `customer-database` component
-2. **Traverse:** Find its threats → Find their countermeasures
-3. **Check:** Does `encryption-at-rest` map to any PCI-DSS requirements?
-4. **Result:** Yes, maps to `pci-dss-3.4` with `sufficiency: full`
-
-#### Why This Design?
-
-| Alternative | Problem |
-|-------------|---------|
-| Link standards directly to components | Brittle - components change, mappings break |
-| Link standards directly to threats | Incomplete - threats describe problems, not solutions |
-| Link standards to countermeasures | Correct - countermeasures are the actual controls that satisfy requirements |
 
 ---
 
-## Next Steps
+## Cross-Pack References
 
-1. **Implement Pack Import Service** - Parse YAML, create records
-2. **Build Pack Registry API** - List, search, install packs
-3. **Create Onboarding UI** - Industry selection, pack browser
-4. **Seed Official Packs** - Base STRIDE, OWASP, AWS, PCI-DSS
-5. **Build Pack Authoring Tool** - Validate and publish packs
+When your pack depends on another, you can reference its items using qualified slugs (`{pack-slug}/{item-id}`):
+
+```yaml
+# In your threats-countermeasures.yaml, referencing a base-stride countermeasure
+mappings:
+  - threat: my-custom-threat
+    countermeasures:
+      - my-local-countermeasure        # same pack — plain id
+      - base-stride/mfa-enforcement    # different pack — qualified slug
+```
+
+Declare the dependency in `pack.yaml`:
+
+```yaml
+depends_on:
+  - pack: base-stride
+    version: "^1.0.0"
+```
+
+---
+
+## Validation Checklist
+
+Before submitting a pack, verify:
+
+- [ ] `pack.yaml` has all required fields (`slug`, `name`, `version`, `pack_type`, `description`)
+- [ ] All `id` / `slug` values are unique within their file
+- [ ] All `id` values are lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`)
+- [ ] All `stride_category` values are valid STRIDE categories
+- [ ] All `control_type` values are `preventive`, `detective`, or `corrective`
+- [ ] All `cost` values are `low`, `medium`, or `high`
+- [ ] All references in join files point to ids that exist in the pack (or in declared dependencies)
+- [ ] All `framework` slugs in compliance overlays match a published compliance pack
+- [ ] All `section_code` values match requirements in the referenced framework
+- [ ] DFD template `component_ref` values match ids in `components.yaml`
+- [ ] Version follows semantic versioning (`X.Y.Z`)

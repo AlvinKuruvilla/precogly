@@ -12,6 +12,8 @@ from rest_framework.response import Response
 
 from django.db import transaction
 
+from apps.diagrams.models import DFDTemplatesLibrary
+
 from .models import LibraryPack
 from .serializers import (
     LibraryPackDetailSerializer,
@@ -348,6 +350,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         component_count = ComponentLibrary.objects.filter(source_pack=pack).count()
         threat_count = ThreatLibrary.objects.filter(source_pack=pack).count()
         countermeasure_count = CountermeasureLibrary.objects.filter(source_pack=pack).count()
+        template_count = DFDTemplatesLibrary.objects.filter(source_pack=pack).count()
 
         summary = {
             "pack": {
@@ -360,6 +363,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
                 "components": component_count,
                 "threats": threat_count,
                 "countermeasures": countermeasure_count,
+                "templates": template_count,
             },
             "dry_run": dry_run,
         }
@@ -377,6 +381,8 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             ThreatLibrary.objects.filter(source_pack=pack).delete()
             # Components can now be deleted (ComponentLibraryThreat cascades)
             ComponentLibrary.objects.filter(source_pack=pack).delete()
+            # Delete DFD templates from this pack
+            DFDTemplatesLibrary.objects.filter(source_pack=pack).delete()
             # Finally delete the pack itself
             pack.delete()
 
