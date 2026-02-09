@@ -117,20 +117,6 @@ def get_libraries_path() -> Path:
     return libraries_path
 
 
-def _is_v2_pack(pack_dir: Path) -> bool:
-    """
-    Check if a pack directory uses the new multi-file format (v2).
-
-    V2 packs have separate files: components.yaml, threats.yaml, countermeasures.yaml
-    instead of everything in pack.yaml.
-    """
-    return (
-        (pack_dir / "components.yaml").exists() or
-        (pack_dir / "threats.yaml").exists() or
-        (pack_dir / "countermeasures.yaml").exists()
-    )
-
-
 def _count_items_in_file(file_path: Path, key: str) -> int:
     """Count items in a YAML file under a specific key."""
     if not file_path.exists():
@@ -143,8 +129,8 @@ def _count_items_in_file(file_path: Path, key: str) -> int:
         return 0
 
 
-def _discover_v2_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
-    """Discover a pack using the new multi-file format."""
+def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
+    """Discover a pack from its directory."""
     pack_yaml = pack_dir / "pack.yaml"
     if not pack_yaml.exists():
         return None
@@ -180,57 +166,7 @@ def _discover_v2_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
             countermeasure_count=countermeasure_count,
         )
     except Exception as e:
-        logger.error(f"Error reading v2 pack {pack_dir}: {e}")
-        return None
-
-
-def _discover_v1_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
-    """Discover a pack using the legacy single-file format."""
-    pack_yaml = pack_dir / "pack.yaml"
-    if not pack_yaml.exists():
-        return None
-
-    try:
-        with open(pack_yaml) as f:
-            pack_data = yaml.safe_load(f)
-
-        pack_meta = pack_data.get("pack", {})
-        slug = pack_meta.get("slug", pack_dir.name)
-
-        # Count items (legacy: nested in pack.yaml)
-        components = pack_data.get("components", [])
-        threats = pack_data.get("threats", [])
-        countermeasures = pack_data.get("countermeasures", [])
-
-        # Count nested threats/countermeasures in components
-        for comp in components:
-            comp_threats = comp.get("threats", [])
-            threats_count = len(comp_threats)
-            for t in comp_threats:
-                countermeasures_count = len(t.get("countermeasures", []))
-                countermeasures = countermeasures + [None] * countermeasures_count
-            threats = threats + [None] * threats_count
-
-        return PackInfo(
-            slug=slug,
-            name=pack_meta.get("name", slug),
-            description=pack_meta.get("description", ""),
-            version=pack_meta.get("version", "0.0.0"),
-            pack_type=pack_meta.get("pack_type", "technology"),
-            tier=pack_meta.get("tier", "free"),
-            source=pack_meta.get("source", "official"),
-            author=pack_meta.get("author", ""),
-            industries=pack_meta.get("industries", []),
-            tags=pack_meta.get("tags", []),
-            path=str(pack_dir),
-            is_in_database=slug in existing_packs,
-            database_version=existing_packs.get(slug),
-            component_count=len(pack_data.get("components", [])),
-            threat_count=len(threats),
-            countermeasure_count=len(countermeasures),
-        )
-    except Exception as e:
-        logger.error(f"Error reading v1 pack {pack_dir}: {e}")
+        logger.error(f"Error reading pack {pack_dir}: {e}")
         return None
 
 
@@ -241,10 +177,6 @@ def discover_packs_from_source() -> list[PackInfo]:
     Scans the libraries/packs directory for packs and returns
     information about each pack found, including whether it exists in
     the database and if it needs updating.
-
-    Supports both:
-    - V2 format: Multi-file structure (components.yaml, threats.yaml, etc.)
-    - V1 format: Single pack.yaml with nested data (legacy)
     """
     libraries_path = get_libraries_path()
     packs = []
@@ -265,12 +197,7 @@ def discover_packs_from_source() -> list[PackInfo]:
 
             # Check if this directory is a pack (has pack.yaml)
             if (item / "pack.yaml").exists():
-                # Determine format and discover
-                if _is_v2_pack(item):
-                    pack_info = _discover_v2_pack(item, existing_packs)
-                else:
-                    pack_info = _discover_v1_pack(item, existing_packs)
-
+                pack_info = _discover_pack(item, existing_packs)
                 if pack_info:
                     packs.append(pack_info)
             else:
@@ -285,11 +212,11 @@ def get_pack_preview_from_source(slug: str) -> dict | None:
     """
     Get full pack content for preview from the libraries folder.
 
-    Supports both:
-    - V2 format: Multi-file structure (components.yaml, threats.yaml, etc.)
-    - V1 format: Single pack.yaml with nested data (legacy)
-    - Flat structure (packs directly in libraries/packs/)
-    - Nested structure (packs in libraries/packs/category/pack/)
+    Reads pack metadata from pack.yaml and components/threats/countermeasures
+    from their respective YAML files.
+
+    Supports both flat (packs directly in libraries/packs/) and
+    nested (packs in libraries/packs/category/pack/) directory structures.
 
     Args:
         slug: The pack slug to find
@@ -336,11 +263,7 @@ def get_pack_preview_from_source(slug: str) -> dict | None:
         with open(pack_yaml) as f:
             pack_data = yaml.safe_load(f)
 
-        # Check if this is a v2 pack
-        if _is_v2_pack(pack_dir):
-            return _extract_pack_preview_v2(pack_dir, pack_data)
-        else:
-            return _extract_pack_preview(pack_data)
+        return _extract_pack_preview(pack_dir, pack_data)
     except Exception as e:
         logger.error(f"Error reading pack {pack_dir}: {e}")
         return None
@@ -350,8 +273,8 @@ def get_pack_preview_from_database(pack: "LibraryPack") -> dict:
     """
     Get full pack content for preview from a database pack.
 
-    For v2 packs, queries the database for components/threats/countermeasures
-    since they're stored separately rather than nested in pack.content.
+    Reads preview data from the source YAML files rather than the database,
+    ensuring consistent results regardless of how the pack was imported.
 
     Args:
         pack: The LibraryPack model instance
@@ -359,206 +282,15 @@ def get_pack_preview_from_database(pack: "LibraryPack") -> dict:
     Returns:
         Dictionary with pack metadata, components, threats, and countermeasures
     """
-    pack_data = pack.content or {}
-
-    # Check if this is a v2 pack (components stored in separate tables)
-    if pack_data.get("_v2_format"):
-        return _extract_pack_preview_from_db(pack)
-
-    # Legacy v1 format - extract from content field
-    return _extract_pack_preview(pack_data, pack=pack)
+    return get_pack_preview_from_source(pack.slug)
 
 
-def _extract_pack_preview_from_db(pack: "LibraryPack") -> dict:
+def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
     """
-    Extract preview data for v2 packs from database records.
+    Extract preview data from separate YAML files.
 
-    V2 packs store components/threats/countermeasures in separate tables.
-
-    Args:
-        pack: The LibraryPack model instance
-
-    Returns:
-        Structured preview dictionary with snake_case keys (auto-converted by middleware)
-    """
-    # Query components from database
-    components = []
-    for comp in ComponentLibrary.objects.filter(source_pack=pack):
-        components.append({
-            "slug": comp.slug,
-            "name": comp.name,
-            "category": comp.category,
-            "component_type": comp.component_type,
-            "description": "",  # ComponentLibrary doesn't have description
-        })
-
-    # Query threats from database
-    threats = []
-    for threat in ThreatLibrary.objects.filter(source_pack=pack):
-        threats.append({
-            "slug": threat.slug,
-            "name": threat.name,
-            "stride_category": threat.stride_category,
-            "severity": "",  # Severity is on the join, not the library
-            "description": threat.description,
-        })
-
-    # Query countermeasures from database
-    countermeasures = []
-    for cm in CountermeasureLibrary.objects.filter(source_pack=pack):
-        countermeasures.append({
-            "slug": cm.slug,
-            "name": cm.name,
-            "control_type": cm.control_type,
-            "cost": cm.cost,
-            "description": cm.description,
-        })
-
-    # Query requirements from database (via StandardFramework -> StandardRequirement)
-    requirements = []
-    from apps.compliance.models import StandardFramework, StandardRequirement
-    for framework in StandardFramework.objects.filter(source_pack=pack):
-        for req in StandardRequirement.objects.filter(framework=framework):
-            requirements.append({
-                "section_code": req.section_code,
-                "description": req.description,
-                "framework_name": framework.name,
-            })
-
-    return {
-        "pack": {
-            "slug": pack.slug,
-            "name": pack.name,
-            "description": pack.description,
-            "version": pack.version,
-            "pack_type": pack.pack_type,
-            "tier": pack.tier,
-            "author": pack.author,
-            "tags": pack.tags,
-            "industries": pack.industries,
-        },
-        "components": components,
-        "threats": threats,
-        "countermeasures": countermeasures,
-        "requirements": requirements,
-    }
-
-
-def _extract_pack_preview(pack_data: dict, pack: "LibraryPack" = None) -> dict:
-    """
-    Extract preview data from pack_data dictionary.
-
-    Args:
-        pack_data: The full pack.yaml content as a dictionary
-        pack: Optional LibraryPack model for additional metadata
-
-    Returns:
-        Structured preview dictionary with snake_case keys (auto-converted by middleware)
-    """
-    pack_meta = pack_data.get("pack", {})
-
-    # Extract components
-    components = []
-    for comp in pack_data.get("components", []):
-        components.append({
-            "slug": comp.get("slug", ""),
-            "name": comp.get("name", ""),
-            "category": comp.get("category", ""),
-            "component_type": comp.get("component_type", ""),
-            "description": comp.get("description", ""),
-        })
-
-    # Extract threats (both standalone and nested in components)
-    threats = []
-    for threat in pack_data.get("threats", []):
-        threats.append({
-            "slug": threat.get("slug", ""),
-            "name": threat.get("name", ""),
-            "stride_category": threat.get("stride_category", ""),
-            "severity": threat.get("severity", ""),
-            "description": threat.get("description", ""),
-        })
-
-    # Also get threats nested in components
-    for comp in pack_data.get("components", []):
-        for threat in comp.get("threats", []):
-            threats.append({
-                "slug": threat.get("slug", ""),
-                "name": threat.get("name", ""),
-                "stride_category": threat.get("stride_category", ""),
-                "severity": threat.get("severity", ""),
-                "description": threat.get("description", ""),
-            })
-
-    # Extract countermeasures (standalone, nested in threats, or nested in component threats)
-    countermeasures = []
-    for cm in pack_data.get("countermeasures", []):
-        countermeasures.append({
-            "slug": cm.get("slug", ""),
-            "name": cm.get("name", ""),
-            "control_type": cm.get("control_type", ""),
-            "cost": cm.get("cost", ""),
-            "description": cm.get("description", ""),
-        })
-
-    # Countermeasures nested in standalone threats
-    for threat in pack_data.get("threats", []):
-        for cm in threat.get("countermeasures", []):
-            countermeasures.append({
-                "slug": cm.get("slug", ""),
-                "name": cm.get("name", ""),
-                "control_type": cm.get("control_type", ""),
-                "cost": cm.get("cost", ""),
-                "description": cm.get("description", ""),
-            })
-
-    # Countermeasures nested in component threats
-    for comp in pack_data.get("components", []):
-        for threat in comp.get("threats", []):
-            for cm in threat.get("countermeasures", []):
-                countermeasures.append({
-                    "slug": cm.get("slug", ""),
-                    "name": cm.get("name", ""),
-                    "control_type": cm.get("control_type", ""),
-                    "cost": cm.get("cost", ""),
-                    "description": cm.get("description", ""),
-                })
-
-    # Extract requirements from frameworks section (for compliance packs)
-    requirements = []
-    for framework in pack_data.get("frameworks", []):
-        for req in framework.get("requirements", []):
-            requirements.append({
-                "section_code": req.get("section_code", ""),
-                "description": req.get("description", ""),
-                "framework_name": framework.get("name", ""),
-            })
-
-    return {
-        "pack": {
-            "slug": pack_meta.get("slug", "") if not pack else pack.slug,
-            "name": pack_meta.get("name", "") if not pack else pack.name,
-            "description": pack_meta.get("description", "") if not pack else pack.description,
-            "version": pack_meta.get("version", "") if not pack else pack.version,
-            "pack_type": pack_meta.get("pack_type", "") if not pack else pack.pack_type,
-            "tier": pack_meta.get("tier", "") if not pack else pack.tier,
-            "author": pack_meta.get("author", "") if not pack else pack.author,
-            "tags": pack_meta.get("tags", []) if not pack else pack.tags,
-            "industries": pack_meta.get("industries", []) if not pack else pack.industries,
-        },
-        "components": components,
-        "threats": threats,
-        "countermeasures": countermeasures,
-        "requirements": requirements,
-    }
-
-
-def _extract_pack_preview_v2(pack_dir: Path, pack_data: dict) -> dict:
-    """
-    Extract preview data for v2 packs from separate YAML files.
-
-    V2 packs have components/threats/countermeasures in separate files,
-    not nested in pack.yaml.
+    Reads components/threats/countermeasures from their respective files
+    in the pack directory.
 
     Args:
         pack_dir: Path to the pack directory

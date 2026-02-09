@@ -4,15 +4,11 @@
 **Status:** Investigation Complete, Awaiting Implementation
 **Severity:** Medium (Affects pack preview UX)
 
-**Related Fix:** Reference images data leak - ✅ FIXED (2026-02-08)
-
 ---
 
 ## Executive Summary
 
 AWS Mini and base-stride packs show 0 components/threats/countermeasures in the UI despite having data in both YAML files and database. Investigation revealed premature introduction of format versioning (`_v2_format` flag) in a pre-release product. Recommendation: Remove format versioning entirely and always read from source YAML files for preview.
-
-**Secondary Finding:** Discovered and **FIXED** data leak in reference images - all threat models in an organization were showing each other's images due to missing queryset filter. Fix confirmed working.
 
 ---
 
@@ -24,16 +20,6 @@ AWS Mini and base-stride packs show 0 components/threats/countermeasures in the 
 
 **Expected Behavior:** AWS Mini should show 5 components, 21 threats, 31 countermeasures
 **Actual Behavior:** Shows 0 for all counts in UI
-
-### Secondary Issue: Reference Image Data Leak ✅ FIXED
-
-**User Report:** "Every new threat model (created under admin@precogly.dev) now shows up the image that was uploaded earlier (precogly-workflows.png)"
-
-**Expected Behavior:** Each threat model shows only its own uploaded images
-**Actual Behavior (Before Fix):** All threat models in an organization show all images from all threat models
-**Current Behavior (After Fix):** ✅ Each threat model shows only its own images
-
-**Status:** FIXED and confirmed working (2026-02-08)
 
 ---
 
@@ -195,7 +181,7 @@ content = models.JSONField(
 
 ### 3. Two Preview Endpoints Exist
 
-**File:** `backend/apps/diagrams/views.py`
+**File:** `backend/apps/packs/views.py`
 
 1. **`preview()` (line 201-210):** Preview imported packs from database
 2. **`preview_from_source()` (line 212-238):** Preview packs before import from YAML files
@@ -209,49 +195,6 @@ The flag is stored inside the `content` JSONField, not as a separate column:
 - ❌ Not indexed, can't query efficiently
 - ❌ Not type-enforced
 - ❌ Just an application-level convention
-
-### 5. Reference Images Data Leak ✅ FIXED & VERIFIED
-
-**File:** `backend/apps/diagrams/views.py:787-801`
-
-**Bug (Before):**
-```python
-def get_queryset(self):
-    user_orgs = user.organization_memberships.values_list("organization_id", flat=True)
-    return ThreatModelReferenceImage.objects.filter(
-        threat_model__organization_id__in=user_orgs  # ❌ No threat_model filter!
-    )
-```
-
-Returned ALL images from ALL threat models in organization.
-
-**Fix Applied & Verified:**
-```python
-def get_queryset(self):
-    """Filter by user's organization access and specific threat model."""
-    user_orgs = user.organization_memberships.values_list("organization_id", flat=True)
-
-    queryset = ThreatModelReferenceImage.objects.filter(
-        threat_model__organization_id__in=user_orgs
-    ).select_related("threat_model", "uploaded_by")
-
-    # Filter by threat_model if accessed via nested route
-    threat_model_id = self.kwargs.get('threat_model_pk')
-    if threat_model_id:
-        queryset = queryset.filter(threat_model_id=threat_model_id)
-
-    return queryset
-```
-
-**How It Works:**
-- Frontend calls: `/threat-models/${threatModelId}/reference-images/`
-- Backend extracts `threat_model_pk` from URL (line 797)
-- Filters queryset to only images for that specific threat model (line 799)
-
-**Severity:** High - Data leak, each threat model could see other models' images.
-**Status:** ✅ FIXED, code verified in place (lines 787-801)
-**Date Fixed:** 2026-02-08
-**Verification:** Code inspection confirms fix is applied correctly
 
 ---
 
@@ -326,7 +269,7 @@ def get_pack_preview_from_database(pack: "LibraryPack") -> dict:
     return _extract_pack_preview(pack_dir)
 ```
 
-**File:** `backend/apps/diagrams/views.py`
+**File:** `backend/apps/packs/views.py`
 
 ```python
 # Merge preview() and preview_from_source() into single endpoint
@@ -404,7 +347,7 @@ def preview(self, request, pk=None):
 **Risk:** Preview fails if source files missing or unreadable
 
 **Affected:**
-- POST `/packs/{id}/preview/` (database packs)
+- GET `/packs/{id}/preview/` (database packs)
 - GET `/packs/preview_from_source/?slug=aws-mini` (source packs)
 
 **Test Cases:**
@@ -508,7 +451,7 @@ done
    - Remove check at line 365
    - Remove flag setting during import (if it exists)
 
-**File:** `backend/apps/diagrams/views.py`
+**File:** `backend/apps/packs/views.py`
 
 No changes needed - endpoints stay the same.
 
@@ -765,9 +708,6 @@ for pack in LibraryPack.objects.all():
 - **Issue:** Pack preview shows 0 counts
 - **Files Modified:**
   - `backend/apps/packs/services.py` (pending implementation)
-  - `backend/apps/diagrams/views.py:787-801` ✅ (reference images fix - completed)
-- **Related Issues:**
-  - Reference images data leak ✅ (FIXED 2026-02-08, verified working)
 - **Documentation:**
   - `libraries/README.md` (needs update)
   - This document
@@ -791,7 +731,7 @@ for pack in LibraryPack.objects.all():
 
 ### All References to Preview
 
-**File:** `backend/apps/diagrams/views.py`
+**File:** `backend/apps/packs/views.py`
 
 | Line | Endpoint | Purpose |
 |------|----------|---------|
@@ -824,7 +764,6 @@ WHERE slug = 'aws-mini';
 | 2026-02-08 | Always read from YAML for preview | Single source of truth, simpler logic | Pending |
 | 2026-02-08 | Mandate V2 format only | Already in use, no v1 packs exist | Pending |
 | 2026-02-08 | Defer production concerns | Focus on current needs, not hypothetical future | Pending |
-| 2026-02-08 | Fix reference images leak separately | High severity, unrelated to pack preview | ✅ Complete |
 
 ---
 
