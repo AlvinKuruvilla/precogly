@@ -256,3 +256,54 @@ export type ThreatFramework = 'stride' | 'linddun' | 'cia'
 // humanActor = external human entity (customer, admin, attacker)
 // systemActor = external non-human system (third-party API, partner system)
 export type DiagramNodeType = 'process' | 'datastore' | 'humanActor' | 'systemActor' | 'trustBoundary' | 'systemScope'
+
+// Compliance/Security Standards
+export type SecurityStandard =
+  | 'PCI-DSS'
+  | 'SOC2'
+  | 'ISO27001'
+  | 'NIST'
+  | 'OWASP'
+  | 'GDPR'
+  | 'HIPAA'
+  | 'DORA'
+  | 'CRA'
+
+export const SECURITY_STANDARDS: Record<SecurityStandard, { label: string; description: string }> = {
+  'PCI-DSS': {
+    label: 'PCI-DSS',
+    description: 'Payment Card Industry Data Security Standard',
+  },
+  SOC2: {
+    label: 'SOC 2',
+    description: 'Service Organization Control 2',
+  },
+  ISO27001: {
+    label: 'ISO 27001',
+    description: 'Information Security Management System',
+  },
+  NIST: {
+    label: 'NIST CSF',
+    description: 'NIST Cybersecurity Framework',
+  },
+  OWASP: {
+    label: 'OWASP',
+    description: 'Open Web Application Security Project',
+  },
+  GDPR: {
+    label: 'GDPR',
+    description: 'General Data Protection Regulation',
+  },
+  HIPAA: {
+    label: 'HIPAA',
+    description: 'Health Insurance Portability and Accountability Act',
+  },
+  DORA: {
+    label: 'DORA',
+    description: 'Digital Operational Resilience Act',
+  },
+  CRA: {
+    label: 'CRA',
+    description: 'Cyber Resilience Act',
+  },
+}

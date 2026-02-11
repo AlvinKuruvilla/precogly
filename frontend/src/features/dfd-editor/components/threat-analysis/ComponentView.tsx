@@ -31,7 +31,6 @@ import {
   THREAT_STATUS_CONFIG,
 } from '../../types/threat-analysis'
 import { STRIDE_CONFIG } from '@/types/domain'
-import { getCountermeasureById } from '../../lib/countermeasure-registry'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import { parseCountermeasureId } from '@/api/threats'
 
@@ -1283,10 +1282,8 @@ export function ComponentView({
             {selectedComponentThreat?.countermeasures
               .filter((cm) => !cm.dismissed)
               .map((cm) => {
-                // Use backend metadata if available, fall back to registry for local countermeasures
-                const cmDef = getCountermeasureById(cm.countermeasureId)
-                const cmName = cm.countermeasureName || cmDef?.name || cm.countermeasureId
-                const cmDescription = cm.countermeasureDescription || cmDef?.description
+                const cmName = cm.countermeasureName || cm.countermeasureId
+                const cmDescription = cm.countermeasureDescription
 
                 const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
                 const isAssigning = assigningOwnerFor === cm.id
@@ -1428,7 +1425,7 @@ export function ComponentView({
                       <div className="mt-2 flex items-center justify-between">
                         <CountermeasureStatusButtons
                           status={cm.status}
-                          isPlatformLevel={cmDef?.isPlatformLevel ?? false}
+                          isPlatformLevel={cm.status === 'platform'}
                           hasOwner={!!cm.owner}
                           onChange={(status) =>
                             onCountermeasureStatusChange(
@@ -1500,9 +1497,7 @@ export function ComponentView({
                   {showDismissedCountermeasures && (
                     <div className="mt-2 space-y-2">
                       {dismissedCms.map((cm) => {
-                        // Use backend metadata if available, fall back to registry for local countermeasures
-                        const cmDef = getCountermeasureById(cm.countermeasureId)
-                        const cmName = cm.countermeasureName || cmDef?.name || cm.countermeasureId
+                        const cmName = cm.countermeasureName || cm.countermeasureId
 
                         return (
                           <div

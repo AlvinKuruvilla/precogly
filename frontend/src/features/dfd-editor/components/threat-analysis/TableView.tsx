@@ -15,7 +15,6 @@ import type { CanvasData } from '../../types'
 import type { ComponentThreat, CountermeasureStatus } from '../../types/threat-analysis'
 import { deriveThreatStatus, THREAT_STATUS_CONFIG } from '../../types/threat-analysis'
 import { STRIDE_CONFIG } from '@/types/domain'
-import { getTechnologyById } from '../../lib/technology-registry'
 
 interface TableViewProps {
   canvasData: CanvasData
@@ -65,8 +64,7 @@ export function TableView({
         // Use threat metadata from backend (stored in ComponentThreat)
         if (!ct.threatName || !ct.strideCategory) return
 
-        const techId = (node.data as { technology?: string }).technology
-        const tech = techId ? getTechnologyById(techId) : null
+        const technologyName = (node.data as { technology?: string }).technology
 
         const status = deriveThreatStatus(ct.countermeasures)
         const resolved = ct.countermeasures.filter(
@@ -79,7 +77,7 @@ export function TableView({
           componentId: ct.componentId,
           componentLabel: String(node.data.label),
           componentType: node.type as string,
-          technology: tech?.name,
+          technology: technologyName,
           threatId: ct.threatId,
           threatName: ct.threatName,
           strideCategory: ct.strideCategory,

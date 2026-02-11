@@ -26,12 +26,20 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react'
-import { computeThreatsFromDiagrams, type DiagramData } from '@/lib/threat-computation'
-import { getCountermeasureById } from '@/features/dfd-editor/lib/countermeasure-registry'
 import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode } from '@/features/dfd-editor/types'
 import type { ThreatAnalysisData, SharedThreat } from '@/types/organization'
+import type { DataFlowEdge } from '@/features/dfd-editor/types'
+
+export interface DiagramData {
+  id: string | number
+  name: string
+  canvasData?: {
+    nodes?: DiagramNode[]
+    edges?: DataFlowEdge[]
+  }
+}
 
 // Countermeasure status config
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof CheckCircle2; color: string }> = {
@@ -89,9 +97,7 @@ function convertSharedThreatToComponentThreat(sharedThreat: SharedThreat): Compo
 }
 
 function CountermeasureRow({ cm }: { cm: ComponentThreatCountermeasure }) {
-  // Use backend metadata if available, fall back to registry for local countermeasures
-  const cmDef = getCountermeasureById(cm.countermeasureId)
-  const cmName = cm.countermeasureName || cmDef?.name || cm.countermeasureId
+  const cmName = cm.countermeasureName || cm.countermeasureId
   const statusConfig = STATUS_CONFIG[cm.status] || STATUS_CONFIG.gap
   const StatusIcon = statusConfig.icon
 
@@ -121,7 +127,7 @@ interface ThreatCardProps {
 
 function ThreatCard({ threat, componentName }: ThreatCardProps) {
   const [isOpen, setIsOpen] = useState(false)
-  // Use threat metadata from ComponentThreat (set by threat-computation.ts)
+  // Use threat metadata from ComponentThreat
   const strideInfo = threat.strideCategory
     ? STRIDE_CONFIG[threat.strideCategory]
     : null
@@ -243,41 +249,13 @@ export function ReadOnlyThreatAnalysisView({
   // Ensure diagrams is an array
   const safeDiagrams = diagrams ?? []
 
-  console.log('\n' + '='.repeat(80))
-  console.log('DEBUG: ReadOnlyThreatAnalysisView - Props received')
-  console.log('DEBUG: diagrams?.length:', diagrams?.length)
-  console.log('DEBUG: threatAnalysisData exists:', !!threatAnalysisData)
-  if (threatAnalysisData) {
-    console.log('DEBUG: threatAnalysisData.totalCount:', threatAnalysisData.totalCount)
-    console.log('DEBUG: threatAnalysisData.threats.length:', threatAnalysisData.threats.length)
-  }
-
-  // Compute threats - use backend data if available, otherwise compute from canvas
+  // Convert backend threat data to ComponentThreat format for display
   const allThreats = useMemo(() => {
-    console.log('DEBUG: Computing threats...')
     if (threatAnalysisData) {
-      console.log('DEBUG: Using backend threatAnalysisData')
-      console.log('DEBUG: Converting', threatAnalysisData.threats.length, 'shared threats')
-      const converted = threatAnalysisData.threats.map(convertSharedThreatToComponentThreat)
-      console.log('DEBUG: Converted to', converted.length, 'component threats')
-      if (converted.length > 0) {
-        console.log('DEBUG: First converted threat:', {
-          id: converted[0].id,
-          threatName: converted[0].threatName,
-          countermeasures: converted[0].countermeasures.length,
-        })
-      }
-      return converted
+      return threatAnalysisData.threats.map(convertSharedThreatToComponentThreat)
     }
-    // Fall back to computing from canvas data (for backward compatibility)
-    console.log('DEBUG: Falling back to computeThreatsFromDiagrams')
-    const computed = computeThreatsFromDiagrams(safeDiagrams)
-    console.log('DEBUG: Computed', computed.length, 'threats from diagrams')
-    return computed
-  }, [threatAnalysisData, safeDiagrams])
-
-  console.log('DEBUG: allThreats.length:', allThreats.length)
-  console.log('='.repeat(80) + '\n')
+    return []
+  }, [threatAnalysisData])
 
   // Build component name lookup from diagrams or from backend data
   const componentNameMap = useMemo(() => {
@@ -462,7 +440,7 @@ export function ReadOnlyThreatAnalysisView({
             </TableHeader>
             <TableBody>
               {filteredThreats.map((threat) => {
-                // Use threat metadata from ComponentThreat (set by threat-computation.ts)
+                // Use threat metadata from ComponentThreat
                 const activeCountermeasures = threat.countermeasures.filter((cm) => !cm.dismissed)
                 const gaps = activeCountermeasures.filter((cm) => cm.status === 'gap').length
                 const planned = activeCountermeasures.filter((cm) => cm.status === 'planned').length

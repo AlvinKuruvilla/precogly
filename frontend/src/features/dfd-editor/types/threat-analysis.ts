@@ -1,5 +1,4 @@
-import type { STRIDECategory } from '@/types/domain'
-import type { SecurityStandard } from '../lib/countermeasure-registry'
+import type { STRIDECategory, SecurityStandard } from '@/types/domain'
 
 /**
  * Compliance standard mapping from backend

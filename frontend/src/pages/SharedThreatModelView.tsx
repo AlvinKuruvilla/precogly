@@ -14,7 +14,7 @@ import { ReadOnlyDFDViewer } from '@/components/shared/ReadOnlyDFDViewer'
 import { ReadOnlyThreatAnalysisView } from '@/components/shared/ReadOnlyThreatAnalysisView'
 import { ReferenceImageViewer } from '@/components/workspace/ReferenceImageViewer'
 import type { ThreatModelStats } from '@/types/organization'
-import type { DiagramData } from '@/lib/threat-computation'
+import type { DiagramData } from '@/components/shared/ReadOnlyThreatAnalysisView'
 import type { ReferenceImage } from '@/types'
 import {
   AlertCircle,
