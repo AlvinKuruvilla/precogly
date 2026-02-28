@@ -13,21 +13,6 @@ from apps.systems.models import ComponentLibrary, DataFlow, OrgsystemComponent
 class ThreatLibrary(TimestampedModel):
     """Threat template/definition."""
 
-    class STRIDECategory(models.TextChoices):
-        SPOOFING = "spoofing", "Spoofing"
-        TAMPERING = "tampering", "Tampering"
-        REPUDIATION = "repudiation", "Repudiation"
-        INFORMATION_DISCLOSURE = "informationDisclosure", "Information Disclosure"
-        DENIAL_OF_SERVICE = "denialOfService", "Denial of Service"
-        ELEVATION_OF_PRIVILEGE = "elevationOfPrivilege", "Elevation of Privilege"
-
-    class Source(models.TextChoices):
-        STRIDE = "stride", "STRIDE"
-        CAPEC = "capec", "CAPEC"
-        OWASP = "owasp", "OWASP"
-        CWE = "cwe", "CWE"
-        CUSTOM = "custom", "Custom"
-
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"
         CUSTOMIZED = "customized", "Customized (user edited)"
@@ -55,13 +40,6 @@ class ThreatLibrary(TimestampedModel):
     )
     name = models.CharField(max_length=255)
     description = models.TextField()
-    stride_category = models.CharField(max_length=30, choices=STRIDECategory.choices)
-    source = models.CharField(max_length=20, choices=Source.choices, default=Source.STRIDE)
-    source_id = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="e.g. CAPEC-66, CWE-89",
-    )
 
     # Customization tracking (for update vs fork handling)
     customization_status = models.CharField(
@@ -105,6 +83,82 @@ class ThreatLibrary(TimestampedModel):
             else:
                 self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
+
+    def get_stride_category_from_taxonomy(self):
+        """Get primary STRIDE category from taxonomy entries (kebab-case)."""
+        entry = ThreatLibraryTaxonomyEntry.objects.filter(
+            threat_library=self,
+            taxonomy_entry__taxonomy__slug="stride",
+        ).select_related("taxonomy_entry").first()
+        return entry.taxonomy_entry.external_id if entry else None
+
+
+class ExternalTaxonomy(TimestampedModel):
+    """External threat classification taxonomy (STRIDE, CAPEC, CWE, etc.)."""
+
+    source_pack = models.ForeignKey(
+        "packs.LibraryPack",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="taxonomies",
+    )
+    slug = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    source_url = models.URLField(blank=True)
+    version = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        verbose_name_plural = "External taxonomies"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TaxonomyEntry(TimestampedModel):
+    """Single entry within a taxonomy (e.g., STRIDE:tampering, CAPEC:66)."""
+
+    taxonomy = models.ForeignKey(
+        ExternalTaxonomy,
+        on_delete=models.CASCADE,
+        related_name="entries",
+    )
+    external_id = models.CharField(
+        max_length=100,
+        help_text="Normalized ID: 'tampering', '66', 'CWE-89', 'T1059'",
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ["taxonomy", "external_id"]
+        ordering = ["taxonomy", "external_id"]
+
+    def __str__(self):
+        return f"{self.taxonomy.slug}:{self.external_id}"
+
+
+class ThreatLibraryTaxonomyEntry(TimestampedModel):
+    """M2M join: links a ThreatLibrary to one or more TaxonomyEntry records."""
+
+    threat_library = models.ForeignKey(
+        ThreatLibrary,
+        on_delete=models.CASCADE,
+        related_name="taxonomy_entries",
+    )
+    taxonomy_entry = models.ForeignKey(
+        TaxonomyEntry,
+        on_delete=models.CASCADE,
+        related_name="threat_libraries",
+    )
+
+    class Meta:
+        unique_together = ["threat_library", "taxonomy_entry"]
+
+    def __str__(self):
+        return f"{self.threat_library} -> {self.taxonomy_entry}"
 
 
 class ComponentLibraryThreat(TimestampedModel):
@@ -292,11 +346,6 @@ class ComponentInstanceThreat(TimestampedModel):
         blank=True,
         help_text="Copied from ThreatLibrary.description on creation",
     )
-    stride_category = models.CharField(
-        max_length=30,
-        blank=True,
-        help_text="Copied from ThreatLibrary.stride_category on creation",
-    )
 
     class Meta:
         unique_together = ["component", "threat_library"]
@@ -365,11 +414,6 @@ class DataFlowInstanceThreat(TimestampedModel):
     threat_description = models.TextField(
         blank=True,
         help_text="Copied from ThreatLibrary.description on creation",
-    )
-    stride_category = models.CharField(
-        max_length=30,
-        blank=True,
-        help_text="Copied from ThreatLibrary.stride_category on creation",
     )
 
     class Meta:

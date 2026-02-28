@@ -17,3 +17,5 @@ pack:
     - threats
   repository_url: "https://github.com/precogly/precogly"
   documentation_url: "https://docs.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats"
+  depends_on:
+    - stride-taxonomy

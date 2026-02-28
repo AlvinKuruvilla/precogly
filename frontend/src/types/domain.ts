@@ -3,22 +3,22 @@
  * These types match backend TextChoices exactly.
  */
 
-// STRIDE Categories - matches backend ThreatLibrary.STRIDECategory
+// STRIDE Categories - kebab-case IDs matching TaxonomyEntry.external_id
 export type STRIDECategory =
   | 'spoofing'
   | 'tampering'
   | 'repudiation'
-  | 'informationDisclosure'
-  | 'denialOfService'
-  | 'elevationOfPrivilege'
+  | 'information-disclosure'
+  | 'denial-of-service'
+  | 'elevation-of-privilege'
 
 export const STRIDE_CATEGORIES: { value: STRIDECategory; label: string }[] = [
   { value: 'spoofing', label: 'Spoofing' },
   { value: 'tampering', label: 'Tampering' },
   { value: 'repudiation', label: 'Repudiation' },
-  { value: 'informationDisclosure', label: 'Information Disclosure' },
-  { value: 'denialOfService', label: 'Denial of Service' },
-  { value: 'elevationOfPrivilege', label: 'Elevation of Privilege' },
+  { value: 'information-disclosure', label: 'Information Disclosure' },
+  { value: 'denial-of-service', label: 'Denial of Service' },
+  { value: 'elevation-of-privilege', label: 'Elevation of Privilege' },
 ]
 
 // STRIDE display configuration with colors
@@ -44,24 +44,33 @@ export const STRIDE_CONFIG: Record<
     description: 'Denying having performed an action',
     color: '#eab308', // yellow
   },
-  informationDisclosure: {
+  'information-disclosure': {
     label: 'Information Disclosure',
     shortLabel: 'I',
     description: 'Exposing information to unauthorized parties',
     color: '#22c55e', // green
   },
-  denialOfService: {
+  'denial-of-service': {
     label: 'Denial of Service',
     shortLabel: 'D',
     description: 'Making a system unavailable or degraded',
     color: '#3b82f6', // blue
   },
-  elevationOfPrivilege: {
+  'elevation-of-privilege': {
     label: 'Elevation of Privilege',
     shortLabel: 'E',
     description: 'Gaining unauthorized capabilities or access',
     color: '#8b5cf6', // purple
   },
+}
+
+// Taxonomy entry from the unified taxonomy system
+export interface TaxonomyEntry {
+  id: number
+  taxonomySlug: string
+  taxonomyName: string
+  externalId: string
+  title: string
 }
 
 // Threat Model Status - matches backend ThreatModel.Status

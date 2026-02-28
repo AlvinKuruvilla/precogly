@@ -2,7 +2,7 @@
  * Type definitions for library items.
  */
 
-import type { STRIDECategory } from './domain'
+import type { TaxonomyEntry } from './domain'
 
 export interface ComponentLibrary {
   id: number
@@ -22,9 +22,7 @@ export interface ThreatLibrary {
   id: number
   name: string
   description?: string
-  strideCategory: STRIDECategory
-  source: string
-  sourceId?: string
+  taxonomyEntries?: TaxonomyEntry[]
   organization?: number
   sourcePack?: number
   sourcePackName?: string

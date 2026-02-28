@@ -2,7 +2,8 @@
  * Dialog for previewing pack contents (components, threats, countermeasures).
  */
 
-import { Box, ClipboardList, Loader2, Package, Shield, ShieldAlert } from 'lucide-react'
+import { useState } from 'react'
+import { Loader2, Package } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   usePackPreview,
@@ -102,34 +109,67 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
   const threatCount = preview.threats.length
   const countermeasureCount = preview.countermeasures.length
   const requirementCount = preview.requirements?.length ?? 0
+  const taxonomyCount = preview.taxonomies?.length ?? 0
 
-  // Determine default tab based on what content exists
-  const defaultTab = componentCount > 0 ? 'components' : threatCount > 0 ? 'threats' : countermeasureCount > 0 ? 'countermeasures' : requirementCount > 0 ? 'requirements' : 'components'
+  // Build list of available sections with counts
+  const sections = [
+    ...(taxonomyCount > 0 ? [{ value: 'taxonomies', label: 'Taxonomies', count: taxonomyCount }] : []),
+    { value: 'components', label: 'Components', count: componentCount },
+    { value: 'threats', label: 'Threats', count: threatCount },
+    { value: 'countermeasures', label: 'Countermeasures', count: countermeasureCount },
+    { value: 'requirements', label: 'Requirements', count: requirementCount },
+  ]
+
+  // Default to first section with content, or first section overall
+  const defaultSection = sections.find((s) => s.count > 0)?.value ?? sections[0].value
+  const [activeSection, setActiveSection] = useState(defaultSection)
 
   return (
-    <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
-      <TabsList className="w-full justify-start">
-        <TabsTrigger value="components">
-          <Box className="h-4 w-4 mr-1" />
-          Components ({componentCount})
-        </TabsTrigger>
-        <TabsTrigger value="threats">
-          <ShieldAlert className="h-4 w-4 mr-1" />
-          Threats ({threatCount})
-        </TabsTrigger>
-        <TabsTrigger value="countermeasures">
-          <Shield className="h-4 w-4 mr-1" />
-          Countermeasures ({countermeasureCount})
-        </TabsTrigger>
-        <TabsTrigger value="requirements">
-          <ClipboardList className="h-4 w-4 mr-1" />
-          Requirements ({requirementCount})
-        </TabsTrigger>
-      </TabsList>
+    <div className="flex-1 flex flex-col min-h-0 space-y-3">
+      <Select value={activeSection} onValueChange={setActiveSection}>
+        <SelectTrigger className="w-[240px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {sections.map((section) => (
+            <SelectItem key={section.value} value={section.value}>
+              {section.label} ({section.count})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <TabsContent value="components" className="flex-1 min-h-0">
-        <ScrollArea className="h-[350px]">
-          {componentCount === 0 ? (
+      <ScrollArea className="h-[350px]">
+        {activeSection === 'taxonomies' && taxonomyCount > 0 && (
+          <div className="space-y-2 pr-4">
+            {preview.taxonomies.map((taxonomy, idx) => (
+              <div
+                key={taxonomy.slug || idx}
+                className="border rounded-lg p-3 space-y-1"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">{taxonomy.name}</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline" className="text-xs">
+                      {taxonomy.slug}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {taxonomy.entryCount} entries
+                    </Badge>
+                  </div>
+                </div>
+                {taxonomy.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {taxonomy.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeSection === 'components' && (
+          componentCount === 0 ? (
             <EmptyState text="No components in this pack" />
           ) : (
             <div className="space-y-2 pr-4">
@@ -161,13 +201,11 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                 </div>
               ))}
             </div>
-          )}
-        </ScrollArea>
-      </TabsContent>
+          )
+        )}
 
-      <TabsContent value="threats" className="flex-1 min-h-0">
-        <ScrollArea className="h-[350px]">
-          {threatCount === 0 ? (
+        {activeSection === 'threats' && (
+          threatCount === 0 ? (
             <EmptyState text="No threats in this pack" />
           ) : (
             <div className="space-y-2 pr-4">
@@ -195,13 +233,11 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                 </div>
               ))}
             </div>
-          )}
-        </ScrollArea>
-      </TabsContent>
+          )
+        )}
 
-      <TabsContent value="countermeasures" className="flex-1 min-h-0">
-        <ScrollArea className="h-[350px]">
-          {countermeasureCount === 0 ? (
+        {activeSection === 'countermeasures' && (
+          countermeasureCount === 0 ? (
             <EmptyState text="No countermeasures in this pack" />
           ) : (
             <div className="space-y-2 pr-4">
@@ -229,13 +265,11 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                 </div>
               ))}
             </div>
-          )}
-        </ScrollArea>
-      </TabsContent>
+          )
+        )}
 
-      <TabsContent value="requirements" className="flex-1 min-h-0">
-        <ScrollArea className="h-[350px]">
-          {requirementCount === 0 ? (
+        {activeSection === 'requirements' && (
+          requirementCount === 0 ? (
             <EmptyState text="No requirements in this pack" />
           ) : (
             <div className="space-y-2 pr-4">
@@ -260,10 +294,10 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                 </div>
               ))}
             </div>
-          )}
-        </ScrollArea>
-      </TabsContent>
-    </Tabs>
+          )
+        )}
+      </ScrollArea>
+    </div>
   )
 }
 
@@ -283,6 +317,7 @@ function PackTypeBadge({ type }: { type: string }) {
     compliance: 'bg-purple-100 text-purple-800',
     template: 'bg-yellow-100 text-yellow-800',
     full: 'bg-gray-100 text-gray-800',
+    taxonomy: 'bg-teal-100 text-teal-800',
   }
   return (
     <Badge variant="secondary" className={colors[type] || ''}>
@@ -309,11 +344,11 @@ function StrideBadge({ category }: { category: string }) {
     spoofing: 'bg-orange-100 text-orange-800',
     tampering: 'bg-red-100 text-red-800',
     repudiation: 'bg-yellow-100 text-yellow-800',
-    information_disclosure: 'bg-blue-100 text-blue-800',
-    denial_of_service: 'bg-purple-100 text-purple-800',
-    elevation_of_privilege: 'bg-pink-100 text-pink-800',
+    'information-disclosure': 'bg-blue-100 text-blue-800',
+    'denial-of-service': 'bg-purple-100 text-purple-800',
+    'elevation-of-privilege': 'bg-pink-100 text-pink-800',
   }
-  const label = category.replace(/_/g, ' ')
+  const label = category.replace(/-/g, ' ')
   return (
     <Badge variant="outline" className={colors[category] || ''}>
       {label}

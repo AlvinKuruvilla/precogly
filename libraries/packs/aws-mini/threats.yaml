@@ -7,24 +7,24 @@ threats:
     description: |
       S3 bucket is publicly accessible, exposing sensitive data to unauthorized users.
       This can occur through misconfigured bucket policies, ACLs, or disabled Block Public Access.
-    stride_category: information_disclosure
-    source: custom
+    taxonomy_references:
+      stride: [information-disclosure]
 
   - id: s3-data-tampering
     name: S3 Object Tampering
     description: |
       Unauthorized modification of S3 objects due to misconfigured permissions.
       Attackers may alter data, inject malicious content, or corrupt backups.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]
 
   - id: s3-deletion
     name: S3 Data Deletion
     description: |
       Malicious or accidental deletion of S3 objects without proper versioning or MFA delete.
       Can lead to permanent data loss and service disruption.
-    stride_category: denial_of_service
-    source: custom
+    taxonomy_references:
+      stride: [denial-of-service]
 
   # ============================================================================
   # Lambda Threats
@@ -34,32 +34,32 @@ threats:
     description: |
       Malicious input exploits Lambda function leading to code execution.
       Includes SQL injection, command injection, or template injection attacks.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]
 
   - id: lambda-privilege-escalation
     name: Lambda Role Over-Privileged
     description: |
       Lambda execution role has excessive permissions enabling privilege escalation.
       Compromised function could access resources beyond its intended scope.
-    stride_category: elevation_of_privilege
-    source: custom
+    taxonomy_references:
+      stride: [elevation-of-privilege]
 
   - id: lambda-secret-exposure
     name: Lambda Environment Variable Exposure
     description: |
       Sensitive data (API keys, credentials) stored in Lambda environment variables
       may be exposed through logs, error messages, or function enumeration.
-    stride_category: information_disclosure
-    source: custom
+    taxonomy_references:
+      stride: [information-disclosure]
 
   - id: lambda-dos
     name: Lambda Resource Exhaustion
     description: |
       Attacker triggers excessive Lambda invocations causing throttling, high costs,
       or denial of service to legitimate users.
-    stride_category: denial_of_service
-    source: custom
+    taxonomy_references:
+      stride: [denial-of-service]
 
   # ============================================================================
   # API Gateway Threats
@@ -69,32 +69,32 @@ threats:
     description: |
       API endpoints accessible without proper authentication, allowing unauthorized
       access to backend services and data.
-    stride_category: spoofing
-    source: custom
+    taxonomy_references:
+      stride: [spoofing]
 
   - id: apigw-injection
     name: API Gateway Input Injection
     description: |
       Malicious payloads passed through API Gateway to backend services,
       exploiting insufficient input validation.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]
 
   - id: apigw-rate-limit-bypass
     name: API Gateway Rate Limit Bypass
     description: |
       Attacker bypasses API throttling through distributed requests or
       exploiting misconfigured rate limiting, causing backend overload.
-    stride_category: denial_of_service
-    source: custom
+    taxonomy_references:
+      stride: [denial-of-service]
 
   - id: apigw-logging-gap
     name: API Gateway Insufficient Logging
     description: |
       Lack of comprehensive API logging prevents detection of attacks,
       unauthorized access attempts, and security incident investigation.
-    stride_category: repudiation
-    source: custom
+    taxonomy_references:
+      stride: [repudiation]
 
   # ============================================================================
   # DynamoDB Threats
@@ -104,24 +104,24 @@ threats:
     description: |
       IAM policies allow broader access to DynamoDB tables than required,
       enabling unauthorized data reads or modifications.
-    stride_category: information_disclosure
-    source: custom
+    taxonomy_references:
+      stride: [information-disclosure]
 
   - id: dynamodb-injection
     name: DynamoDB Query Injection
     description: |
       Malicious input manipulates DynamoDB queries through improperly
       constructed filter expressions or condition expressions.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]
 
   - id: dynamodb-capacity-exhaustion
     name: DynamoDB Capacity Exhaustion
     description: |
       Attacker consumes provisioned throughput capacity through excessive
       requests, causing throttling for legitimate users.
-    stride_category: denial_of_service
-    source: custom
+    taxonomy_references:
+      stride: [denial-of-service]
 
   # ============================================================================
   # SQS Threats
@@ -131,24 +131,24 @@ threats:
     description: |
       Unauthorized modification of messages in transit or at rest,
       potentially altering application behavior or injecting malicious payloads.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]
 
   - id: sqs-message-injection
     name: SQS Malicious Message Injection
     description: |
       Attacker injects unauthorized messages into the queue, potentially
       triggering unintended actions in consuming applications.
-    stride_category: spoofing
-    source: custom
+    taxonomy_references:
+      stride: [spoofing]
 
   - id: sqs-queue-flooding
     name: SQS Queue Flooding
     description: |
       Excessive messages sent to queue causing processing delays, increased
       costs, and potential denial of service to consumers.
-    stride_category: denial_of_service
-    source: custom
+    taxonomy_references:
+      stride: [denial-of-service]
 
   # ============================================================================
   # Data Flow Threats (apply to connections between components)
@@ -158,29 +158,29 @@ threats:
     description: |
       Attacker intercepts and potentially modifies data in transit between
       components. Can lead to data theft, tampering, or credential capture.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]
 
   - id: dataflow-eavesdropping
     name: Data Eavesdropping
     description: |
       Unauthorized interception and reading of data transmitted between
       components, exposing sensitive information to attackers.
-    stride_category: informationDisclosure
-    source: custom
+    taxonomy_references:
+      stride: [information-disclosure]
 
   - id: dataflow-replay-attack
     name: Replay Attack
     description: |
       Attacker captures legitimate requests and re-transmits them to perform
       unauthorized actions or duplicate transactions.
-    stride_category: spoofing
-    source: custom
+    taxonomy_references:
+      stride: [spoofing]
 
   - id: dataflow-injection
     name: Data Injection in Transit
     description: |
       Malicious data injected into the communication channel between components,
       potentially exploiting downstream systems or corrupting data.
-    stride_category: tampering
-    source: custom
+    taxonomy_references:
+      stride: [tampering]

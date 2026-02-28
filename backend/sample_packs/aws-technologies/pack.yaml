@@ -45,7 +45,8 @@ components:
       - slug: ec2-instance-compromise
         name: "EC2 Instance Compromise"
         description: "Unauthorized access to EC2 instances through vulnerabilities or misconfigurations"
-        stride_category: elevation_of_privilege
+        taxonomy_references:
+          stride: [elevation-of-privilege]
         severity: high
 
         countermeasures:
@@ -64,7 +65,8 @@ components:
       - slug: ec2-metadata-exposure
         name: "Instance Metadata Exposure"
         description: "SSRF attacks accessing EC2 instance metadata"
-        stride_category: information_disclosure
+        taxonomy_references:
+          stride: [information-disclosure]
         severity: high
 
         countermeasures:
@@ -84,7 +86,8 @@ components:
       - slug: lambda-code-injection
         name: "Lambda Code Injection"
         description: "Injecting malicious code through function inputs"
-        stride_category: tampering
+        taxonomy_references:
+          stride: [tampering]
         severity: high
 
         countermeasures:
@@ -97,7 +100,8 @@ components:
       - slug: lambda-iam-abuse
         name: "Lambda IAM Role Abuse"
         description: "Exploiting overly permissive Lambda execution roles"
-        stride_category: elevation_of_privilege
+        taxonomy_references:
+          stride: [elevation-of-privilege]
         severity: critical
 
         countermeasures:
@@ -120,7 +124,8 @@ components:
       - slug: s3-data-breach
         name: "S3 Data Breach"
         description: "Unauthorized access to S3 bucket contents"
-        stride_category: information_disclosure
+        taxonomy_references:
+          stride: [information-disclosure]
         severity: critical
 
         countermeasures:
@@ -145,7 +150,8 @@ components:
       - slug: s3-data-exfiltration
         name: "S3 Data Exfiltration"
         description: "Unauthorized bulk download of S3 data"
-        stride_category: information_disclosure
+        taxonomy_references:
+          stride: [information-disclosure]
         severity: high
 
         countermeasures:
@@ -165,7 +171,8 @@ components:
       - slug: rds-sql-injection
         name: "RDS SQL Injection"
         description: "SQL injection attacks against RDS databases"
-        stride_category: tampering
+        taxonomy_references:
+          stride: [tampering]
         severity: critical
 
         countermeasures:
@@ -178,7 +185,8 @@ components:
       - slug: rds-unauthorized-access
         name: "RDS Unauthorized Access"
         description: "Unauthorized access to RDS instances"
-        stride_category: information_disclosure
+        taxonomy_references:
+          stride: [information-disclosure]
         severity: high
 
         countermeasures:
@@ -207,7 +215,8 @@ components:
       - slug: api-gateway-abuse
         name: "API Gateway Abuse"
         description: "Abuse of API endpoints through excessive requests"
-        stride_category: denial_of_service
+        taxonomy_references:
+          stride: [denial-of-service]
         severity: medium
 
         countermeasures:
@@ -220,7 +229,8 @@ components:
       - slug: api-gateway-auth-bypass
         name: "API Gateway Auth Bypass"
         description: "Bypassing API Gateway authentication"
-        stride_category: spoofing
+        taxonomy_references:
+          stride: [spoofing]
         severity: critical
 
         countermeasures:
@@ -240,7 +250,8 @@ components:
       - slug: alb-ddos
         name: "ALB DDoS Attack"
         description: "Distributed denial of service targeting ALB"
-        stride_category: denial_of_service
+        taxonomy_references:
+          stride: [denial-of-service]
         severity: high
 
         countermeasures:
@@ -269,7 +280,8 @@ components:
       - slug: cognito-account-takeover
         name: "Cognito Account Takeover"
         description: "Unauthorized access to user accounts"
-        stride_category: spoofing
+        taxonomy_references:
+          stride: [spoofing]
         severity: critical
 
         countermeasures:
@@ -295,7 +307,8 @@ components:
       - slug: kms-key-compromise
         name: "KMS Key Compromise"
         description: "Unauthorized access to KMS encryption keys"
-        stride_category: information_disclosure
+        taxonomy_references:
+          stride: [information-disclosure]
         severity: critical
 
         countermeasures:

@@ -18,7 +18,55 @@ from apps.compliance.models import CountermeasureLibraryStandard, StandardFramew
 from apps.diagrams.models import DFDTemplatesLibrary
 from apps.packs.models import LibraryPack, LibraryPackDependency
 from apps.systems.models import ComponentLibrary
-from apps.threats.models import CountermeasureLibrary, ThreatLibrary, ComponentLibraryThreat
+from apps.threats.models import (
+    ComponentLibraryThreat,
+    CountermeasureLibrary,
+    TaxonomyEntry,
+    ThreatLibrary,
+    ThreatLibraryTaxonomyEntry,
+)
+
+
+STRIDE_CATEGORY_TO_KEBAB = {
+    "spoofing": "spoofing",
+    "tampering": "tampering",
+    "repudiation": "repudiation",
+    "information_disclosure": "information-disclosure",
+    "informationDisclosure": "information-disclosure",
+    "denial_of_service": "denial-of-service",
+    "denialOfService": "denial-of-service",
+    "elevation_of_privilege": "elevation-of-privilege",
+    "elevationOfPrivilege": "elevation-of-privilege",
+}
+
+
+def _link_taxonomy_references(threat_obj, threat_data):
+    """Create M2M links from taxonomy_references or old stride_category."""
+    taxonomy_refs = threat_data.get("taxonomy_references")
+
+    if not taxonomy_refs:
+        # Backward compat: convert old stride_category
+        old_stride = threat_data.get("stride_category", "")
+        if old_stride:
+            kebab = STRIDE_CATEGORY_TO_KEBAB.get(old_stride, old_stride)
+            taxonomy_refs = {"stride": [kebab]}
+
+    if not taxonomy_refs:
+        return
+
+    for taxonomy_slug, entry_ids in taxonomy_refs.items():
+        for external_id in entry_ids:
+            try:
+                taxonomy_entry = TaxonomyEntry.objects.get(
+                    taxonomy__slug=taxonomy_slug,
+                    external_id=str(external_id),
+                )
+                ThreatLibraryTaxonomyEntry.objects.get_or_create(
+                    threat_library=threat_obj,
+                    taxonomy_entry=taxonomy_entry,
+                )
+            except TaxonomyEntry.DoesNotExist:
+                pass  # Skip unknown taxonomy entries
 
 
 class Command(BaseCommand):
@@ -228,12 +276,12 @@ class Command(BaseCommand):
                 "slug": slug,
                 "name": threat_data["name"],
                 "description": threat_data.get("description", ""),
-                "stride_category": threat_data["stride_category"],
-                "source": threat_data.get("source", "custom"),
-                "source_id": threat_data.get("source_id", ""),
                 "customization_status": "original",
             },
         )
+
+        _link_taxonomy_references(threat, threat_data)
+
         return threat
 
     def _create_countermeasure(self, library_pack, cm_data):

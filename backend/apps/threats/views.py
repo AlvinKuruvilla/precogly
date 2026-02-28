@@ -15,9 +15,11 @@ from .models import (
     ComponentLibraryThreat,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
+    ExternalTaxonomy,
     FlowInstanceCountermeasure,
     FlowInstanceCountermeasureStandard,
     PentestFinding,
+    TaxonomyEntry,
     ThreatLibrary,
     VerificationTest,
 )
@@ -29,9 +31,11 @@ from .serializers import (
     CountermeasureLibraryListSerializer,
     CountermeasureLibrarySerializer,
     DataFlowInstanceThreatSerializer,
+    ExternalTaxonomySerializer,
     FlowInstanceCountermeasureSerializer,
     FlowInstanceCountermeasureStandardSerializer,
     PentestFindingSerializer,
+    TaxonomyEntryNestedSerializer,
     ThreatLibraryListSerializer,
     ThreatLibrarySerializer,
     VerificationTestSerializer,
@@ -44,9 +48,9 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["stride_category", "source"]
-    search_fields = ["name", "description", "source_id"]
-    ordering_fields = ["name", "stride_category", "created_at"]
+    filterset_fields = []
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "created_at"]
     ordering = ["name"]
 
     def get_queryset(self):
@@ -374,3 +378,22 @@ class FlowInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["flow_countermeasure", "requirement", "sufficiency"]
+
+
+class ExternalTaxonomyViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only ViewSet for ExternalTaxonomy."""
+
+    queryset = ExternalTaxonomy.objects.all()
+    serializer_class = ExternalTaxonomySerializer
+    permission_classes = [IsAuthenticated]
+
+
+class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only ViewSet for TaxonomyEntry."""
+
+    queryset = TaxonomyEntry.objects.select_related("taxonomy").all()
+    serializer_class = TaxonomyEntryNestedSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["taxonomy__slug"]
+    search_fields = ["external_id", "title"]

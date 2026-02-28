@@ -26,7 +26,7 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react'
-import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
+import { STRIDE_CONFIG, type STRIDECategory, type TaxonomyEntry } from '@/types/domain'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode } from '@/features/dfd-editor/types'
 import type { ThreatAnalysisData, SharedThreat } from '@/types/organization'
@@ -81,6 +81,7 @@ function convertSharedThreatToComponentThreat(sharedThreat: SharedThreat): Compo
     threatName: sharedThreat.threatName || 'Unknown Threat',
     threatDescription: sharedThreat.threatDescription || '',
     strideCategory: sharedThreat.strideCategory as STRIDECategory | undefined,
+    taxonomyEntries: sharedThreat.taxonomyEntries as TaxonomyEntry[] | undefined,
     countermeasures: sharedThreat.countermeasures.map((cm): ComponentThreatCountermeasure => ({
       id: `shared-cm-${cm.id}`,
       countermeasureId: cm.countermeasureLibraryId?.toString() || 'custom',

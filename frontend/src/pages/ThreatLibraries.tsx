@@ -19,22 +19,15 @@ import {
 import { PackBadge } from '@/components/packs'
 import { useThreatLibraries } from '@/api/libraries'
 
-const strideCategoryLabels: Record<string, string> = {
-  spoofing: 'Spoofing',
-  tampering: 'Tampering',
-  repudiation: 'Repudiation',
-  information_disclosure: 'Info Disclosure',
-  denial_of_service: 'DoS',
-  elevation_of_privilege: 'Privilege Escalation',
-}
+import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
 
-const strideCategoryColors: Record<string, string> = {
+const taxonomyEntryColors: Record<string, string> = {
   spoofing: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   tampering: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
   repudiation: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  information_disclosure: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  denial_of_service: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  elevation_of_privilege: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+  'information-disclosure': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  'denial-of-service': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  'elevation-of-privilege': 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
 }
 
 export function ThreatLibraries() {
@@ -62,7 +55,9 @@ export function ThreatLibraries() {
         (t) =>
           t.name.toLowerCase().includes(searchLower) ||
           t.description?.toLowerCase().includes(searchLower) ||
-          t.strideCategory.toLowerCase().includes(searchLower)
+          t.taxonomyEntries?.some(
+            (entry) => entry.title.toLowerCase().includes(searchLower) || entry.externalId.toLowerCase().includes(searchLower)
+          )
       )
     }
 
@@ -118,8 +113,7 @@ export function ThreatLibraries() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>STRIDE Category</TableHead>
-                <TableHead>Source</TableHead>
+                <TableHead>Taxonomy</TableHead>
                 <TableHead>Source Pack</TableHead>
               </TableRow>
             </TableHeader>
@@ -140,15 +134,21 @@ export function ThreatLibraries() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      className={strideCategoryColors[threat.strideCategory] || ''}
-                      variant="secondary"
-                    >
-                      {strideCategoryLabels[threat.strideCategory] || threat.strideCategory}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {threat.source || '—'}
+                    <div className="flex flex-wrap gap-1">
+                      {threat.taxonomyEntries && threat.taxonomyEntries.length > 0 ? (
+                        threat.taxonomyEntries.map((entry) => (
+                          <Badge
+                            key={entry.id}
+                            className={taxonomyEntryColors[entry.externalId] || ''}
+                            variant="secondary"
+                          >
+                            {STRIDE_CONFIG[entry.externalId as STRIDECategory]?.label || entry.title}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <PackBadge

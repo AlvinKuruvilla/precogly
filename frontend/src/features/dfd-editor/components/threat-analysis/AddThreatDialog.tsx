@@ -29,9 +29,9 @@ const STRIDE_CATEGORIES: { value: STRIDECategory; label: string }[] = [
   { value: 'spoofing', label: 'Spoofing' },
   { value: 'tampering', label: 'Tampering' },
   { value: 'repudiation', label: 'Repudiation' },
-  { value: 'informationDisclosure', label: 'Information Disclosure' },
-  { value: 'denialOfService', label: 'Denial of Service' },
-  { value: 'elevationOfPrivilege', label: 'Elevation of Privilege' },
+  { value: 'information-disclosure', label: 'Information Disclosure' },
+  { value: 'denial-of-service', label: 'Denial of Service' },
+  { value: 'elevation-of-privilege', label: 'Elevation of Privilege' },
 ]
 
 const SEVERITY_OPTIONS = [
@@ -75,10 +75,13 @@ export function AddThreatDialog({
 
   const filteredThreats = threatLibrary?.filter((threat) => {
     const query = searchQuery.toLowerCase()
+    const taxonomyMatch = threat.taxonomyEntries?.some(
+      (entry) => entry.title.toLowerCase().includes(query) || entry.externalId.toLowerCase().includes(query)
+    ) ?? false
     return (
       threat.name?.toLowerCase().includes(query) ||
       threat.description?.toLowerCase().includes(query) ||
-      (threat.strideCategory?.toLowerCase().includes(query) ?? false)
+      taxonomyMatch
     )
   }) ?? []
 
@@ -109,7 +112,6 @@ export function AddThreatDialog({
       threatLibrary: null,
       threatName: customName,
       threatDescription: customDescription,
-      strideCategory: customCategory || undefined,
       inherentSeverity: customSeverity,
       status: 'open',
     }
@@ -194,9 +196,9 @@ export function AddThreatDialog({
                             {threat.description}
                           </p>
                         </div>
-                        {threat.strideCategory && (
+                        {threat.taxonomyEntries && threat.taxonomyEntries.length > 0 && (
                           <span className="text-xs px-2 py-1 rounded-full bg-muted shrink-0">
-                            {threat.strideCategory}
+                            {threat.taxonomyEntries.map((e) => e.title).join(', ')}
                           </span>
                         )}
                       </div>

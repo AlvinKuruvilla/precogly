@@ -27,6 +27,7 @@ class LibraryPack(TimestampedModel):
         COMPLIANCE = "compliance", "Compliance Pack"
         TEMPLATE = "template", "DFD Template Pack"
         FULL = "full", "Full Stack Pack"  # Contains multiple types
+        TAXONOMY = "taxonomy", "Taxonomy Pack"
 
     class Tier(models.TextChoices):
         FREE = "free", "Free"

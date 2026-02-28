@@ -2,7 +2,7 @@
  * Type definitions for Library Packs.
  */
 
-export type PackType = 'technology' | 'threat' | 'countermeasure' | 'compliance' | 'template' | 'full'
+export type PackType = 'technology' | 'threat' | 'countermeasure' | 'compliance' | 'template' | 'full' | 'taxonomy'
 export type PackTier = 'free' | 'premium' | 'enterprise'
 export type PackSource = 'official' | 'partner' | 'community' | 'private'
 
@@ -20,6 +20,7 @@ export interface PackContentSummary {
   threats: number
   countermeasures: number
   templates: number
+  taxonomies: number
 }
 
 export interface LibraryPack {

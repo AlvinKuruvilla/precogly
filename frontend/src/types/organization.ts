@@ -211,6 +211,7 @@ export interface SharedThreat {
   threatName: string | null
   threatDescription: string | null
   strideCategory: string | null
+  taxonomyEntries?: Array<{ id: number; taxonomySlug: string; taxonomyName: string; externalId: string; title: string }>
   inherentSeverity: string
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'

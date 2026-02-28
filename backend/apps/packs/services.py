@@ -22,7 +22,10 @@ from apps.systems.models import ComponentLibrary
 from apps.threats.models import (
     ComponentLibraryThreat,
     CountermeasureLibrary,
+    ExternalTaxonomy,
+    TaxonomyEntry,
     ThreatLibrary,
+    ThreatLibraryTaxonomyEntry,
 )
 
 from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay
@@ -50,6 +53,7 @@ class PackInfo:
     component_count: int = 0
     threat_count: int = 0
     countermeasure_count: int = 0
+    taxonomy_count: int = 0
 
     def to_dict(self):
         return {
@@ -70,6 +74,7 @@ class PackInfo:
             "component_count": self.component_count,
             "threat_count": self.threat_count,
             "countermeasure_count": self.countermeasure_count,
+            "taxonomy_count": self.taxonomy_count,
         }
 
 
@@ -86,6 +91,7 @@ class ImportResult:
     threats_created: int = 0
     countermeasures_created: int = 0
     templates_created: int = 0
+    taxonomies_created: int = 0
     errors: list = field(default_factory=list)
 
     def to_dict(self):
@@ -99,6 +105,7 @@ class ImportResult:
             "threats_created": self.threats_created,
             "countermeasures_created": self.countermeasures_created,
             "templates_created": self.templates_created,
+            "taxonomies_created": self.taxonomies_created,
             "errors": self.errors,
         }
 
@@ -146,6 +153,7 @@ def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
         component_count = _count_items_in_file(pack_dir / "components.yaml", "components")
         threat_count = _count_items_in_file(pack_dir / "threats.yaml", "threats")
         countermeasure_count = _count_items_in_file(pack_dir / "countermeasures.yaml", "countermeasures")
+        taxonomy_count = _count_items_in_file(pack_dir / "taxonomy.yaml", "taxonomies")
 
         return PackInfo(
             slug=slug,
@@ -164,6 +172,7 @@ def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
             component_count=component_count,
             threat_count=threat_count,
             countermeasure_count=countermeasure_count,
+            taxonomy_count=taxonomy_count,
         )
     except Exception as e:
         logger.error(f"Error reading pack {pack_dir}: {e}")
@@ -327,10 +336,14 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
             with open(threats_file) as f:
                 threat_data = yaml.safe_load(f) or {}
             for threat in threat_data.get("threats", []):
+                # Derive stride_category from taxonomy_references or old field
+                taxonomy_refs = threat.get("taxonomy_references", {})
+                stride_entries = taxonomy_refs.get("stride", [])
+                stride_display = stride_entries[0] if stride_entries else threat.get("stride_category", "")
                 threats.append({
                     "slug": threat.get("slug", threat.get("id", "")),
                     "name": threat.get("name", ""),
-                    "stride_category": threat.get("stride_category", ""),
+                    "stride_category": stride_display,
                     "severity": threat.get("severity", ""),
                     "description": threat.get("description", ""),
                 })
@@ -365,6 +378,24 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
                 "framework_name": framework.get("name", ""),
             })
 
+    # Load taxonomies from taxonomy.yaml
+    taxonomies = []
+    taxonomy_file = pack_dir / "taxonomy.yaml"
+    if taxonomy_file.exists():
+        try:
+            with open(taxonomy_file) as f:
+                tax_data = yaml.safe_load(f) or {}
+            for taxonomy in tax_data.get("taxonomies", []):
+                entry_count = len(taxonomy.get("entries", []))
+                taxonomies.append({
+                    "slug": taxonomy.get("slug", ""),
+                    "name": taxonomy.get("name", ""),
+                    "description": taxonomy.get("description", ""),
+                    "entry_count": entry_count,
+                })
+        except Exception as e:
+            logger.error(f"Error reading taxonomy.yaml in {pack_dir}: {e}")
+
     return {
         "pack": {
             "slug": pack_meta.get("slug", ""),
@@ -381,6 +412,7 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
         "threats": threats,
         "countermeasures": countermeasures,
         "requirements": requirements,
+        "taxonomies": taxonomies,
     }
 
 
@@ -796,8 +828,14 @@ def _import_pack(
         active_components = ComponentLibrary.objects.filter(source_pack=existing).count()
         active_threats = ThreatLibrary.objects.filter(source_pack=existing).count()
         active_countermeasures = CountermeasureLibrary.objects.filter(source_pack=existing).count()
+        active_taxonomies = ExternalTaxonomy.objects.filter(source_pack=existing).count()
 
-        has_active_items = active_components > 0 or active_threats > 0 or active_countermeasures > 0
+        has_active_items = (
+            active_components > 0
+            or active_threats > 0
+            or active_countermeasures > 0
+            or active_taxonomies > 0
+        )
 
         if has_active_items:
             return ImportResult(
@@ -821,6 +859,10 @@ def _import_pack(
 
             # Process dependencies
             _process_dependencies(library_pack, pack_data)
+
+            # Load taxonomies (before threats, since threats reference taxonomy entries)
+            taxonomy_file = pack_path / "taxonomy.yaml"
+            taxonomies_count = _load_taxonomy(library_pack, taxonomy_file)
 
             # Load components
             components_file = pack_path / "components.yaml"
@@ -877,6 +919,7 @@ def _import_pack(
                 threats_created=threats_count,
                 countermeasures_created=countermeasures_count,
                 templates_created=templates_count,
+                taxonomies_created=taxonomies_count,
             )
 
     except Exception as e:
@@ -947,6 +990,7 @@ def _hard_delete_pack_items(pack: LibraryPack):
     ThreatLibrary.objects.filter(source_pack=pack).delete()
     CountermeasureLibrary.objects.filter(source_pack=pack).delete()
     DFDTemplatesLibrary.objects.filter(source_pack=pack).delete()
+    ExternalTaxonomy.objects.filter(source_pack=pack).delete()
 
 
 def _create_or_update_pack(pack_data: dict) -> LibraryPack:
@@ -1028,6 +1072,99 @@ def _resolve_threat_reference(library_pack: LibraryPack, threat_ref: str) -> Opt
 # =============================================================================
 
 
+STRIDE_CATEGORY_TO_KEBAB = {
+    "spoofing": "spoofing",
+    "tampering": "tampering",
+    "repudiation": "repudiation",
+    "information_disclosure": "information-disclosure",
+    "informationDisclosure": "information-disclosure",
+    "denial_of_service": "denial-of-service",
+    "denialOfService": "denial-of-service",
+    "elevation_of_privilege": "elevation-of-privilege",
+    "elevationOfPrivilege": "elevation-of-privilege",
+}
+
+
+def _link_taxonomy_references(threat_obj, threat_data):
+    """Create M2M links from taxonomy_references or old stride_category."""
+    taxonomy_refs = threat_data.get("taxonomy_references")
+
+    if not taxonomy_refs:
+        # Backward compat: convert old stride_category
+        old_stride = threat_data.get("stride_category", "")
+        if old_stride:
+            kebab = STRIDE_CATEGORY_TO_KEBAB.get(old_stride, old_stride)
+            taxonomy_refs = {"stride": [kebab]}
+
+    if not taxonomy_refs:
+        return
+
+    for taxonomy_slug, entry_ids in taxonomy_refs.items():
+        for external_id in entry_ids:
+            try:
+                taxonomy_entry = TaxonomyEntry.objects.get(
+                    taxonomy__slug=taxonomy_slug,
+                    external_id=str(external_id),
+                )
+                ThreatLibraryTaxonomyEntry.objects.get_or_create(
+                    threat_library=threat_obj,
+                    taxonomy_entry=taxonomy_entry,
+                )
+            except TaxonomyEntry.DoesNotExist:
+                logger.warning(
+                    f"Taxonomy entry {taxonomy_slug}:{external_id} not found — "
+                    f"import the taxonomy pack first"
+                )
+
+
+def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
+    """Load taxonomies and entries from taxonomy.yaml."""
+    if not file_path.exists():
+        return 0
+
+    try:
+        with open(file_path) as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.error(f"Error loading taxonomy.yaml: {e}")
+        return 0
+
+    count = 0
+    for taxonomy_data in data.get("taxonomies", []):
+        slug = taxonomy_data.get("slug", "")
+        if not slug:
+            logger.warning("Skipping taxonomy without slug")
+            continue
+
+        taxonomy_obj, _ = ExternalTaxonomy.objects.update_or_create(
+            slug=slug,
+            defaults={
+                "source_pack": library_pack,
+                "name": taxonomy_data.get("name", slug),
+                "description": taxonomy_data.get("description", ""),
+                "source_url": taxonomy_data.get("source_url", ""),
+                "version": taxonomy_data.get("version", ""),
+            },
+        )
+
+        for entry_data in taxonomy_data.get("entries", []):
+            external_id = entry_data.get("external_id", "")
+            if not external_id:
+                continue
+            TaxonomyEntry.objects.update_or_create(
+                taxonomy=taxonomy_obj,
+                external_id=str(external_id),
+                defaults={
+                    "title": entry_data.get("title", external_id),
+                    "description": entry_data.get("description", ""),
+                },
+            )
+
+        count += 1
+
+    return count
+
+
 def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
     """Load components from components.yaml."""
     if not file_path.exists():
@@ -1089,19 +1226,19 @@ def _load_threats(library_pack: LibraryPack, file_path: Path) -> int:
 
         qualified_slug = f"{library_pack.slug}/{threat_id}"
 
-        ThreatLibrary.objects.update_or_create(
+        threat_obj, created = ThreatLibrary.objects.update_or_create(
             qualified_slug=qualified_slug,
             defaults={
                 "source_pack": library_pack,
                 "slug": threat_id,
                 "name": threat.get("name", threat_id),
                 "description": threat.get("description", ""),
-                "stride_category": threat.get("stride_category", ""),
-                "source": threat.get("source", "custom"),
-                "source_id": threat.get("source_id", ""),
                 "customization_status": "original",
             },
         )
+
+        _link_taxonomy_references(threat_obj, threat)
+
         count += 1
 
     return count

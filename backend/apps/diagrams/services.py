@@ -340,7 +340,6 @@ def _generate_threats_for_component(component):
                 # Copy metadata for self-sufficiency if library is later removed
                 "threat_name": threat_lib.name if threat_lib else "",
                 "threat_description": threat_lib.description if threat_lib else "",
-                "stride_category": threat_lib.stride_category if threat_lib else "",
             },
         )
         if created:
@@ -539,7 +538,6 @@ def _generate_threats_for_dataflow(dataflow):
                     # Copy metadata for self-sufficiency if library is later removed
                     "threat_name": threat_lib.name if threat_lib else "",
                     "threat_description": threat_lib.description if threat_lib else "",
-                    "stride_category": threat_lib.stride_category if threat_lib else "",
                 },
             )
             if created:
@@ -566,7 +564,6 @@ def _generate_threats_for_dataflow(dataflow):
                     "status": DataFlowInstanceThreat.Status.OPEN,
                     "threat_name": threat_lib.name if threat_lib else "",
                     "threat_description": threat_lib.description if threat_lib else "",
-                    "stride_category": threat_lib.stride_category if threat_lib else "",
                 },
             )
             if created:

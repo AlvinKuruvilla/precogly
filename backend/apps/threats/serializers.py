@@ -11,12 +11,34 @@ from .models import (
     ComponentLibraryThreat,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
+    ExternalTaxonomy,
     FlowInstanceCountermeasure,
     FlowInstanceCountermeasureStandard,
     PentestFinding,
+    TaxonomyEntry,
     ThreatLibrary,
     VerificationTest,
 )
+
+
+class ExternalTaxonomySerializer(serializers.ModelSerializer):
+    """Serializer for ExternalTaxonomy model."""
+
+    class Meta:
+        model = ExternalTaxonomy
+        fields = ["id", "slug", "name", "description", "source_url", "version"]
+        read_only_fields = ["id"]
+
+
+class TaxonomyEntryNestedSerializer(serializers.ModelSerializer):
+    """Nested read-only serializer for taxonomy entries."""
+
+    taxonomy_slug = serializers.CharField(source="taxonomy.slug", read_only=True)
+    taxonomy_name = serializers.CharField(source="taxonomy.name", read_only=True)
+
+    class Meta:
+        model = TaxonomyEntry
+        fields = ["id", "taxonomy_slug", "taxonomy_name", "external_id", "title"]
 
 
 class ThreatLibrarySerializer(serializers.ModelSerializer):
@@ -24,6 +46,7 @@ class ThreatLibrarySerializer(serializers.ModelSerializer):
 
     source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
     source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+    taxonomy_entries = serializers.SerializerMethodField()
 
     class Meta:
         model = ThreatLibrary
@@ -31,16 +54,20 @@ class ThreatLibrarySerializer(serializers.ModelSerializer):
             "id",
             "name",
             "description",
-            "stride_category",
-            "source",
-            "source_id",
             "source_pack",
             "source_pack_name",
             "source_pack_slug",
+            "taxonomy_entries",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
+        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug", "taxonomy_entries"]
+
+    def get_taxonomy_entries(self, obj):
+        joins = obj.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all()
+        return TaxonomyEntryNestedSerializer(
+            [j.taxonomy_entry for j in joins], many=True
+        ).data
 
 
 class ThreatLibraryListSerializer(serializers.ModelSerializer):
@@ -48,10 +75,21 @@ class ThreatLibraryListSerializer(serializers.ModelSerializer):
 
     source_pack_name = serializers.CharField(source="source_pack.name", read_only=True)
     source_pack_slug = serializers.CharField(source="source_pack.slug", read_only=True)
+    taxonomy_entries = serializers.SerializerMethodField()
 
     class Meta:
         model = ThreatLibrary
-        fields = ["id", "name", "description", "stride_category", "source", "source_pack", "source_pack_name", "source_pack_slug"]
+        fields = [
+            "id", "name", "description",
+            "source_pack", "source_pack_name", "source_pack_slug",
+            "taxonomy_entries",
+        ]
+
+    def get_taxonomy_entries(self, obj):
+        joins = obj.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all()
+        return TaxonomyEntryNestedSerializer(
+            [j.taxonomy_entry for j in joins], many=True
+        ).data
 
 
 class CountermeasureLibrarySerializer(serializers.ModelSerializer):
@@ -119,11 +157,11 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
     # Read fields - prefer model's own fields, fallback to threat_library
     threat_name_display = serializers.SerializerMethodField()
     stride_category_display = serializers.SerializerMethodField()
+    taxonomy_entries = serializers.SerializerMethodField()
     component_name = serializers.CharField(source="component.name", read_only=True)
 
-    # Write fields - accept threat_name and stride_category for custom threats
+    # Write fields - accept threat_name for custom threats
     threat_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    stride_category = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     class Meta:
         model = ComponentInstanceThreat
@@ -134,8 +172,8 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "threat_library",
             "threat_name",
             "threat_name_display",
-            "stride_category",
             "stride_category_display",
+            "taxonomy_entries",
             "inherent_severity",
             "residual_severity",
             "status",
@@ -151,6 +189,7 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "updated_at",
             "threat_name_display",
             "stride_category_display",
+            "taxonomy_entries",
             "component_name",
         ]
 
@@ -163,12 +202,21 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
         return None
 
     def get_stride_category_display(self, obj):
-        """Return stride category from model field or threat_library."""
-        if obj.stride_category:
-            return obj.stride_category
+        """Return stride category from taxonomy M2M."""
         if obj.threat_library:
-            return obj.threat_library.stride_category
+            return obj.threat_library.get_stride_category_from_taxonomy()
         return None
+
+    def get_taxonomy_entries(self, obj):
+        """Return taxonomy entries from linked threat_library."""
+        if not obj.threat_library:
+            return []
+        joins = obj.threat_library.taxonomy_entries.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all()
+        return TaxonomyEntryNestedSerializer(
+            [j.taxonomy_entry for j in joins], many=True
+        ).data
 
 
 class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
@@ -177,11 +225,11 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
     # Read fields - prefer model's own fields, fallback to threat_library
     threat_name_display = serializers.SerializerMethodField()
     stride_category_display = serializers.SerializerMethodField()
+    taxonomy_entries = serializers.SerializerMethodField()
     flow_label = serializers.CharField(source="data_flow.label", read_only=True)
 
-    # Write fields - accept threat_name and stride_category for custom threats
+    # Write fields - accept threat_name for custom threats
     threat_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    stride_category = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     class Meta:
         model = DataFlowInstanceThreat
@@ -192,8 +240,8 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "threat_library",
             "threat_name",
             "threat_name_display",
-            "stride_category",
             "stride_category_display",
+            "taxonomy_entries",
             "inherent_severity",
             "residual_severity",
             "status",
@@ -208,6 +256,7 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "updated_at",
             "threat_name_display",
             "stride_category_display",
+            "taxonomy_entries",
             "flow_label",
         ]
 
@@ -220,12 +269,21 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
         return None
 
     def get_stride_category_display(self, obj):
-        """Return stride category from model field or threat_library."""
-        if obj.stride_category:
-            return obj.stride_category
+        """Return stride category from taxonomy M2M."""
         if obj.threat_library:
-            return obj.threat_library.stride_category
+            return obj.threat_library.get_stride_category_from_taxonomy()
         return None
+
+    def get_taxonomy_entries(self, obj):
+        """Return taxonomy entries from linked threat_library."""
+        if not obj.threat_library:
+            return []
+        joins = obj.threat_library.taxonomy_entries.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all()
+        return TaxonomyEntryNestedSerializer(
+            [j.taxonomy_entry for j in joins], many=True
+        ).data
 
 
 class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):

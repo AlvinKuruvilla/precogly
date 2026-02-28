@@ -43,6 +43,7 @@ export interface SourcePackInfo {
   componentCount: number
   threatCount: number
   countermeasureCount: number
+  taxonomyCount: number
 }
 
 export interface AvailablePacksResponse {
@@ -62,6 +63,7 @@ export interface ImportResult {
   threatsCreated: number
   countermeasuresCreated: number
   templatesCreated: number
+  taxonomiesCreated: number
   errors: string[]
 }
 
@@ -106,6 +108,13 @@ export interface PackPreviewRequirement {
   frameworkName: string
 }
 
+export interface PackPreviewTaxonomy {
+  slug: string
+  name: string
+  description: string
+  entryCount: number
+}
+
 export interface PackPreviewResponse {
   pack: {
     slug: string
@@ -122,6 +131,7 @@ export interface PackPreviewResponse {
   threats: PackPreviewThreat[]
   countermeasures: PackPreviewCountermeasure[]
   requirements: PackPreviewRequirement[]
+  taxonomies: PackPreviewTaxonomy[]
 }
 
 // Types for pack overlays

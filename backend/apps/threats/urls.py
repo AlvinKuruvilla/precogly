@@ -12,9 +12,11 @@ from .views import (
     ComponentLibraryThreatViewSet,
     CountermeasureLibraryViewSet,
     DataFlowInstanceThreatViewSet,
+    ExternalTaxonomyViewSet,
     FlowInstanceCountermeasureStandardViewSet,
     FlowInstanceCountermeasureViewSet,
     PentestFindingViewSet,
+    TaxonomyEntryViewSet,
     ThreatLibraryViewSet,
     VerificationTestViewSet,
 )
@@ -71,6 +73,9 @@ router.register(
     FlowInstanceCountermeasureStandardViewSet,
     basename="flow-instance-countermeasure-standard",
 )
+
+router.register(r"taxonomies", ExternalTaxonomyViewSet, basename="taxonomy")
+router.register(r"taxonomy-entries", TaxonomyEntryViewSet, basename="taxonomy-entry")
 
 urlpatterns = [
     path("", include(router.urls)),

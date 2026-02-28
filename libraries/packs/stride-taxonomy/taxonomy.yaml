@@ -1,0 +1,24 @@
+taxonomies:
+  - slug: stride
+    name: STRIDE Threat Model
+    description: "Microsoft STRIDE threat classification"
+    source_url: "https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats"
+    entries:
+      - external_id: spoofing
+        title: Spoofing
+        description: "Pretending to be something or someone other than yourself"
+      - external_id: tampering
+        title: Tampering
+        description: "Modifying something on disk, network, memory, or elsewhere"
+      - external_id: repudiation
+        title: Repudiation
+        description: "Claiming to have not performed an action"
+      - external_id: information-disclosure
+        title: Information Disclosure
+        description: "Exposing information to someone not authorized to see it"
+      - external_id: denial-of-service
+        title: Denial of Service
+        description: "Denying or degrading service to users"
+      - external_id: elevation-of-privilege
+        title: Elevation of Privilege
+        description: "Gaining capabilities without proper authorization"

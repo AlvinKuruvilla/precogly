@@ -579,8 +579,9 @@ class MagicLinkAccessView(APIView):
                 threat_description = (
                     threat.threat_library.description if threat.threat_library else None
                 )
-                stride_category = threat.stride_category or (
-                    threat.threat_library.stride_category if threat.threat_library else None
+                stride_category = (
+                    threat.threat_library.get_stride_category_from_taxonomy()
+                    if threat.threat_library else None
                 )
 
                 threat_data = {
@@ -663,8 +664,9 @@ class MagicLinkAccessView(APIView):
                 threat_description = (
                     threat.threat_library.description if threat.threat_library else None
                 )
-                stride_category = threat.stride_category or (
-                    threat.threat_library.stride_category if threat.threat_library else None
+                stride_category = (
+                    threat.threat_library.get_stride_category_from_taxonomy()
+                    if threat.threat_library else None
                 )
 
                 threat_data = {

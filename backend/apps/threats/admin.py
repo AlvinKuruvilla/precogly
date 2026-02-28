@@ -6,17 +6,20 @@ from .models import (
     ComponentLibraryThreat,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
+    ExternalTaxonomy,
     FlowInstanceCountermeasure,
     PentestFinding,
+    TaxonomyEntry,
     ThreatLibrary,
+    ThreatLibraryTaxonomyEntry,
     VerificationTest,
 )
 
 
 @admin.register(ThreatLibrary)
 class ThreatLibraryAdmin(admin.ModelAdmin):
-    list_display = ["name", "stride_category", "source"]
-    list_filter = ["stride_category", "source"]
+    list_display = ["name", "source_pack"]
+    list_filter = ["source_pack"]
     search_fields = ["name", "description"]
 
 
@@ -61,6 +64,25 @@ class FlowInstanceCountermeasureAdmin(admin.ModelAdmin):
 class VerificationTestAdmin(admin.ModelAdmin):
     list_display = ["name", "method", "passed", "last_run_at"]
     list_filter = ["method", "passed"]
+
+
+@admin.register(ExternalTaxonomy)
+class ExternalTaxonomyAdmin(admin.ModelAdmin):
+    list_display = ["name", "slug", "version"]
+    search_fields = ["name", "slug"]
+
+
+@admin.register(TaxonomyEntry)
+class TaxonomyEntryAdmin(admin.ModelAdmin):
+    list_display = ["taxonomy", "external_id", "title"]
+    list_filter = ["taxonomy"]
+    search_fields = ["external_id", "title"]
+
+
+@admin.register(ThreatLibraryTaxonomyEntry)
+class ThreatLibraryTaxonomyEntryAdmin(admin.ModelAdmin):
+    list_display = ["threat_library", "taxonomy_entry"]
+    list_filter = ["taxonomy_entry__taxonomy"]
 
 
 @admin.register(PentestFinding)

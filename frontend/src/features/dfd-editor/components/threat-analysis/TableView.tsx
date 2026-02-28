@@ -62,7 +62,7 @@ export function TableView({
         if (!node) return
 
         // Use threat metadata from backend (stored in ComponentThreat)
-        if (!ct.threatName || !ct.strideCategory) return
+        if (!ct.threatName) return
 
         const technologyName = (node.data as { technology?: string }).technology
 
@@ -72,6 +72,7 @@ export function TableView({
         ).length
         const gaps = ct.countermeasures.filter((cm) => cm.status === 'gap').length
 
+        const strideCategory = ct.strideCategory || ''
         rows.push({
           componentThreatId: ct.id,
           componentId: ct.componentId,
@@ -80,8 +81,8 @@ export function TableView({
           technology: technologyName,
           threatId: ct.threatId,
           threatName: ct.threatName,
-          strideCategory: ct.strideCategory,
-          strideCategoryLabel: STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory,
+          strideCategory,
+          strideCategoryLabel: strideCategory ? (STRIDE_CONFIG[strideCategory]?.label ?? strideCategory) : 'Custom',
           status,
           countermeasuresTotal: ct.countermeasures.length,
           countermeasuresResolved: resolved,

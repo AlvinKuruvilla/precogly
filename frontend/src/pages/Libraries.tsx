@@ -272,6 +272,7 @@ function CatalogView() {
               <SelectItem value="compliance">Compliance</SelectItem>
               <SelectItem value="template">Template</SelectItem>
               <SelectItem value="full">Full</SelectItem>
+              <SelectItem value="taxonomy">Taxonomy</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -546,6 +547,7 @@ function PackCard({
     compliance: 'bg-purple-100 text-purple-800',
     template: 'bg-yellow-100 text-yellow-800',
     full: 'bg-gray-100 text-gray-800',
+    taxonomy: 'bg-teal-100 text-teal-800',
   }
 
   const tierColors: Record<string, string> = {
@@ -781,6 +783,7 @@ function ImportedPackRow({
     compliance: 'bg-purple-100 text-purple-800',
     template: 'bg-yellow-100 text-yellow-800',
     full: 'bg-gray-100 text-gray-800',
+    taxonomy: 'bg-teal-100 text-teal-800',
   }
 
   const handleUnimportClick = (e: React.MouseEvent) => {

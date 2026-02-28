@@ -376,7 +376,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 # Use library fields if available, fall back to copied fields for orphaned instances
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
-                "stride_category": (threat.threat_library.stride_category if threat.threat_library else None) or threat.stride_category,
+                "stride_category": threat.threat_library.get_stride_category_from_taxonomy() if threat.threat_library else None,
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
@@ -425,7 +425,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 # Use library fields if available, fall back to copied fields for orphaned instances
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
-                "stride_category": (threat.threat_library.stride_category if threat.threat_library else None) or threat.stride_category,
+                "stride_category": threat.threat_library.get_stride_category_from_taxonomy() if threat.threat_library else None,
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,

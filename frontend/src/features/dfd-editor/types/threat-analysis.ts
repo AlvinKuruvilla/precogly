@@ -1,4 +1,4 @@
-import type { STRIDECategory, SecurityStandard } from '@/types/domain'
+import type { STRIDECategory, SecurityStandard, TaxonomyEntry } from '@/types/domain'
 
 /**
  * Compliance standard mapping from backend
@@ -139,6 +139,7 @@ export interface ComponentThreat {
   threatName?: string
   threatDescription?: string
   strideCategory?: STRIDECategory
+  taxonomyEntries?: TaxonomyEntry[]
   // Backend IDs for API operations
   backendThreatId?: number
   backendComponentId?: number
@@ -233,7 +234,8 @@ export interface ExpandedComponentThreat {
   threatId: string
   threatName: string
   threatDescription: string
-  strideCategory: STRIDECategory
+  strideCategory?: STRIDECategory
+  taxonomyEntries?: TaxonomyEntry[]
   // Status derived from countermeasures
   status: ThreatStatus
   dismissed: boolean

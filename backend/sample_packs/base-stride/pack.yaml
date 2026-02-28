@@ -31,109 +31,103 @@ threats:
   - slug: identity-spoofing
     name: "Identity Spoofing"
     description: "An attacker pretends to be someone or something else to gain unauthorized access"
-    stride_category: spoofing
-    source: stride
-    source_id: "STRIDE-S"
+    taxonomy_references:
+      stride: [spoofing]
 
   - slug: credential-theft
     name: "Credential Theft"
     description: "Stealing user credentials through phishing, keylogging, or other means"
-    stride_category: spoofing
-    source: stride
+    taxonomy_references:
+      stride: [spoofing]
 
   - slug: session-hijacking
     name: "Session Hijacking"
     description: "Taking over a user's authenticated session"
-    stride_category: spoofing
-    source: stride
+    taxonomy_references:
+      stride: [spoofing]
 
   # Tampering
   - slug: data-tampering
     name: "Data Tampering"
     description: "Malicious modification of data in transit or at rest"
-    stride_category: tampering
-    source: stride
-    source_id: "STRIDE-T"
+    taxonomy_references:
+      stride: [tampering]
 
   - slug: parameter-manipulation
     name: "Parameter Manipulation"
     description: "Modifying request parameters to bypass security controls"
-    stride_category: tampering
-    source: stride
+    taxonomy_references:
+      stride: [tampering]
 
   - slug: code-injection
     name: "Code Injection"
     description: "Injecting malicious code into application inputs"
-    stride_category: tampering
-    source: stride
+    taxonomy_references:
+      stride: [tampering]
 
   # Repudiation
   - slug: repudiation-of-actions
     name: "Repudiation of Actions"
     description: "User denies performing an action without ability to prove otherwise"
-    stride_category: repudiation
-    source: stride
-    source_id: "STRIDE-R"
+    taxonomy_references:
+      stride: [repudiation]
 
   - slug: log-tampering
     name: "Log Tampering"
     description: "Modifying or deleting audit logs to hide malicious activity"
-    stride_category: repudiation
-    source: stride
+    taxonomy_references:
+      stride: [repudiation]
 
   # Information Disclosure
   - slug: information-disclosure
     name: "Information Disclosure"
     description: "Exposure of sensitive information to unauthorized parties"
-    stride_category: information_disclosure
-    source: stride
-    source_id: "STRIDE-I"
+    taxonomy_references:
+      stride: [information-disclosure]
 
   - slug: data-leakage
     name: "Data Leakage"
     description: "Unintended exposure of sensitive data through error messages, logs, or APIs"
-    stride_category: information_disclosure
-    source: stride
+    taxonomy_references:
+      stride: [information-disclosure]
 
   - slug: network-sniffing
     name: "Network Sniffing"
     description: "Capturing network traffic to extract sensitive information"
-    stride_category: information_disclosure
-    source: stride
+    taxonomy_references:
+      stride: [information-disclosure]
 
   # Denial of Service
   - slug: denial-of-service
     name: "Denial of Service"
     description: "Making a system or service unavailable to legitimate users"
-    stride_category: denial_of_service
-    source: stride
-    source_id: "STRIDE-D"
+    taxonomy_references:
+      stride: [denial-of-service]
 
   - slug: resource-exhaustion
     name: "Resource Exhaustion"
     description: "Consuming system resources to cause service degradation"
-    stride_category: denial_of_service
-    source: stride
+    taxonomy_references:
+      stride: [denial-of-service]
 
   # Elevation of Privilege
   - slug: elevation-of-privilege
     name: "Elevation of Privilege"
     description: "Gaining higher access rights than authorized"
-    stride_category: elevation_of_privilege
-    source: stride
-    source_id: "STRIDE-E"
+    taxonomy_references:
+      stride: [elevation-of-privilege]
 
   - slug: privilege-escalation
     name: "Privilege Escalation"
     description: "Exploiting vulnerabilities to gain elevated access"
-    stride_category: elevation_of_privilege
-    source: stride
+    taxonomy_references:
+      stride: [elevation-of-privilege]
 
   - slug: authorization-bypass
     name: "Authorization Bypass"
     description: "Circumventing access control mechanisms"
-    stride_category: elevation_of_privilege
-    source: stride
+    taxonomy_references:
+      stride: [elevation-of-privilege]
 
 # =============================================================================
 # CORE COUNTERMEASURES

@@ -44,6 +44,7 @@ interface UnifiedPack {
   tags: string[]
   componentCount: number
   threatCount: number
+  taxonomyCount: number
   // Status
   isInDatabase: boolean
   isImported: boolean
@@ -90,6 +91,7 @@ export function Packs() {
           tags: sp.tags,
           componentCount: sp.componentCount,
           threatCount: sp.threatCount,
+          taxonomyCount: sp.taxonomyCount,
           isInDatabase: sp.isInDatabase,
           isImported: sp.isInDatabase || (dbPack?.isImported ?? false),
           databaseId: dbPack?.id ?? null,
@@ -113,6 +115,7 @@ export function Packs() {
             tags: dbPack.tags,
             componentCount: 0,
             threatCount: 0,
+            taxonomyCount: 0,
             isInDatabase: true,
             isImported: dbPack.isImported,
             databaseId: dbPack.id,
@@ -231,6 +234,7 @@ export function Packs() {
               <SelectItem value="compliance">Compliance</SelectItem>
               <SelectItem value="template">Template</SelectItem>
               <SelectItem value="full">Full</SelectItem>
+              <SelectItem value="taxonomy">Taxonomy</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -316,6 +320,7 @@ function UnifiedPackCard({
     compliance: 'bg-purple-100 text-purple-800',
     template: 'bg-yellow-100 text-yellow-800',
     full: 'bg-gray-100 text-gray-800',
+    taxonomy: 'bg-teal-100 text-teal-800',
   }
 
   const tierColors: Record<string, string> = {

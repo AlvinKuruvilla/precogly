@@ -5,7 +5,7 @@
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
-import type { STRIDECategory } from '@/types/domain'
+import type { STRIDECategory, TaxonomyEntry } from '@/types/domain'
 
 // Backend countermeasure status (uses 'verified', differs from frontend 'platform')
 type BackendCountermeasureStatus = 'gap' | 'planned' | 'verified' | 'waived'
@@ -17,7 +17,8 @@ export interface ComponentInstanceThreat {
   componentName: string
   threatLibrary: number
   threatName: string
-  strideCategory: STRIDECategory
+  strideCategoryDisplay: string | null
+  taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
@@ -42,7 +43,7 @@ export interface ThreatLibraryItem {
   id: number
   name: string
   description?: string  // Optional for defensive programming
-  strideCategory: STRIDECategory | null
+  taxonomyEntries?: TaxonomyEntry[]
   sourcePackName: string | null
   sourcePackSlug: string | null
 }
@@ -197,7 +198,6 @@ export function useCreateComponentThreat() {
       threatLibrary?: number | null
       threatName?: string
       threatDescription?: string
-      strideCategory?: string
       inherentSeverity: string
       status?: string
     }) => api.post<ComponentInstanceThreat>('/component-threats/', data),
@@ -221,7 +221,6 @@ export function useCreateFlowThreat() {
       threatLibrary?: number | null
       threatName?: string
       threatDescription?: string
-      strideCategory?: string
       inherentSeverity: string
       status?: string
     }) => api.post('/flow-threats/', data),
@@ -570,7 +569,8 @@ export interface BackendThreat {
   threatLibraryId: number
   threatName: string | null
   threatDescription: string | null
-  strideCategory: STRIDECategory | null
+  strideCategory: string | null
+  taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
@@ -667,7 +667,7 @@ export function transformBackendThreatsToComponentThreats(
       // Threat metadata from backend (eliminates need for frontend registry lookup)
       threatName: bt.threatName || undefined,
       threatDescription: bt.threatDescription || undefined,
-      strideCategory: bt.strideCategory || undefined,
+      strideCategory: (bt.strideCategory as STRIDECategory) || undefined,
       // Backend IDs for API operations
       backendThreatId: bt.id,
       backendComponentId: bt.componentId,
