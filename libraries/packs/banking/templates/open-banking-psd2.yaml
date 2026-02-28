@@ -44,35 +44,35 @@ canvas_data:
 
     # Trust boundary - DMZ / API Gateway Zone
     - id: "tb-dmz"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 30, y: 60 }
       style: { width: 280, height: 300 }
       data:
         label: "API Gateway Zone"
-        boundaryType: "dmz"
+        zoneType: "dmz"
         technology: "DMZ Network"
 
     # Trust boundary - Open Banking Services
     - id: "tb-openbanking"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 340, y: 60 }
       style: { width: 280, height: 480 }
       data:
         label: "Open Banking Services"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Internal Network"
 
     # Trust boundary - Core Banking
     - id: "tb-core"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 650, y: 60 }
       style: { width: 240, height: 480 }
       data:
         label: "Core Banking Zone"
-        boundaryType: "internal"
+        zoneType: "internal"
         technology: "Secured Internal"
 
     # API Gateway Zone components

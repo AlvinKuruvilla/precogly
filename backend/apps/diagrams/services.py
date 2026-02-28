@@ -4,7 +4,13 @@ Services for diagrams app - DFD node synchronization and threat generation.
 
 from django.db import transaction
 
-from apps.systems.models import ComponentLibrary, DataFlow, OrgsystemComponent
+from apps.systems.models import (
+    ComponentLibrary,
+    DataFlow,
+    OrgsystemComponent,
+    TrustBoundary,
+    TrustZone,
+)
 from apps.threats.models import (
     ComponentInstanceThreat,
     ComponentLibraryThreat,
@@ -58,6 +64,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
             "flows_synced": 0,
             "flows_created": 0,
             "flow_threats_generated": 0,
+            "zones_synced": 0,
+            "zones_created": 0,
+            "boundaries_synced": 0,
+            "boundaries_created": 0,
         }
 
     # Filter to analyzable nodes (process, datastore, humanActor, systemActor)
@@ -74,6 +84,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
     new_components = []
 
     with transaction.atomic():
+        # Sync trust zone nodes first (zones must exist before component assignment)
+        zone_result = _sync_nodes_to_trust_zones(dfd, nodes)
+        node_zone_map = zone_result["node_zone_map"]
+
         for node in analyzable_nodes:
             node_id = node.get("id")
             node_data = node.get("data", {})
@@ -166,6 +180,17 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         # Update canvas_data with component_ids
         _update_canvas_with_component_ids(dfd, node_component_map)
 
+        # Assign components to their parent trust zones
+        for node in analyzable_nodes:
+            node_id = node.get("id")
+            parent_id = node.get("parent_id")  # React Flow parentId → snake_case
+            if parent_id and parent_id in node_zone_map:
+                component_id = node_component_map.get(node_id)
+                if component_id:
+                    OrgsystemComponent.objects.filter(id=component_id).update(
+                        trust_zone_id=node_zone_map[parent_id]
+                    )
+
         # Auto-generate threats for new components
         for component in new_components:
             if component.component_library:
@@ -175,6 +200,11 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         # Sync edges to DataFlow records and generate flow threats
         flow_result = _sync_edges_to_dataflows(dfd, edges, node_component_map)
 
+        # Sync trust boundary edges to TrustBoundary DB records
+        boundary_result = _sync_edges_to_trust_boundaries(
+            dfd, edges, node_zone_map
+        )
+
     return {
         "synced_count": synced_count,
         "created_count": created_count,
@@ -183,6 +213,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         "flows_synced": flow_result["synced_count"],
         "flows_created": flow_result["created_count"],
         "flow_threats_generated": flow_result["threats_generated"],
+        "zones_synced": zone_result["synced_count"],
+        "zones_created": zone_result["created_count"],
+        "boundaries_synced": boundary_result["synced_count"],
+        "boundaries_created": boundary_result["created_count"],
     }
 
 
@@ -351,6 +385,10 @@ def _sync_edges_to_dataflows(dfd, edges, node_component_map):
     edge_dataflow_map = {}
 
     for edge in edges:
+        # Only sync dataFlow edges — skip trust boundaries and other edge types
+        if edge.get("type") != "dataFlow":
+            continue
+
         edge_id = edge.get("id")
         source_node_id = edge.get("source")
         target_node_id = edge.get("target")
@@ -573,3 +611,208 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
             created_count += 1
 
     return created_count
+
+
+def _trust_level_to_numeric(trust_level_str):
+    """Convert frontend trust level string to numeric 0-100 value."""
+    mapping = {
+        "internet": 0,
+        "trustedPartner": 25,      # camelCase preserved by parser if key is a value
+        "trusted_partner": 25,     # snake_case if parser converts it
+        "privateSecured": 75,
+        "private_secured": 75,
+        "internal": 100,
+    }
+    if isinstance(trust_level_str, int):
+        return trust_level_str
+    return mapping.get(trust_level_str, 50)
+
+
+def _sync_nodes_to_trust_zones(dfd, nodes):
+    """Sync trust zone canvas nodes to TrustZone DB records."""
+    trust_zone_nodes = [
+        node for node in nodes if node.get("type") == "trustZone"
+    ]
+
+    synced_count = 0
+    created_count = 0
+    node_zone_map = {}  # canvas node_id -> TrustZone DB id
+
+    for node in trust_zone_nodes:
+        node_id = node.get("id")
+        node_data = node.get("data", {})
+
+        # snake_case — parser already converted from frontend camelCase
+        label = node_data.get("label", "Unnamed Zone")
+        raw_trust_level = node_data.get("trust_level", 50)
+        trust_level = _trust_level_to_numeric(raw_trust_level)
+        description = node_data.get("description", "")
+
+        existing_trust_zone_id = node_data.get("trust_zone_id")
+
+        if existing_trust_zone_id:
+            try:
+                trust_zone = TrustZone.objects.get(id=existing_trust_zone_id)
+                trust_zone.name = label
+                trust_zone.trust_level = trust_level
+                trust_zone.description = description
+                trust_zone.save()
+                synced_count += 1
+            except TrustZone.DoesNotExist:
+                trust_zone = TrustZone.objects.create(
+                    name=label,
+                    trust_level=trust_level,
+                    description=description,
+                )
+                created_count += 1
+        else:
+            trust_zone = TrustZone.objects.create(
+                name=label,
+                trust_level=trust_level,
+                description=description,
+            )
+            created_count += 1
+            synced_count += 1
+
+        node_zone_map[node_id] = trust_zone.id
+
+    # Second pass: set parent relationships for nested zones
+    for node in trust_zone_nodes:
+        node_id = node.get("id")
+        parent_node_id = node.get("parent_id")  # React Flow parentId → snake_case
+        if parent_node_id and parent_node_id in node_zone_map:
+            TrustZone.objects.filter(id=node_zone_map[node_id]).update(
+                parent_id=node_zone_map[parent_node_id]
+            )
+        elif node_id in node_zone_map:
+            # Clear parent if zone was un-nested on canvas
+            TrustZone.objects.filter(id=node_zone_map[node_id]).exclude(
+                parent__isnull=True
+            ).update(parent=None)
+
+    _update_canvas_with_trust_zone_ids(dfd, node_zone_map)
+
+    return {
+        "synced_count": synced_count,
+        "created_count": created_count,
+        "node_zone_map": node_zone_map,
+    }
+
+
+def _update_canvas_with_trust_zone_ids(dfd, node_zone_map):
+    """Update DFD canvas_data with trust_zone_ids for synced zone nodes."""
+    if not node_zone_map:
+        return
+
+    canvas_data = dfd.canvas_data or {}
+    nodes = canvas_data.get("nodes", [])
+
+    updated = False
+    for node in nodes:
+        node_id = node.get("id")
+        if node_id in node_zone_map:
+            if "data" not in node:
+                node["data"] = {}
+            if node["data"].get("trust_zone_id") != node_zone_map[node_id]:
+                node["data"]["trust_zone_id"] = node_zone_map[node_id]
+                updated = True
+
+    if updated:
+        dfd.canvas_data = canvas_data
+        dfd.save(update_fields=["canvas_data"])
+
+
+def _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map):
+    """Sync trust boundary edges to TrustBoundary DB records."""
+    synced_count = 0
+    created_count = 0
+    edge_boundary_map = {}
+
+    for edge in edges:
+        if edge.get("type") != "trustBoundary":
+            continue
+
+        edge_id = edge.get("id")
+        source_node_id = edge.get("source")
+        target_node_id = edge.get("target")
+        edge_data = edge.get("data", {})
+
+        zone_a_id = node_zone_map.get(source_node_id)
+        zone_b_id = node_zone_map.get(target_node_id)
+        if not zone_a_id or not zone_b_id:
+            continue
+
+        label = edge_data.get("label", "")
+
+        # Extract security metadata into format_metadata dict
+        # Keys are already snake_case (parser converted from frontend camelCase)
+        metadata_keys = [
+            "access_control_methods", "authentication_methods",
+            "access_token_expires", "access_token_ttl",
+            "has_refresh_token", "refresh_token_expires", "refresh_token_ttl",
+            "can_user_logout", "can_system_logout",
+        ]
+        format_metadata = {
+            key: edge_data[key] for key in metadata_keys if key in edge_data
+        }
+
+        existing_boundary_id = edge_data.get("trust_boundary_id")
+
+        if existing_boundary_id:
+            try:
+                boundary = TrustBoundary.objects.get(id=existing_boundary_id)
+                boundary.zone_a_id = zone_a_id
+                boundary.zone_b_id = zone_b_id
+                boundary.label = label
+                boundary.edge_id = edge_id
+                boundary.format_metadata = format_metadata
+                boundary.save()
+                synced_count += 1
+            except TrustBoundary.DoesNotExist:
+                boundary = TrustBoundary.objects.create(
+                    zone_a_id=zone_a_id,
+                    zone_b_id=zone_b_id,
+                    label=label,
+                    edge_id=edge_id,
+                    format_metadata=format_metadata,
+                )
+                created_count += 1
+        else:
+            boundary = TrustBoundary.objects.create(
+                zone_a_id=zone_a_id,
+                zone_b_id=zone_b_id,
+                label=label,
+                edge_id=edge_id,
+                format_metadata=format_metadata,
+            )
+            created_count += 1
+            synced_count += 1
+
+        edge_boundary_map[edge_id] = boundary.id
+
+    _update_canvas_with_trust_boundary_ids(dfd, edge_boundary_map)
+
+    return {"synced_count": synced_count, "created_count": created_count}
+
+
+def _update_canvas_with_trust_boundary_ids(dfd, edge_boundary_map):
+    """Update DFD canvas_data with trust_boundary_ids for synced boundary edges."""
+    if not edge_boundary_map:
+        return
+
+    canvas_data = dfd.canvas_data or {}
+    edges = canvas_data.get("edges", [])
+
+    updated = False
+    for edge in edges:
+        edge_id = edge.get("id")
+        if edge_id in edge_boundary_map:
+            if "data" not in edge:
+                edge["data"] = {}
+            if edge["data"].get("trust_boundary_id") != edge_boundary_map[edge_id]:
+                edge["data"]["trust_boundary_id"] = edge_boundary_map[edge_id]
+                updated = True
+
+    if updated:
+        dfd.canvas_data = canvas_data
+        dfd.save(update_fields=["canvas_data"])

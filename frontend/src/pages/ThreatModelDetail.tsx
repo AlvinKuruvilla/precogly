@@ -261,8 +261,8 @@ export function ThreatModelDetail() {
     return [...canvasComponents, ...analysisOnlyNodes]
   }, [aggregatedCanvasData.nodes, analysisComponents, selectedDiagramId])
 
-  const trustBoundaries = useMemo(() => {
-    return aggregatedCanvasData.nodes.filter((node) => node.type === 'trustBoundary')
+  const trustZones = useMemo(() => {
+    return aggregatedCanvasData.nodes.filter((node) => node.type === 'trustZone')
   }, [aggregatedCanvasData.nodes])
 
   const dataFlows = useMemo(() => {
@@ -755,7 +755,7 @@ export function ThreatModelDetail() {
                   <ComponentView
                     canvasData={aggregatedCanvasData}
                     analyzableComponents={analyzableComponents}
-                    trustBoundaries={trustBoundaries}
+                    trustZones={trustZones}
                     dataFlows={dataFlows}
                     componentThreats={filteredComponentThreats}
                     selectedFrameworks={threatModel.frameworks || []}

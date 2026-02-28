@@ -24,9 +24,9 @@ dfd-editor/
 
 ## Key Concepts
 
-- **Nodes**: Process, DataStore, Actor, TrustBoundary, SystemBoundary
+- **Nodes**: Process, DataStore, Actor, TrustZone, SystemScope
 - **Edges**: Data flows with protocol, encryption, and classification metadata
-- **Boundaries**: Nodes can be nested inside boundaries (auto-detected on drag)
+- **Containers**: Nodes can be nested inside trust zones or system scopes (auto-detected on drag)
 
 ## Extending
 

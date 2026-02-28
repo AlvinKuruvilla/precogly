@@ -132,8 +132,8 @@ export function ThreatAnalysisView({
   }, [canvasData.nodes])
 
   // Get all trust boundaries (for threat analysis)
-  const trustBoundaries = useMemo(() => {
-    return canvasData.nodes.filter((node) => node.type === 'trustBoundary')
+  const trustZones = useMemo(() => {
+    return canvasData.nodes.filter((node) => node.type === 'trustZone')
   }, [canvasData.nodes])
 
   // Get all data flows (edges)
@@ -160,13 +160,13 @@ export function ThreatAnalysisView({
     if (!selectedComponentId) {
       if (analyzableComponents.length > 0) {
         setSelectedComponentId(analyzableComponents[0].id)
-      } else if (trustBoundaries.length > 0) {
-        setSelectedComponentId(trustBoundaries[0].id)
+      } else if (trustZones.length > 0) {
+        setSelectedComponentId(trustZones[0].id)
       } else if (dataFlows.length > 0) {
         setSelectedComponentId(dataFlows[0].id)
       }
     }
-  }, [selectedComponentId, analyzableComponents, trustBoundaries, dataFlows])
+  }, [selectedComponentId, analyzableComponents, trustZones, dataFlows])
 
   // Auto-select first threat when component changes
   useMemo(() => {
@@ -638,7 +638,7 @@ export function ThreatAnalysisView({
           <ComponentView
             canvasData={canvasData}
             analyzableComponents={analyzableComponents}
-            trustBoundaries={trustBoundaries}
+            trustZones={trustZones}
             dataFlows={dataFlows}
             componentThreats={componentThreats}
             selectedFrameworks={selectedFrameworks}

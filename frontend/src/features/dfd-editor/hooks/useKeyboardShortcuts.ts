@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import type { DiagramNode, DataFlowEdge } from '../types'
+import type { DiagramNode, DiagramEdge } from '../types'
 
 interface UseKeyboardShortcutsOptions {
   onSave?: () => void
@@ -17,7 +17,7 @@ interface UseKeyboardShortcutsOptions {
 
 interface ClipboardData {
   nodes: DiagramNode[]
-  edges: DataFlowEdge[]
+  edges: DiagramEdge[]
 }
 
 // Module-level clipboard for copy/paste
@@ -40,7 +40,7 @@ export function useKeyboardShortcuts({
   // Default delete handler
   const handleDelete = useCallback(() => {
     const nodes = getNodes() as DiagramNode[]
-    const edges = getEdges() as DataFlowEdge[]
+    const edges = getEdges() as DiagramEdge[]
 
     const selectedNodes = nodes.filter((n) => n.selected)
     const selectedEdges = edges.filter((e) => e.selected)
@@ -51,7 +51,7 @@ export function useKeyboardShortcuts({
 
     // For boundary nodes, convert children to root nodes
     const boundaryIds = selectedNodes
-      .filter((n) => n.type === 'trustBoundary' || n.type === 'systemScope')
+      .filter((n) => n.type === 'trustZone' || n.type === 'systemScope')
       .map((n) => n.id)
 
     const updatedNodes = nodes
@@ -88,7 +88,7 @@ export function useKeyboardShortcuts({
   // Default copy handler
   const handleCopy = useCallback(() => {
     const nodes = getNodes() as DiagramNode[]
-    const edges = getEdges() as DataFlowEdge[]
+    const edges = getEdges() as DiagramEdge[]
 
     const selectedNodes = nodes.filter((n) => n.selected)
     if (selectedNodes.length === 0) return
@@ -134,7 +134,7 @@ export function useKeyboardShortcuts({
     }))
 
     // Create new edges with updated references
-    const newEdges: DataFlowEdge[] = clipboard.edges.map((edge) => ({
+    const newEdges: DiagramEdge[] = clipboard.edges.map((edge) => ({
       ...edge,
       id: `edge-${timestamp}-${Math.random().toString(36).slice(2, 7)}`,
       source: idMap.get(edge.source) || edge.source,

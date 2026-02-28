@@ -115,10 +115,10 @@ export const TRUST_LEVEL_CONFIG: Record<TrustLevel, { label: string; color: stri
   internal: { label: 'Internal', color: 'rgba(34, 197, 94, 0.1)', borderColor: '#22c55e' },
 }
 
-// Trust Boundary Types
-export type TrustBoundaryType = 'zoneInternet' | 'zoneDmz' | 'zoneInternal' | 'zoneRestricted'
+// Trust Zone Types
+export type TrustZoneType = 'zoneInternet' | 'zoneDmz' | 'zoneInternal' | 'zoneRestricted'
 
-export interface TrustBoundaryConfig {
+export interface TrustZoneConfig {
   label: string
   icon: string
   color: string
@@ -126,7 +126,7 @@ export interface TrustBoundaryConfig {
   description: string
 }
 
-export const TRUST_BOUNDARY_TYPE_CONFIG: Record<TrustBoundaryType, TrustBoundaryConfig> = {
+export const TRUST_ZONE_TYPE_CONFIG: Record<TrustZoneType, TrustZoneConfig> = {
   zoneInternet: {
     label: 'Internet/Public Zone',
     icon: 'globe',
@@ -157,10 +157,10 @@ export const TRUST_BOUNDARY_TYPE_CONFIG: Record<TrustBoundaryType, TrustBoundary
   },
 }
 
-// Trust Boundary Zone Types - Conceptual zone names for the Name dropdown
-export type TrustBoundaryZoneType = 'internal' | 'external' | 'dmz' | 'partner'
+// Trust Zone Preset Names - Conceptual zone names for the Name dropdown
+export type TrustZonePresetName = 'internal' | 'external' | 'dmz' | 'partner'
 
-export const TRUST_BOUNDARY_ZONE_TYPES: { value: TrustBoundaryZoneType; label: string; description: string }[] = [
+export const TRUST_ZONE_PRESET_NAMES: { value: TrustZonePresetName; label: string; description: string }[] = [
   { value: 'internal', label: 'Internal', description: 'Trusted internal network or zone' },
   { value: 'external', label: 'External', description: 'Untrusted external network (internet-facing)' },
   { value: 'dmz', label: 'DMZ', description: 'Demilitarized zone between trusted and untrusted networks' },
@@ -255,7 +255,7 @@ export type ThreatFramework = 'stride' | 'linddun' | 'cia'
 // Node types for DFD
 // humanActor = external human entity (customer, admin, attacker)
 // systemActor = external non-human system (third-party API, partner system)
-export type DiagramNodeType = 'process' | 'datastore' | 'humanActor' | 'systemActor' | 'trustBoundary' | 'systemScope'
+export type DiagramNodeType = 'process' | 'datastore' | 'humanActor' | 'systemActor' | 'trustZone' | 'systemScope'
 
 // Compliance/Security Standards
 export type SecurityStandard =

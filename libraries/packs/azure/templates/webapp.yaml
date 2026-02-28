@@ -28,13 +28,13 @@ canvas_data:
 
     # Trust boundary - Azure VNet (inside sb-azure)
     - id: "tb-azure"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 30, y: 60 }
       style: { width: 650, height: 360 }
       data:
         label: "Azure VNet"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Azure Virtual Network"
 
     # Azure Services (nested inside tb-azure)

@@ -24,7 +24,7 @@ export interface OrgsystemComponent {
   orgsystem: number | null
   componentLibrary: number | null
   componentLibraryName: string | null
-  trustBoundary: number | null
+  trustZone: number | null
   sourceIntegration: number | null
   threatModel: number | null
   createdAt: string

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
-import type { Diagram, DiagramNode, DataFlowEdge } from '../types'
+import type { Diagram, DiagramNode, DiagramEdge } from '../types'
 import { api } from '@/lib/api'
 // Undo feature - remove this import to disable undo functionality
 import { useUndoHistory } from './useUndoHistory'
@@ -16,7 +16,7 @@ interface UseDiagramStateReturn {
   // Data
   diagram: Diagram | undefined
   nodes: DiagramNode[]
-  edges: DataFlowEdge[]
+  edges: DiagramEdge[]
 
   // Loading states
   isLoading: boolean
@@ -26,9 +26,9 @@ interface UseDiagramStateReturn {
 
   // Actions
   setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>
-  setEdges: React.Dispatch<React.SetStateAction<DataFlowEdge[]>>
+  setEdges: React.Dispatch<React.SetStateAction<DiagramEdge[]>>
   onNodesChange: (changes: NodeChange<DiagramNode>[]) => void
-  onEdgesChange: (changes: EdgeChange<DataFlowEdge>[]) => void
+  onEdgesChange: (changes: EdgeChange<DiagramEdge>[]) => void
   saveNow: () => Promise<void>
   updateTitle: (title: string) => Promise<void>
   // Undo feature - remove this line to disable undo functionality
@@ -47,7 +47,7 @@ async function fetchDiagram(diagramId: string): Promise<Diagram> {
 
 async function saveDiagram(
   diagramId: string,
-  data: { nodes: DiagramNode[]; edges: DataFlowEdge[] }
+  data: { nodes: DiagramNode[]; edges: DiagramEdge[] }
 ): Promise<Diagram> {
   return api.patch<Diagram>(`/diagrams/${diagramId}/`, {
     canvas_data: {
@@ -72,7 +72,7 @@ export function useDiagramState({
 
   // Local state for nodes and edges
   const [nodes, setNodesInternal] = useState<DiagramNode[]>([])
-  const [edges, setEdgesInternal] = useState<DataFlowEdge[]>([])
+  const [edges, setEdgesInternal] = useState<DiagramEdge[]>([])
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
@@ -91,7 +91,7 @@ export function useDiagramState({
   )
 
   // Wrap setEdges to also mark as changed (after initial load)
-  const setEdges: React.Dispatch<React.SetStateAction<DataFlowEdge[]>> = useCallback(
+  const setEdges: React.Dispatch<React.SetStateAction<DiagramEdge[]>> = useCallback(
     (value) => {
       setEdgesInternal(value)
       if (initialLoadRef.current) {
@@ -104,7 +104,7 @@ export function useDiagramState({
   // Undo feature - remove this block to disable undo functionality
   const { pushToHistory, undo: undoFromHistory, canUndo } = useUndoHistory()
   const nodesRef = useRef<DiagramNode[]>(nodes)
-  const edgesRef = useRef<DataFlowEdge[]>(edges)
+  const edgesRef = useRef<DiagramEdge[]>(edges)
   // Keep refs in sync for undo access
   useEffect(() => {
     nodesRef.current = nodes
@@ -125,7 +125,7 @@ export function useDiagramState({
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: (data: { nodes: DiagramNode[]; edges: DataFlowEdge[] }) =>
+    mutationFn: (data: { nodes: DiagramNode[]; edges: DiagramEdge[] }) =>
       saveDiagram(diagramId, data),
     onSuccess: (updatedDiagram) => {
       queryClient.setQueryData(['diagram', diagramId], updatedDiagram)
@@ -154,7 +154,7 @@ export function useDiagramState({
       const canvasData = diagram.canvasData
       // Use internal setters during initial load to avoid marking as changed
       setNodesInternal((canvasData?.nodes || []) as DiagramNode[])
-      setEdgesInternal((canvasData?.edges || []) as DataFlowEdge[])
+      setEdgesInternal((canvasData?.edges || []) as DiagramEdge[])
       const updatedAt = diagram.updatedAt
       if (updatedAt) setLastSaved(new Date(updatedAt))
       initialLoadRef.current = true
@@ -184,7 +184,7 @@ export function useDiagramState({
   }, [pushToHistory])
 
   // Track changes to edges
-  const handleEdgesChange = useCallback((changes: EdgeChange<DataFlowEdge>[]) => {
+  const handleEdgesChange = useCallback((changes: EdgeChange<DiagramEdge>[]) => {
     // Only mark as changed for meaningful changes
     const hasRealChanges = changes.some((c) => c.type !== 'select')
     // Undo feature - push to history before meaningful changes
@@ -192,7 +192,7 @@ export function useDiagramState({
       pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
     }
     // Use internal setter - we handle hasUnsavedChanges manually for selective detection
-    setEdgesInternal((eds) => applyEdgeChanges(changes, eds) as DataFlowEdge[])
+    setEdgesInternal((eds) => applyEdgeChanges(changes, eds) as DiagramEdge[])
     if (hasRealChanges) {
       setHasUnsavedChanges(true)
     }

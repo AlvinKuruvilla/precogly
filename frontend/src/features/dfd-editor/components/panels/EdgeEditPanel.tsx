@@ -18,9 +18,9 @@ import type {
   Protocol,
   DataClassification,
   DiagramNode,
-  TrustBoundaryNodeData,
+  TrustZoneNodeData,
 } from '../../types'
-import { PROTOCOLS, DATA_CLASSIFICATIONS, TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
+import { PROTOCOLS, DATA_CLASSIFICATIONS, TRUST_ZONE_TYPE_CONFIG } from '../../types'
 
 interface EdgeEditPanelProps {
   edge: DataFlowEdge
@@ -207,47 +207,47 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
 
         <Separator />
 
-        {/* Boundary Crossing */}
+        {/* Zone Crossing */}
         {(() => {
-          const trustBoundaries = (nodes as DiagramNode[]).filter(
-            (n) => n.type === 'trustBoundary'
+          const trustZones = (nodes as DiagramNode[]).filter(
+            (n) => n.type === 'trustZone'
           )
-          if (trustBoundaries.length === 0) return null
+          if (trustZones.length === 0) return null
 
           return (
             <div className="space-y-2">
-              <Label htmlFor="edge-boundary">Crosses Boundary</Label>
+              <Label htmlFor="edge-zone">Crosses Zone</Label>
               <Select
-                value={edge.data?.crossesBoundaryId || 'none'}
+                value={edge.data?.crossesZoneId || 'none'}
                 onValueChange={(value) => {
                   if (value === 'none') {
                     updateEdgeData({
-                      crossesBoundaryId: undefined,
-                      crossesBoundaryLabel: undefined,
-                      crossesBoundaryType: undefined,
+                      crossesZoneId: undefined,
+                      crossesZoneLabel: undefined,
+                      crossesZoneType: undefined,
                     })
                   } else {
-                    const selectedBoundaryNode = trustBoundaries.find((b) => b.id === value)
-                    const selectedData = selectedBoundaryNode?.data as TrustBoundaryNodeData | undefined
+                    const selectedZoneNode = trustZones.find((b) => b.id === value)
+                    const selectedData = selectedZoneNode?.data as TrustZoneNodeData | undefined
                     updateEdgeData({
-                      crossesBoundaryId: value,
-                      crossesBoundaryLabel: selectedData?.label ? String(selectedData.label) : undefined,
-                      crossesBoundaryType: selectedData?.boundaryType,
+                      crossesZoneId: value,
+                      crossesZoneLabel: selectedData?.label ? String(selectedData.label) : undefined,
+                      crossesZoneType: selectedData?.zoneType,
                     })
                   }
                 }}
               >
-                <SelectTrigger id="edge-boundary">
-                  <SelectValue placeholder="Select boundary..." />
+                <SelectTrigger id="edge-zone">
+                  <SelectValue placeholder="Select zone..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">
                     <span className="text-muted-foreground">None</span>
                   </SelectItem>
-                  {trustBoundaries.map((boundary) => {
-                    const data = boundary.data as TrustBoundaryNodeData
-                    const config = data.boundaryType
-                      ? TRUST_BOUNDARY_TYPE_CONFIG[data.boundaryType]
+                  {trustZones.map((boundary) => {
+                    const data = boundary.data as TrustZoneNodeData
+                    const config = data.zoneType
+                      ? TRUST_ZONE_TYPE_CONFIG[data.zoneType]
                       : null
                     return (
                       <SelectItem key={boundary.id} value={boundary.id}>

@@ -346,13 +346,13 @@ canvas_data:
         label: "AWS Serverless"
 
     - id: "tb-aws"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-aws"
       position: { x: 30, y: 50 }
       style: { width: 440, height: 220 }
       data:
         label: "AWS Account"
-        boundaryType: "zoneRestricted"
+        zoneType: "zoneRestricted"
         technology: "AWS"
 
     - id: "datastore-s3"
@@ -416,14 +416,14 @@ canvas_data:
 | `datastore` | Databases, file storage, caches | `technology`, `dataSensitivity`, `component_ref` |
 | `humanActor` | Users, admins, attackers | `actorType` |
 | `systemActor` | External APIs, third-party services | `systemType`, `vendor` |
-| `trustBoundary` | Network zones, security perimeters | `boundaryType`, `technology` |
+| `trustZone` | Network zones, security perimeters | `zoneType`, `technology` |
 | `systemScope` | Top-level system containers | `owner`, `classification` |
 
-Containers (`trustBoundary`, `systemScope`) support nesting via `parentId` and must set `style: { width, height }`.
+Containers (`trustZone`, `systemScope`) support nesting via `parentId` and must set `style: { width, height }`.
 
-### Trust Boundary Types
+### Trust Zone Types
 
-| `boundaryType` | Label |
+| `zoneType` | Label |
 |---|---|
 | `zoneInternet` | Internet / Public Zone |
 | `zoneDmz` | DMZ |

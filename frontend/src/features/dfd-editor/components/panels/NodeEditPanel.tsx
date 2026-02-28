@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { X, Trash2, Cog, Database, User, Server, Shield, Box } from 'lucide-react'
+import { X, Trash2, Cog, Database, User, Server, Shield, Box, ShieldCheck, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,14 +19,13 @@ import type {
   DiagramNode,
   DiagramNodeType,
   TrustLevel,
-  TrustBoundaryType,
+  TrustZoneType,
   DataSensitivity,
 } from '../../types'
 import {
   TRUST_LEVEL_CONFIG,
   DATA_SENSITIVITY_CONFIG,
-  TRUST_BOUNDARY_TYPE_CONFIG,
-  TRUST_BOUNDARY_ZONE_TYPES,
+  TRUST_ZONE_TYPE_CONFIG,
 } from '../../types'
 
 interface NodeEditPanelProps {
@@ -43,7 +42,7 @@ const nodeTypeConfig: Record<
   datastore: { label: 'Data Store', icon: Database, color: 'text-purple-600' },
   humanActor: { label: 'Human Actor', icon: User, color: 'text-green-600' },
   systemActor: { label: 'System Actor', icon: Server, color: 'text-slate-600' },
-  trustBoundary: { label: 'Trust Boundary', icon: Shield, color: 'text-orange-600' },
+  trustZone: { label: 'Trust Zone', icon: Shield, color: 'text-orange-600' },
   systemScope: { label: 'System Scope', icon: Box, color: 'text-gray-600' },
 }
 
@@ -52,7 +51,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
   onClose,
   threatModelId,
 }: NodeEditPanelProps) {
-  const { setNodes, getNodes, setEdges } = useReactFlow()
+  const { setNodes, getNodes, getEdges, setEdges } = useReactFlow()
 
   // Get linked systems for this threat model
   const { systems: linkedSystems, hasLinkedSystems } = useThreatModelSystems(threatModelId)
@@ -78,7 +77,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
     const nodes = getNodes() as DiagramNode[]
 
     // For boundary nodes, convert children to root nodes
-    if (node.type === 'trustBoundary' || node.type === 'systemScope') {
+    if (node.type === 'trustZone' || node.type === 'systemScope') {
       const boundaryPos = node.position
       const updatedNodes = nodes
         .filter((n) => n.id !== node.id)
@@ -126,32 +125,12 @@ export const NodeEditPanel = memo(function NodeEditPanel({
         {/* Common fields */}
         <div className="space-y-2">
           <Label htmlFor="node-label">Name</Label>
-          {node.type === 'trustBoundary' ? (
-            <Select
-              value={node.data.label || ''}
-              onValueChange={(value) => updateNodeData({ label: value })}
-            >
-              <SelectTrigger id="node-label">
-                <SelectValue placeholder="Select zone type..." />
-              </SelectTrigger>
-              <SelectContent>
-                {TRUST_BOUNDARY_ZONE_TYPES.map((zone) => (
-                  <SelectItem key={zone.value} value={zone.label}>
-                    <div className="flex flex-col">
-                      <span>{zone.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input
-              id="node-label"
-              value={node.data.label || ''}
-              onChange={(e) => updateNodeData({ label: e.target.value })}
-              placeholder="Enter name..."
-            />
-          )}
+          <Input
+            id="node-label"
+            value={node.data.label || ''}
+            onChange={(e) => updateNodeData({ label: e.target.value })}
+            placeholder={node.type === 'trustZone' ? 'e.g., Production VPC, DMZ...' : 'Enter name...'}
+          />
         </div>
 
         <div className="space-y-2">
@@ -249,22 +228,22 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           </>
         )}
 
-        {node.type === 'trustBoundary' && (
+        {node.type === 'trustZone' && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="node-boundaryType">Boundary Type</Label>
+              <Label htmlFor="node-zoneType">Zone Type</Label>
               <Select
-                value={(node.data as { boundaryType?: TrustBoundaryType }).boundaryType || ''}
+                value={(node.data as { zoneType?: TrustZoneType }).zoneType || ''}
                 onValueChange={(value) =>
-                  updateNodeData({ boundaryType: value as TrustBoundaryType })
+                  updateNodeData({ zoneType: value as TrustZoneType })
                 }
               >
-                <SelectTrigger id="node-boundaryType">
-                  <SelectValue placeholder="Select boundary type..." />
+                <SelectTrigger id="node-zoneType">
+                  <SelectValue placeholder="Select zone type..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(TRUST_BOUNDARY_TYPE_CONFIG) as TrustBoundaryType[]).map((type) => {
-                    const config = TRUST_BOUNDARY_TYPE_CONFIG[type]
+                  {(Object.keys(TRUST_ZONE_TYPE_CONFIG) as TrustZoneType[]).map((type) => {
+                    const config = TRUST_ZONE_TYPE_CONFIG[type]
                     return (
                       <SelectItem key={type} value={type}>
                         <div className="flex items-center gap-2">
@@ -279,15 +258,15 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                   })}
                 </SelectContent>
               </Select>
-              {(node.data as { boundaryType?: TrustBoundaryType }).boundaryType && (
+              {(node.data as { zoneType?: TrustZoneType }).zoneType && (
                 <p className="text-xs text-muted-foreground">
-                  {TRUST_BOUNDARY_TYPE_CONFIG[(node.data as { boundaryType: TrustBoundaryType }).boundaryType]?.description}
+                  {TRUST_ZONE_TYPE_CONFIG[(node.data as { zoneType: TrustZoneType }).zoneType]?.description}
                 </p>
               )}
             </div>
 
             {/* Legacy trust level (for backward compatibility) */}
-            {!(node.data as { boundaryType?: TrustBoundaryType }).boundaryType && (
+            {!(node.data as { zoneType?: TrustZoneType }).zoneType && (
               <div className="space-y-2">
                 <Label htmlFor="node-trustLevel">Trust Level (Legacy)</Label>
                 <Select
@@ -321,10 +300,57 @@ export const NodeEditPanel = memo(function NodeEditPanel({
               <TechnologyCombobox
                 value={(node.data as { technology?: string }).technology || ''}
                 onChange={(value) => updateNodeData({ technology: value })}
-                filterNodeType="trustBoundary"
+                filterNodeType="trustZone"
                 placeholder="Select networking/security..."
               />
             </div>
+
+            {/* Trust Boundaries (read-only) */}
+            {(() => {
+              const allEdges = getEdges()
+              const boundaryEdges = allEdges.filter(
+                (e) =>
+                  e.type === 'trustBoundary' &&
+                  (e.source === node.id || e.target === node.id)
+              )
+              if (boundaryEdges.length === 0) return null
+              const allNodes = getNodes()
+              return (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-orange-600" />
+                      Trust Boundaries
+                    </Label>
+                    <div className="space-y-1">
+                      {boundaryEdges.map((boundaryEdge) => {
+                        const isSource = boundaryEdge.source === node.id
+                        const otherNodeId = isSource ? boundaryEdge.target : boundaryEdge.source
+                        const otherNode = allNodes.find((n) => n.id === otherNodeId)
+                        const otherLabel = otherNode?.data?.label
+                          ? String(otherNode.data.label)
+                          : otherNodeId
+                        return (
+                          <div
+                            key={boundaryEdge.id}
+                            className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm"
+                          >
+                            <ArrowRight
+                              className={`h-3 w-3 text-orange-600 ${isSource ? '' : 'rotate-180'}`}
+                            />
+                            <span className="text-muted-foreground">
+                              {isSource ? 'To' : 'From'}:
+                            </span>
+                            <span className="font-medium">{otherLabel}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
           </>
         )}
 
@@ -402,7 +428,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
             <div className="space-y-2">
               <Label className="text-muted-foreground">Contained In</Label>
               <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-                {parentNode.type === 'trustBoundary' ? (
+                {parentNode.type === 'trustZone' ? (
                   <Shield className="h-4 w-4 text-orange-600" />
                 ) : (
                   <Box className="h-4 w-4 text-gray-600" />

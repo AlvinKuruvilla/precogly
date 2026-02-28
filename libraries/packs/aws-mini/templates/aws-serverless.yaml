@@ -23,17 +23,17 @@ canvas_data:
         label: "AWS Serverless System"
 
     - id: "tb-internal"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "scope-aws-serverless"
       position: { x: 390, y: 405 }
       style: { width: 485, height: 255 }
       data:
         label: "Internal"
-        boundaryType: "zoneInternal"
+        zoneType: "zoneInternal"
         trustLevel: "internal"
 
     - id: "tb-external"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "scope-aws-serverless"
       position: { x: 60, y: 195 }
       style: { width: 300, height: 260 }

@@ -21,6 +21,7 @@ from .models import (
     Orgsystem,
     OrgsystemComponent,
     TrustBoundary,
+    TrustZone,
 )
 from .serializers import (
     ComponentLibrarySerializer,
@@ -31,6 +32,7 @@ from .serializers import (
     OrgsystemListSerializer,
     OrgsystemSerializer,
     TrustBoundarySerializer,
+    TrustZoneSerializer,
 )
 
 
@@ -59,6 +61,16 @@ class OrgsystemViewSet(viewsets.ModelViewSet):
         return OrgsystemSerializer
 
 
+class TrustZoneViewSet(viewsets.ModelViewSet):
+    """ViewSet for TrustZone CRUD operations."""
+
+    queryset = TrustZone.objects.all()
+    serializer_class = TrustZoneSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description"]
+
+
 class TrustBoundaryViewSet(viewsets.ModelViewSet):
     """ViewSet for TrustBoundary CRUD operations."""
 
@@ -66,7 +78,8 @@ class TrustBoundaryViewSet(viewsets.ModelViewSet):
     serializer_class = TrustBoundarySerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name", "description"]
+    filterset_fields = ["zone_a", "zone_b"]
+    search_fields = ["label"]
 
 
 class ComponentLibraryViewSet(viewsets.ModelViewSet):
@@ -93,7 +106,7 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
     serializer_class = OrgsystemComponentSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["orgsystem", "trust_boundary", "threat_model"]
+    filterset_fields = ["orgsystem", "trust_zone", "threat_model"]
     search_fields = ["name"]
 
     def get_queryset(self):
@@ -108,7 +121,7 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
         return OrgsystemComponent.objects.filter(
             Q(orgsystem__organization_id__in=org_ids) | Q(orgsystem__isnull=True)
-        ).select_related("component_library", "trust_boundary")
+        ).select_related("component_library", "trust_zone")
 
     @action(detail=True, methods=["patch"])
     def assign_system(self, request, pk=None):
@@ -226,7 +239,7 @@ class DataFlowViewSet(viewsets.ModelViewSet):
     serializer_class = DataFlowSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["crosses_trust_boundary", "protocol"]
+    filterset_fields = ["crosses_trust_zone", "protocol"]
 
     def get_queryset(self):
         """Filter by user's organizations."""

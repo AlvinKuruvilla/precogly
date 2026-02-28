@@ -18,7 +18,7 @@ import {
 import {
   TECHNOLOGY_CATEGORIES,
   NODE_TYPE_CATEGORIES,
-  TRUST_BOUNDARY_TECHNOLOGY_IDS,
+  TRUST_ZONE_TECHNOLOGY_IDS,
   type Technology,
   type TechnologyCategory,
 } from '../lib/technology-registry'
@@ -75,9 +75,9 @@ export function TechnologyCombobox({
       return matchesQuery && matchesCategory
     })
 
-    // For trust boundaries, filter to only boundary-defining technologies
-    if (filterNodeType === 'trustBoundary') {
-      filtered = filtered.filter((tech) => TRUST_BOUNDARY_TECHNOLOGY_IDS.includes(tech.id))
+    // For trust zones, filter to only zone-defining technologies
+    if (filterNodeType === 'trustZone') {
+      filtered = filtered.filter((tech) => TRUST_ZONE_TECHNOLOGY_IDS.includes(tech.id))
     }
 
     return filtered

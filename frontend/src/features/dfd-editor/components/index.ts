@@ -4,12 +4,13 @@ import { ProcessNode } from './nodes/ProcessNode'
 import { DataStoreNode } from './nodes/DataStoreNode'
 import { HumanActorNode } from './nodes/HumanActorNode'
 import { SystemActorNode } from './nodes/SystemActorNode'
-import { TrustBoundaryNode } from './nodes/TrustBoundaryNode'
+import { TrustZoneNode } from './nodes/TrustZoneNode'
 import { SystemScopeNode } from './nodes/SystemScopeNode'
 
 // Edge components
 export * from './edges'
 import { DataFlowEdge } from './edges/DataFlowEdge'
+import { TrustBoundaryEdge } from './edges/TrustBoundaryEdge'
 
 // Panel components
 export * from './panels'
@@ -25,11 +26,12 @@ export const nodeTypes = {
   datastore: DataStoreNode,
   humanActor: HumanActorNode,
   systemActor: SystemActorNode,
-  trustBoundary: TrustBoundaryNode,
+  trustZone: TrustZoneNode,
   systemScope: SystemScopeNode,
 } as const
 
 // Edge type registry for React Flow
 export const edgeTypes = {
   dataFlow: DataFlowEdge,
+  trustBoundary: TrustBoundaryEdge,
 } as const

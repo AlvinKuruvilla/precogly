@@ -61,35 +61,35 @@ canvas_data:
 
     # Trust boundary - Ingestion (inside sb-azure)
     - id: "tb-ingestion"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 30, y: 60 }
       style: { width: 220, height: 400 }
       data:
         label: "Ingestion Zone"
-        boundaryType: "dmz"
+        zoneType: "dmz"
         technology: "Event Hub Namespace"
 
     # Trust boundary - Processing (inside sb-azure)
     - id: "tb-processing"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 280, y: 60 }
       style: { width: 280, height: 480 }
       data:
         label: "Processing Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Azure VNet Integration"
 
     # Trust boundary - Storage (inside sb-azure)
     - id: "tb-storage"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 590, y: 60 }
       style: { width: 250, height: 480 }
       data:
         label: "Storage Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Private Endpoints"
 
     # Ingestion components (inside tb-ingestion)

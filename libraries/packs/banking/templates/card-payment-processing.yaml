@@ -44,46 +44,46 @@ canvas_data:
 
     # Trust boundary - CDE (Cardholder Data Environment)
     - id: "tb-cde"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 30, y: 60 }
       style: { width: 340, height: 380 }
       data:
         label: "Cardholder Data Environment"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "PCI-DSS Zone"
 
     # Trust boundary - Payment Processing
     - id: "tb-processing"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 400, y: 60 }
       style: { width: 280, height: 380 }
       data:
         label: "Payment Processing Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Internal Secured"
 
     # Trust boundary - HSM Zone
     - id: "tb-hsm"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 710, y: 60 }
       style: { width: 230, height: 200 }
       data:
         label: "HSM Zone"
-        boundaryType: "internal"
+        zoneType: "internal"
         technology: "Hardware Security"
 
     # Trust boundary - Settlement
     - id: "tb-settlement"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 710, y: 290 }
       style: { width: 230, height: 150 }
       data:
         label: "Settlement Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Batch Processing"
 
     # CDE Components

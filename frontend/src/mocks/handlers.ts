@@ -69,7 +69,7 @@ const DEFAULT_DIAGRAMS = [
         },
         {
           id: 'trust-boundary-1',
-          type: 'trustBoundary',
+          type: 'trustZone',
           position: { x: 250, y: 100 },
           style: { width: 400, height: 320 },
           data: { label: 'PCI Zone', trustLevel: 'private_secured' },

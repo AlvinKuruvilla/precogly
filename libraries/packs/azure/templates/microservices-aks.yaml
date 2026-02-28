@@ -36,35 +36,35 @@ canvas_data:
 
     # Trust boundary - DMZ/Edge (inside sb-azure)
     - id: "tb-edge"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 30, y: 60 }
       style: { width: 220, height: 180 }
       data:
         label: "Edge Zone"
-        boundaryType: "dmz"
+        zoneType: "dmz"
         technology: "Azure Front Door"
 
     # Trust boundary - AKS Cluster (inside sb-azure)
     - id: "tb-aks"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 280, y: 60 }
       style: { width: 450, height: 400 }
       data:
         label: "AKS Cluster"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Azure Kubernetes Service"
 
     # Trust boundary - Data Zone (inside sb-azure)
     - id: "tb-data"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 760, y: 60 }
       style: { width: 260, height: 420 }
       data:
         label: "Data Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Azure Private Link"
 
     # Edge services (inside tb-edge)

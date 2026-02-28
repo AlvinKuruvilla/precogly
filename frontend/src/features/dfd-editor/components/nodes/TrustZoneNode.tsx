@@ -7,42 +7,42 @@ import {
   Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { TrustBoundaryNodeData } from '../../types'
-import { TRUST_LEVEL_CONFIG, TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
+import type { TrustZoneNodeData } from '../../types'
+import { TRUST_LEVEL_CONFIG, TRUST_ZONE_TYPE_CONFIG } from '../../types'
 
-type TrustBoundaryNodeType = Node<TrustBoundaryNodeData, 'trustBoundary'>
+type TrustZoneNodeType = Node<TrustZoneNodeData, 'trustZone'>
 
-// Icon mapping for zone boundary types
-const BOUNDARY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+// Icon mapping for zone types
+const ZONE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   globe: Globe,
   'shield-half': Shield,
   building: Building,
   lock: Lock,
 }
 
-export const TrustBoundaryNode = memo(function TrustBoundaryNode({
+export const TrustZoneNode = memo(function TrustZoneNode({
   data,
   selected,
-}: NodeProps<TrustBoundaryNodeType>) {
+}: NodeProps<TrustZoneNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 
-  // Get config from new boundaryType or fallback to legacy trustLevel
-  const boundaryConfig = data.boundaryType
-    ? TRUST_BOUNDARY_TYPE_CONFIG[data.boundaryType]
+  // Get config from new zoneType or fallback to legacy trustLevel
+  const zoneConfig = data.zoneType
+    ? TRUST_ZONE_TYPE_CONFIG[data.zoneType]
     : null
   const legacyConfig = data.trustLevel
     ? TRUST_LEVEL_CONFIG[data.trustLevel]
     : TRUST_LEVEL_CONFIG.internal
 
   // Use new config if available, otherwise fallback to legacy
-  const displayColor = boundaryConfig?.color || legacyConfig.color
-  const displayBorderColor = boundaryConfig?.borderColor || legacyConfig.borderColor
-  const displayLabel = boundaryConfig?.label || legacyConfig.label
+  const displayColor = zoneConfig?.color || legacyConfig.color
+  const displayBorderColor = zoneConfig?.borderColor || legacyConfig.borderColor
+  const displayLabel = zoneConfig?.label || legacyConfig.label
 
   // Get the icon component
-  const IconComponent = boundaryConfig
-    ? BOUNDARY_ICONS[boundaryConfig.icon] || Shield
+  const IconComponent = zoneConfig
+    ? ZONE_ICONS[zoneConfig.icon] || Shield
     : Shield
 
   // Trigger lock animation when receiveChildAnimationKey changes (new timestamp = new animation)
@@ -56,7 +56,7 @@ export const TrustBoundaryNode = memo(function TrustBoundaryNode({
 
   return (
     <>
-      {/* Resizer for adjusting boundary size */}
+      {/* Resizer for adjusting zone size */}
       <NodeResizer
         minWidth={200}
         minHeight={150}
@@ -73,7 +73,7 @@ export const TrustBoundaryNode = memo(function TrustBoundaryNode({
       <Handle type="source" position={Position.Bottom} className="!bg-gray-400" />
       <Handle type="source" position={Position.Right} className="!bg-gray-400" />
 
-      {/* Zone boundary - dashed border, container style */}
+      {/* Trust zone - dashed border, container style */}
       <div
         className={cn(
           'w-full h-full rounded-lg border-2 border-dashed transition-all',

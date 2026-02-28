@@ -219,8 +219,8 @@ DATA_FLOW_THREATS_UNAUTHENTICATED = [
     "threat-df-data-injection",
 ]
 
-# Trust boundary threats
-TRUST_BOUNDARY_THREATS = [
+# Trust zone threats
+TRUST_ZONE_THREATS = [
     "threat-tb-zone-undefined",
     "threat-tb-zone-lateral",
 ]
@@ -336,16 +336,16 @@ def compute_threats_for_node(
     return THREATS_BY_CATEGORY.get(category, [])
 
 
-def compute_threats_for_trust_boundary(boundary_type: Optional[str]) -> List[str]:
+def compute_threats_for_trust_zone(zone_type: Optional[str]) -> List[str]:
     """
-    Get applicable threats for a trust boundary node.
+    Get applicable threats for a trust zone node.
     """
-    if not boundary_type:
+    if not zone_type:
         return []
 
-    # Zone-type boundaries have lateral movement threats
-    if boundary_type.startswith("zone"):
-        return TRUST_BOUNDARY_THREATS
+    # Zone-type nodes have lateral movement threats
+    if zone_type.startswith("zone"):
+        return TRUST_ZONE_THREATS
     return []
 
 
@@ -429,10 +429,10 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
             elif node_type == "systemActor":
                 system_actors += 1
 
-            elif node_type == "trustBoundary":
+            elif node_type == "trustZone":
                 boundaries += 1
-                boundary_type = node_data.get("boundaryType")
-                threats = compute_threats_for_trust_boundary(boundary_type)
+                zone_type = node_data.get("zoneType")
+                threats = compute_threats_for_trust_zone(zone_type)
                 for threat_id in threats:
                     unique_threat_key = f"{node.get('id')}-{threat_id}"
                     if unique_threat_key not in all_threats:

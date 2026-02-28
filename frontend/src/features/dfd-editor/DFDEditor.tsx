@@ -29,11 +29,12 @@ import { nodeTypes, edgeTypes } from './components'
 import { DiagramToolbar } from './components/DiagramToolbar'
 import { NodeEditPanel } from './components/panels/NodeEditPanel'
 import { EdgeEditPanel } from './components/panels/EdgeEditPanel'
+import { TrustBoundaryEdgeEditPanel } from './components/panels/TrustBoundaryEdgeEditPanel'
 import { TemplateBrowser } from './components/TemplateBrowser'
 import { useDiagramState } from './hooks/useDiagramState'
 import { useParentRelationships } from './hooks/useParentRelationships'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import type { DiagramNode, DataFlowEdge } from './types'
+import type { DiagramNode, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
 
 function DFDEditorContent() {
   const { diagramId, id: threatModelId } = useParams<{ id: string; diagramId: string }>()
@@ -43,14 +44,22 @@ function DFDEditorContent() {
   // State for UI
   const [connectionMode, setConnectionMode] = useState(false)
   const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null)
+  const [boundaryMode, setBoundaryMode] = useState(false)
+  const [boundarySourceId, setBoundarySourceId] = useState<string | null>(null)
+  // Refs for boundary mode — avoids stale closure issues in handleNodeClick
+  // when React Flow fires onPaneClick alongside onNodeClick for container nodes
+  const boundaryModeRef = useRef(false)
+  const boundarySourceIdRef = useRef<string | null>(null)
+  useEffect(() => { boundaryModeRef.current = boundaryMode }, [boundaryMode])
+  useEffect(() => { boundarySourceIdRef.current = boundarySourceId }, [boundarySourceId])
   const [mousePosition, setMousePosition] = useState<XYPosition | null>(null)
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
-  const [selectedEdge, setSelectedEdge] = useState<DataFlowEdge | null>(null)
+  const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  // ReactFlow instance for coordinate conversion
-  const { screenToFlowPosition } = useReactFlow()
+  // ReactFlow instance for coordinate conversion and edge queries
+  const { screenToFlowPosition, getEdges } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   // Delete DFD mutation
@@ -97,6 +106,35 @@ function DFDEditorContent() {
       setMousePosition(null)
     }
   }, [connectionMode])
+
+  // Clear boundary source when boundary mode is turned off
+  useEffect(() => {
+    if (!boundaryMode) {
+      setBoundarySourceId(null)
+    }
+  }, [boundaryMode])
+
+  // Mutual exclusion handlers for connection and boundary modes
+  const handleConnectionModeChange = useCallback(
+    (enabled: boolean) => {
+      if (enabled) setBoundaryMode(false)
+      setConnectionMode(enabled)
+    },
+    []
+  )
+
+  const handleBoundaryModeChange = useCallback(
+    (enabled: boolean) => {
+      if (enabled) {
+        // Need at least 2 trust zones to create a boundary
+        const trustZoneCount = nodes.filter((n) => n.type === 'trustZone').length
+        if (trustZoneCount < 2) return
+        setConnectionMode(false)
+      }
+      setBoundaryMode(enabled)
+    },
+    [nodes]
+  )
 
   // Calculate absolute position of a node (accounting for parent offsets)
   const getAbsolutePosition = useCallback(
@@ -190,9 +228,64 @@ function DFDEditorContent() {
     ? getAbsolutePosition(connectionSourceId)
     : null
 
-  // Handle node click - supports both selection and click-to-connect
+  // Handle node click - supports selection, click-to-connect, and boundary mode
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
+      // In boundary mode, handle trust zone boundary creation
+      // Use refs to avoid stale closure issues with React Flow event ordering
+      if (boundaryModeRef.current) {
+        // Only trust zone nodes are valid targets in boundary mode
+        if (node.type !== 'trustZone') return
+
+        const currentBoundarySourceId = boundarySourceIdRef.current
+
+        if (!currentBoundarySourceId) {
+          // First click: set as source
+          setBoundarySourceId(node.id)
+        } else if (currentBoundarySourceId === node.id) {
+          // Clicked same zone: ignore
+          return
+        } else {
+          // Check for duplicate A->B boundary using getEdges for latest data
+          const currentEdges = getEdges()
+          const existingBoundary = currentEdges.find(
+            (e) =>
+              e.type === 'trustBoundary' &&
+              ((e.source === currentBoundarySourceId && e.target === node.id) ||
+                (e.source === node.id && e.target === currentBoundarySourceId))
+          )
+
+          if (existingBoundary) {
+            // Select existing boundary instead of creating duplicate
+            setSelectedEdge(existingBoundary as DiagramEdge)
+            setSelectedNode(null)
+            setBoundaryMode(false)
+            return
+          }
+
+          // Second click: create trust boundary edge
+          // Trust zone handles don't have explicit IDs (unlike process/datastore nodes),
+          // so we omit sourceHandle/targetHandle and let React Flow auto-connect
+          const newBoundaryEdge: TrustBoundaryEdge = {
+            id: `boundary-${Date.now()}`,
+            source: currentBoundarySourceId,
+            target: node.id,
+            type: 'trustBoundary',
+            data: {
+              label: '',
+            },
+          }
+
+          setEdges((eds) => [...eds, newBoundaryEdge])
+
+          // Auto-select the new boundary edge
+          setSelectedEdge(newBoundaryEdge)
+          setSelectedNode(null)
+          setBoundaryMode(false)
+        }
+        return
+      }
+
       // In connection mode, handle click-to-connect
       if (connectionMode) {
         // Only allow connecting process, datastore, humanActor, and systemActor nodes
@@ -226,7 +319,7 @@ function DFDEditorContent() {
             },
           }
 
-          setEdges((eds) => addEdge(newEdge, eds) as DataFlowEdge[])
+          setEdges((eds) => addEdge(newEdge, eds) as DiagramEdge[])
           // Clear source but stay in connection mode for chaining
           setConnectionSourceId(null)
         }
@@ -237,12 +330,12 @@ function DFDEditorContent() {
       setSelectedNode(node)
       setSelectedEdge(null)
     },
-    [connectionMode, connectionSourceId, getSmartHandles, setEdges]
+    [connectionMode, connectionSourceId, getEdges, getSmartHandles, setEdges]
   )
 
   // Handle edge selection
   const handleEdgeClick = useCallback(
-    (_event: React.MouseEvent, edge: DataFlowEdge) => {
+    (_event: React.MouseEvent, edge: DiagramEdge) => {
       setSelectedEdge(edge)
       setSelectedNode(null)
     },
@@ -257,6 +350,11 @@ function DFDEditorContent() {
     if (connectionMode) {
       setConnectionSourceId(null)
     }
+    // Boundary source is NOT cleared here — React Flow fires onPaneClick
+    // alongside onNodeClick for container nodes (trust zones), so clearing
+    // here would race with handleNodeClick. Boundary state is managed by
+    // handleNodeClick (sets source), Escape key (cancels mode), and the
+    // cleanup effect (clears source when mode is deactivated).
   }, [connectionMode])
 
   // Track mouse position for connection line overlay
@@ -286,6 +384,11 @@ function DFDEditorContent() {
     (connection: Connection) => {
       if (!connection.source || !connection.target) return
 
+      // Block data flow connections between trust zones
+      const sourceNode = nodes.find((n) => n.id === connection.source)
+      const targetNode = nodes.find((n) => n.id === connection.target)
+      if (sourceNode?.type === 'trustZone' && targetNode?.type === 'trustZone') return
+
       const newEdge: DataFlowEdge = {
         id: `edge-${Date.now()}`,
         source: connection.source,
@@ -301,14 +404,14 @@ function DFDEditorContent() {
         },
       }
 
-      setEdges((eds) => addEdge(newEdge, eds) as DataFlowEdge[])
+      setEdges((eds) => addEdge(newEdge, eds) as DiagramEdge[])
     },
-    [setEdges]
+    [nodes, setEdges]
   )
 
   // Handle template insertion
   const handleInsertTemplate = useCallback(
-    (templateNodes: DiagramNode[], templateEdges: DataFlowEdge[]) => {
+    (templateNodes: DiagramNode[], templateEdges: DiagramEdge[]) => {
       const timestamp = Date.now()
 
       // Create ID mapping
@@ -336,7 +439,7 @@ function DFDEditorContent() {
         }
       })
 
-      const newEdges: DataFlowEdge[] = templateEdges.map((edge, index) => ({
+      const newEdges: DiagramEdge[] = templateEdges.map((edge, index) => ({
         ...edge,
         id: `edge-${timestamp}-${index}`,
         source: idMap.get(edge.source) || edge.source,
@@ -356,14 +459,25 @@ function DFDEditorContent() {
     : null
 
   const currentSelectedEdge = selectedEdge
-    ? (edges.find((e) => e.id === selectedEdge.id) as DataFlowEdge | undefined)
+    ? (edges.find((e) => e.id === selectedEdge.id) as DiagramEdge | undefined)
     : null
+
+  // Handle deselect (also cancels boundary mode)
+  const handleDeselect = useCallback(() => {
+    setSelectedNode(null)
+    setSelectedEdge(null)
+    if (boundaryMode) {
+      setBoundarySourceId(null)
+      setBoundaryMode(false)
+    }
+  }, [boundaryMode])
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSave: saveNow,
     // Undo feature - remove this line to disable undo functionality
     onUndo: undo,
+    onDeselect: handleDeselect,
     enabled: true,
   })
 
@@ -535,7 +649,9 @@ function DFDEditorContent() {
       {/* Toolbar */}
       <DiagramToolbar
         connectionMode={connectionMode}
-        onConnectionModeChange={setConnectionMode}
+        onConnectionModeChange={handleConnectionModeChange}
+        boundaryMode={boundaryMode}
+        onBoundaryModeChange={handleBoundaryModeChange}
         onOpenTemplates={() => setShowTemplates(true)}
         onOpenThreatAnalysis={async () => {
           // Save any unsaved changes before navigating so Threat Analysis sees latest data
@@ -651,6 +767,56 @@ function DFDEditorContent() {
               </svg>
             )}
 
+            {/* Boundary mode indicator */}
+            {boundaryMode && (
+              <Panel position="top-center">
+                <div className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                  {boundarySourceId
+                    ? 'Click another trust zone to create boundary'
+                    : 'Click a trust zone to start'}
+                </div>
+              </Panel>
+            )}
+
+            {/* Boundary source zone highlight overlay */}
+            {boundaryMode && boundarySourceId && (() => {
+              const sourceZone = nodes.find((n) => n.id === boundarySourceId)
+              if (!sourceZone) return null
+              const sourceZonePos = getAbsolutePosition(boundarySourceId)
+              if (!sourceZonePos) return null
+              const zoneWidth = (sourceZone.style?.width as number) || 300
+              const zoneHeight = (sourceZone.style?.height as number) || 200
+              return (
+                <svg
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none',
+                    zIndex: 999,
+                    overflow: 'visible',
+                  }}
+                >
+                  <g transform={`translate(${viewportX}, ${viewportY}) scale(${zoom})`}>
+                    <rect
+                      x={sourceZonePos.x - 4}
+                      y={sourceZonePos.y - 4}
+                      width={zoneWidth + 8}
+                      height={zoneHeight + 8}
+                      rx="12"
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth={3 / zoom}
+                      opacity="0.8"
+                      style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
+                    />
+                  </g>
+                </svg>
+              )
+            })()}
+
             {/* Source node highlight overlay */}
             {connectionMode && connectionSourcePosition && (
               <svg
@@ -692,9 +858,15 @@ function DFDEditorContent() {
             threatModelId={threatModelId}
           />
         )}
-        {currentSelectedEdge && (
+        {currentSelectedEdge?.type === 'dataFlow' && (
           <EdgeEditPanel
-            edge={currentSelectedEdge}
+            edge={currentSelectedEdge as DataFlowEdge}
+            onClose={() => setSelectedEdge(null)}
+          />
+        )}
+        {currentSelectedEdge?.type === 'trustBoundary' && (
+          <TrustBoundaryEdgeEditPanel
+            edge={currentSelectedEdge as TrustBoundaryEdge}
             onClose={() => setSelectedEdge(null)}
           />
         )}

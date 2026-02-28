@@ -13,10 +13,12 @@ from .views import (
     OrgsystemComponentViewSet,
     OrgsystemViewSet,
     TrustBoundaryViewSet,
+    TrustZoneViewSet,
 )
 
 router = DefaultRouter()
 router.register(r"systems", OrgsystemViewSet, basename="orgsystem")
+router.register(r"trust-zones", TrustZoneViewSet, basename="trust-zone")
 router.register(r"trust-boundaries", TrustBoundaryViewSet, basename="trust-boundary")
 router.register(r"component-library", ComponentLibraryViewSet, basename="component-library")
 router.register(r"components", OrgsystemComponentViewSet, basename="component")

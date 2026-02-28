@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert } from 'lucide-react'
+import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -15,6 +15,8 @@ import type { DiagramNodeType } from '../types'
 interface DiagramToolbarProps {
   connectionMode: boolean
   onConnectionModeChange: (enabled: boolean) => void
+  boundaryMode: boolean
+  onBoundaryModeChange: (enabled: boolean) => void
   onOpenTemplates: () => void
   onOpenThreatAnalysis: () => void
 }
@@ -57,11 +59,11 @@ const nodeButtons: ToolbarButtonConfig[] = [
     description: 'Database, file system, or cache that stores data',
   },
   {
-    type: 'trustBoundary',
-    label: 'Trust Boundary',
+    type: 'trustZone',
+    label: 'Trust Zone',
     icon: Shield,
     color: 'text-orange-600 hover:bg-orange-50',
-    description: 'Security boundary with specific trust level (e.g., DMZ, VPC)',
+    description: 'Security zone with specific trust level (e.g., DMZ, VPC)',
   },
   {
     type: 'systemScope',
@@ -75,6 +77,8 @@ const nodeButtons: ToolbarButtonConfig[] = [
 export const DiagramToolbar = memo(function DiagramToolbar({
   connectionMode,
   onConnectionModeChange,
+  boundaryMode,
+  onBoundaryModeChange,
   onOpenTemplates,
   onOpenThreatAnalysis,
 }: DiagramToolbarProps) {
@@ -96,12 +100,12 @@ export const DiagramToolbar = memo(function DiagramToolbar({
       systemActor: { label: 'New System Actor' },
       process: { label: 'New Process', technology: '' },
       datastore: { label: 'New Data Store', technology: '' },
-      trustBoundary: { label: 'Trust Boundary', trustLevel: 'internal' },
+      trustZone: { label: 'Trust Zone', trustLevel: 'internal' },
       systemScope: { label: 'System Scope' },
     }
 
     // Default style for boundary nodes
-    const defaultStyle = (type === 'trustBoundary' || type === 'systemScope')
+    const defaultStyle = (type === 'trustZone' || type === 'systemScope')
       ? { width: 300, height: 200 }
       : undefined
 
@@ -170,6 +174,27 @@ export const DiagramToolbar = memo(function DiagramToolbar({
             <p className="font-medium">Draw Connection</p>
             <p className="text-xs text-muted-foreground">
               Click and drag from one node to another to create a data flow
+            </p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Trust Boundary mode toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={boundaryMode ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-2"
+              onClick={() => onBoundaryModeChange(!boundaryMode)}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Trust Boundary</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="font-medium">Trust Boundary</p>
+            <p className="text-xs text-muted-foreground">
+              Click two trust zones to create a security boundary between them
             </p>
           </TooltipContent>
         </Tooltip>

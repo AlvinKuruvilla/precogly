@@ -18,9 +18,9 @@ This document provides a walkthrough of the Precogly threat modeling database sc
 | Table Name | Description | Example |
 |------------|-------------|---------|
 | Orgsystems | Top-level application or product you are modeling. | "Global HR Portal v2.0". Owned by the "People Ops" team and marked as "Critical" because it holds salary data. |
-| TrustBoundaries | Different security zones. Supports nesting via ParentBoundaryID. | Public Internet; DMZ (Demilitarized Zone); Internal Network nested inside Corporate. |
+| TrustZones | Different security zones. Supports nesting via parent_id. | Public Internet; DMZ (Demilitarized Zone); Internal Network nested inside Corporate. |
 | ComponentLibrary | Library of generic building blocks (catalog). Can be global (OrganizationID=null) or org-specific. | "AWS S3 Bucket"; "Nginx Web Server" |
-| OrgsystemsComponents | Specific instance of a building block; combines a library component with a trust boundary. | "Resume Upload Server": Uses the "Nginx" component from library. Lives in the "DMZ". |
+| OrgsystemsComponents | Specific instance of a building block; combines a library component with a trust zone. | "Resume Upload Server": Uses the "Nginx" component from library. Lives in the "DMZ". |
 | IntegrationSources | External sources for auto-ingesting system context. | GitHub repo "acme/hr-portal"; Terraform state from AWS account. |
 
 ---
@@ -32,7 +32,7 @@ This document provides a walkthrough of the Precogly threat modeling database sc
 | DataAssets | Specific types of info the system handles, scored by the CIA triad (Confidentiality, Integrity, Availability). | "Salary Info": Confidentiality: High. Integrity: High. Availability: Medium. |
 | | | "Lunch Menu": Confidentiality: Low. Integrity: Low. Availability: Medium. |
 | ComponentDataAssets | Maps where the data sits. | "Employee DB" stores "Salary Info". |
-| DataFlows | Connection line between two components. | Flow from the "Web Server" (Source) to the "Employee DB" (Destination). Uses TCP on port 5432. "CrossesTrustBoundary" is TRUE if moving from DMZ to Internal. |
+| DataFlows | Connection line between two components. | Flow from the "Web Server" (Source) to the "Employee DB" (Destination). Uses TCP on port 5432. "CrossesTrustZone" is TRUE if moving from DMZ to Internal. |
 | DataFlowAssets | Which data assets are carried by a specific data flow, and how each asset is protected in transit. | Flow carries "Salary Info". ProtectionMethod: "Encrypted", EncryptionType: "TLS", Format: "JSON". |
 
 ---
@@ -51,7 +51,7 @@ This document provides a walkthrough of the Precogly threat modeling database sc
 | Table Name | Description | Example |
 |------------|-------------|---------|
 | ComponentInstanceThreats | A specific threat applying to a specific component. *"Does this threat actually manifest on this specific component instance?"* | ComponentID: Prod Web App (Next.js 15.1); ThreatLibraryID: Remote Code Execution |
-| DataFlowInstanceThreats | A specific threat applying to the connection. | The flow between the Web Server and DB is vulnerable to "Sniffing" (Man-in-the-Middle) because it crosses a trust boundary. |
+| DataFlowInstanceThreats | A specific threat applying to the connection. | The flow between the Web Server and DB is vulnerable to "Sniffing" (Man-in-the-Middle) because it crosses a trust zone. |
 
 ### Threat Models & DFDs
 

@@ -165,7 +165,7 @@ IntegrationSources {
     datetime updated_at
 }
 
-TrustBoundaries {
+TrustZones {
     int id PK
     string name
     int trust_level "0-100"
@@ -196,7 +196,7 @@ OrgsystemComponents {
     string name
     int orgsystem_id FK "nullable"
     int component_library_id FK "nullable"
-    int trust_boundary_id FK "nullable"
+    int trust_zone_id FK "nullable"
     int source_integration_id FK "nullable"
     string category "nullable, copied from library"
     string component_type "nullable, copied from library"
@@ -235,7 +235,7 @@ DataFlows {
     int port "nullable"
     boolean encrypted
     boolean authenticated
-    boolean crosses_trust_boundary
+    boolean crosses_trust_zone
     datetime created_at
     datetime updated_at
 }
@@ -529,8 +529,8 @@ LibraryPacks ||--o{ PendingFrameworkOverlays : "has_pending"
 
 Orgsystems ||--o{ OrgsystemComponents : "owns"
 ComponentLibrary ||--o{ OrgsystemComponents : "instantiated_as"
-TrustBoundaries ||--o{ OrgsystemComponents : "contains"
-TrustBoundaries ||--o| TrustBoundaries : "nested_in"
+TrustZones ||--o{ OrgsystemComponents : "contains"
+TrustZones ||--o| TrustZones : "nested_in"
 Orgsystems ||--o{ IntegrationSources : "ingests_from"
 IntegrationSources ||--o{ OrgsystemComponents : "discovered"
 

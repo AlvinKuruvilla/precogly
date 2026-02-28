@@ -12,6 +12,7 @@ from .models import (
     Orgsystem,
     OrgsystemComponent,
     TrustBoundary,
+    TrustZone,
 )
 
 
@@ -83,11 +84,11 @@ class OrgsystemListSerializer(serializers.ModelSerializer):
         return obj.owner or ""
 
 
-class TrustBoundarySerializer(serializers.ModelSerializer):
-    """Serializer for TrustBoundary model."""
+class TrustZoneSerializer(serializers.ModelSerializer):
+    """Serializer for TrustZone model."""
 
     class Meta:
-        model = TrustBoundary
+        model = TrustZone
         fields = [
             "id",
             "name",
@@ -98,6 +99,36 @@ class TrustBoundarySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TrustBoundarySerializer(serializers.ModelSerializer):
+    """Serializer for TrustBoundary model."""
+
+    zone_a_name = serializers.CharField(source="zone_a.name", read_only=True)
+    zone_b_name = serializers.CharField(source="zone_b.name", read_only=True)
+
+    class Meta:
+        model = TrustBoundary
+        fields = [
+            "id",
+            "zone_a",
+            "zone_a_name",
+            "zone_b",
+            "zone_b_name",
+            "label",
+            "description",
+            "edge_id",
+            "format_metadata",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "zone_a_name",
+            "zone_b_name",
+        ]
 
 
 class ComponentLibrarySerializer(serializers.ModelSerializer):
@@ -148,7 +179,7 @@ class OrgsystemComponentSerializer(serializers.ModelSerializer):
             "orgsystem",
             "component_library",
             "component_library_name",
-            "trust_boundary",
+            "trust_zone",
             "source_integration",
             "threat_model",
             "created_at",
@@ -200,7 +231,7 @@ class DataFlowSerializer(serializers.ModelSerializer):
             "port",
             "encrypted",
             "authenticated",
-            "crosses_trust_boundary",
+            "crosses_trust_zone",
             "created_at",
             "updated_at",
         ]

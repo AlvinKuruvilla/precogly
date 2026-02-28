@@ -52,46 +52,46 @@ canvas_data:
 
     # Trust boundary - Ingestion Layer
     - id: "tb-ingestion"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-fraud"
       position: { x: 30, y: 60 }
       style: { width: 200, height: 250 }
       data:
         label: "Event Ingestion"
-        boundaryType: "dmz"
+        zoneType: "dmz"
         technology: "Kafka Cluster"
 
     # Trust boundary - Processing Layer
     - id: "tb-processing"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-fraud"
       position: { x: 260, y: 60 }
       style: { width: 380, height: 350 }
       data:
         label: "Real-Time Processing"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Stream Processing"
 
     # Trust boundary - Data Layer
     - id: "tb-data"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-fraud"
       position: { x: 670, y: 60 }
       style: { width: 220, height: 350 }
       data:
         label: "Data Layer"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Secured Storage"
 
     # Trust boundary - Investigation
     - id: "tb-investigation"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-fraud"
       position: { x: 260, y: 440 }
       style: { width: 380, height: 160 }
       data:
         label: "Investigation Layer"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Case Management"
 
     # Ingestion Layer

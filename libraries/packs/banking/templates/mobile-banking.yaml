@@ -28,24 +28,24 @@ canvas_data:
 
     # Trust boundary - Mobile Device (inside sb-banking)
     - id: "tb-mobile"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-banking"
       position: { x: 30, y: 80 }
       style: { width: 200, height: 250 }
       data:
         label: "Mobile Device"
-        boundaryType: "internet"
+        zoneType: "internet"
         technology: "iOS/Android"
 
     # Trust boundary - Backend (inside sb-banking)
     - id: "tb-backend"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-banking"
       position: { x: 270, y: 60 }
       style: { width: 520, height: 460 }
       data:
         label: "Bank Backend"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Private Cloud"
 
     # Mobile app (nested inside tb-mobile)

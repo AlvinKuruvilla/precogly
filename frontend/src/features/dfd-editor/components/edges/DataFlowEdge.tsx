@@ -9,7 +9,7 @@ import {
 import { Lock, Unlock, ShieldCheck, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DataFlowEdgeData } from '../../types'
-import { TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
+import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
 
 type DataFlowEdgeType = Edge<DataFlowEdgeData, 'dataFlow'>
 
@@ -129,19 +129,19 @@ export const DataFlowEdge = memo(function DataFlowEdge({
             </div>
           )}
 
-          {/* Zone boundary crossing indicator */}
-          {data?.crossesBoundaryId && data?.crossesBoundaryType && (
+          {/* Zone crossing indicator */}
+          {data?.crossesZoneId && data?.crossesZoneType && (
             <div
               className="px-2 py-0.5 rounded text-xs flex items-center gap-1 whitespace-nowrap border"
               style={{
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderColor: TRUST_BOUNDARY_TYPE_CONFIG[data.crossesBoundaryType]?.borderColor || '#64748b',
-                color: TRUST_BOUNDARY_TYPE_CONFIG[data.crossesBoundaryType]?.borderColor || '#64748b',
+                borderColor: TRUST_ZONE_TYPE_CONFIG[data.crossesZoneType]?.borderColor || '#64748b',
+                color: TRUST_ZONE_TYPE_CONFIG[data.crossesZoneType]?.borderColor || '#64748b',
               }}
-              title={`Crosses ${data.crossesBoundaryLabel || 'zone'} (${TRUST_BOUNDARY_TYPE_CONFIG[data.crossesBoundaryType]?.label || 'Unknown'})`}
+              title={`Crosses ${data.crossesZoneLabel || 'zone'} (${TRUST_ZONE_TYPE_CONFIG[data.crossesZoneType]?.label || 'Unknown'})`}
             >
               <Shield className="h-3 w-3" />
-              <span className="font-medium">{data.crossesBoundaryLabel || 'Zone'}</span>
+              <span className="font-medium">{data.crossesZoneLabel || 'Zone'}</span>
             </div>
           )}
         </div>

@@ -85,8 +85,8 @@ class IntegrationSource(TimestampedModel):
         return f"{self.name} ({self.source_type})"
 
 
-class TrustBoundary(TimestampedModel):
-    """Trust boundary / security zone."""
+class TrustZone(TimestampedModel):
+    """Trust zone (named security region)."""
 
     name = models.CharField(max_length=255)
     trust_level = models.IntegerField(default=50, help_text="0-100 scale")
@@ -100,11 +100,47 @@ class TrustBoundary(TimestampedModel):
     )
 
     class Meta:
-        verbose_name_plural = "Trust boundaries"
+        verbose_name_plural = "Trust zones"
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+
+class TrustBoundary(TimestampedModel):
+    """Security boundary between two trust zones."""
+
+    zone_a = models.ForeignKey(
+        TrustZone,
+        on_delete=models.CASCADE,
+        related_name="boundaries_as_source",
+    )
+    zone_b = models.ForeignKey(
+        TrustZone,
+        on_delete=models.CASCADE,
+        related_name="boundaries_as_target",
+    )
+    label = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    edge_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        help_text="DFD edge ID this boundary was created from",
+    )
+    format_metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Auth methods, access control, token TTL, etc.",
+    )
+
+    class Meta:
+        verbose_name_plural = "Trust boundaries"
+        ordering = ["zone_a", "zone_b"]
+        unique_together = ["zone_a", "zone_b"]
+
+    def __str__(self):
+        return self.label or f"{self.zone_a} <-> {self.zone_b}"
 
 
 class ComponentLibrary(TimestampedModel):
@@ -211,8 +247,8 @@ class OrgsystemComponent(TimestampedModel):
         help_text="Null means orphaned/custom component (library item was removed)",
     )
     name = models.CharField(max_length=255)
-    trust_boundary = models.ForeignKey(
-        TrustBoundary,
+    trust_zone = models.ForeignKey(
+        TrustZone,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -351,7 +387,7 @@ class DataFlow(TimestampedModel):
     port = models.IntegerField(null=True, blank=True)
     encrypted = models.BooleanField(default=False)
     authenticated = models.BooleanField(default=False)
-    crosses_trust_boundary = models.BooleanField(default=False)
+    crosses_trust_zone = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["source_component", "dest_component"]

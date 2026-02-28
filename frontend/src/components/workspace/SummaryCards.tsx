@@ -8,7 +8,7 @@ interface ComponentSummary {
   datastores: number
   humanActors: number
   systemActors: number
-  trustBoundaries: number
+  trustZones: number
 }
 
 interface ThreatSummary {
@@ -74,8 +74,8 @@ export function SummaryCards({
             {components.systemActors > 0 && (
               <span>{components.systemActors} system actors</span>
             )}
-            {components.trustBoundaries > 0 && (
-              <span>{components.trustBoundaries} boundaries</span>
+            {components.trustZones > 0 && (
+              <span>{components.trustZones} zones</span>
             )}
           </div>
         </CardContent>

@@ -23,13 +23,13 @@ canvas_data:
         label: "AWS Serverless"
 
     - id: "tb-aws"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-aws"
       position: { x: 30, y: 50 }
       style: { width: 440, height: 220 }
       data:
         label: "AWS Account"
-        boundaryType: "zoneRestricted"
+        zoneType: "zoneRestricted"
         technology: "AWS"
 
     - id: "datastore-s3"

@@ -28,13 +28,13 @@ canvas_data:
 
     # Trust boundary - AWS VPC (inside sb-aws)
     - id: "tb-aws"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-aws"
       position: { x: 30, y: 60 }
       style: { width: 650, height: 360 }
       data:
         label: "AWS VPC"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Amazon VPC"
 
     # AWS Services (nested inside tb-aws)

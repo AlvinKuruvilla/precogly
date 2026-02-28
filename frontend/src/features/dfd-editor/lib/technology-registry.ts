@@ -30,13 +30,13 @@ export const NODE_TYPE_CATEGORIES: Record<DiagramNodeType, TechnologyCategory[]>
   process: ['compute', 'backend', 'messaging', 'security'],
   humanActor: [], // Human actors typically don't have technologies
   systemActor: [], // System actors (external systems) typically don't have internal technologies
-  trustBoundary: ['networking'], // Will be further filtered by TRUST_BOUNDARY_TECHNOLOGY_IDS
+  trustZone: ['networking'], // Will be further filtered by TRUST_ZONE_TECHNOLOGY_IDS
   systemScope: ['infrastructure', 'networking'],
 }
 
-// Technology IDs that are appropriate for Trust Boundaries
-// These define network boundaries/segments, NOT components that sit at boundaries
-export const TRUST_BOUNDARY_TECHNOLOGY_IDS: string[] = [
+// Technology IDs that are appropriate for Trust Zones
+// These define network zones/segments, NOT components that sit at boundaries
+export const TRUST_ZONE_TECHNOLOGY_IDS: string[] = [
   // AWS VPCs and Subnets
   'aws-vpc',
   'aws-subnet-public',

@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { useTeamMembers, useTeams, useOrganizationMembers } from '@/api/organizations'
 import type { TeamMembership, TeamListItem, OrganizationMembership } from '@/types/organization'
-import type { DiagramNode, DataFlowEdge, CanvasData, TrustBoundaryNodeData } from '../../types'
-import { TRUST_BOUNDARY_TYPE_CONFIG } from '../../types'
+import type { DiagramNode, DataFlowEdge, CanvasData, TrustZoneNodeData } from '../../types'
+import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
 import type {
   ComponentThreat,
   CountermeasureStatus,
@@ -514,7 +514,7 @@ function ComplianceDetailSection({
 interface ComponentViewProps {
   canvasData: CanvasData
   analyzableComponents: DiagramNode[]
-  trustBoundaries: DiagramNode[]
+  trustZones: DiagramNode[]
   dataFlows: DataFlowEdge[]
   componentThreats: ComponentThreat[]
   selectedFrameworks: string[]
@@ -652,7 +652,7 @@ function CountermeasureStatusButtons({
 export function ComponentView({
   canvasData,
   analyzableComponents,
-  trustBoundaries,
+  trustZones,
   dataFlows,
   componentThreats,
   selectedFrameworks,
@@ -712,10 +712,10 @@ export function ComponentView({
     return dataFlows.find((e) => e.id === selectedComponentId) || null
   }, [dataFlows, selectedComponentId])
 
-  const selectedTrustBoundary = useMemo(() => {
+  const selectedTrustZone = useMemo(() => {
     if (!selectedComponentId) return null
-    return trustBoundaries.find((n) => n.id === selectedComponentId) || null
-  }, [trustBoundaries, selectedComponentId])
+    return trustZones.find((n) => n.id === selectedComponentId) || null
+  }, [trustZones, selectedComponentId])
 
   // Helper to get source and target node labels for a data flow
   const getDataFlowLabels = (edge: DataFlowEdge) => {
@@ -814,10 +814,10 @@ export function ComponentView({
       <div className="w-64 border-r flex flex-col">
         {/* Components list header */}
         <div className="px-3 py-2 border-b">
-          <div className="font-medium">Components & Boundaries</div>
+          <div className="font-medium">Components & Zones</div>
           <div className="text-xs text-muted-foreground">
             {analyzableComponents.length} components &nbsp;|&nbsp;{' '}
-            {trustBoundaries.length} boundaries &nbsp;|&nbsp;{' '}
+            {trustZones.length} zones &nbsp;|&nbsp;{' '}
             {dataFlows.length} flows &nbsp;|&nbsp;{' '}
             {componentThreats.filter((t) => !t.dismissed).length} threats
           </div>
@@ -921,17 +921,17 @@ export function ComponentView({
             })}
 
             {/* Trust Boundaries section */}
-            {trustBoundaries.length > 0 && (
+            {trustZones.length > 0 && (
               <>
                 <div className="pt-3 pb-1 px-2 border-t mt-2">
-                  <span className="text-xs font-medium text-muted-foreground">Trust Boundaries</span>
+                  <span className="text-xs font-medium text-muted-foreground">Trust Zones</span>
                 </div>
-                {trustBoundaries.map((node) => {
+                {trustZones.map((node) => {
                   const summary = getComponentThreatSummary(node.id, componentThreats)
                   const isSelected = node.id === selectedComponentId
-                  const boundaryData = node.data as TrustBoundaryNodeData
-                  const boundaryConfig = boundaryData.boundaryType
-                    ? TRUST_BOUNDARY_TYPE_CONFIG[boundaryData.boundaryType]
+                  const zoneData = node.data as TrustZoneNodeData
+                  const zoneConfig = zoneData.zoneType
+                    ? TRUST_ZONE_TYPE_CONFIG[zoneData.zoneType]
                     : null
 
                   return (
@@ -949,15 +949,15 @@ export function ComponentView({
                         <div className="flex items-center gap-2 min-w-0">
                           <Shield
                             className="h-4 w-4 flex-shrink-0"
-                            style={{ color: boundaryConfig?.borderColor || '#64748b' }}
+                            style={{ color: zoneConfig?.borderColor || '#64748b' }}
                           />
                           <div className="min-w-0">
                             <div className="font-medium text-sm truncate">
                               {String(node.data.label)}
                             </div>
-                            {boundaryConfig && (
+                            {zoneConfig && (
                               <div className="text-xs text-muted-foreground truncate">
-                                {boundaryConfig.label}
+                                {zoneConfig.label}
                               </div>
                             )}
                           </div>
@@ -1093,8 +1093,8 @@ export function ComponentView({
           <div className="text-xs text-muted-foreground">
             {selectedComponent
               ? (selectedComponent.data as { technology?: string }).technology || String(selectedComponent.data.label)
-              : selectedTrustBoundary
-                ? String(selectedTrustBoundary.data.label)
+              : selectedTrustZone
+                ? String(selectedTrustZone.data.label)
                 : selectedDataFlow
                   ? (() => {
                       const { sourceLabel, targetLabel } = getDataFlowLabels(selectedDataFlow)
@@ -1384,8 +1384,8 @@ export function ComponentView({
                             {(() => {
                               const boundary = canvasData.nodes.find((n) => n.id === cm.providedByBoundaryId)
                               if (!boundary) return 'boundary'
-                              const boundaryData = boundary.data as TrustBoundaryNodeData
-                              return String(boundaryData.label || 'boundary')
+                              const zoneData = boundary.data as TrustZoneNodeData
+                              return String(zoneData.label || 'boundary')
                             })()}
                           </span>
                         </span>

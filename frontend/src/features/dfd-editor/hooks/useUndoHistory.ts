@@ -9,11 +9,11 @@
  */
 
 import { useCallback, useRef } from 'react'
-import type { DiagramNode, DataFlowEdge } from '../types'
+import type { DiagramNode, DiagramEdge } from '../types'
 
 interface HistoryState {
   nodes: DiagramNode[]
-  edges: DataFlowEdge[]
+  edges: DiagramEdge[]
 }
 
 interface UseUndoHistoryOptions {

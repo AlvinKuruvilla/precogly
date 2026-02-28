@@ -501,7 +501,7 @@ export function useWorkspaceThreatAnalysis(
       datastores: allNodes.filter((n) => n.type === 'datastore').length,
       humanActors: allNodes.filter((n) => n.type === 'humanActor').length,
       systemActors: allNodes.filter((n) => n.type === 'systemActor').length,
-      trustBoundaries: allNodes.filter((n) => n.type === 'trustBoundary').length,
+      trustZones: allNodes.filter((n) => n.type === 'trustZone').length,
     }
 
     // Threat summary
@@ -545,7 +545,7 @@ export function useWorkspaceThreatAnalysis(
     const hasComponents = allNodes.some(
       (n) => n.type === 'process' || n.type === 'datastore'
     )
-    const hasTrustBoundaries = allNodes.some((n) => n.type === 'trustBoundary')
+    const hasTrustZones = allNodes.some((n) => n.type === 'trustZone')
     const hasDataFlows = allEdges.length > 0
     const hasOwnersAssigned = activeThreats.some((ct) =>
       ct.countermeasures.some((cm) => cm.owner)
@@ -569,7 +569,7 @@ export function useWorkspaceThreatAnalysis(
           checked = hasComponents
           break
         case 'trust_boundaries_identified':
-          checked = hasTrustBoundaries
+          checked = hasTrustZones
           break
         case 'data_flows_defined':
           checked = hasDataFlows

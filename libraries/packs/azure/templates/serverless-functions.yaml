@@ -44,35 +44,35 @@ canvas_data:
 
     # Trust boundary - API Gateway (inside sb-azure)
     - id: "tb-gateway"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 30, y: 60 }
       style: { width: 220, height: 300 }
       data:
         label: "Gateway Zone"
-        boundaryType: "dmz"
+        zoneType: "dmz"
         technology: "Azure API Management"
 
     # Trust boundary - Functions (inside sb-azure)
     - id: "tb-functions"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 280, y: 60 }
       style: { width: 400, height: 300 }
       data:
         label: "Compute Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Azure Functions Premium"
 
     # Trust boundary - Data (inside sb-azure)
     - id: "tb-data"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-azure"
       position: { x: 710, y: 60 }
       style: { width: 260, height: 420 }
       data:
         label: "Data Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Azure Private Endpoints"
 
     # Gateway components (inside tb-gateway)

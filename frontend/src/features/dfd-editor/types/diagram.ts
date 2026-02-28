@@ -4,9 +4,9 @@ import type { Node, Edge } from '@xyflow/react'
 export {
   type DiagramNodeType,
   type TrustLevel,
-  type TrustBoundaryType,
-  type TrustBoundaryZoneType,
-  type TrustBoundaryConfig,
+  type TrustZoneType,
+  type TrustZonePresetName,
+  type TrustZoneConfig,
   type DataClassification,
   type Protocol,
   type DataSensitivity,
@@ -14,8 +14,8 @@ export {
   type DiagramTypeValue,
   type ThreatFramework,
   TRUST_LEVEL_CONFIG,
-  TRUST_BOUNDARY_TYPE_CONFIG,
-  TRUST_BOUNDARY_ZONE_TYPES,
+  TRUST_ZONE_TYPE_CONFIG,
+  TRUST_ZONE_PRESET_NAMES,
   DATA_CLASSIFICATIONS,
   PROTOCOLS,
   DATA_SENSITIVITY_CONFIG,
@@ -25,7 +25,7 @@ export {
 import type {
   DiagramNodeType,
   TrustLevel,
-  TrustBoundaryType,
+  TrustZoneType,
   DataClassification,
   Protocol,
   DataSensitivity,
@@ -40,7 +40,7 @@ export interface BaseNodeData {
   description?: string
   isNewlyInserted?: boolean
   lockAnimationKey?: number     // Timestamp to trigger lock animation (child locked into parent)
-  receiveChildAnimationKey?: number  // Timestamp to trigger animation (boundary received a child)
+  receiveChildAnimationKey?: number  // Timestamp to trigger animation (container received a child)
   [key: string]: unknown  // Required for React Flow's Node<T> constraint
 }
 
@@ -63,13 +63,15 @@ export interface SystemActorNodeData extends BaseNodeData {
   vendor?: string
 }
 
-export interface TrustBoundaryNodeData extends BaseNodeData {
-  // Zone type for the trust boundary
-  boundaryType?: TrustBoundaryType
+export interface TrustZoneNodeData extends BaseNodeData {
+  // Zone type for the trust zone
+  zoneType?: TrustZoneType
   // Legacy trust level (kept for backward compatibility)
   trustLevel?: TrustLevel
   // Technology implementing this zone (e.g., AWS VPC, Azure VNet)
   technology?: string
+  // Written back by backend sync (trust_zone_id → trustZoneId)
+  trustZoneId?: number
 }
 
 export interface SystemScopeNodeData extends BaseNodeData {
@@ -83,7 +85,7 @@ export type DiagramNodeData =
   | DataStoreNodeData
   | HumanActorNodeData
   | SystemActorNodeData
-  | TrustBoundaryNodeData
+  | TrustZoneNodeData
   | SystemScopeNodeData
 
 // Edge Data
@@ -94,22 +96,66 @@ export interface DataFlowEdgeData {
   encrypted?: boolean
   authenticated?: boolean
   isNewlyInserted?: boolean
-  // Trust boundary crossing
-  crossesBoundaryId?: string           // ID of the boundary this flow crosses
-  crossesBoundaryLabel?: string        // Label of the boundary (for display)
-  crossesBoundaryType?: TrustBoundaryType  // Type of the boundary
-  crossesBoundaryIds?: string[]        // For flows crossing multiple boundaries
+  // Trust zone crossing
+  crossesZoneId?: string           // ID of the zone this flow crosses
+  crossesZoneLabel?: string        // Label of the zone (for display)
+  crossesZoneType?: TrustZoneType  // Type of the zone
+  crossesZoneIds?: string[]        // For flows crossing multiple zones
   [key: string]: unknown  // Required for React Flow's Edge<T> constraint
+}
+
+// Trust Boundary edge types
+export type AccessControlMethod = 'none' | 'acl' | 'rbac' | 'mac' | 'dac' | 'abac'
+export const ACCESS_CONTROL_METHODS: { value: AccessControlMethod; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'acl', label: 'ACL' },
+  { value: 'rbac', label: 'RBAC' },
+  { value: 'mac', label: 'MAC' },
+  { value: 'dac', label: 'DAC' },
+  { value: 'abac', label: 'ABAC' },
+]
+
+export type AuthenticationMethod =
+  | 'none' | 'password' | 'otp' | 'challengeResponse'
+  | 'publicKey' | 'token' | 'biometrics' | 'sso' | 'social'
+export const AUTHENTICATION_METHODS: { value: AuthenticationMethod; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'password', label: 'Password' },
+  { value: 'otp', label: 'OTP' },
+  { value: 'challengeResponse', label: 'Challenge/Response' },
+  { value: 'publicKey', label: 'Public Key' },
+  { value: 'token', label: 'Token' },
+  { value: 'biometrics', label: 'Biometrics' },
+  { value: 'sso', label: 'SSO' },
+  { value: 'social', label: 'Social' },
+]
+
+export interface TrustBoundaryEdgeData {
+  label?: string
+  accessControlMethods?: AccessControlMethod[]
+  authenticationMethods?: AuthenticationMethod[]
+  accessTokenExpires?: boolean
+  accessTokenTtl?: number
+  hasRefreshToken?: boolean
+  refreshTokenExpires?: boolean
+  refreshTokenTtl?: number
+  canUserLogout?: boolean
+  canSystemLogout?: boolean
+  // Written back by backend sync (trust_boundary_id → trustBoundaryId)
+  trustBoundaryId?: number
+  [key: string]: unknown
 }
 
 // Type aliases for React Flow nodes/edges with our data
 export type DiagramNode = Node<DiagramNodeData, DiagramNodeType>
 export type DataFlowEdge = Edge<DataFlowEdgeData>
+export type TrustBoundaryEdge = Edge<TrustBoundaryEdgeData>
+export type DiagramEdge = DataFlowEdge | TrustBoundaryEdge
 
 // Canvas data structure
 export interface CanvasData {
   nodes: DiagramNode[]
-  edges: DataFlowEdge[]
+  edges: DiagramEdge[]
 }
 
 // Diagram entity
@@ -159,7 +205,7 @@ export interface CreateTemplateInput {
 // Clipboard data for copy/paste
 export interface ClipboardData {
   nodes: DiagramNode[]
-  edges: DataFlowEdge[]
+  edges: DiagramEdge[]
 }
 
 // Type guards
@@ -179,14 +225,23 @@ export function isSystemActorNode(node: DiagramNode): node is Node<SystemActorNo
   return node.type === 'systemActor'
 }
 
-export function isTrustBoundaryNode(node: DiagramNode): node is Node<TrustBoundaryNodeData, 'trustBoundary'> {
-  return node.type === 'trustBoundary'
+export function isTrustZoneNode(node: DiagramNode): node is Node<TrustZoneNodeData, 'trustZone'> {
+  return node.type === 'trustZone'
 }
 
 export function isSystemScopeNode(node: DiagramNode): node is Node<SystemScopeNodeData, 'systemScope'> {
   return node.type === 'systemScope'
 }
 
-export function isBoundaryNode(node: DiagramNode): boolean {
-  return node.type === 'trustBoundary' || node.type === 'systemScope'
+export function isContainerNode(node: DiagramNode): boolean {
+  return node.type === 'trustZone' || node.type === 'systemScope'
+}
+
+// Edge type guards
+export function isDataFlowEdge(edge: DiagramEdge): edge is DataFlowEdge {
+  return edge.type === 'dataFlow'
+}
+
+export function isTrustBoundaryEdge(edge: DiagramEdge): edge is TrustBoundaryEdge {
+  return edge.type === 'trustBoundary'
 }

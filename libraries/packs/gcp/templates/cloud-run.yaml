@@ -28,13 +28,13 @@ canvas_data:
 
     # Trust boundary - GCP VPC (inside sb-gcp)
     - id: "tb-gcp"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-gcp"
       position: { x: 30, y: 60 }
       style: { width: 650, height: 360 }
       data:
         label: "GCP VPC"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Google VPC"
 
     # GCP Services (nested inside tb-gcp)

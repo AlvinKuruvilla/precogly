@@ -10,6 +10,7 @@ from .models import (
     Orgsystem,
     OrgsystemComponent,
     TrustBoundary,
+    TrustZone,
 )
 
 
@@ -27,11 +28,18 @@ class IntegrationSourceAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
 
-@admin.register(TrustBoundary)
-class TrustBoundaryAdmin(admin.ModelAdmin):
+@admin.register(TrustZone)
+class TrustZoneAdmin(admin.ModelAdmin):
     list_display = ["name", "trust_level", "parent"]
     list_filter = ["trust_level"]
     search_fields = ["name"]
+
+
+@admin.register(TrustBoundary)
+class TrustBoundaryAdmin(admin.ModelAdmin):
+    list_display = ["label", "zone_a", "zone_b"]
+    list_filter = ["zone_a", "zone_b"]
+    search_fields = ["label"]
 
 
 @admin.register(ComponentLibrary)
@@ -43,8 +51,8 @@ class ComponentLibraryAdmin(admin.ModelAdmin):
 
 @admin.register(OrgsystemComponent)
 class OrgsystemComponentAdmin(admin.ModelAdmin):
-    list_display = ["name", "orgsystem", "component_library", "trust_boundary"]
-    list_filter = ["orgsystem", "trust_boundary"]
+    list_display = ["name", "orgsystem", "component_library", "trust_zone"]
+    list_filter = ["orgsystem", "trust_zone"]
     search_fields = ["name"]
 
 
@@ -63,8 +71,8 @@ class ComponentDataAssetAdmin(admin.ModelAdmin):
 
 @admin.register(DataFlow)
 class DataFlowAdmin(admin.ModelAdmin):
-    list_display = ["source_component", "dest_component", "protocol", "crosses_trust_boundary"]
-    list_filter = ["crosses_trust_boundary", "protocol"]
+    list_display = ["source_component", "dest_component", "protocol", "crosses_trust_zone"]
+    list_filter = ["crosses_trust_zone", "protocol"]
 
 
 @admin.register(DataFlowAsset)

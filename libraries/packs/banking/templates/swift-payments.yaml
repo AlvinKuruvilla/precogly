@@ -36,13 +36,13 @@ canvas_data:
 
     # Trust boundary - Processing Zone (inside sb-bank)
     - id: "tb-processing"
-      type: "trustBoundary"
+      type: "trustZone"
       parentId: "sb-bank"
       position: { x: 30, y: 60 }
       style: { width: 650, height: 440 }
       data:
         label: "Payment Processing Zone"
-        boundaryType: "privateSecured"
+        zoneType: "privateSecured"
         technology: "Secure Network Segment"
 
     # Core processes (nested inside tb-processing)
