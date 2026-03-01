@@ -2,6 +2,7 @@
 Serializers for threats app.
 """
 
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import (
@@ -15,9 +16,18 @@ from .models import (
     FlowInstanceCountermeasure,
     FlowInstanceCountermeasureStandard,
     PentestFinding,
+    Risk,
+    RiskThreat,
     TaxonomyEntry,
     ThreatLibrary,
     VerificationTest,
+)
+from .scoring.registry import get_scoring_methods
+from .services import (
+    calculate_inherent_score,
+    compute_residual_score,
+    derive_risk_status,
+    recalculate_risk,
 )
 
 
@@ -297,6 +307,7 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "countermeasure_description",
             "control_type",
             "control_type_display",
+            "effectiveness",
             "status",
             "verified_by",
             "verified_by_email",
@@ -363,6 +374,7 @@ class FlowInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "countermeasure_description",
             "control_type",
             "control_type_display",
+            "effectiveness",
             "status",
             "verified_by",
             "verified_by_email",
@@ -523,3 +535,261 @@ class FlowInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
             "section_code",
             "requirement_description",
         ]
+
+
+class RiskListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for risk listing."""
+
+    scoring_method = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    threat_count = serializers.SerializerMethodField()
+    owner_email = serializers.EmailField(source="owner.email", read_only=True, default=None)
+    assigned_to_email = serializers.EmailField(source="assigned_to.email", read_only=True, default=None)
+
+    class Meta:
+        model = Risk
+        fields = [
+            "id",
+            "name",
+            "description",
+            "scoring_method",
+            "inherent_score",
+            "inherent_level",
+            "residual_score",
+            "residual_level",
+            "status",
+            "threat_count",
+            "owner",
+            "owner_email",
+            "assigned_to",
+            "assigned_to_email",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_scoring_method(self, obj):
+        return obj.threat_model.risk_scoring_method
+
+    def get_status(self, obj):
+        return derive_risk_status(obj)
+
+    def get_threat_count(self, obj):
+        return obj.risk_threats.count()
+
+
+class RiskDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for risk detail/create/update."""
+
+    scoring_method = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    owner_email = serializers.EmailField(source="owner.email", read_only=True, default=None)
+    assigned_to_email = serializers.EmailField(source="assigned_to.email", read_only=True, default=None)
+    threats = serializers.SerializerMethodField()
+
+    # Write-only fields for inline threat linking
+    component_threat_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False, default=[]
+    )
+    flow_threat_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False, default=[]
+    )
+
+    class Meta:
+        model = Risk
+        fields = [
+            "id",
+            "name",
+            "description",
+            "scoring_method",
+            "scoring_metadata",
+            "inherent_score",
+            "inherent_level",
+            "residual_score",
+            "residual_level",
+            "status",
+            "threats",
+            "owner",
+            "owner_email",
+            "assigned_to",
+            "assigned_to_email",
+            "format_metadata",
+            "component_threat_ids",
+            "flow_threat_ids",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "inherent_score",
+            "inherent_level",
+            "residual_score",
+            "residual_level",
+            "created_at",
+            "updated_at",
+        ]
+
+    def _get_scoring_method(self):
+        """Get scoring method from threat model context."""
+        threat_model = self.context.get("threat_model")
+        if threat_model:
+            return threat_model.risk_scoring_method
+        return "tm_library"
+
+    def get_scoring_method(self, obj):
+        return obj.threat_model.risk_scoring_method
+
+    def get_status(self, obj):
+        return derive_risk_status(obj)
+
+    def get_threats(self, obj):
+        """Return linked threats with basic info."""
+        result = []
+        for risk_threat in obj.risk_threats.select_related("component_threat", "flow_threat").all():
+            threat = risk_threat.component_threat or risk_threat.flow_threat
+            if threat:
+                result.append({
+                    "risk_threat_id": risk_threat.id,
+                    "threat_id": threat.id,
+                    "threat_type": "component" if risk_threat.component_threat else "flow",
+                    "threat_name": threat.threat_name,
+                    "status": threat.status,
+                    "is_dismissed": threat.is_dismissed,
+                })
+        return result
+
+    def validate_scoring_metadata(self, value):
+        """Validate scoring_metadata against the ThreatModel's scoring method."""
+        method_key = self._get_scoring_method()
+        methods = get_scoring_methods()
+        method_config = methods.get(method_key)
+        if method_config and method_config["engine"]:
+            engine = method_config["engine"]()
+            engine.validate_inputs(value)
+        return value
+
+    def validate(self, attrs):
+        """Cross-field validation: verify threat IDs belong to the same threat_model."""
+        threat_model = self.context.get("threat_model")
+        component_threat_ids = attrs.get("component_threat_ids", [])
+        flow_threat_ids = attrs.get("flow_threat_ids", [])
+
+        if threat_model and component_threat_ids:
+            valid_count = ComponentInstanceThreat.objects.filter(
+                id__in=component_threat_ids,
+                component__organization=threat_model.organization,
+            ).count()
+            if valid_count != len(component_threat_ids):
+                raise serializers.ValidationError({
+                    "component_threat_ids": "One or more component threats do not belong to this threat model's organization."
+                })
+
+        if threat_model and flow_threat_ids:
+            valid_count = DataFlowInstanceThreat.objects.filter(
+                id__in=flow_threat_ids,
+            ).count()
+            if valid_count != len(flow_threat_ids):
+                raise serializers.ValidationError({
+                    "flow_threat_ids": "One or more flow threats were not found."
+                })
+
+        return attrs
+
+    def create(self, validated_data):
+        component_threat_ids = validated_data.pop("component_threat_ids", [])
+        flow_threat_ids = validated_data.pop("flow_threat_ids", [])
+
+        scoring_method = self._get_scoring_method()
+        scoring_metadata = validated_data.get("scoring_metadata", {})
+
+        # Compute inherent score via engine
+        score, level = calculate_inherent_score(scoring_method, scoring_metadata)
+        if score is not None:
+            validated_data["inherent_score"] = score
+            validated_data["inherent_level"] = level
+        elif "inherent_score" not in validated_data:
+            raise serializers.ValidationError({
+                "inherent_score": "inherent_score is required for custom/unsupported scoring methods."
+            })
+        else:
+            from .scoring.registry import score_to_level
+            validated_data["inherent_level"] = score_to_level(validated_data["inherent_score"])
+
+        with transaction.atomic():
+            risk = Risk.objects.create(**validated_data)
+
+            # Create RiskThreat junction rows
+            risk_threat_rows = []
+            for threat_id in component_threat_ids:
+                risk_threat_rows.append(RiskThreat(risk=risk, component_threat_id=threat_id))
+            for threat_id in flow_threat_ids:
+                risk_threat_rows.append(RiskThreat(risk=risk, flow_threat_id=threat_id))
+            if risk_threat_rows:
+                RiskThreat.objects.bulk_create(risk_threat_rows)
+
+            # Compute residual score
+            recalculate_risk(risk)
+            risk.refresh_from_db()
+
+        return risk
+
+    def update(self, instance, validated_data):
+        validated_data.pop("component_threat_ids", None)
+        validated_data.pop("flow_threat_ids", None)
+
+        scoring_method = instance.threat_model.risk_scoring_method
+        scoring_metadata = validated_data.get("scoring_metadata", instance.scoring_metadata)
+
+        # Recompute inherent score if scoring metadata changed
+        if "scoring_metadata" in validated_data:
+            score, level = calculate_inherent_score(scoring_method, scoring_metadata)
+            if score is not None:
+                validated_data["inherent_score"] = score
+                validated_data["inherent_level"] = level
+
+        instance = super().update(instance, validated_data)
+        recalculate_risk(instance)
+        instance.refresh_from_db()
+        return instance
+
+
+class RiskThreatSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for RiskThreat entries."""
+
+    threat_id = serializers.SerializerMethodField()
+    threat_type = serializers.SerializerMethodField()
+    threat_name = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    is_dismissed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RiskThreat
+        fields = [
+            "id",
+            "threat_id",
+            "threat_type",
+            "threat_name",
+            "status",
+            "is_dismissed",
+        ]
+
+    def _get_threat(self, obj):
+        return obj.component_threat or obj.flow_threat
+
+    def get_threat_id(self, obj):
+        threat = self._get_threat(obj)
+        return threat.id if threat else None
+
+    def get_threat_type(self, obj):
+        return "component" if obj.component_threat else "flow"
+
+    def get_threat_name(self, obj):
+        threat = self._get_threat(obj)
+        return threat.threat_name if threat else None
+
+    def get_status(self, obj):
+        threat = self._get_threat(obj)
+        return threat.status if threat else None
+
+    def get_is_dismissed(self, obj):
+        threat = self._get_threat(obj)
+        return threat.is_dismissed if threat else None

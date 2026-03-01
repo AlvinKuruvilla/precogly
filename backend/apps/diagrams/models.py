@@ -177,6 +177,18 @@ class ThreatModel(TimestampedModel):
         default=ModelingMode.DFD_BASED,
         help_text="Primary threat modeling approach for this model",
     )
+    risk_scoring_method = models.CharField(
+        max_length=20,
+        choices=[
+            ("tm_library", "Likelihood x Impact (5x5 Matrix)"),
+            ("fair", "FAIR"),
+            ("owasp_rr", "OWASP Risk Rating"),
+            ("mozilla_rra", "Mozilla Rapid Risk Assessment"),
+            ("custom", "Manual Score"),
+        ],
+        default="tm_library",
+        help_text="Scoring methodology used for all risks in this threat model",
+    )
     # Store system context, progress, etc.
     workspace_data = models.JSONField(default=dict, blank=True)
 

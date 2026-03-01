@@ -1,6 +1,9 @@
 // Re-export domain types (single source of truth)
 export * from './domain'
 
+// Re-export risk types
+export * from './risk'
+
 // Re-export pack types
 export {
   type PackType,
@@ -30,6 +33,7 @@ export * from '@/features/dfd-editor/types'
 
 // Import types from domain for use in this file
 import type { ThreatModelStatus, Criticality, SystemType, ModelingMode } from './domain'
+import type { ScoringMethodKey } from './risk'
 
 export interface ReferenceImage {
   id: number
@@ -55,6 +59,7 @@ export interface ThreatModel {
   owner?: string
   systemIds?: string[]
   referencedModelIds?: string[]
+  riskScoringMethod?: ScoringMethodKey
   referenceImages?: ReferenceImage[]
   createdAt?: string
   updatedAt?: string
@@ -74,11 +79,22 @@ export interface CreateThreatModelInput {
   referencedModelIds?: number[]
 }
 
+export interface DashboardRiskStats {
+  total: number
+  critical: number
+  high: number
+  medium: number
+  low: number
+  open: number
+  mitigated: number
+}
+
 export interface DashboardStats {
   total: number
   inProgress: number
   pendingReview: number
   approved: number
+  risks?: DashboardRiskStats
 }
 
 // Note: Framework type is now exported from ./compliance with full fields

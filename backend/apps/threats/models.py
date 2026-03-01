@@ -4,6 +4,7 @@ Threats models - threat library, countermeasures, instances.
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.core.models import TimestampedModel
@@ -471,6 +472,12 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         blank=True,
         help_text="Copied from CountermeasureLibrary.control_type on creation",
     )
+    effectiveness = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
+    )
 
     class Meta:
         unique_together = ["instance_threat", "countermeasure_library"]
@@ -533,6 +540,12 @@ class FlowInstanceCountermeasure(TimestampedModel):
         max_length=20,
         blank=True,
         help_text="Copied from CountermeasureLibrary.control_type on creation",
+    )
+    effectiveness = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
 
     class Meta:
@@ -728,3 +741,112 @@ class FlowInstanceCountermeasureStandard(TimestampedModel):
 
     def __str__(self):
         return f"{self.flow_countermeasure} - {self.requirement} ({self.sufficiency})"
+
+
+class Risk(TimestampedModel):
+    """Business-level risk that aggregates multiple threat instances."""
+
+    class Level(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+        CRITICAL = "critical", "Critical"
+
+    threat_model = models.ForeignKey(
+        "diagrams.ThreatModel",
+        on_delete=models.CASCADE,
+        related_name="risks",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    scoring_metadata = models.JSONField(default=dict)
+    inherent_score = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    inherent_level = models.CharField(max_length=10, choices=Level.choices)
+    residual_score = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    residual_level = models.CharField(
+        max_length=10,
+        choices=Level.choices,
+        blank=True,
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_risks",
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_risks",
+    )
+    format_metadata = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-inherent_score"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["threat_model", "name"],
+                name="unique_risk_per_threat_model",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.inherent_level})"
+
+
+class RiskThreat(TimestampedModel):
+    """Junction table linking a Risk to threat instances."""
+
+    risk = models.ForeignKey(
+        Risk,
+        on_delete=models.CASCADE,
+        related_name="risk_threats",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="risk_links",
+    )
+    flow_threat = models.ForeignKey(
+        DataFlowInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="risk_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="risk_threat_exactly_one_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["risk", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_risk_component_threat",
+            ),
+            models.UniqueConstraint(
+                fields=["risk", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_risk_flow_threat",
+            ),
+        ]
+
+    def __str__(self):
+        threat = self.component_threat or self.flow_threat
+        return f"{self.risk.name} <- {threat}"

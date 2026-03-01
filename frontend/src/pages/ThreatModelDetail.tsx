@@ -25,6 +25,7 @@ import {
   ManageThreatModelsModal,
   ManagePeopleModal,
   ManageDFDsModal,
+  RiskAnalysisTab,
 } from '@/components/workspace'
 import { MagicLinkDialog } from '@/components/sharing/MagicLinkDialog'
 import { useWorkspaceThreatAnalysis } from '@/components/workspace/useWorkspaceThreatAnalysis'
@@ -36,13 +37,13 @@ import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat
 import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threat-analysis/AddCustomComponentDialog'
 import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
 import { useAnalysisComponents } from '@/api/components'
-import type { ThreatModel, Diagram, System } from '@/types'
+import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
 import type { WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
 import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
-import { useDeleteThreatModel, useDeleteDFD } from '@/api/threat-models'
+import { useDeleteThreatModel, useDeleteDFD, useUpdateThreatModel } from '@/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
 import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/api/reference-images'
 
@@ -109,9 +110,10 @@ export function ThreatModelDetail() {
   const [referenceImageViewerOpen, setReferenceImageViewerOpen] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
 
-  // Delete mutations
+  // Mutations
   const deleteMutation = useDeleteThreatModel()
   const deleteDFDMutation = useDeleteDFD()
+  const updateThreatModelMutation = useUpdateThreatModel()
 
   // Reference images
   const { data: referenceImages = [] } = useReferenceImages(id || null)
@@ -392,6 +394,12 @@ export function ThreatModelDetail() {
           navigate('/threat-models')
         },
       })
+    }
+  }
+
+  const handleScoringMethodChange = (method: ScoringMethodKey) => {
+    if (id) {
+      updateThreatModelMutation.mutate({ id, data: { riskScoringMethod: method } as Partial<ThreatModel> })
     }
   }
 
@@ -791,12 +799,13 @@ export function ThreatModelDetail() {
         </TabsContent>
 
         {/* Risk Analysis Tab */}
-        <TabsContent value="risk-analysis" className="flex-1 flex items-center justify-center m-0">
-          <div className="text-center">
-            <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Risk Analysis</h2>
-            <p className="text-muted-foreground">Coming Soon</p>
-          </div>
+        <TabsContent value="risk-analysis" className="flex-1 overflow-auto m-0">
+          <RiskAnalysisTab
+            threatModelId={id!}
+            componentThreats={componentThreats}
+            riskScoringMethod={threatModel.riskScoringMethod ?? 'tm_library'}
+            onScoringMethodChange={handleScoringMethodChange}
+          />
         </TabsContent>
 
         {/* Reports Tab */}

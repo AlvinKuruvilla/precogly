@@ -116,6 +116,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "system_ids",
             "referenced_model_ids",
             "reference_images",
+            "risk_scoring_method",
             "created_at",
             "updated_at",
         ]
@@ -166,6 +167,7 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
             "criticality",
             "owner",
             "frameworks",
+            "risk_scoring_method",
             "created_at",
             "updated_at",
         ]

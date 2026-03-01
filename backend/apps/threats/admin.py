@@ -9,6 +9,8 @@ from .models import (
     ExternalTaxonomy,
     FlowInstanceCountermeasure,
     PentestFinding,
+    Risk,
+    RiskThreat,
     TaxonomyEntry,
     ThreatLibrary,
     ThreatLibraryTaxonomyEntry,
@@ -89,3 +91,16 @@ class ThreatLibraryTaxonomyEntryAdmin(admin.ModelAdmin):
 class PentestFindingAdmin(admin.ModelAdmin):
     list_display = ["finding_description", "severity", "reconciliation_status", "threat_model"]
     list_filter = ["reconciliation_status", "severity"]
+
+
+@admin.register(Risk)
+class RiskAdmin(admin.ModelAdmin):
+    list_display = ["name", "threat_model", "inherent_level", "residual_level", "owner"]
+    list_filter = ["inherent_level", "residual_level"]
+    search_fields = ["name", "description"]
+
+
+@admin.register(RiskThreat)
+class RiskThreatAdmin(admin.ModelAdmin):
+    list_display = ["risk", "component_threat", "flow_threat"]
+    list_filter = ["risk__threat_model"]

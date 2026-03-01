@@ -16,6 +16,8 @@ from .views import (
     FlowInstanceCountermeasureStandardViewSet,
     FlowInstanceCountermeasureViewSet,
     PentestFindingViewSet,
+    RiskViewSet,
+    ScoringMethodsView,
     TaxonomyEntryViewSet,
     ThreatLibraryViewSet,
     VerificationTestViewSet,
@@ -77,6 +79,14 @@ router.register(
 router.register(r"taxonomies", ExternalTaxonomyViewSet, basename="taxonomy")
 router.register(r"taxonomy-entries", TaxonomyEntryViewSet, basename="taxonomy-entry")
 
+# Nested route for risks under threat models
+router.register(
+    r"threat-models/(?P<threat_model_pk>\d+)/risks",
+    RiskViewSet,
+    basename="threat-model-risk",
+)
+
 urlpatterns = [
+    path("scoring-methods/", ScoringMethodsView.as_view(), name="scoring-methods"),
     path("", include(router.urls)),
 ]

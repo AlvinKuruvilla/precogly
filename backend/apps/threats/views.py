@@ -7,6 +7,9 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.diagrams.models import ThreatModel
 
 from .models import (
     ComponentInstanceCountermeasure,
@@ -19,10 +22,13 @@ from .models import (
     FlowInstanceCountermeasure,
     FlowInstanceCountermeasureStandard,
     PentestFinding,
+    Risk,
+    RiskThreat,
     TaxonomyEntry,
     ThreatLibrary,
     VerificationTest,
 )
+from .scoring.registry import get_scoring_methods_list
 from .serializers import (
     ComponentInstanceCountermeasureSerializer,
     ComponentInstanceCountermeasureStandardSerializer,
@@ -35,11 +41,14 @@ from .serializers import (
     FlowInstanceCountermeasureSerializer,
     FlowInstanceCountermeasureStandardSerializer,
     PentestFindingSerializer,
+    RiskDetailSerializer,
+    RiskListSerializer,
     TaxonomyEntryNestedSerializer,
     ThreatLibraryListSerializer,
     ThreatLibrarySerializer,
     VerificationTestSerializer,
 )
+from .services import recalculate_risk, recalculate_risks_for_threat
 
 
 class ThreatLibraryViewSet(viewsets.ModelViewSet):
@@ -277,6 +286,87 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
     ordering_fields = ["inherent_severity", "status", "created_at"]
     ordering = ["-inherent_severity"]
 
+    @action(detail=True, methods=["post"])
+    def apply_countermeasure(self, request, pk=None):
+        """Apply a suggested countermeasure to this flow threat instance."""
+        flow_threat = self.get_object()
+        countermeasure_id = request.data.get("countermeasure_library_id")
+
+        if not countermeasure_id:
+            return Response(
+                {"error": "countermeasure_library_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            countermeasure = CountermeasureLibrary.objects.get(id=countermeasure_id)
+        except CountermeasureLibrary.DoesNotExist:
+            return Response(
+                {"error": "Countermeasure not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        instance_cm, created = FlowInstanceCountermeasure.objects.get_or_create(
+            flow_threat=flow_threat,
+            countermeasure_library=countermeasure,
+            defaults={
+                "status": FlowInstanceCountermeasure.Status.GAP,
+            },
+        )
+
+        if not created:
+            return Response(
+                {"error": "Countermeasure already applied to this threat"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        self._recalculate_threat_status(flow_threat)
+
+        return Response({
+            "countermeasure": FlowInstanceCountermeasureSerializer(instance_cm).data,
+            "message": f"Applied countermeasure '{countermeasure.name}' to flow threat",
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def recalculate_status(self, request, pk=None):
+        """Recalculate the flow threat status based on applied countermeasures."""
+        flow_threat = self.get_object()
+        new_status = self._recalculate_threat_status(flow_threat)
+
+        return Response({
+            "threat_id": flow_threat.id,
+            "old_status": flow_threat.status,
+            "new_status": new_status,
+            "message": f"Status updated to {new_status}",
+        })
+
+    def _recalculate_threat_status(self, flow_threat):
+        """Internal method to recalculate flow threat status."""
+        countermeasures = flow_threat.countermeasures.all()
+
+        if not countermeasures.exists():
+            new_status = DataFlowInstanceThreat.Status.OPEN
+        else:
+            statuses = list(countermeasures.values_list("status", flat=True))
+
+            if all(s == FlowInstanceCountermeasure.Status.VERIFIED for s in statuses):
+                new_status = DataFlowInstanceThreat.Status.MITIGATED
+            elif all(s == FlowInstanceCountermeasure.Status.WAIVED for s in statuses):
+                new_status = DataFlowInstanceThreat.Status.ACCEPTED
+            elif all(
+                s in [FlowInstanceCountermeasure.Status.VERIFIED, FlowInstanceCountermeasure.Status.WAIVED]
+                for s in statuses
+            ):
+                new_status = DataFlowInstanceThreat.Status.MITIGATED
+            else:
+                new_status = DataFlowInstanceThreat.Status.OPEN
+
+        if flow_threat.status != new_status:
+            flow_threat.status = new_status
+            flow_threat.save(update_fields=["status", "updated_at"])
+
+        return new_status
+
 
 class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for ComponentInstanceCountermeasure."""
@@ -297,6 +387,10 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
         "required_for_release",
     ]
 
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        recalculate_risks_for_threat(instance.instance_threat, threat_type="component")
+
 
 class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for FlowInstanceCountermeasure."""
@@ -316,6 +410,10 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
         "status",
         "required_for_release",
     ]
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        recalculate_risks_for_threat(instance.flow_threat, threat_type="flow")
 
 
 class VerificationTestViewSet(viewsets.ModelViewSet):
@@ -397,3 +495,99 @@ class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["taxonomy__slug"]
     search_fields = ["external_id", "title"]
+
+
+class RiskViewSet(viewsets.ModelViewSet):
+    """ViewSet for Risk CRUD operations, nested under threat models."""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["inherent_level", "residual_level", "owner", "assigned_to"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["inherent_score", "residual_score", "created_at", "name"]
+    ordering = ["-inherent_score"]
+
+    def get_queryset(self):
+        return Risk.objects.filter(
+            threat_model_id=self.kwargs["threat_model_pk"]
+        ).select_related("owner", "assigned_to", "threat_model")
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return RiskListSerializer
+        return RiskDetailSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        threat_model_pk = self.kwargs.get("threat_model_pk")
+        if threat_model_pk:
+            try:
+                context["threat_model"] = ThreatModel.objects.get(pk=threat_model_pk)
+            except ThreatModel.DoesNotExist:
+                pass
+        return context
+
+    def perform_create(self, serializer):
+        serializer.save(threat_model_id=self.kwargs["threat_model_pk"])
+
+    @action(detail=True, methods=["post"])
+    def recalculate(self, request, threat_model_pk=None, pk=None):
+        """Recompute residual score and level for this risk."""
+        risk = self.get_object()
+        recalculate_risk(risk)
+        risk.refresh_from_db()
+        serializer = RiskDetailSerializer(risk, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="add-threats")
+    def add_threats(self, request, threat_model_pk=None, pk=None):
+        """Bulk link threats to this risk."""
+        risk = self.get_object()
+        component_threat_ids = request.data.get("component_threat_ids", [])
+        flow_threat_ids = request.data.get("flow_threat_ids", [])
+
+        risk_threat_rows = []
+        for threat_id in component_threat_ids:
+            if not RiskThreat.objects.filter(risk=risk, component_threat_id=threat_id).exists():
+                risk_threat_rows.append(RiskThreat(risk=risk, component_threat_id=threat_id))
+        for threat_id in flow_threat_ids:
+            if not RiskThreat.objects.filter(risk=risk, flow_threat_id=threat_id).exists():
+                risk_threat_rows.append(RiskThreat(risk=risk, flow_threat_id=threat_id))
+
+        if risk_threat_rows:
+            RiskThreat.objects.bulk_create(risk_threat_rows)
+
+        recalculate_risk(risk)
+        risk.refresh_from_db()
+        serializer = RiskDetailSerializer(risk, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="remove-threats")
+    def remove_threats(self, request, threat_model_pk=None, pk=None):
+        """Bulk unlink threats from this risk."""
+        risk = self.get_object()
+        component_threat_ids = request.data.get("component_threat_ids", [])
+        flow_threat_ids = request.data.get("flow_threat_ids", [])
+
+        if component_threat_ids:
+            RiskThreat.objects.filter(
+                risk=risk, component_threat_id__in=component_threat_ids
+            ).delete()
+        if flow_threat_ids:
+            RiskThreat.objects.filter(
+                risk=risk, flow_threat_id__in=flow_threat_ids
+            ).delete()
+
+        recalculate_risk(risk)
+        risk.refresh_from_db()
+        serializer = RiskDetailSerializer(risk, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+
+class ScoringMethodsView(APIView):
+    """Read-only endpoint returning available scoring methods."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_scoring_methods_list())

@@ -1,4 +1,4 @@
-import { FileText, Clock, Eye, CheckCircle } from 'lucide-react'
+import { FileText, Clock, Eye, CheckCircle, BarChart3 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DashboardStats } from '@/types'
 
@@ -34,9 +34,16 @@ const statItems = [
   },
 ]
 
+const riskLevelColors = {
+  critical: 'bg-red-500',
+  high: 'bg-orange-500',
+  medium: 'bg-yellow-500',
+  low: 'bg-green-500',
+}
+
 export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       {statItems.map((item) => (
         <Card key={item.key}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -54,6 +61,40 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
           </CardContent>
         </Card>
       ))}
+
+      {/* Risk Summary Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Risks</CardTitle>
+          <BarChart3 className="h-4 w-4 text-purple-600" />
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <span className="animate-pulse bg-muted rounded w-8 h-8 inline-block" />
+          ) : stats.risks ? (
+            <>
+              <div className="text-2xl font-bold">{stats.risks.total}</div>
+              {stats.risks.total > 0 && (
+                <div className="flex gap-2 mt-2">
+                  {(['critical', 'high', 'medium', 'low'] as const).map(
+                    (level) =>
+                      stats.risks![level] > 0 && (
+                        <div key={level} className="flex items-center gap-1">
+                          <span className={`w-2 h-2 rounded-full ${riskLevelColors[level]}`} />
+                          <span className="text-xs text-muted-foreground">
+                            {stats.risks![level]}
+                          </span>
+                        </div>
+                      )
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-2xl font-bold">0</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
