@@ -73,6 +73,72 @@ export interface TaxonomyEntry {
   title: string
 }
 
+/**
+ * Extract the first STRIDE category from taxonomy entries.
+ * Returns the externalId of the first entry where taxonomySlug === 'stride'.
+ */
+export function getStrideFromTaxonomy(entries?: TaxonomyEntry[]): STRIDECategory | undefined {
+  if (!entries) return undefined
+  const strideEntry = entries.find((e) => e.taxonomySlug === 'stride')
+  return strideEntry?.externalId as STRIDECategory | undefined
+}
+
+// Taxonomy-agnostic color configuration per taxonomy slug
+export const TAXONOMY_COLOR_CONFIG: Record<string, { bg: string; text: string; border: string }> = {
+  capec: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+  cwe: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  'mitre-attack': { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+}
+
+const TAXONOMY_COLOR_FALLBACK = { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200' }
+
+/**
+ * Returns a human-readable display label for a taxonomy entry.
+ * - STRIDE → human-readable label (e.g., "Tampering")
+ * - CAPEC → "CAPEC-{externalId}" (e.g., "CAPEC-88")
+ * - CWE → externalId as-is (e.g., "CWE-78")
+ * - ATT&CK → externalId as-is (e.g., "T1190")
+ * - Unknown → externalId or title
+ */
+export function formatTaxonomyEntryLabel(entry: TaxonomyEntry): string {
+  if (entry.taxonomySlug === 'stride') {
+    const strideConfig = STRIDE_CONFIG[entry.externalId as STRIDECategory]
+    return strideConfig?.label ?? entry.externalId
+  }
+  if (entry.taxonomySlug === 'capec') {
+    return `CAPEC-${entry.externalId}`
+  }
+  // CWE and ATT&CK externalIds already include their prefix
+  if (entry.taxonomySlug === 'cwe' || entry.taxonomySlug === 'mitre-attack') {
+    return entry.externalId
+  }
+  return entry.externalId || entry.title
+}
+
+/**
+ * Returns the hex color string for a taxonomy entry.
+ * STRIDE entries use per-category colors; others return a neutral gray.
+ */
+export function getTaxonomyEntryColor(entry: TaxonomyEntry): string {
+  if (entry.taxonomySlug === 'stride') {
+    const strideConfig = STRIDE_CONFIG[entry.externalId as STRIDECategory]
+    return strideConfig?.color ?? '#64748b'
+  }
+  return '#64748b'
+}
+
+/**
+ * Returns the Tailwind background class string for a taxonomy entry.
+ * Returns null for STRIDE (uses inline style instead).
+ */
+export function getTaxonomyEntryBgClass(entry: TaxonomyEntry): string | null {
+  if (entry.taxonomySlug === 'stride') {
+    return null
+  }
+  const config = TAXONOMY_COLOR_CONFIG[entry.taxonomySlug] ?? TAXONOMY_COLOR_FALLBACK
+  return `${config.bg} ${config.text} ${config.border}`
+}
+
 // Threat Model Status - matches backend ThreatModel.Status
 export type ThreatModelStatus = 'draft' | 'inProgress' | 'pendingReview' | 'approved' | 'archived'
 

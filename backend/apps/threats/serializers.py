@@ -156,7 +156,6 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
 
     # Read fields - prefer model's own fields, fallback to threat_library
     threat_name_display = serializers.SerializerMethodField()
-    stride_category_display = serializers.SerializerMethodField()
     taxonomy_entries = serializers.SerializerMethodField()
     component_name = serializers.CharField(source="component.name", read_only=True)
 
@@ -172,7 +171,6 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "threat_library",
             "threat_name",
             "threat_name_display",
-            "stride_category_display",
             "taxonomy_entries",
             "inherent_severity",
             "residual_severity",
@@ -188,7 +186,6 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "threat_name_display",
-            "stride_category_display",
             "taxonomy_entries",
             "component_name",
         ]
@@ -199,12 +196,6 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             return obj.threat_name
         if obj.threat_library:
             return obj.threat_library.name
-        return None
-
-    def get_stride_category_display(self, obj):
-        """Return stride category from taxonomy M2M."""
-        if obj.threat_library:
-            return obj.threat_library.get_stride_category_from_taxonomy()
         return None
 
     def get_taxonomy_entries(self, obj):
@@ -224,7 +215,6 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
 
     # Read fields - prefer model's own fields, fallback to threat_library
     threat_name_display = serializers.SerializerMethodField()
-    stride_category_display = serializers.SerializerMethodField()
     taxonomy_entries = serializers.SerializerMethodField()
     flow_label = serializers.CharField(source="data_flow.label", read_only=True)
 
@@ -240,7 +230,6 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "threat_library",
             "threat_name",
             "threat_name_display",
-            "stride_category_display",
             "taxonomy_entries",
             "inherent_severity",
             "residual_severity",
@@ -255,7 +244,6 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "threat_name_display",
-            "stride_category_display",
             "taxonomy_entries",
             "flow_label",
         ]
@@ -266,12 +254,6 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             return obj.threat_name
         if obj.threat_library:
             return obj.threat_library.name
-        return None
-
-    def get_stride_category_display(self, obj):
-        """Return stride category from taxonomy M2M."""
-        if obj.threat_library:
-            return obj.threat_library.get_stride_category_from_taxonomy()
         return None
 
     def get_taxonomy_entries(self, obj):

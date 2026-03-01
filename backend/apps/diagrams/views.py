@@ -245,6 +245,22 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    def _serialize_taxonomy_entries(self, threat_library):
+        """Serialize taxonomy entries for a threat library."""
+        if not threat_library:
+            return []
+
+        entries = []
+        for join in threat_library.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all():
+            entry = join.taxonomy_entry
+            entries.append({
+                "taxonomy_slug": entry.taxonomy.slug,
+                "taxonomy_name": entry.taxonomy.name,
+                "external_id": entry.external_id,
+                "title": entry.title,
+            })
+        return entries
+
     def _serialize_standard_mappings(self, countermeasure_library):
         """Serialize standard mappings for a countermeasure library."""
         if not countermeasure_library:
@@ -376,7 +392,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 # Use library fields if available, fall back to copied fields for orphaned instances
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
-                "stride_category": threat.threat_library.get_stride_category_from_taxonomy() if threat.threat_library else None,
+                "taxonomy_entries": self._serialize_taxonomy_entries(threat.threat_library),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
@@ -425,7 +441,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 # Use library fields if available, fall back to copied fields for orphaned instances
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
-                "stride_category": threat.threat_library.get_stride_category_from_taxonomy() if threat.threat_library else None,
+                "taxonomy_entries": self._serialize_taxonomy_entries(threat.threat_library),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,

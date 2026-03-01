@@ -84,13 +84,6 @@ class ThreatLibrary(TimestampedModel):
                 self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
 
-    def get_stride_category_from_taxonomy(self):
-        """Get primary STRIDE category from taxonomy entries (kebab-case)."""
-        entry = ThreatLibraryTaxonomyEntry.objects.filter(
-            threat_library=self,
-            taxonomy_entry__taxonomy__slug="stride",
-        ).select_related("taxonomy_entry").first()
-        return entry.taxonomy_entry.external_id if entry else None
 
 
 class ExternalTaxonomy(TimestampedModel):

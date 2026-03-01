@@ -1,0 +1,13 @@
+pack:
+  slug: mini-attack
+  name: Mini ATT&CK
+  description: "Curated subset of MITRE ATT&CK Enterprise techniques covering the most common adversary behaviors in cloud and enterprise environments."
+  version: "1.0.0"
+  pack_type: taxonomy
+  tier: free
+  source: official
+  author: Precogly
+  tags:
+    - mitre-attack
+    - adversary-techniques
+    - mitre

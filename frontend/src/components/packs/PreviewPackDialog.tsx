@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import {
   Select,
   SelectContent,
@@ -217,9 +218,7 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">{threat.name}</span>
                     <div className="flex gap-1">
-                      {threat.strideCategory && (
-                        <StrideBadge category={threat.strideCategory} />
-                      )}
+                      <TaxonomyBadges entries={threat.taxonomyEntries} maxVisible={3} size="sm" />
                       {threat.severity && (
                         <SeverityBadge severity={threat.severity} />
                       )}
@@ -335,23 +334,6 @@ function TierBadge({ tier }: { tier: string }) {
   return (
     <Badge variant="secondary" className={colors[tier] || ''}>
       {tier}
-    </Badge>
-  )
-}
-
-function StrideBadge({ category }: { category: string }) {
-  const colors: Record<string, string> = {
-    spoofing: 'bg-orange-100 text-orange-800',
-    tampering: 'bg-red-100 text-red-800',
-    repudiation: 'bg-yellow-100 text-yellow-800',
-    'information-disclosure': 'bg-blue-100 text-blue-800',
-    'denial-of-service': 'bg-purple-100 text-purple-800',
-    'elevation-of-privilege': 'bg-pink-100 text-pink-800',
-  }
-  const label = category.replace(/-/g, ' ')
-  return (
-    <Badge variant="outline" className={colors[category] || ''}>
-      {label}
     </Badge>
   )
 }

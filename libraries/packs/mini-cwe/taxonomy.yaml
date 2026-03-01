@@ -1,0 +1,51 @@
+taxonomies:
+  - slug: cwe
+    name: CWE Software Weaknesses
+    description: "Common Weakness Enumeration"
+    source_url: "https://cwe.mitre.org/"
+    entries:
+      - external_id: CWE-79
+        title: Improper Neutralization of Input During Web Page Generation (XSS)
+        description: "The application does not properly neutralize user-controllable input before placing it in output used as a web page."
+      - external_id: CWE-89
+        title: Improper Neutralization of Special Elements used in an SQL Command (SQL Injection)
+        description: "The application constructs SQL commands using externally-influenced input without proper neutralization."
+      - external_id: CWE-352
+        title: Cross-Site Request Forgery (CSRF)
+        description: "The web application does not sufficiently verify that a request was intentionally made by the submitting user."
+      - external_id: CWE-862
+        title: Missing Authorization
+        description: "The application does not perform an authorization check when an actor attempts to access a resource or perform an action."
+      - external_id: CWE-22
+        title: Improper Limitation of a Pathname to a Restricted Directory (Path Traversal)
+        description: "The application uses external input to construct a pathname without properly restricting it to an intended directory."
+      - external_id: CWE-78
+        title: Improper Neutralization of Special Elements used in an OS Command (OS Command Injection)
+        description: "The application constructs OS commands using externally-influenced input without proper neutralization."
+      - external_id: CWE-434
+        title: Unrestricted Upload of File with Dangerous Type
+        description: "The application allows upload of files with dangerous types that can be automatically processed by the server."
+      - external_id: CWE-502
+        title: Deserialization of Untrusted Data
+        description: "The application deserializes untrusted data without sufficient verification that the resulting data will be valid."
+      - external_id: CWE-863
+        title: Incorrect Authorization
+        description: "The application performs an authorization check but does not correctly determine whether the actor is authorized."
+      - external_id: CWE-287
+        title: Improper Authentication
+        description: "The application does not sufficiently verify that a claim of identity is actually true."
+      - external_id: CWE-306
+        title: Missing Authentication for Critical Function
+        description: "The application does not perform any authentication for functionality that requires a provable user identity."
+      - external_id: CWE-918
+        title: Server-Side Request Forgery (SSRF)
+        description: "The server receives a URL or similar request from an upstream component and retrieves it without ensuring the target is expected."
+      - external_id: CWE-798
+        title: Use of Hard-coded Credentials
+        description: "The application contains hard-coded credentials such as passwords or cryptographic keys."
+      - external_id: CWE-200
+        title: Exposure of Sensitive Information to an Unauthorized Actor
+        description: "The application exposes sensitive information to an actor not explicitly authorized to have access."
+      - external_id: CWE-20
+        title: Improper Input Validation
+        description: "The application does not validate or incorrectly validates input that can affect the control flow or data flow."

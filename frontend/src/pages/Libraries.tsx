@@ -19,6 +19,8 @@ import {
   ClipboardList,
   Trash2,
   AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -68,6 +70,7 @@ interface UnifiedPack {
   isInDatabase: boolean
   isImported: boolean
   databaseId: number | null
+  dependsOn: Array<{ slug: string; name: string; isImported: boolean }>
 }
 
 export function Libraries() {
@@ -140,6 +143,7 @@ function CatalogView() {
           isInDatabase: sp.isInDatabase,
           isImported: sp.isInDatabase || (dbPack?.isImported ?? false),
           databaseId: dbPack?.id ?? null,
+          dependsOn: sp.dependsOn ?? [],
         })
         seenSlugs.add(sp.slug)
       }
@@ -162,6 +166,7 @@ function CatalogView() {
             isInDatabase: true,
             isImported: dbPack.isImported,
             databaseId: dbPack.id,
+            dependsOn: [],
           })
         }
       }
@@ -407,16 +412,44 @@ function ImportPackDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {(pack?.dependsOn?.length ?? 0) > 0 && (
+          <div className="space-y-2 py-2">
+            <p className="text-sm font-medium">Required taxonomy packs</p>
+            <div className="space-y-1.5">
+              {pack!.dependsOn.map((dep) => (
+                <div key={dep.slug} className="flex items-center gap-2 text-sm">
+                  {dep.isImported ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                  )}
+                  <span>{dep.name}</span>
+                  {!dep.isImported && (
+                    <span className="text-xs text-amber-600">(not imported)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {pack!.dependsOn.some((d) => !d.isImported) && (
+              <p className="text-xs text-amber-600">
+                Import missing taxonomy packs first for full taxonomy linking.
+              </p>
+            )}
+          </div>
+        )}
+
         {loadingOverlays ? (
           <div className="py-4 flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : hasOverlays ? (
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Framework overlays map countermeasures to compliance requirements.
-              Overlays for frameworks you haven&apos;t imported are disabled.
-            </p>
+          <div className="space-y-2 py-2">
+            <p className="text-sm font-medium">Compliance mappings</p>
+            {overlaysData?.overlays.some((o) => !o.frameworkExists) && (
+              <p className="text-xs text-amber-600">
+                Some frameworks are not imported yet. Import them first to enable their mappings.
+              </p>
+            )}
             <div className="space-y-3">
               {overlaysData?.overlays.map((overlay) => (
                 <div

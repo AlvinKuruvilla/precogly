@@ -5,7 +5,7 @@ Serializers for packs app.
 from rest_framework import serializers
 
 from apps.systems.models import ComponentLibrary
-from apps.threats.models import CountermeasureLibrary, ThreatLibrary
+from apps.threats.models import CountermeasureLibrary, ExternalTaxonomy, ThreatLibrary
 from apps.diagrams.models import DFDTemplatesLibrary
 from apps.compliance.models import StandardFramework
 
@@ -60,12 +60,13 @@ class LibraryPackListSerializer(serializers.ModelSerializer):
 
     def get_is_imported(self, obj):
         """Check if pack has library items in the database."""
-        # A pack is "imported" if it has components, threats, countermeasures, or frameworks
+        # A pack is "imported" if it has components, threats, countermeasures, frameworks, or taxonomies
         return (
             ComponentLibrary.objects.filter(source_pack=obj).exists()
             or ThreatLibrary.objects.filter(source_pack=obj).exists()
             or CountermeasureLibrary.objects.filter(source_pack=obj).exists()
             or StandardFramework.objects.filter(source_pack=obj).exists()
+            or ExternalTaxonomy.objects.filter(source_pack=obj).exists()
         )
 
 
@@ -158,6 +159,7 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
             or ThreatLibrary.objects.filter(source_pack=obj).exists()
             or CountermeasureLibrary.objects.filter(source_pack=obj).exists()
             or StandardFramework.objects.filter(source_pack=obj).exists()
+            or ExternalTaxonomy.objects.filter(source_pack=obj).exists()
         )
 
 

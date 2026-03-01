@@ -1,0 +1,13 @@
+pack:
+  slug: mini-cwe
+  name: Mini CWE
+  description: "Curated subset of MITRE CWE (Common Weakness Enumeration) aligned with the CWE Top 25 Most Dangerous Software Weaknesses."
+  version: "1.0.0"
+  pack_type: taxonomy
+  tier: free
+  source: official
+  author: Precogly
+  tags:
+    - cwe
+    - weaknesses
+    - mitre

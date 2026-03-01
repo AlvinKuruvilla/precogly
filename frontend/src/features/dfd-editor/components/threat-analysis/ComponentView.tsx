@@ -30,7 +30,8 @@ import {
   COUNTERMEASURE_STATUS_CONFIG,
   THREAT_STATUS_CONFIG,
 } from '../../types/threat-analysis'
-import { STRIDE_CONFIG } from '@/types/domain'
+import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
+import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import { parseCountermeasureId } from '@/api/threats'
 
@@ -1143,9 +1144,27 @@ export function ComponentView({
                             {ct.threatName}
                           </span>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1 ml-4">
-                          {ct.strideCategory ? (STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory) : 'Custom'}
-                        </div>
+                        {isSelected ? (
+                          <div className="mt-1 ml-4">
+                            <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
+                          </div>
+                        ) : (
+                          <div className="mt-1 ml-4">
+                            {(() => {
+                              const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
+                              if (!strideEntry) return null
+                              const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
+                              return strideConfig ? (
+                                <span
+                                  className="text-[10px] font-medium"
+                                  style={{ color: strideConfig.color }}
+                                >
+                                  {strideConfig.label}
+                                </span>
+                              ) : null
+                            })()}
+                          </div>
+                        )}
                       </button>
                       <ThreatStatusBadge status={status} />
                       <Button
@@ -1216,9 +1235,18 @@ export function ComponentView({
                             <span className="text-sm text-muted-foreground line-through truncate block">
                               {ct.threatName}
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              {ct.strideCategory ? (STRIDE_CONFIG[ct.strideCategory]?.label ?? ct.strideCategory) : 'Custom'}
-                            </span>
+                            {(() => {
+                              const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
+                              if (!strideEntry) return null
+                              const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
+                              return strideConfig ? (
+                                <span
+                                  className="text-[10px] text-muted-foreground"
+                                >
+                                  {strideConfig.label}
+                                </span>
+                              ) : null
+                            })()}
                           </div>
                           <Button
                             variant="ghost"

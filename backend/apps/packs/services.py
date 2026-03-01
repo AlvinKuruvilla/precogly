@@ -54,6 +54,7 @@ class PackInfo:
     threat_count: int = 0
     countermeasure_count: int = 0
     taxonomy_count: int = 0
+    depends_on: list = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -75,6 +76,7 @@ class PackInfo:
             "threat_count": self.threat_count,
             "countermeasure_count": self.countermeasure_count,
             "taxonomy_count": self.taxonomy_count,
+            "depends_on": self.depends_on,
         }
 
 
@@ -173,6 +175,7 @@ def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
             threat_count=threat_count,
             countermeasure_count=countermeasure_count,
             taxonomy_count=taxonomy_count,
+            depends_on=pack_meta.get("depends_on", []),
         )
     except Exception as e:
         logger.error(f"Error reading pack {pack_dir}: {e}")
@@ -214,6 +217,20 @@ def discover_packs_from_source() -> list[PackInfo]:
                 scan_directory(item)
 
     scan_directory(libraries_path)
+
+    # Resolve depends_on slugs to {slug, name, is_imported} dicts
+    pack_by_slug = {p.slug: p for p in packs}
+    for pack_info in packs:
+        resolved_dependencies = []
+        for dep_slug in pack_info.depends_on:
+            dep = pack_by_slug.get(dep_slug)
+            resolved_dependencies.append({
+                "slug": dep_slug,
+                "name": dep.name if dep else dep_slug,
+                "is_imported": dep_slug in existing_packs,
+            })
+        pack_info.depends_on = resolved_dependencies
+
     return packs
 
 
@@ -336,14 +353,21 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
             with open(threats_file) as f:
                 threat_data = yaml.safe_load(f) or {}
             for threat in threat_data.get("threats", []):
-                # Derive stride_category from taxonomy_references or old field
+                # Build taxonomy_entries from taxonomy_references
                 taxonomy_refs = threat.get("taxonomy_references", {})
-                stride_entries = taxonomy_refs.get("stride", [])
-                stride_display = stride_entries[0] if stride_entries else threat.get("stride_category", "")
+                taxonomy_entries = []
+                for taxonomy_slug, entry_ids in taxonomy_refs.items():
+                    for entry_id in entry_ids:
+                        title = entry_id.replace("-", " ").title()
+                        taxonomy_entries.append({
+                            "taxonomy_slug": taxonomy_slug,
+                            "external_id": entry_id,
+                            "title": title,
+                        })
                 threats.append({
                     "slug": threat.get("slug", threat.get("id", "")),
                     "name": threat.get("name", ""),
-                    "stride_category": stride_display,
+                    "taxonomy_entries": taxonomy_entries,
                     "severity": threat.get("severity", ""),
                     "description": threat.get("description", ""),
                 })
@@ -1072,29 +1096,9 @@ def _resolve_threat_reference(library_pack: LibraryPack, threat_ref: str) -> Opt
 # =============================================================================
 
 
-STRIDE_CATEGORY_TO_KEBAB = {
-    "spoofing": "spoofing",
-    "tampering": "tampering",
-    "repudiation": "repudiation",
-    "information_disclosure": "information-disclosure",
-    "informationDisclosure": "information-disclosure",
-    "denial_of_service": "denial-of-service",
-    "denialOfService": "denial-of-service",
-    "elevation_of_privilege": "elevation-of-privilege",
-    "elevationOfPrivilege": "elevation-of-privilege",
-}
-
-
 def _link_taxonomy_references(threat_obj, threat_data):
-    """Create M2M links from taxonomy_references or old stride_category."""
+    """Create M2M links from taxonomy_references."""
     taxonomy_refs = threat_data.get("taxonomy_references")
-
-    if not taxonomy_refs:
-        # Backward compat: convert old stride_category
-        old_stride = threat_data.get("stride_category", "")
-        if old_stride:
-            kebab = STRIDE_CATEGORY_TO_KEBAB.get(old_stride, old_stride)
-            taxonomy_refs = {"stride": [kebab]}
 
     if not taxonomy_refs:
         return

@@ -14,7 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import type { CanvasData } from '../../types'
 import type { ComponentThreat, CountermeasureStatus } from '../../types/threat-analysis'
 import { deriveThreatStatus, THREAT_STATUS_CONFIG } from '../../types/threat-analysis'
-import { STRIDE_CONFIG } from '@/types/domain'
+import type { TaxonomyEntry } from '@/types/domain'
+import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 
 interface TableViewProps {
   canvasData: CanvasData
@@ -35,8 +36,7 @@ interface FlattenedThreat {
   technology?: string
   threatId: string
   threatName: string
-  strideCategory: string
-  strideCategoryLabel: string
+  taxonomyEntries: TaxonomyEntry[]
   status: 'exposed' | 'addressable' | 'mitigated'
   countermeasuresTotal: number
   countermeasuresResolved: number
@@ -72,7 +72,6 @@ export function TableView({
         ).length
         const gaps = ct.countermeasures.filter((cm) => cm.status === 'gap').length
 
-        const strideCategory = ct.strideCategory || ''
         rows.push({
           componentThreatId: ct.id,
           componentId: ct.componentId,
@@ -81,8 +80,7 @@ export function TableView({
           technology: technologyName,
           threatId: ct.threatId,
           threatName: ct.threatName,
-          strideCategory,
-          strideCategoryLabel: strideCategory ? (STRIDE_CONFIG[strideCategory]?.label ?? strideCategory) : 'Custom',
+          taxonomyEntries: ct.taxonomyEntries || [],
           status,
           countermeasuresTotal: ct.countermeasures.length,
           countermeasuresResolved: resolved,
@@ -147,7 +145,7 @@ export function TableView({
               <TableHead>Component</TableHead>
               <TableHead>Technology</TableHead>
               <TableHead>Threat</TableHead>
-              <TableHead>STRIDE</TableHead>
+              <TableHead>Classifications</TableHead>
               <TableHead className="text-center">Countermeasures</TableHead>
               <TableHead className="text-center">Gaps</TableHead>
               <TableHead className="w-[80px]"></TableHead>
@@ -156,9 +154,6 @@ export function TableView({
           <TableBody>
             {flattenedThreats.map((row) => {
               const statusConfig = THREAT_STATUS_CONFIG[row.status]
-              const strideConfig = STRIDE_CONFIG[row.strideCategory as keyof typeof STRIDE_CONFIG]
-              const strideColor = strideConfig?.color ?? '#6b7280' // gray fallback
-              const strideShortLabel = strideConfig?.shortLabel ?? '?'
 
               return (
                 <TableRow key={row.componentThreatId}>
@@ -186,19 +181,7 @@ export function TableView({
                     <span className="font-medium">{row.threatName}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className="text-xs"
-                      style={{
-                        borderColor: strideColor,
-                        color: strideColor,
-                      }}
-                    >
-                      {strideShortLabel}
-                    </Badge>
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      {row.strideCategoryLabel}
-                    </span>
+                    <TaxonomyBadges entries={row.taxonomyEntries} maxVisible={3} />
                   </TableCell>
                   <TableCell className="text-center">
                     <span className="text-sm">

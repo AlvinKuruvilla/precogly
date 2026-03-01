@@ -9,6 +9,7 @@ pack:
   tier: free
   source: official
   author: Precogly
+  depends_on: [stride-taxonomy, mini-capec, mini-cwe, mini-attack]
   industries:
     - technology
     - saas

@@ -27,29 +27,9 @@ from apps.threats.models import (
 )
 
 
-STRIDE_CATEGORY_TO_KEBAB = {
-    "spoofing": "spoofing",
-    "tampering": "tampering",
-    "repudiation": "repudiation",
-    "information_disclosure": "information-disclosure",
-    "informationDisclosure": "information-disclosure",
-    "denial_of_service": "denial-of-service",
-    "denialOfService": "denial-of-service",
-    "elevation_of_privilege": "elevation-of-privilege",
-    "elevationOfPrivilege": "elevation-of-privilege",
-}
-
-
 def _link_taxonomy_references(threat_obj, threat_data):
-    """Create M2M links from taxonomy_references or old stride_category."""
+    """Create M2M links from taxonomy_references."""
     taxonomy_refs = threat_data.get("taxonomy_references")
-
-    if not taxonomy_refs:
-        # Backward compat: convert old stride_category
-        old_stride = threat_data.get("stride_category", "")
-        if old_stride:
-            kebab = STRIDE_CATEGORY_TO_KEBAB.get(old_stride, old_stride)
-            taxonomy_refs = {"stride": [kebab]}
 
     if not taxonomy_refs:
         return

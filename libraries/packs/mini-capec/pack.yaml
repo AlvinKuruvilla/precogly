@@ -1,0 +1,13 @@
+pack:
+  slug: mini-capec
+  name: Mini CAPEC
+  description: "Curated subset of MITRE CAPEC (Common Attack Pattern Enumeration and Classification) covering the most common web and cloud attack patterns."
+  version: "1.0.0"
+  pack_type: taxonomy
+  tier: free
+  source: official
+  author: Precogly
+  tags:
+    - capec
+    - attack-patterns
+    - mitre

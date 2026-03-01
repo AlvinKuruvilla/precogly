@@ -5,7 +5,8 @@
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
-import type { STRIDECategory, TaxonomyEntry } from '@/types/domain'
+import type { TaxonomyEntry } from '@/types/domain'
+import { getStrideFromTaxonomy } from '@/types/domain'
 
 // Backend countermeasure status (uses 'verified', differs from frontend 'platform')
 type BackendCountermeasureStatus = 'gap' | 'planned' | 'verified' | 'waived'
@@ -17,7 +18,6 @@ export interface ComponentInstanceThreat {
   componentName: string
   threatLibrary: number
   threatName: string
-  strideCategoryDisplay: string | null
   taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
@@ -569,7 +569,6 @@ export interface BackendThreat {
   threatLibraryId: number
   threatName: string | null
   threatDescription: string | null
-  strideCategory: string | null
   taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
@@ -667,7 +666,7 @@ export function transformBackendThreatsToComponentThreats(
       // Threat metadata from backend (eliminates need for frontend registry lookup)
       threatName: bt.threatName || undefined,
       threatDescription: bt.threatDescription || undefined,
-      strideCategory: (bt.strideCategory as STRIDECategory) || undefined,
+      taxonomyEntries: bt.taxonomyEntries,
       // Backend IDs for API operations
       backendThreatId: bt.id,
       backendComponentId: bt.componentId,

@@ -44,6 +44,7 @@ export interface SourcePackInfo {
   threatCount: number
   countermeasureCount: number
   taxonomyCount: number
+  dependsOn: Array<{ slug: string; name: string; isImported: boolean }>
 }
 
 export interface AvailablePacksResponse {
@@ -89,7 +90,7 @@ export interface PackPreviewComponent {
 export interface PackPreviewThreat {
   slug: string
   name: string
-  strideCategory: string
+  taxonomyEntries: Array<{ taxonomySlug: string; externalId: string; title: string }>
   severity: string
   description: string
 }

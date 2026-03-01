@@ -457,6 +457,23 @@ class MagicLinkAccessView(APIView):
 
         return compute_threat_model_stats_from_canvas(threat_model)
 
+    def _serialize_taxonomy_entries(self, threat_library):
+        """Serialize taxonomy entries for a threat library."""
+        if not threat_library:
+            return []
+        entries = []
+        for join in threat_library.taxonomy_entries.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all():
+            entry = join.taxonomy_entry
+            entries.append({
+                "taxonomy_slug": entry.taxonomy.slug,
+                "taxonomy_name": entry.taxonomy.name,
+                "external_id": entry.external_id,
+                "title": entry.title,
+            })
+        return entries
+
     def _get_threat_analysis_data(self, threat_model):
         """
         Get threat analysis data for the threat model.
@@ -579,10 +596,7 @@ class MagicLinkAccessView(APIView):
                 threat_description = (
                     threat.threat_library.description if threat.threat_library else None
                 )
-                stride_category = (
-                    threat.threat_library.get_stride_category_from_taxonomy()
-                    if threat.threat_library else None
-                )
+                taxonomy_entries = self._serialize_taxonomy_entries(threat.threat_library)
 
                 threat_data = {
                     "id": threat.id,
@@ -595,7 +609,7 @@ class MagicLinkAccessView(APIView):
                     "threat_library_id": threat.threat_library_id,
                     "threat_name": threat_name,
                     "threat_description": threat_description,
-                    "stride_category": stride_category,
+                    "taxonomy_entries": taxonomy_entries,
                     "inherent_severity": threat.inherent_severity,
                     "residual_severity": threat.residual_severity,
                     "status": threat.status,
@@ -664,10 +678,7 @@ class MagicLinkAccessView(APIView):
                 threat_description = (
                     threat.threat_library.description if threat.threat_library else None
                 )
-                stride_category = (
-                    threat.threat_library.get_stride_category_from_taxonomy()
-                    if threat.threat_library else None
-                )
+                taxonomy_entries = self._serialize_taxonomy_entries(threat.threat_library)
 
                 threat_data = {
                     "id": threat.id,
@@ -680,7 +691,7 @@ class MagicLinkAccessView(APIView):
                     "threat_library_id": threat.threat_library_id,
                     "threat_name": threat_name,
                     "threat_description": threat_description,
-                    "stride_category": stride_category,
+                    "taxonomy_entries": taxonomy_entries,
                     "inherent_severity": threat.inherent_severity,
                     "residual_severity": threat.residual_severity,
                     "status": threat.status,

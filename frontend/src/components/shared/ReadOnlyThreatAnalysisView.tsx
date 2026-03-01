@@ -26,7 +26,8 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react'
-import { STRIDE_CONFIG, type STRIDECategory, type TaxonomyEntry } from '@/types/domain'
+import { type TaxonomyEntry } from '@/types/domain'
+import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode } from '@/features/dfd-editor/types'
 import type { ThreatAnalysisData, SharedThreat } from '@/types/organization'
@@ -80,7 +81,6 @@ function convertSharedThreatToComponentThreat(sharedThreat: SharedThreat): Compo
     updatedAt: timestamp,
     threatName: sharedThreat.threatName || 'Unknown Threat',
     threatDescription: sharedThreat.threatDescription || '',
-    strideCategory: sharedThreat.strideCategory as STRIDECategory | undefined,
     taxonomyEntries: sharedThreat.taxonomyEntries as TaxonomyEntry[] | undefined,
     countermeasures: sharedThreat.countermeasures.map((cm): ComponentThreatCountermeasure => ({
       id: `shared-cm-${cm.id}`,
@@ -128,10 +128,6 @@ interface ThreatCardProps {
 
 function ThreatCard({ threat, componentName }: ThreatCardProps) {
   const [isOpen, setIsOpen] = useState(false)
-  // Use threat metadata from ComponentThreat
-  const strideInfo = threat.strideCategory
-    ? STRIDE_CONFIG[threat.strideCategory]
-    : null
 
   // Calculate threat status based on countermeasures
   const stats = useMemo(() => {
@@ -183,11 +179,7 @@ function ThreatCard({ threat, componentName }: ThreatCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {strideInfo && (
-              <Badge variant="outline" className={`text-xs ${strideInfo.color}`}>
-                {strideInfo.label}
-              </Badge>
-            )}
+            <TaxonomyBadges entries={threat.taxonomyEntries} maxVisible={2} size="sm" />
             <Badge
               variant="outline"
               className={`text-xs ${
@@ -434,7 +426,7 @@ export function ReadOnlyThreatAnalysisView({
               <TableRow>
                 <TableHead>Component</TableHead>
                 <TableHead>Threat</TableHead>
-                <TableHead>STRIDE</TableHead>
+                <TableHead>Classifications</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Countermeasures</TableHead>
               </TableRow>
@@ -454,10 +446,6 @@ export function ReadOnlyThreatAnalysisView({
                   status = 'addressable'
                 }
 
-                const strideInfo = threat.strideCategory
-                  ? STRIDE_CONFIG[threat.strideCategory]
-                  : null
-
                 return (
                   <TableRow key={threat.id}>
                     <TableCell className="font-medium">
@@ -470,13 +458,7 @@ export function ReadOnlyThreatAnalysisView({
                     </TableCell>
                     <TableCell>{threat.threatName || threat.threatId}</TableCell>
                     <TableCell>
-                      {strideInfo ? (
-                        <Badge variant="outline" className="text-xs">
-                          {strideInfo.label}
-                        </Badge>
-                      ) : (
-                        '-'
-                      )}
+                      <TaxonomyBadges entries={threat.taxonomyEntries} maxVisible={3} />
                     </TableCell>
                     <TableCell>
                       <Badge
