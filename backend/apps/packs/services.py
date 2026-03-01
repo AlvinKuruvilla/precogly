@@ -681,10 +681,8 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
                     message=f"Failed to parse: {e}",
                 ))
 
-    # Validate templates
-    templates_dir = pack_path / "templates"
-    if not templates_dir.exists():
-        templates_dir = pack_path / "DFDTemplates"
+    # Validate DFD templates
+    templates_dir = pack_path / "dfd-templates"
 
     if templates_dir.exists():
         for template_file in list(templates_dir.glob("*.yaml")) + list(templates_dir.glob("*.yml")):
@@ -700,7 +698,7 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
                             # Check if it's a cross-pack reference
                             if not _resolve_component_reference_exists(slug, comp_ref):
                                 errors.append(ValidationError(
-                                    file=f"templates/{template_file.name}",
+                                    file=f"dfd-templates/{template_file.name}",
                                     line=None,
                                     ref_type="template_component",
                                     reference=comp_ref,
@@ -708,7 +706,7 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
                                 ))
             except Exception as e:
                 errors.append(ValidationError(
-                    file=f"templates/{template_file.name}",
+                    file=f"dfd-templates/{template_file.name}",
                     line=None,
                     ref_type="template",
                     reference="",
@@ -793,7 +791,7 @@ def _import_pack(
     - threats.yaml: Threat definitions
     - countermeasures.yaml: Countermeasure definitions
     - joins/: Relationship mappings
-    - templates/: DFD templates
+    - dfd-templates/: DFD templates
 
     Args:
         pack_path: Path to the pack directory
@@ -853,12 +851,14 @@ def _import_pack(
         active_threats = ThreatLibrary.objects.filter(source_pack=existing).count()
         active_countermeasures = CountermeasureLibrary.objects.filter(source_pack=existing).count()
         active_taxonomies = ExternalTaxonomy.objects.filter(source_pack=existing).count()
+        active_templates = DFDTemplatesLibrary.objects.filter(source_pack=existing).count()
 
         has_active_items = (
             active_components > 0
             or active_threats > 0
             or active_countermeasures > 0
             or active_taxonomies > 0
+            or active_templates > 0
         )
 
         if has_active_items:
@@ -927,8 +927,8 @@ def _import_pack(
                         mappings_count = _load_framework_overlay(library_pack, join_file)
                         logger.info(f"Loaded {mappings_count} mappings from {join_file.name}")
 
-            # Phase 4: Load templates
-            templates_count = _load_templates(library_pack, pack_path / "templates")
+            # Phase 4: Load DFD templates
+            templates_count = _load_templates(library_pack, pack_path / "dfd-templates")
 
             # Phase 5: Load frameworks and requirements (for compliance packs)
             frameworks_count = _load_frameworks(library_pack, pack_data)
@@ -1622,15 +1622,12 @@ def get_pending_overlays_for_pack(pack: LibraryPack) -> list[dict]:
 
 def _load_templates(library_pack: LibraryPack, templates_dir: Path) -> int:
     """
-    Load DFD templates from templates/ directory (v2 format).
+    Load DFD templates from dfd-templates/ directory.
 
-    V2 templates use component_ref to reference components from components.yaml.
+    Templates use component_ref to reference components from components.yaml.
     """
     if not templates_dir.exists():
-        # Also check DFDTemplates for backwards compatibility
-        templates_dir = templates_dir.parent / "DFDTemplates"
-        if not templates_dir.exists():
-            return 0
+        return 0
 
     template_files = list(templates_dir.glob("*.yaml")) + list(templates_dir.glob("*.yml"))
     count = 0
@@ -1663,7 +1660,13 @@ def _load_templates(library_pack: LibraryPack, templates_dir: Path) -> int:
             )
             count += 1
         except Exception as e:
-            logger.error(f"Error loading template {template_file}: {e}")
+            logger.exception(f"Error loading template {template_file.name}")
+
+    if template_files and count == 0:
+        logger.error(
+            f"All {len(template_files)} templates failed to load for pack '{library_pack.slug}'. "
+            f"Check that migrations are up to date: python manage.py migrate"
+        )
 
     return count
 

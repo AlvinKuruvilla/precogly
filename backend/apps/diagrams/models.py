@@ -3,7 +3,6 @@ Diagrams models - DFDs, threat models.
 """
 
 from django.conf import settings
-from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -16,13 +15,6 @@ from apps.compliance.models import StandardFramework
 
 class DFDTemplatesLibrary(TimestampedModel):
     """DFD template library."""
-
-    class Category(models.TextChoices):
-        WEBAPP = "webapp", "Web Application"
-        MICROSERVICES = "microservices", "Microservices"
-        IOT = "iot", "IoT"
-        API = "api", "API"
-        MOBILE = "mobile", "Mobile"
 
     class DiagramType(models.TextChoices):
         CONTEXT = "context", "Context"
@@ -56,7 +48,10 @@ class DFDTemplatesLibrary(TimestampedModel):
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    category = models.CharField(max_length=20, choices=Category.choices)
+    category = models.CharField(
+        max_length=50,
+        help_text="Freeform category (e.g., webapp, serverless, microservices)",
+    )
     diagram_type = models.CharField(max_length=20, choices=DiagramType.choices)
     maintained_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -79,14 +74,6 @@ class DFDTemplatesLibrary(TimestampedModel):
         blank=True,
         db_index=True,
         help_text="Original item this was forked/customized from",
-    )
-
-    # Backward compatibility for renamed slugs
-    aliases = ArrayField(
-        models.CharField(max_length=100),
-        default=list,
-        blank=True,
-        help_text="Previous slugs for backward compatibility",
     )
 
     class Meta:

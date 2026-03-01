@@ -242,31 +242,34 @@ export const TRUST_ZONE_PRESET_NAMES: { value: TrustZonePresetName; label: strin
   { value: 'partner', label: 'Partner Network', description: 'Semi-trusted partner or third-party network' },
 ]
 
-// Template Categories
-export type TemplateCategory =
-  | 'webApplication'
-  | 'mobileApplication'
-  | 'microservices'
-  | 'dataPipeline'
-  | 'authentication'
-  | 'paymentProcessing'
-  | 'cloudInfrastructure'
-  | 'iot'
-  | 'apiGateway'
-  | 'other'
+// Template Categories (freeform — labels for known slugs, auto-format for unknown)
+export type TemplateCategory = string
 
-export const TEMPLATE_CATEGORIES: { value: TemplateCategory; label: string }[] = [
-  { value: 'webApplication', label: 'Web Application' },
-  { value: 'mobileApplication', label: 'Mobile Application' },
-  { value: 'microservices', label: 'Microservices' },
-  { value: 'dataPipeline', label: 'Data Pipeline' },
-  { value: 'authentication', label: 'Authentication' },
-  { value: 'paymentProcessing', label: 'Payment Processing' },
-  { value: 'cloudInfrastructure', label: 'Cloud Infrastructure' },
-  { value: 'iot', label: 'IoT' },
-  { value: 'apiGateway', label: 'API Gateway' },
-  { value: 'other', label: 'Other' },
-]
+const KNOWN_CATEGORY_LABELS: Record<string, string> = {
+  webApplication: 'Web Application',
+  mobileApplication: 'Mobile Application',
+  microservices: 'Microservices',
+  dataPipeline: 'Data Pipeline',
+  authentication: 'Authentication',
+  paymentProcessing: 'Payment Processing',
+  cloudInfrastructure: 'Cloud Infrastructure',
+  serverless: 'Serverless',
+  iot: 'IoT',
+  api: 'API',
+  apiGateway: 'API Gateway',
+  other: 'Other',
+}
+
+export function formatCategoryLabel(category: string): string {
+  if (KNOWN_CATEGORY_LABELS[category]) {
+    return KNOWN_CATEGORY_LABELS[category]
+  }
+  // Auto-format: split camelCase, hyphens, underscores → title case
+  return category
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
 // Data Classification for edges
 export type DataClassification =

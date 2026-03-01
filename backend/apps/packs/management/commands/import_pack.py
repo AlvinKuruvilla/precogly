@@ -328,8 +328,8 @@ class Command(BaseCommand):
             return threat
 
     def _load_dfd_templates(self, library_pack, pack_path):
-        """Load DFD templates from the DFDTemplates directory."""
-        templates_dir = pack_path / "DFDTemplates"
+        """Load DFD templates from the dfd-templates directory."""
+        templates_dir = pack_path / "dfd-templates"
         if not templates_dir.exists():
             return
 

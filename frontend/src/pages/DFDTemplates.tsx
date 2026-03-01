@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PackBadge } from '@/components/packs'
 import { useDFDTemplates } from '@/api/libraries'
+import { formatCategoryLabel } from '@/types/domain'
 
 export function DFDTemplates() {
   const { data: templates, isLoading } = useDFDTemplates()
@@ -61,7 +62,7 @@ export function DFDTemplates() {
                   </CardTitle>
                   {template.category && (
                     <Badge variant="secondary" className="text-xs">
-                      {template.category}
+                      {formatCategoryLabel(template.category)}
                     </Badge>
                   )}
                 </div>

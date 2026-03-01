@@ -19,7 +19,7 @@ export {
   DATA_CLASSIFICATIONS,
   PROTOCOLS,
   DATA_SENSITIVITY_CONFIG,
-  TEMPLATE_CATEGORIES,
+  formatCategoryLabel,
 } from '@/types/domain'
 
 import type {
@@ -177,29 +177,6 @@ export interface CreateDiagramInput {
   description?: string
   diagramType?: DiagramTypeValue
   threatFramework?: ThreatFramework
-}
-
-// DFD Template (local definition for editor-specific use)
-export interface DFDTemplate {
-  id: string
-  name: string
-  description: string
-  category: TemplateCategory
-  tags: string[]
-  templateData: CanvasData
-  createdBy: string
-  isPublic: boolean
-  useCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface CreateTemplateInput {
-  name: string
-  description?: string
-  category: TemplateCategory
-  tags?: string[]
-  templateData: CanvasData
 }
 
 // Clipboard data for copy/paste

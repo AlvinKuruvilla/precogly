@@ -61,8 +61,6 @@ export type {
   Diagram,
   CreateDiagramInput,
   TemplateCategory,
-  DFDTemplate,
-  CreateTemplateInput,
   ClipboardData,
 } from './types'
 
@@ -71,7 +69,7 @@ export {
   DATA_CLASSIFICATIONS,
   PROTOCOLS,
   DATA_SENSITIVITY_CONFIG,
-  TEMPLATE_CATEGORIES,
+  formatCategoryLabel,
   ACCESS_CONTROL_METHODS,
   AUTHENTICATION_METHODS,
   isProcessNode,

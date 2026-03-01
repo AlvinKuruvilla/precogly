@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/select'
 import { useDFDTemplates, fetchResolvedTemplate } from '@/api/libraries'
 import type { DFDTemplate } from '@/types/libraries'
-import type { DiagramNode, DataFlowEdge, TemplateCategory } from '../types'
-import { TEMPLATE_CATEGORIES } from '../types'
+import type { DiagramNode, DataFlowEdge } from '../types'
+import { formatCategoryLabel } from '../types'
 
 interface TemplateBrowserProps {
   open: boolean
@@ -30,12 +30,6 @@ interface TemplateBrowserProps {
 }
 
 type SortOption = 'newest' | 'name'
-type FilterOption = 'all' | TemplateCategory
-
-// Get display label for category
-function getCategoryLabel(category: string): string {
-  return TEMPLATE_CATEGORIES.find((c) => c.value === category)?.label || category
-}
 
 export function TemplateBrowser({
   open,
@@ -44,7 +38,7 @@ export function TemplateBrowser({
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
-  const [filterBy, setFilterBy] = useState<FilterOption>('all')
+  const [filterBy, setFilterBy] = useState<string>('all')
 
   const {
     data: templates,
@@ -52,7 +46,18 @@ export function TemplateBrowser({
     isError,
   } = useDFDTemplates()
 
-  // FIX: Wrap filter/sort in useMemo for performance
+  // Derive unique categories from actual template data
+  const availableCategories = useMemo(() => {
+    if (!templates) return []
+    const categorySet = new Set<string>()
+    for (const t of templates) {
+      if (t.category) categorySet.add(t.category)
+    }
+    return Array.from(categorySet).sort((a, b) =>
+      formatCategoryLabel(a).localeCompare(formatCategoryLabel(b))
+    )
+  }, [templates])
+
   const filteredTemplates = useMemo(() => {
     if (!templates) return []
 
@@ -158,15 +163,15 @@ export function TemplateBrowser({
           >
             All Templates
           </Button>
-          {TEMPLATE_CATEGORIES.map(({ value, label }) => (
+          {availableCategories.map((category) => (
             <Button
-              key={value}
-              variant={filterBy === value ? 'default' : 'ghost'}
+              key={category}
+              variant={filterBy === category ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setFilterBy(value)}
+              onClick={() => setFilterBy(category)}
               className="h-8"
             >
-              {label}
+              {formatCategoryLabel(category)}
             </Button>
           ))}
         </div>
@@ -212,7 +217,7 @@ export function TemplateBrowser({
                       </h3>
                       {template.category && (
                         <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
-                          {getCategoryLabel(template.category)}
+                          {formatCategoryLabel(template.category)}
                         </Badge>
                       )}
                     </div>

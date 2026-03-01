@@ -33,7 +33,7 @@ aws-mini/
 │   ├── countermeasures-nist-csf.yaml      # Compliance mapping to NIST CSF
 │   ├── countermeasures-owasp.yaml         # Compliance mapping to OWASP
 │   └── countermeasures-soc2.yaml          # Compliance mapping to SOC 2
-└── templates/
+└── dfd-templates/
     └── s3-lambda.yaml                     # DFD template
 ```
 
@@ -317,10 +317,10 @@ mappings:
 
 ## DFD Templates
 
-Templates are pre-built Data Flow Diagrams stored in the `templates/` directory. Each template produces a ready-to-use diagram when a user selects it.
+Templates are pre-built Data Flow Diagrams stored in the `dfd-templates/` directory. Each template produces a ready-to-use diagram when a user selects it.
 
 ```yaml
-# templates/s3-lambda.yaml
+# dfd-templates/s3-lambda.yaml
 template:
   slug: aws-mini-s3-lambda
   name: "S3 + Lambda"
