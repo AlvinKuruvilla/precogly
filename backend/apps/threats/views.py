@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.diagrams.models import ThreatModel
+from apps.threat_models.models import ThreatModel
 
 from .models import (
     ComponentInstanceCountermeasure,

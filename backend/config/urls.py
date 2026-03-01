@@ -21,7 +21,8 @@ urlpatterns = [
     path("api/auth/", include("dj_rest_auth.urls")),
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     # App APIs
-    path("api/", include("apps.diagrams.urls")),  # threat-models, diagrams, dfd-templates
+    path("api/", include("apps.threat_models.urls")),  # threat-models, reference-images
+    path("api/", include("apps.diagrams.urls")),  # diagrams, dfd-templates
     path("api/", include("apps.systems.urls")),  # systems, components, data-flows
     path("api/", include("apps.compliance.urls")),  # frameworks, requirements
     path("api/", include("apps.threats.urls")),  # threat/countermeasure libraries, instances

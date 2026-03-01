@@ -418,7 +418,7 @@ class MagicLinkAccessView(APIView):
             saved_to_account = True
 
         # Return read-only threat model data
-        from apps.diagrams.serializers import ThreatModelSerializer
+        from apps.threat_models.serializers import ThreatModelSerializer
 
         serializer = ThreatModelSerializer(link.threat_model, context={'request': request})
 

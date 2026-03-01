@@ -60,6 +60,7 @@ LOCAL_APPS = [
     "apps.organizations",
     "apps.systems",
     "apps.threats",
+    "apps.threat_models",
     "apps.diagrams",
     "apps.compliance",
     "apps.packs",

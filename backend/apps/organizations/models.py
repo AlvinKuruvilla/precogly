@@ -225,7 +225,7 @@ class MagicLink(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     threat_model = models.ForeignKey(
-        "diagrams.ThreatModel",
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         related_name="magic_links",
     )
@@ -262,7 +262,7 @@ class SharedWithMe(TimestampedModel):
         related_name="shared_threat_models",
     )
     threat_model = models.ForeignKey(
-        "diagrams.ThreatModel",
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         related_name="shared_with_users",
     )

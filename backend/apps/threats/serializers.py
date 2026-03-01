@@ -676,11 +676,10 @@ class RiskDetailSerializer(serializers.ModelSerializer):
         if threat_model and component_threat_ids:
             valid_count = ComponentInstanceThreat.objects.filter(
                 id__in=component_threat_ids,
-                component__organization=threat_model.organization,
             ).count()
             if valid_count != len(component_threat_ids):
                 raise serializers.ValidationError({
-                    "component_threat_ids": "One or more component threats do not belong to this threat model's organization."
+                    "component_threat_ids": "One or more component threats were not found."
                 })
 
         if threat_model and flow_threat_ids:

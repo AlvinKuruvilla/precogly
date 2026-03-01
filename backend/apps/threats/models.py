@@ -631,7 +631,7 @@ class PentestFinding(TimestampedModel):
         FALSE_POSITIVE = "false_positive", "False Positive"
 
     threat_model = models.ForeignKey(
-        "diagrams.ThreatModel",
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         related_name="pentest_findings",
     )
@@ -753,7 +753,7 @@ class Risk(TimestampedModel):
         CRITICAL = "critical", "Critical"
 
     threat_model = models.ForeignKey(
-        "diagrams.ThreatModel",
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         related_name="risks",
     )

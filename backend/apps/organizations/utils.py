@@ -34,7 +34,8 @@ def merge_shadow_user(shadow_user, real_user):
     Returns:
         dict with merge statistics
     """
-    from apps.diagrams.models import ThreatModel, DFD
+    from apps.threat_models.models import ThreatModel
+    from apps.diagrams.models import DFD
     from apps.threats.models import (
         ComponentInstanceCountermeasure,
         FlowInstanceCountermeasure,

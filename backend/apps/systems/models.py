@@ -262,7 +262,7 @@ class OrgsystemComponent(TimestampedModel):
         related_name="discovered_components",
     )
     threat_model = models.ForeignKey(
-        "diagrams.ThreatModel",
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
