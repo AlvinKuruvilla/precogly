@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-27
 **Revised:** 2026-03-01
-**Status:** Proposed
+**Status:** COMPLETED
 
 ---
 
@@ -16,11 +16,11 @@ Formats like TM-Library model risk as a separate entity that aggregates multiple
 
 These are different concepts at different abstraction levels:
 
-| Concept | Where It Lives | What It Measures |
-|---|---|---|
-| **Threat severity** | `ComponentInstanceThreat.inherent_severity` | Technical impact *if* the threat materializes (no likelihood) |
-| **Residual severity** | `ComponentInstanceThreat.residual_severity` | Technical impact after countermeasures |
-| **Risk score** | Proposed `Risk` model | Business impact x likelihood = quantified risk |
+| Concept               | Where It Lives                              | What It Measures                                              |
+| --------------------- | ------------------------------------------- | ------------------------------------------------------------- |
+| **Threat severity**   | `ComponentInstanceThreat.inherent_severity` | Technical impact _if_ the threat materializes (no likelihood) |
+| **Residual severity** | `ComponentInstanceThreat.residual_severity` | Technical impact after countermeasures                        |
+| **Risk score**        | Proposed `Risk` model                       | Business impact x likelihood = quantified risk                |
 
 Threat-level severity is a practical shorthand for prioritizing countermeasure work. Risk adds the missing dimension (likelihood) and aggregates multiple threats into a business-level statement. Both coexist:
 
@@ -50,12 +50,12 @@ effectiveness = models.FloatField(
 
 When `effectiveness` is null (not yet assessed), the residual score calculation uses a **status-derived fallback**:
 
-| Countermeasure Status | Implied Effectiveness |
-|---|---|
-| `verified` | 1.0 |
-| `planned` | 0.5 |
-| `gap` | 0.0 |
-| `waived` | 0.0 (accepted risk, not a control) |
+| Countermeasure Status | Implied Effectiveness              |
+| --------------------- | ---------------------------------- |
+| `verified`            | 1.0                                |
+| `planned`             | 0.5                                |
+| `gap`                 | 0.0                                |
+| `waived`              | 0.0 (accepted risk, not a control) |
 
 Once a user provides an explicit effectiveness value, it takes precedence over the status-derived default. This gives teams automatic defaults that work immediately while allowing precise overrides during risk planning sessions.
 
@@ -66,6 +66,7 @@ Once a user provides an explicit effectiveness value, it takes precedence over t
 `_recalculate_threat_status` currently exists only on `ComponentInstanceThreatViewSet`. The `DataFlowInstanceThreatViewSet` has no recalculation logic and no `recalculate_status` action endpoint. Risk status derivation depends on accurate `threat.status` for both component and flow threats.
 
 **Add to `DataFlowInstanceThreatViewSet`:**
+
 - `_recalculate_threat_status()` — same logic as the component version, querying `flow_threat.countermeasures` instead
 - `@action(detail=True, methods=["post"]) recalculate_status` — public endpoint
 - Call `_recalculate_threat_status()` from `apply_countermeasure` (if added) and after flow countermeasure status changes
@@ -253,10 +254,10 @@ Default is TM-Library's 5x5 matrix. All method-specific inputs live in `scoring_
 
 Scoring methods are **algorithms**, not content. Compare to the two patterns in the codebase:
 
-| Pattern | Examples | Managed via |
-|---|---|---|
-| **Content** (user-extensible) | ThreatLibrary, CountermeasureLibrary, TaxonomyEntry, LibraryPack | DB models + packs, users create/import |
-| **Choices** (small stable enum) | Severity, Status, Trigger, Criticality | TextChoices on the model |
+| Pattern                         | Examples                                                         | Managed via                            |
+| ------------------------------- | ---------------------------------------------------------------- | -------------------------------------- |
+| **Content** (user-extensible)   | ThreatLibrary, CountermeasureLibrary, TaxonomyEntry, LibraryPack | DB models + packs, users create/import |
+| **Choices** (small stable enum) | Severity, Status, Trigger, Criticality                           | TextChoices on the model               |
 
 Scoring methods are closer to Choices — the list is small (~5 well-known frameworks), changes rarely, and each entry requires Python code to compute anything. You can't "import" a scoring method like you import a threat library pack.
 
@@ -348,22 +349,22 @@ class BaseScoringEngine:
 
 All scoring engines normalize their native output to a universal 0-100 integer scale. The `inherent_level` band is derived from the normalized score:
 
-| Score Range | Level |
-|---|---|
-| 1-25 | `low` |
-| 26-50 | `medium` |
-| 51-75 | `high` |
-| 76-100 | `critical` |
+| Score Range | Level      |
+| ----------- | ---------- |
+| 1-25        | `low`      |
+| 26-50       | `medium`   |
+| 51-75       | `high`     |
+| 76-100      | `critical` |
 
 Each engine's normalization:
 
-| Method | Native Range | Normalization to 0-100 |
-|---|---|---|
-| **TM-Library** | 1-25 (5x5 grid) | `round(native_score / 25 * 100)` — e.g., 3x4=12 -> 48 (medium) |
-| **FAIR** | Dollar-denominated ALE | Logarithmic bucketing of annualized loss expectancy into predefined tiers. E.g., <$10K->10, $10K-$100K->30, $100K-$1M->60, >$1M->90. Exact tier boundaries are configurable in the engine. |
-| **OWASP RR** | 0-81 (avg_likelihood 0-9 x avg_impact 0-9) | `round(native_score / 81 * 100)` — e.g., 6.75x7=47.25 -> 58 (high) |
-| **Mozilla RRA** | Qualitative tiers | Direct mapping: public->15 (low), confidential_internal->40 (medium), confidential_specific->65 (high), confidential_restricted->90 (critical). Adjusted by `risk_impact` sub-factors. |
-| **Custom** | User enters 0-100 directly | No normalization needed. |
+| Method          | Native Range                               | Normalization to 0-100                                                                                                                                                                     |
+| --------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **TM-Library**  | 1-25 (5x5 grid)                            | `round(native_score / 25 * 100)` — e.g., 3x4=12 -> 48 (medium)                                                                                                                             |
+| **FAIR**        | Dollar-denominated ALE                     | Logarithmic bucketing of annualized loss expectancy into predefined tiers. E.g., <$10K->10, $10K-$100K->30, $100K-$1M->60, >$1M->90. Exact tier boundaries are configurable in the engine. |
+| **OWASP RR**    | 0-81 (avg_likelihood 0-9 x avg_impact 0-9) | `round(native_score / 81 * 100)` — e.g., 6.75x7=47.25 -> 58 (high)                                                                                                                         |
+| **Mozilla RRA** | Qualitative tiers                          | Direct mapping: public->15 (low), confidential_internal->40 (medium), confidential_specific->65 (high), confidential_restricted->90 (critical). Adjusted by `risk_impact` sub-factors.     |
+| **Custom**      | User enters 0-100 directly                 | No normalization needed.                                                                                                                                                                   |
 
 The level derivation is centralized (not per-engine):
 
@@ -535,11 +536,11 @@ Risk count per threat model is typically small (<50), so this fan-out is not a p
 
 Our internal canonical vocabulary is:
 
-| Level | Internal Status | Derived From |
-|---|---|---|
-| Countermeasure | `gap / planned / verified / waived` | Set by user |
-| Threat | `open / mitigated / accepted` | Computed from countermeasure statuses |
-| Risk | `open / mitigated / accepted` | Computed from threat statuses |
+| Level          | Internal Status                     | Derived From                          |
+| -------------- | ----------------------------------- | ------------------------------------- |
+| Countermeasure | `gap / planned / verified / waived` | Set by user                           |
+| Threat         | `open / mitigated / accepted`       | Computed from countermeasure statuses |
+| Risk           | `open / mitigated / accepted`       | Computed from threat statuses         |
 
 TM-Library uses a different control-status enum (`assumed / active / suggested / under_review / approved / scheduled / retired / wont_do`). Format adapters translate on import/export. This is already the approach in FORMAT-INTEROPERABILITY.md — no new vocabulary needed.
 
@@ -547,9 +548,10 @@ TM-Library uses a different control-status enum (`assumed / active / suggested /
 
 ### Custom Threats and Countermeasures
 
-The Risk model fully supports custom (non-library) threats and countermeasures. `RiskThreat` links to *instance* models (`ComponentInstanceThreat`, `DataFlowInstanceThreat`), not library models. Custom threats have `threat_library=null` and custom countermeasures have `countermeasure_library=null`, but they are still valid instances with their own `threat_name`, `status`, `inherent_severity`, etc. (metadata copied on creation for orphan resilience).
+The Risk model fully supports custom (non-library) threats and countermeasures. `RiskThreat` links to _instance_ models (`ComponentInstanceThreat`, `DataFlowInstanceThreat`), not library models. Custom threats have `threat_library=null` and custom countermeasures have `countermeasure_library=null`, but they are still valid instances with their own `threat_name`, `status`, `inherent_severity`, etc. (metadata copied on creation for orphan resilience).
 
 This means:
+
 - A Risk can aggregate a mix of library-backed and custom threats
 - Custom countermeasures on those threats factor into residual score and status derivation identically to library-backed ones
 - The `effectiveness` field works the same way regardless of whether the countermeasure came from a library or was created ad-hoc
@@ -572,6 +574,7 @@ This means:
 **Cross-ThreatModel integrity:** RiskThreat references threats that belong to components/flows within the same ThreatModel. Enforced at the serializer validation level — the DB FK goes to ComponentInstanceThreat/DataFlowInstanceThreat directly, and the serializer verifies the threat's parent belongs to the Risk's threat_model.
 
 Validation traversal path:
+
 ```
 # Component threats
 RiskThreat.component_threat
@@ -789,64 +792,69 @@ class RiskDetailSerializer(serializers.ModelSerializer):
 // types/risk.ts
 
 export interface Risk {
-  id: number
-  name: string
-  description: string
-  scoringMethod: ScoringMethodKey
-  scoringMetadata: Record<string, unknown>
-  inherentScore: number       // 0-100
-  inherentLevel: RiskLevel
-  residualScore: number | null
-  residualLevel: RiskLevel | null
-  status: RiskStatus          // derived, read-only
-  threatCount: number         // list view only
-  threats?: RiskThreatEntry[] // detail view only
-  owner: number | null
-  ownerEmail: string | null
-  assignedTo: number | null
-  assignedToEmail: string | null
-  formatMetadata: Record<string, unknown>
-  createdAt: string
-  updatedAt: string
+  id: number;
+  name: string;
+  description: string;
+  scoringMethod: ScoringMethodKey;
+  scoringMetadata: Record<string, unknown>;
+  inherentScore: number; // 0-100
+  inherentLevel: RiskLevel;
+  residualScore: number | null;
+  residualLevel: RiskLevel | null;
+  status: RiskStatus; // derived, read-only
+  threatCount: number; // list view only
+  threats?: RiskThreatEntry[]; // detail view only
+  owner: number | null;
+  ownerEmail: string | null;
+  assignedTo: number | null;
+  assignedToEmail: string | null;
+  formatMetadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
-export type RiskStatus = 'open' | 'mitigated' | 'accepted'
-export type ScoringMethodKey = 'tm_library' | 'fair' | 'owasp_rr' | 'mozilla_rra' | 'custom'
+export type RiskLevel = "low" | "medium" | "high" | "critical";
+export type RiskStatus = "open" | "mitigated" | "accepted";
+export type ScoringMethodKey =
+  | "tm_library"
+  | "fair"
+  | "owasp_rr"
+  | "mozilla_rra"
+  | "custom";
 
 export interface RiskThreatEntry {
-  riskThreatId: number
-  threatId: number
-  threatType: 'component' | 'flow'
-  threatName: string
-  status: string
-  isDismissed: boolean
+  riskThreatId: number;
+  threatId: number;
+  threatType: "component" | "flow";
+  threatName: string;
+  status: string;
+  isDismissed: boolean;
 }
 
 export interface ScoringMethod {
-  key: ScoringMethodKey
-  label: string
-  description: string
-  metadataSchema: Record<string, ScoringFieldSchema>
+  key: ScoringMethodKey;
+  label: string;
+  description: string;
+  metadataSchema: Record<string, ScoringFieldSchema>;
 }
 
 export interface ScoringFieldSchema {
-  type: 'enum' | 'number' | 'range' | 'object' | 'text'
-  values?: string[]      // for enum type
-  min?: number           // for number type
-  max?: number           // for number type
-  required: boolean
+  type: "enum" | "number" | "range" | "object" | "text";
+  values?: string[]; // for enum type
+  min?: number; // for number type
+  max?: number; // for number type
+  required: boolean;
 }
 
 export interface CreateRiskInput {
-  name: string
-  description?: string
-  scoringMethod: ScoringMethodKey
-  scoringMetadata: Record<string, unknown>
-  owner?: number | null
-  assignedTo?: number | null
-  componentThreatIds?: number[]
-  flowThreatIds?: number[]
+  name: string;
+  description?: string;
+  scoringMethod: ScoringMethodKey;
+  scoringMetadata: Record<string, unknown>;
+  owner?: number | null;
+  assignedTo?: number | null;
+  componentThreatIds?: number[];
+  flowThreatIds?: number[];
 }
 ```
 
@@ -901,14 +909,14 @@ Risks are included in magic link shared views. The `MagicLinkAccessResponse` alr
 export interface DashboardStats {
   // ... existing fields (total, inProgress, pendingReview, approved)
   risks: {
-    total: number
-    critical: number
-    high: number
-    medium: number
-    low: number
-    open: number
-    mitigated: number
-  }
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    open: number;
+    mitigated: number;
+  };
 }
 ```
 

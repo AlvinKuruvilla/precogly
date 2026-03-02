@@ -422,15 +422,11 @@ class MagicLinkAccessView(APIView):
 
         serializer = ThreatModelSerializer(link.threat_model, context={'request': request})
 
-        # Compute summary stats
-        stats = self._compute_threat_model_stats(link.threat_model)
-
-        # Get threat analysis data
+        # Get threat analysis data first (stats depend on it)
         threat_analysis = self._get_threat_analysis_data(link.threat_model)
 
-        print("\nDEBUG: MagicLinkAccessView.get() - Building response")
-        print(f"DEBUG: threat_analysis['total_count']: {threat_analysis.get('total_count')}")
-        print(f"DEBUG: threat_analysis['threats'] length: {len(threat_analysis.get('threats', []))}")
+        # Compute summary stats from real DB data
+        stats = self._compute_stats_from_threat_analysis(threat_analysis, link.threat_model)
 
         response_data = {
             "threat_model": serializer.data,
@@ -442,20 +438,118 @@ class MagicLinkAccessView(APIView):
             "saved_to_account": saved_to_account,
         }
 
-        print(f"DEBUG: Response keys: {list(response_data.keys())}")
-        print("DEBUG: Response being sent to frontend\n")
-
         return Response(response_data)
 
-    def _compute_threat_model_stats(self, threat_model):
+    def _compute_stats_from_threat_analysis(self, threat_analysis, threat_model):
         """
-        Compute summary statistics for the threat model.
-        Uses the threat registry to compute threats dynamically from canvas data,
-        mirroring the frontend behavior.
+        Compute summary statistics from real DB threat analysis data.
+        Derives threat statuses using the same logic as the frontend deriveThreatStatus.
         """
-        from .threat_registry import compute_threat_model_stats_from_canvas
+        threats = threat_analysis.get("threats", [])
 
-        return compute_threat_model_stats_from_canvas(threat_model)
+        # Filter out dismissed threats
+        active_threats = [t for t in threats if not t.get("is_dismissed")]
+
+        # Derive threat statuses (mirrors frontend deriveThreatStatus)
+        exposed_count = 0
+        mitigated_count = 0
+        for threat in active_threats:
+            countermeasures = threat.get("countermeasures", [])
+            if not countermeasures:
+                exposed_count += 1
+                continue
+            has_gaps = any(cm.get("status") == "gap" for cm in countermeasures)
+            if has_gaps:
+                exposed_count += 1
+                continue
+            has_planned = any(cm.get("status") == "planned" for cm in countermeasures)
+            has_waived = any(cm.get("status") == "waived" for cm in countermeasures)
+            if has_planned or has_waived:
+                # addressable - not counted as exposed or mitigated
+                continue
+            # All countermeasures are verified/platform
+            mitigated_count += 1
+
+        # Count countermeasures by status
+        all_countermeasures = []
+        for threat in active_threats:
+            all_countermeasures.extend(threat.get("countermeasures", []))
+        total_countermeasures = len(all_countermeasures)
+        verified_count = sum(
+            1 for cm in all_countermeasures if cm.get("status") in ("platform", "verified")
+        )
+        gaps_count = sum(1 for cm in all_countermeasures if cm.get("status") == "gap")
+
+        # Count components from DFD canvas nodes
+        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+        processes = 0
+        datastores = 0
+        human_actors = 0
+        system_actors = 0
+        boundaries = 0
+        has_data_flows = False
+
+        for assoc in dfd_associations:
+            canvas_data = assoc.dfd.canvas_data or {}
+            for node in canvas_data.get("nodes", []):
+                node_type = node.get("type", "")
+                if node_type == "process":
+                    processes += 1
+                elif node_type == "datastore":
+                    datastores += 1
+                elif node_type == "humanActor":
+                    human_actors += 1
+                elif node_type == "systemActor":
+                    system_actors += 1
+                elif node_type == "trustZone":
+                    boundaries += 1
+            if canvas_data.get("edges"):
+                has_data_flows = True
+
+        # Compute progress checklist
+        workspace_data = threat_model.workspace_data or {}
+        system_context = workspace_data.get("systemContext", {})
+        assets = system_context.get("assets", [])
+        progress_checklist = workspace_data.get("progressChecklist", [])
+        manual_progress = {
+            item.get("id"): item.get("checked", False)
+            for item in progress_checklist
+            if item.get("id")
+        }
+
+        total_threats = len(active_threats)
+        progress = {
+            "assets_defined": manual_progress.get("assets_defined", len(assets) > 0),
+            "components_identified": (processes + datastores) > 0,
+            "trust_boundaries_identified": boundaries > 0,
+            "data_flows_defined": has_data_flows,
+            "owners_assigned": manual_progress.get("owners_assigned", False),
+            "threats_linked_components": total_threats > 0 and (processes + datastores) > 0,
+            "threats_linked_flows": total_threats > 0 and has_data_flows,
+            "countermeasures_assigned": total_countermeasures > 0,
+        }
+
+        return {
+            "components": {
+                "total": processes + datastores + human_actors + system_actors,
+                "processes": processes,
+                "datastores": datastores,
+                "humanActors": human_actors,
+                "systemActors": system_actors,
+                "boundaries": boundaries,
+            },
+            "threats": {
+                "total": total_threats,
+                "exposed": exposed_count,
+                "mitigated": mitigated_count,
+            },
+            "countermeasures": {
+                "total": total_countermeasures,
+                "verified": verified_count,
+                "gaps": gaps_count,
+            },
+            "progress": progress,
+        }
 
     def _serialize_taxonomy_entries(self, threat_library):
         """Serialize taxonomy entries for a threat library."""
@@ -485,12 +579,6 @@ class MagicLinkAccessView(APIView):
             DataFlowInstanceThreat,
         )
 
-        print("\n" + "="*80)
-        print("DEBUG: _get_threat_analysis_data called")
-        print(f"DEBUG: Threat Model ID: {threat_model.id}")
-        print(f"DEBUG: Threat Model Name: {threat_model.name}")
-        print("="*80)
-
         # Get all DFDs for this threat model
         dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
         dfds = [assoc.dfd for assoc in dfd_associations]
@@ -513,10 +601,10 @@ class MagicLinkAccessView(APIView):
             # Map edges to data flows
             for edge in canvas_data.get("edges", []):
                 edge_id = edge.get("id")
-                flow_id = edge.get("data", {}).get("flow_id")
-                if edge_id and flow_id:
+                dataflow_id = edge.get("data", {}).get("dataflow_id")
+                if edge_id and dataflow_id:
                     edge_flow_map[edge_id] = {
-                        "flow_id": flow_id,
+                        "flow_id": dataflow_id,
                         "dfd_id": str(dfd.id),
                         "dfd_name": dfd.name,
                     }
@@ -534,14 +622,6 @@ class MagicLinkAccessView(APIView):
         component_ids = list(set(canvas_component_ids + analysis_component_ids))
         flow_ids = canvas_flow_ids  # Flows are currently only via DFD
 
-        print(f"\nDEBUG: Found {len(dfds)} DFDs")
-        print(f"DEBUG: node_component_map has {len(node_component_map)} entries")
-        print(f"DEBUG: edge_flow_map has {len(edge_flow_map)} entries")
-        print(f"DEBUG: canvas_component_ids: {canvas_component_ids[:5]}..." if len(canvas_component_ids) > 5 else f"DEBUG: canvas_component_ids: {canvas_component_ids}")
-        print(f"DEBUG: analysis_component_ids: {analysis_component_ids[:5]}..." if len(analysis_component_ids) > 5 else f"DEBUG: analysis_component_ids: {analysis_component_ids}")
-        print(f"DEBUG: combined component_ids: {component_ids[:5]}..." if len(component_ids) > 5 else f"DEBUG: combined component_ids: {component_ids}")
-        print(f"DEBUG: flow_ids: {flow_ids[:5]}..." if len(flow_ids) > 5 else f"DEBUG: flow_ids: {flow_ids}")
-
         result = []
 
         # Fetch component threats
@@ -556,19 +636,6 @@ class MagicLinkAccessView(APIView):
                 "countermeasures__verified_by",
                 "countermeasures__instance_standard_mappings__requirement__framework",
             )
-
-            print(f"\nDEBUG: Queried ComponentInstanceThreat with {len(component_ids)} component_ids")
-            print(f"DEBUG: Found {component_threats.count()} component threats")
-
-            for i, threat in enumerate(component_threats):
-                if i == 0:  # Print details of first threat
-                    print(f"\nDEBUG: First Component Threat Details:")
-                    print(f"  - ID: {threat.id}")
-                    print(f"  - Component ID: {threat.component_id}")
-                    print(f"  - Component Name: {threat.component.name if threat.component else None}")
-                    print(f"  - Threat Library: {threat.threat_library.name if threat.threat_library else 'CUSTOM'}")
-                    print(f"  - Threat Name (custom): {threat.threat_name}")
-                    print(f"  - Countermeasures: {threat.countermeasures.count()}")
 
             for threat in component_threats:
                 # Find which node this component corresponds to (if it's in a DFD)
@@ -740,20 +807,6 @@ class MagicLinkAccessView(APIView):
                     "dfd_id": None,
                     "dfd_name": "Analysis-Only",
                 }
-
-        print(f"\nDEBUG: Built threat_analysis response:")
-        print(f"  - Total threats: {len(result)}")
-        print(f"  - Component threats: {sum(1 for t in result if t.get('type') == 'component')}")
-        print(f"  - Flow threats: {sum(1 for t in result if t.get('type') == 'flow')}")
-        print(f"  - Analysis-only components: {len(analysis_component_ids)}")
-        if result:
-            print(f"\nDEBUG: First threat in result:")
-            first = result[0]
-            print(f"  - type: {first.get('type')}")
-            print(f"  - threat_name: {first.get('threat_name')}")
-            print(f"  - node_id: {first.get('node_id')}")
-            print(f"  - countermeasures: {len(first.get('countermeasures', []))}")
-        print("="*80 + "\n")
 
         return {
             "threat_model_id": str(threat_model.id),

@@ -104,26 +104,6 @@ export function SharedThreatModelView() {
   const tm = threatModel
   const serverStats = stats as ThreatModelStats
 
-  console.log('\n' + '='.repeat(80))
-  console.log('DEBUG: SharedThreatModelView - Data received')
-  console.log('DEBUG: data keys:', Object.keys(data))
-  console.log('DEBUG: threatAnalysis exists:', !!threatAnalysis)
-  if (threatAnalysis) {
-    console.log('DEBUG: threatAnalysis.totalCount:', threatAnalysis.totalCount)
-    console.log('DEBUG: threatAnalysis.threats?.length:', threatAnalysis.threats?.length)
-  }
-  console.log('DEBUG: referenceImages exists:', !!tm.referenceImages)
-  if (tm.referenceImages && tm.referenceImages.length > 0) {
-    console.log('DEBUG: referenceImages.length:', tm.referenceImages.length)
-    console.log('DEBUG: First image:', {
-      id: tm.referenceImages[0].id,
-      filename: tm.referenceImages[0].filename,
-      imageUrl: tm.referenceImages[0].imageUrl,
-      image: tm.referenceImages[0].image,
-    })
-  }
-  console.log('='.repeat(80) + '\n')
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(undefined, {
       month: 'long',
