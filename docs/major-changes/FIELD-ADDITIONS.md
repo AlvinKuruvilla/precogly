@@ -1,7 +1,7 @@
 # Field Additions
 
 **Date:** 2026-02-28
-**Status:** Proposed
+**Status:** Completed (schema + API only — frontend CRUD UI not yet implemented)
 
 ---
 
@@ -75,7 +75,7 @@ priority           CharField (default "none") — none, low, medium, high, criti
 
 ## Impact
 
-- ~10 new columns across 5 existing models, 1 migration
+- 12 new columns across 6 existing models, 1 migration
 - All new fields are optional/nullable — no breaking changes to existing API consumers
 - Frontend types updated to include new optional fields
 - djangorestframework-camel-case handles conversion automatically

@@ -103,6 +103,7 @@ class ThreatModel(TimestampedModel):
         default="tm_library",
         help_text="Scoring methodology used for all risks in this threat model",
     )
+    format_metadata = models.JSONField(default=dict, blank=True)
     # Store system context, progress, etc.
     workspace_data = models.JSONField(default=dict, blank=True)
 

@@ -25,6 +25,7 @@ export interface ComponentInstanceThreat {
   justification: string
   isDismissed: boolean
   dismissalReason: string
+  formatMetadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
 }
@@ -54,12 +55,14 @@ export interface ComponentInstanceCountermeasure {
   countermeasureLibrary: number
   countermeasureName: string
   status: BackendCountermeasureStatus
+  priority: string
   verifiedBy: number | null
   verifiedByEmail: string | null
   evidenceUrl: string
   requiredForRelease: boolean
   assignedOwner: number | null
   assignedOwnerEmail: string | null
+  formatMetadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
 }

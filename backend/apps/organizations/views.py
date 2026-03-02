@@ -682,6 +682,7 @@ class MagicLinkAccessView(APIView):
                     "status": threat.status,
                     "justification": threat.justification,
                     "is_dismissed": threat.is_dismissed,
+                    "format_metadata": threat.format_metadata,
                     "countermeasures": [
                         {
                             "id": cm.id,
@@ -696,9 +697,11 @@ class MagicLinkAccessView(APIView):
                                 cm.countermeasure_library.control_type if cm.countermeasure_library else None
                             ),
                             "status": cm.status,
+                            "priority": cm.priority,
                             "evidence_url": cm.evidence_url,
                             "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                             "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                            "format_metadata": cm.format_metadata,
                             "compliance_standards": [
                                 {
                                     "id": std.id,
@@ -763,6 +766,7 @@ class MagicLinkAccessView(APIView):
                     "residual_severity": threat.residual_severity,
                     "status": threat.status,
                     "is_dismissed": threat.is_dismissed,
+                    "format_metadata": threat.format_metadata,
                     "countermeasures": [
                         {
                             "id": cm.id,
@@ -777,9 +781,11 @@ class MagicLinkAccessView(APIView):
                                 cm.countermeasure_library.control_type if cm.countermeasure_library else None
                             ),
                             "status": cm.status,
+                            "priority": cm.priority,
                             "evidence_url": cm.evidence_url,
                             "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                             "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                            "format_metadata": cm.format_metadata,
                             "compliance_standards": [
                                 {
                                     "id": std.id,

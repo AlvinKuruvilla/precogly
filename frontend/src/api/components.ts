@@ -20,13 +20,18 @@ export interface ComponentLibraryItem {
 export interface OrgsystemComponent {
   id: number
   name: string
+  description: string
   category: string
+  actorType: string
+  dataStoreType: string
   orgsystem: number | null
   componentLibrary: number | null
   componentLibraryName: string | null
   trustZone: number | null
   sourceIntegration: number | null
   threatModel: number | null
+  parentComponent: number | null
+  formatMetadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
 }

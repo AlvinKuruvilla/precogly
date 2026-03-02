@@ -1,7 +1,7 @@
 # Format Interoperability (TM-Library, TM-BOM, OTM)
 
 **Date:** 2026-02-27
-**Status:** Proposed
+**Status:** Completed (schema only — adapters, API endpoints, and UI are not yet implemented)
 
 ---
 
@@ -23,16 +23,19 @@ The threat modeling industry has multiple emerging formats — OWASP TM-Library,
 
 Add `format_metadata = JSONField(default=dict, blank=True)` to models that carry format-specific data:
 
-| Model | What Goes in format_metadata |
-|---|---|
-| ThreatModel | scope (exposure, tier), release metadata (frozen, released_at, reviewed_at, repo_link), assumptions |
-| ComponentInstanceThreat | threat personas, event, sources, CAPEC refs, CWE refs |
-| DataFlowInstanceThreat | Same as above |
-| ComponentInstanceCountermeasure | control priority, control status (TM-Library uses different enums) |
-| FlowInstanceCountermeasure | Same as above |
-| Risk | TM-Library mitigation_plan data |
-| DataFlow | has_sensitive_data flag |
-| TrustZone (new) | TM-Library trust boundary auth details (access_control_methods, auth_methods, token TTL) |
+| Model | What Goes in format_metadata | Status |
+|---|---|---|
+| ThreatModel | scope (exposure, tier), release metadata (frozen, released_at, reviewed_at, repo_link), assumptions | Needs adding |
+| OrgsystemComponent | permissions, repo_link | Needs adding |
+| ComponentInstanceThreat | threat personas, event, sources, CAPEC refs, CWE refs | Needs adding |
+| DataFlowInstanceThreat | Same as above | Needs adding |
+| ComponentInstanceCountermeasure | control priority, control status (TM-Library uses different enums) | Needs adding |
+| FlowInstanceCountermeasure | Same as above | Needs adding |
+| DataAsset | record_count, placements, access_control_methods | Needs adding |
+| DataFlow | ~~has_sensitive_data~~ (moved to core column, see FIELD-ADDITIONS.md) | Needs adding |
+| TrustZone | TM-Library trust boundary auth details (access_control_methods, auth_methods, token TTL) | Needs adding |
+| Risk | TM-Library mitigation_plan data | Already exists |
+| TrustBoundary | auth details, token TTL | Already exists |
 
 Namespaced by format:
 
@@ -74,16 +77,16 @@ Using TM-Library as the example:
 | TM-Library Entity | Maps To (Core) | Stored in Metadata |
 |---|---|---|
 | scope | ThreatModel fields | exposure, tier, data_sensitivity |
-| trust_zones | TrustZone (new model) | — |
-| trust_boundaries | TrustBoundary (updated model) | auth details, token TTL |
+| trust_zones | TrustZone | — |
+| trust_boundaries | TrustBoundary | auth details, token TTL |
 | actors | OrgsystemComponent (HUMAN_ACTOR / SYSTEM_ACTOR) | actor type, permissions |
 | components | OrgsystemComponent | repo_link |
 | data_stores | OrgsystemComponent (DATASTORE) | vendor, product, data_store_type |
 | data_sets | DataAsset + ComponentDataAsset | record_count, placements |
-| data_flows | DataFlow | has_sensitive_data |
+| data_flows | DataFlow (has_sensitive_data is a core column) | — |
 | threats | ComponentInstanceThreat | persona, event, sources, CAPEC, CWE |
 | controls | ComponentInstanceCountermeasure | priority, trust_boundary ref |
-| risks | Risk (new) | — |
+| risks | Risk | — |
 | mitigation_plans | Derived from Risk → RiskThreat → countermeasures | — |
 | assumptions | — | ThreatModel.format_metadata |
 | threat_personas | — | Referenced by threat instances in their format_metadata |
@@ -93,14 +96,14 @@ Using TM-Library as the example:
 
 ## Dependencies
 
-- RISK-TABLES.md — Risk model needed for risk/mitigation_plan mapping
-- TRUST-ZONES-AND-BOUNDARIES.md — Trust zone/boundary split needed for trust_zones/trust_boundaries mapping
+- ~~RISK-TABLES.md~~ — Completed. Risk + RiskThreat models exist, Risk already has `format_metadata`.
+- ~~TRUST-ZONES-AND-BOUNDARIES.md~~ — Completed. TrustZone + TrustBoundary models exist, TrustBoundary already has `format_metadata`.
 
 ---
 
 ## Impact
 
-- Add `format_metadata` JSONField to ~8 existing models (1 migration)
+- Add `format_metadata` JSONField to ~9 models (Risk and TrustBoundary already have it; ~7 need adding), 1 migration
 - New `adapters/` module with per-format import/export logic
 - New API endpoints for import/export per format
 - Frontend: import/export UI on threat model detail page

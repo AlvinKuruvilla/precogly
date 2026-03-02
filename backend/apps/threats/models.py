@@ -330,6 +330,8 @@ class ComponentInstanceThreat(TimestampedModel):
         help_text="Reason for dismissing the threat",
     )
 
+    format_metadata = models.JSONField(default=dict, blank=True)
+
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     threat_name = models.CharField(
         max_length=255,
@@ -398,6 +400,8 @@ class DataFlowInstanceThreat(TimestampedModel):
         default="",
         help_text="Reason for dismissing the threat",
     )
+
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     threat_name = models.CharField(
@@ -478,6 +482,8 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
+    priority = models.CharField(max_length=10, default="none", blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         unique_together = ["instance_threat", "countermeasure_library"]
@@ -547,6 +553,8 @@ class FlowInstanceCountermeasure(TimestampedModel):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
+    priority = models.CharField(max_length=10, default="none", blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         unique_together = ["flow_threat", "countermeasure_library"]

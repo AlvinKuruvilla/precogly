@@ -91,6 +91,7 @@ class TrustZone(TimestampedModel):
     name = models.CharField(max_length=255)
     trust_level = models.IntegerField(default=50, help_text="0-100 scale")
     description = models.TextField(blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
     parent = models.ForeignKey(
         "self",
         on_delete=models.CASCADE,
@@ -270,6 +271,18 @@ class OrgsystemComponent(TimestampedModel):
         help_text="For analysis-only components not linked to a DFD. Null means linked via DFD sync.",
     )
 
+    description = models.TextField(blank=True, default="")
+    actor_type = models.CharField(max_length=20, blank=True, default="")
+    data_store_type = models.CharField(max_length=20, blank=True, default="")
+    parent_component = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    format_metadata = models.JSONField(default=dict, blank=True)
+
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     category = models.CharField(
         max_length=20,
@@ -302,7 +315,15 @@ class DataAsset(TimestampedModel):
         MEDIUM = "medium", "Medium"
         HIGH = "high", "High"
 
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="data_assets",
+    )
     name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
     classification = models.CharField(max_length=100)
     confidentiality = models.CharField(
         max_length=10,
@@ -320,6 +341,8 @@ class DataAsset(TimestampedModel):
         default=Sensitivity.MEDIUM,
     )
     compliance_tags = models.JSONField(default=list, blank=True)
+    data_sensitivity = models.JSONField(default=list, blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -351,6 +374,7 @@ class ComponentDataAsset(TimestampedModel):
         default=DataState.PROCESSED,
     )
     volume = models.CharField(max_length=100, blank=True)
+    encrypted = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ["component", "data_asset"]
@@ -383,11 +407,14 @@ class DataFlow(TimestampedModel):
         db_index=True,
         help_text="DFD edge ID this flow was created from",
     )
+    description = models.TextField(blank=True, default="")
     protocol = models.CharField(max_length=50, blank=True)
     port = models.IntegerField(null=True, blank=True)
     encrypted = models.BooleanField(default=False)
     authenticated = models.BooleanField(default=False)
     crosses_trust_zone = models.BooleanField(default=False)
+    has_sensitive_data = models.BooleanField(default=False)
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["source_component", "dest_component"]

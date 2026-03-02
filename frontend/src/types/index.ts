@@ -61,6 +61,7 @@ export interface ThreatModel {
   referencedModelIds?: string[]
   riskScoringMethod?: ScoringMethodKey
   referenceImages?: ReferenceImage[]
+  formatMetadata?: Record<string, unknown>
   createdAt?: string
   updatedAt?: string
   createdBy?: string

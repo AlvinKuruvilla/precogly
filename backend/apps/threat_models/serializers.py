@@ -78,6 +78,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "previous_version",
             "modeling_mode",
             "workspace_data",
+            "format_metadata",
             "dfds",
             "frameworks",
             "system_ids",
