@@ -25,15 +25,16 @@ Add `format_metadata = JSONField(default=dict, blank=True)` to models that carry
 
 | Model | What Goes in format_metadata | Status |
 |---|---|---|
-| ThreatModel | scope (exposure, tier), release metadata (frozen, released_at, reviewed_at, repo_link), assumptions | Needs adding |
-| OrgsystemComponent | permissions, repo_link | Needs adding |
-| ComponentInstanceThreat | threat personas, event, sources, CAPEC refs, CWE refs | Needs adding |
-| DataFlowInstanceThreat | Same as above | Needs adding |
-| ComponentInstanceCountermeasure | control priority, control status (TM-Library uses different enums) | Needs adding |
-| FlowInstanceCountermeasure | Same as above | Needs adding |
-| DataAsset | record_count, placements, access_control_methods | Needs adding |
-| DataFlow | ~~has_sensitive_data~~ (moved to core column, see FIELD-ADDITIONS.md) | Needs adding |
-| TrustZone | TM-Library trust boundary auth details (access_control_methods, auth_methods, token TTL) | Needs adding |
+| ThreatModel | scope (exposure, tier), release metadata (frozen, released_at, reviewed_at, repo_link), assumptions | Added |
+| Orgsystem | system-level format-specific properties (exposure, tier if per-system) | Needs adding (see SYSTEM-SCOPE-BACKEND-MODEL.md) |
+| OrgsystemComponent | permissions, repo_link | Added |
+| ComponentInstanceThreat | threat personas, event, sources, CAPEC refs, CWE refs | Added |
+| DataFlowInstanceThreat | Same as above | Added |
+| ComponentInstanceCountermeasure | ~~control priority~~ (promoted to core column `priority`, see FIELD-ADDITIONS.md), control status (TM-Library uses different enums). **Note:** Backend `Status` choices need `platform` added — see FIELD-ADDITIONS.md. | Added |
+| FlowInstanceCountermeasure | Same as above | Added |
+| DataAsset | record_count, placements, access_control_methods | Added |
+| DataFlow | ~~has_sensitive_data~~ (promoted to core column, see FIELD-ADDITIONS.md) | Added |
+| TrustZone | TM-Library trust boundary auth details (access_control_methods, auth_methods, token TTL) | Added |
 | Risk | TM-Library mitigation_plan data | Already exists |
 | TrustBoundary | auth details, token TTL | Already exists |
 
@@ -68,7 +69,7 @@ Each adapter:
 - Validates input against the format's schema
 - Maps core fields to/from our models
 - Stashes/retrieves format-specific fields in `format_metadata`
-- Handles enum translation (e.g., TM-Library control status → our countermeasure status)
+- Handles enum translation (e.g., TM-Library control status → our countermeasure status: gap, planned, verified, waived, platform)
 
 ### What Adapters Map To Core vs. Metadata
 
@@ -76,16 +77,16 @@ Using TM-Library as the example:
 
 | TM-Library Entity | Maps To (Core) | Stored in Metadata |
 |---|---|---|
-| scope | ThreatModel fields | exposure, tier, data_sensitivity |
+| scope | ThreatModel fields | exposure, tier, data_sensitivity (scope-level; distinct from per-asset `DataAsset.data_sensitivity` which is a core column) |
 | trust_zones | TrustZone | — |
 | trust_boundaries | TrustBoundary | auth details, token TTL |
-| actors | OrgsystemComponent (HUMAN_ACTOR / SYSTEM_ACTOR) | actor type, permissions |
+| actors | OrgsystemComponent (HUMAN_ACTOR / SYSTEM_ACTOR) | ~~actor type~~ (core column `actor_type`, free text), permissions |
 | components | OrgsystemComponent | repo_link |
-| data_stores | OrgsystemComponent (DATASTORE) | vendor, product, data_store_type |
+| data_stores | OrgsystemComponent (DATASTORE) | vendor, product (~~data_store_type~~ promoted to core column, see FIELD-ADDITIONS.md) |
 | data_sets | DataAsset + ComponentDataAsset | record_count, placements |
 | data_flows | DataFlow (has_sensitive_data is a core column) | — |
 | threats | ComponentInstanceThreat | persona, event, sources, CAPEC, CWE |
-| controls | ComponentInstanceCountermeasure | priority, trust_boundary ref |
+| controls | ComponentInstanceCountermeasure | ~~priority~~ (promoted to core column), trust_boundary ref |
 | risks | Risk | — |
 | mitigation_plans | Derived from Risk → RiskThreat → countermeasures | — |
 | assumptions | — | ThreatModel.format_metadata |
@@ -103,7 +104,7 @@ Using TM-Library as the example:
 
 ## Impact
 
-- Add `format_metadata` JSONField to ~9 models (Risk and TrustBoundary already have it; ~7 need adding), 1 migration
+- ~~Add `format_metadata` JSONField to ~9 models~~ Done — added to ThreatModel, OrgsystemComponent, ComponentInstanceThreat, DataFlowInstanceThreat, ComponentInstanceCountermeasure, FlowInstanceCountermeasure, DataAsset, DataFlow, TrustZone (Risk and TrustBoundary already had it). Orgsystem still needs it (see SYSTEM-SCOPE-BACKEND-MODEL.md).
 - New `adapters/` module with per-format import/export logic
 - New API endpoints for import/export per format
 - Frontend: import/export UI on threat model detail page

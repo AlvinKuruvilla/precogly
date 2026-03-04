@@ -1,7 +1,7 @@
 # Field Additions
 
 **Date:** 2026-02-28
-**Status:** Completed (schema + API only — frontend CRUD UI not yet implemented)
+**Status:** Completed (schema + API only — frontend CRUD UI deferred)
 
 ---
 
@@ -19,12 +19,12 @@ Several models are missing fields that are useful for threat modeling workflows 
 
 ```
 description        TextField (blank)
-actor_type         CharField (blank) — system, user, power_user, administrator, engineer, third_party
+actor_type         CharField (blank, free text) — no enum constraint; suggested values vary by category
 data_store_type    CharField (blank) — sql, key_value, document, object, graph, time_series
 parent_component   FK → self (nullable) — component hierarchy
 ```
 
-`actor_type` applies when `category` is human_actor/system_actor. `data_store_type` applies when `category` is datastore. Both are blank for other categories.
+`actor_type` applies when `category` is human_actor/system_actor. It is free text — no enum constraint at the DB level. The frontend provides context-appropriate suggested values via comboboxes (human actors: user, power_user, administrator, engineer, third_party, customer; system actors: api, legacy, partner, third_party, saas, other). `data_store_type` applies when `category` is datastore. Both are blank for other categories.
 
 **DataFlow:**
 
@@ -38,7 +38,7 @@ has_sensitive_data  BooleanField (default False)
 ```
 threat_model       FK → ThreatModel (nullable) — scopes asset to a threat model
 description        TextField (blank)
-data_sensitivity   ArrayField of CharField — pii, phi, fin, ip, cred, biz, gov, pci, op
+data_sensitivity   JSONField (list of strings) — pii, phi, fin, ip, cred, biz, gov, pci, op
 ```
 
 `data_sensitivity` is complementary to the existing CIA triad fields. CIA rates *how* sensitive along three dimensions; `data_sensitivity` classifies *what type* of sensitive data.
@@ -73,9 +73,30 @@ priority           CharField (default "none") — none, low, medium, high, criti
 
 ---
 
+---
+
+## Countermeasure Status Enum — Backend Update Required
+
+The backend countermeasure `Status` choices are currently: `gap`, `planned`, `verified`, `waived`. A fifth value is needed:
+
+```
+PLATFORM = "platform", "Platform"
+```
+
+`verified` and `platform` are distinct:
+- **verified** — the developer implemented a fix and the security team confirmed it works.
+- **platform** — the infra/platform team provides a paved road (e.g., "use these S3 buckets in this VPC"); as long as the dev team adheres to it, the countermeasure is satisfied.
+
+Add `PLATFORM` to `ComponentInstanceCountermeasure.Status` and `FlowInstanceCountermeasure.Status`. Requires a migration.
+
+The frontend `CountermeasureStatus` type must also add `'verified'` (currently missing). See FIELD-ADDITIONS-FRONTEND.md.
+
+---
+
 ## Impact
 
-- 12 new columns across 6 existing models, 1 migration
+- 12 new columns across 6 existing models, 1 migration (done)
+- 1 additional migration for `platform` status on countermeasures (pending)
 - All new fields are optional/nullable — no breaking changes to existing API consumers
 - Frontend types updated to include new optional fields
 - djangorestframework-camel-case handles conversion automatically

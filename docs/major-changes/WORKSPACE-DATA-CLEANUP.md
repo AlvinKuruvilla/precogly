@@ -47,20 +47,13 @@ scope_locked      BooleanField (default False)
 scope_locked_at   DateTimeField (nullable)
 ```
 
-### Step 3: New model — ScopeAsset
+### Step 3: Migrate workspace assets to DataAsset
 
-Replace `workspace_data.systemContext.assets[]` with a proper model:
+Replace `workspace_data.systemContext.assets[]` with the existing `DataAsset` model (see decision in FIELD-ADDITIONS-FRONTEND.md). `DataAsset` already has `name`, `description`, `classification`, plus richer fields (`data_sensitivity`, `compliance_tags`, component associations via `ComponentDataAsset`). No new model needed — refactor `AssetsModal` to CRUD `DataAsset` records directly.
 
-```
-ScopeAsset
-  - threat_model (FK → ThreatModel, CASCADE)
-  - name (CharField)
-  - description (TextField)
-  - classification (CharField: pii / phi / financial / credentials /
-                    intellectual_property / business_critical / public / other)
-```
+API: existing `/data-assets/` endpoints, filtered by `threat_model`.
 
-API: `GET/POST /api/threat-models/{id}/scope-assets/`, `PATCH/DELETE /api/scope-assets/{id}/`
+**Prerequisite:** `ComponentDataAsset` (the join table linking components to data assets, with `encrypted` toggle) currently has no serializer or API endpoint. These must be created before asset unification can expose component-asset associations and the encrypted toggle in the UI. See FIELD-ADDITIONS-FRONTEND.md for the UI placement decision.
 
 ### Step 4: New model — OutOfScopeItem
 
@@ -89,7 +82,9 @@ workspace_data = {
 
 Everything else is in proper DB columns/models.
 
-**Bonus:** The `assets_defined` checklist item changes from `autoComputed: false` (manual checkbox) to `autoComputed: true` — computed as `ScopeAsset.objects.filter(threat_model=tm).exists()`. All checklist items become auto-computed.
+**Bonus:** The `assets_defined` checklist item changes from `autoComputed: false` (manual checkbox) to `autoComputed: true` — computed as `DataAsset.objects.filter(threat_model=tm).exists()`. All checklist items become auto-computed.
+
+**Decision: Auto-compute location.** The backend ThreatModel serializer injects auto-computed checklist values into `workspace_data.progressChecklist` before returning the response. The frontend treats auto-computed items as read-only — it never writes their `checked` value back. This keeps the source of truth server-side and avoids extra network calls.
 
 ---
 
@@ -99,9 +94,15 @@ Everything else is in proper DB columns/models.
 |---|---|
 | `useWorkspaceThreatAnalysis` | Simplify — only manages `progressChecklist` via workspace_data. Everything else reads from ThreatModel fields and related models. |
 | `SystemContextModal` | Calls ThreatModel PATCH for `scope_locked` instead of writing to workspace_data |
-| `AssetsModal` | Calls `/scope-assets/` CRUD endpoints instead of updating a JSON array |
+| `AssetsModal` | Calls `/data-assets/` CRUD endpoints instead of updating a JSON array (see FIELD-ADDITIONS-FRONTEND.md) |
 | `OutOfScopeModal` | Calls `/out-of-scope-items/` CRUD endpoints instead of updating a JSON array |
-| Backend serializer | Default `workspace_data` simplified to `{ "progress_checklist": [] }` only |
+| Backend serializer | Default `workspace_data` simplified to `{ "progressChecklist": [] }` only |
+
+### Fix Required: WorkspaceStatus Alignment
+
+The frontend `WorkspaceStatus` type (`'draft' | 'in_review' | 'approved' | 'archived'`) does not match the backend `ThreatModel.Status` choices (`draft`, `in_progress`, `pending_review`, `approved`, `archived` — which become `draft`, `inProgress`, `pendingReview`, `approved`, `archived` after camelCase conversion).
+
+Since Step 1 removes the redundant `status` from workspace_data and reads it from `ThreatModel.status` directly, the frontend type must match. **Fix:** Change `WorkspaceStatus` to `'draft' | 'inProgress' | 'pendingReview' | 'approved' | 'archived'` and update `WORKSPACE_STATUS_CONFIG` accordingly.
 
 **Save semantics change:** Currently everything batches into a single debounced PATCH to `workspace_data`. After this, scope operations become individual API calls. Use TanStack Query's `useMutation` with optimistic updates — actually more reliable than the debounced batch, which can lose data if the user navigates away during the debounce window.
 
@@ -109,7 +110,9 @@ Everything else is in proper DB columns/models.
 
 ## Impact
 
-- 2 new tables, 2 new columns on ThreatModel, 1 migration
+- 1 new table (OutOfScopeItem), 2 new columns on ThreatModel, 1 migration
+- 1 new serializer + endpoint for ComponentDataAsset (prerequisite for Step 3)
 - No changes to existing models (workspace_data field stays, just gets smaller)
+- Backend serializer updated to inject auto-computed checklist values
 - Frontend refactor of ~4 components
 - Since all data is test data, no migration of existing workspace_data content needed — clean cut
