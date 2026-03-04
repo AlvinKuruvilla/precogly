@@ -40,6 +40,8 @@ class Orgsystem(TimestampedModel):
         choices=LifecycleState.choices,
         default=LifecycleState.DEVELOPMENT,
     )
+    description = models.TextField(blank=True, default="")
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -274,6 +276,7 @@ class OrgsystemComponent(TimestampedModel):
     description = models.TextField(blank=True, default="")
     actor_type = models.CharField(max_length=20, blank=True, default="")
     data_store_type = models.CharField(max_length=20, blank=True, default="")
+    data_sensitivity_level = models.CharField(max_length=20, blank=True, default="")
     parent_component = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -350,6 +353,18 @@ class DataAsset(TimestampedModel):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if self.data_sensitivity:
+            seen = set()
+            normalized = []
+            for tag in self.data_sensitivity:
+                t = str(tag).strip().lower()
+                if t and t not in seen:
+                    seen.add(t)
+                    normalized.append(t)
+            self.data_sensitivity = normalized
+        super().save(*args, **kwargs)
+
 
 class ComponentDataAsset(TimestampedModel):
     """Association between component and data asset."""
@@ -414,6 +429,7 @@ class DataFlow(TimestampedModel):
     authenticated = models.BooleanField(default=False)
     crosses_trust_zone = models.BooleanField(default=False)
     has_sensitive_data = models.BooleanField(default=False)
+    data_classification = models.JSONField(default=list, blank=True)
     format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -423,6 +439,18 @@ class DataFlow(TimestampedModel):
         if self.label:
             return self.label
         return f"{self.source_component} -> {self.dest_component}"
+
+    def save(self, *args, **kwargs):
+        if self.data_classification:
+            seen = set()
+            normalized = []
+            for tag in self.data_classification:
+                t = str(tag).strip().lower()
+                if t and t not in seen:
+                    seen.add(t)
+                    normalized.append(t)
+            self.data_classification = normalized
+        super().save(*args, **kwargs)
 
 
 class DataFlowAsset(TimestampedModel):

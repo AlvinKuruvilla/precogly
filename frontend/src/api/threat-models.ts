@@ -209,3 +209,52 @@ export function useUpdateComponentSystem() {
     },
   })
 }
+
+// System/Model wiring mutations
+export function useAddThreatModelSystem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, systemId }: { threatModelId: string; systemId: number }) =>
+      api.post(`/threat-models/${threatModelId}/add_system/`, { systemId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+    },
+  })
+}
+
+export function useRemoveThreatModelSystem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, systemId }: { threatModelId: string; systemId: number }) =>
+      api.post(`/threat-models/${threatModelId}/remove_system/`, { systemId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+    },
+  })
+}
+
+export function useAddReferencedModel() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, targetModelId }: { threatModelId: string; targetModelId: number }) =>
+      api.post(`/threat-models/${threatModelId}/add_referenced_model/`, { targetModelId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+    },
+  })
+}
+
+export function useRemoveReferencedModel() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, targetModelId }: { threatModelId: string; targetModelId: number }) =>
+      api.post(`/threat-models/${threatModelId}/remove_referenced_model/`, { targetModelId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+    },
+  })
+}

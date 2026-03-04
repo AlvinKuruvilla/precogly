@@ -14,6 +14,7 @@ from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
 from apps.threats.serializers import ComponentInstanceThreatSerializer
 
 from .models import (
+    ComponentDataAsset,
     ComponentLibrary,
     DataAsset,
     DataFlow,
@@ -24,6 +25,7 @@ from .models import (
     TrustZone,
 )
 from .serializers import (
+    ComponentDataAssetSerializer,
     ComponentLibrarySerializer,
     DataAssetSerializer,
     DataFlowSerializer,
@@ -228,7 +230,7 @@ class DataAssetViewSet(viewsets.ModelViewSet):
     serializer_class = DataAssetSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["classification", "confidentiality"]
+    filterset_fields = ["classification", "confidentiality", "threat_model"]
     search_fields = ["name"]
 
 
@@ -265,3 +267,21 @@ class IntegrationSourceViewSet(viewsets.ModelViewSet):
         return IntegrationSource.objects.filter(
             orgsystem__organization_id__in=org_ids
         ).select_related("orgsystem")
+
+
+class ComponentDataAssetViewSet(viewsets.ModelViewSet):
+    """ViewSet for ComponentDataAsset CRUD operations."""
+
+    serializer_class = ComponentDataAssetSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["component", "data_asset"]
+
+    def get_queryset(self):
+        """Filter by user's organizations."""
+        user = self.request.user
+        org_ids = user.organization_memberships.values_list("organization_id", flat=True)
+        return ComponentDataAsset.objects.filter(
+            Q(component__orgsystem__organization_id__in=org_ids)
+            | Q(component__orgsystem__isnull=True)
+        ).select_related("component", "data_asset")

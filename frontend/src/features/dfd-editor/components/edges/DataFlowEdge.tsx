@@ -8,6 +8,7 @@ import {
 } from '@xyflow/react'
 import { Lock, Unlock, ShieldCheck, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DATA_SENSITIVITY_TAG_CONFIG, type DataSensitivityTag } from '@/types/domain'
 import type { DataFlowEdgeData } from '../../types'
 import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
 
@@ -92,7 +93,7 @@ export const DataFlowEdge = memo(function DataFlowEdge({
                   className="px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-700 border border-purple-200 whitespace-nowrap flex items-center gap-0.5"
                 >
                   <span>🏷️</span>
-                  {classification}
+                  {DATA_SENSITIVITY_TAG_CONFIG[classification as DataSensitivityTag]?.label || classification}
                 </div>
               ))}
             </div>

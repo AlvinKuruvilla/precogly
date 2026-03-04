@@ -388,7 +388,11 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     ]
 
     def perform_update(self, serializer):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("[DEBUG priority] ComponentInstanceCountermeasure perform_update - validated_data: %s", serializer.validated_data)
         instance = serializer.save()
+        logger.info("[DEBUG priority] ComponentInstanceCountermeasure saved - id: %s, priority: %s", instance.id, instance.priority)
         recalculate_risks_for_threat(instance.instance_threat, threat_type="component")
 
 
@@ -412,7 +416,11 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     ]
 
     def perform_update(self, serializer):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("[DEBUG priority] FlowInstanceCountermeasure perform_update - validated_data: %s", serializer.validated_data)
         instance = serializer.save()
+        logger.info("[DEBUG priority] FlowInstanceCountermeasure saved - id: %s, priority: %s", instance.id, instance.priority)
         recalculate_risks_for_threat(instance.flow_threat, threat_type="flow")
 
 

@@ -2,19 +2,23 @@ import { Package, ShieldX, FileText, Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import type { SystemContext } from '@/features/dfd-editor/types/threat-analysis'
 import { ASSET_CLASSIFICATION_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
+import type { AssetClassification } from '@/features/dfd-editor/types/threat-analysis'
+import { useThreatModel } from '@/api/threat-models'
+import { useDataAssets } from '@/api/data-assets'
+import { useOutOfScopeItems } from '@/api/out-of-scope-items'
 
 interface SystemContextCardProps {
-  systemContext: SystemContext
+  threatModelId: string
   onEdit: () => void
 }
 
-export function SystemContextCard({ systemContext, onEdit }: SystemContextCardProps) {
-  const assets = systemContext.assets || []
-  const outOfScopeItems = systemContext.outOfScopeItems || []
-  const description = systemContext.description || ''
+export function SystemContextCard({ threatModelId, onEdit }: SystemContextCardProps) {
+  const { data: threatModel } = useThreatModel(threatModelId)
+  const { data: assets = [] } = useDataAssets(threatModelId)
+  const { data: outOfScopeItems = [] } = useOutOfScopeItems(threatModelId)
 
+  const description = threatModel?.description || ''
   const hasContent = assets.length > 0 || outOfScopeItems.length > 0 || description.length > 0
 
   return (
@@ -61,7 +65,7 @@ export function SystemContextCard({ systemContext, onEdit }: SystemContextCardPr
                     >
                       {asset.name}
                       <span className="ml-1 text-muted-foreground">
-                        ({ASSET_CLASSIFICATION_CONFIG[asset.classification]?.label.split(' ')[0] || asset.classification})
+                        ({ASSET_CLASSIFICATION_CONFIG[asset.classification as AssetClassification]?.label.split(' ')[0] || asset.classification})
                       </span>
                     </Badge>
                   ))}

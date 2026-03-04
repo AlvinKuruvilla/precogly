@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Pencil, X, Check } from 'lucide-react'
+import { Plus, Trash2, Pencil, X, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,25 +12,32 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import type { SystemContextOutOfScopeItem } from '@/features/dfd-editor/types/threat-analysis'
+import {
+  useOutOfScopeItems,
+  useCreateOutOfScopeItem,
+  useUpdateOutOfScopeItem,
+  useDeleteOutOfScopeItem,
+} from '@/api/out-of-scope-items'
 
 interface OutOfScopeModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  items: SystemContextOutOfScopeItem[]
-  onSave: (items: SystemContextOutOfScopeItem[]) => void
+  threatModelId: string
   disabled?: boolean
 }
 
 export function OutOfScopeModal({
   open,
   onOpenChange,
-  items,
-  onSave,
+  threatModelId,
   disabled,
 }: OutOfScopeModalProps) {
-  const [localItems, setLocalItems] = useState<SystemContextOutOfScopeItem[]>(items)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const { data: items = [], isLoading } = useOutOfScopeItems(threatModelId)
+  const createItemMutation = useCreateOutOfScopeItem()
+  const updateItemMutation = useUpdateOutOfScopeItem()
+  const deleteItemMutation = useDeleteOutOfScopeItem()
+
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
 
   // Form state for add/edit
@@ -49,7 +56,7 @@ export function OutOfScopeModal({
     setIsAdding(true)
   }
 
-  const handleStartEdit = (item: SystemContextOutOfScopeItem) => {
+  const handleStartEdit = (item: { id: number; name: string; reason: string }) => {
     setFormName(item.name)
     setFormReason(item.reason)
     setEditingId(item.id)
@@ -60,43 +67,39 @@ export function OutOfScopeModal({
     if (!formName.trim()) return
 
     if (editingId) {
-      // Update existing
-      setLocalItems((prev) =>
-        prev.map((item) =>
-          item.id === editingId
-            ? { ...item, name: formName.trim(), reason: formReason.trim() }
-            : item
-        )
+      updateItemMutation.mutate(
+        {
+          threatModelId,
+          id: editingId,
+          data: {
+            name: formName.trim(),
+            reason: formReason.trim(),
+          },
+        },
+        { onSuccess: () => resetForm() }
       )
     } else {
-      // Add new
-      const newItem: SystemContextOutOfScopeItem = {
-        id: crypto.randomUUID(),
-        name: formName.trim(),
-        reason: formReason.trim(),
-      }
-      setLocalItems((prev) => [...prev, newItem])
+      createItemMutation.mutate(
+        {
+          threatModelId,
+          data: {
+            name: formName.trim(),
+            reason: formReason.trim(),
+          },
+        },
+        { onSuccess: () => resetForm() }
+      )
     }
-    resetForm()
   }
 
-  const handleDelete = (id: string) => {
-    setLocalItems((prev) => prev.filter((item) => item.id !== id))
+  const handleDelete = (id: number) => {
+    deleteItemMutation.mutate({ threatModelId, id })
     if (editingId === id) {
       resetForm()
     }
   }
 
-  const handleSaveAll = () => {
-    onSave(localItems)
-    onOpenChange(false)
-  }
-
-  const handleCancel = () => {
-    setLocalItems(items) // Reset to original
-    resetForm()
-    onOpenChange(false)
-  }
+  const isSaving = createItemMutation.isPending || updateItemMutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,8 +115,12 @@ export function OutOfScopeModal({
           {/* Items list */}
           <ScrollArea className="h-[250px] border rounded-md">
             <div className="p-2 space-y-1">
-              {localItems.length > 0 ? (
-                localItems.map((item) => (
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              ) : items.length > 0 ? (
+                items.map((item) => (
                   <div
                     key={item.id}
                     className={cn(
@@ -198,10 +205,14 @@ export function OutOfScopeModal({
                 <Button
                   size="sm"
                   onClick={handleSaveItem}
-                  disabled={!formName.trim()}
+                  disabled={!formName.trim() || isSaving}
                   className="gap-1"
                 >
-                  <Check className="h-3.5 w-3.5" />
+                  {isSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
                   {editingId ? 'Update' : 'Add'}
                 </Button>
               </div>
@@ -221,12 +232,9 @@ export function OutOfScopeModal({
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveAll}>
-              Save Items
+          <div className="flex justify-end pt-2 border-t">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
             </Button>
           </div>
         </div>

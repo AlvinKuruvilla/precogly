@@ -52,14 +52,15 @@ export interface ProcessNodeData extends BaseNodeData {
 export interface DataStoreNodeData extends BaseNodeData {
   technology?: string
   dataSensitivity?: DataSensitivity
+  dataStoreType?: string
 }
 
 export interface HumanActorNodeData extends BaseNodeData {
-  actorType?: 'user' | 'admin' | 'attacker' | 'customer'
+  actorType?: string
 }
 
 export interface SystemActorNodeData extends BaseNodeData {
-  systemType?: 'api' | 'legacy' | 'partner' | 'thirdParty' | 'other'
+  systemType?: string
   vendor?: string
 }
 
@@ -76,7 +77,8 @@ export interface TrustZoneNodeData extends BaseNodeData {
 
 export interface SystemScopeNodeData extends BaseNodeData {
   owner?: string
-  classification?: string
+  technology?: string
+  orgsystemId?: number
 }
 
 // Union type for all node data
@@ -91,10 +93,12 @@ export type DiagramNodeData =
 // Edge Data
 export interface DataFlowEdgeData {
   label?: string
+  description?: string
   protocol?: Protocol
   dataClassification?: DataClassification[]
   encrypted?: boolean
   authenticated?: boolean
+  hasSensitiveData?: boolean
   isNewlyInserted?: boolean
   // Trust zone crossing
   crossesZoneId?: string           // ID of the zone this flow crosses

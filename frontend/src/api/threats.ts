@@ -603,6 +603,7 @@ export interface BackendCountermeasure {
   countermeasureName: string | null
   controlType: string | null
   status: BackendCountermeasureStatus
+  priority: string
   evidenceUrl: string
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
@@ -640,6 +641,7 @@ export function transformBackendThreatsToComponentThreats(
       countermeasureId: `lib-${cm.countermeasureLibraryId}`,
       componentThreatId,
       status: transformCountermeasureStatus(cm.status),
+      priority: cm.priority || 'none',
       owner: cm.assignedOwnerEmail || undefined,
       notes: cm.evidenceUrl || undefined,
       createdAt: now,

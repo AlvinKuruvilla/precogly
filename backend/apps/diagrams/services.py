@@ -7,6 +7,7 @@ from django.db import transaction
 from apps.systems.models import (
     ComponentLibrary,
     DataFlow,
+    Orgsystem,
     OrgsystemComponent,
     TrustBoundary,
     TrustZone,
@@ -88,6 +89,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         zone_result = _sync_nodes_to_trust_zones(dfd, nodes)
         node_zone_map = zone_result["node_zone_map"]
 
+        # Sync system scope nodes to Orgsystem records
+        system_result = _sync_nodes_to_orgsystems(dfd, nodes, threat_model)
+        node_system_map = system_result["node_system_map"]
+
         for node in analyzable_nodes:
             node_id = node.get("id")
             node_data = node.get("data", {})
@@ -144,6 +149,15 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                     component.name = label
                     component.component_library = component_library
                     component.category = category
+                    component.description = node_data.get("description", "")
+                    if node_type == "humanActor":
+                        component.actor_type = node_data.get("actor_type", "")
+                    elif node_type == "systemActor":
+                        component.actor_type = node_data.get("system_type", "")
+                    if node_type == "datastore":
+                        component.data_store_type = node_data.get("data_store_type", "")
+                    if node_type in ("process", "datastore"):
+                        component.data_sensitivity_level = node_data.get("data_sensitivity", "")
                     # NOTE: Don't overwrite orgsystem - preserve user's system assignment
                     component.save()
                     synced_count += 1
@@ -159,6 +173,14 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                         orgsystem=None,  # No automatic system assignment
                         component_library=component_library,
                         category=category,
+                        description=node_data.get("description", ""),
+                        actor_type=(
+                            node_data.get("actor_type", "") if node_type == "humanActor"
+                            else node_data.get("system_type", "") if node_type == "systemActor"
+                            else ""
+                        ),
+                        data_store_type=node_data.get("data_store_type", "") if node_type == "datastore" else "",
+                        data_sensitivity_level=node_data.get("data_sensitivity", "") if node_type in ("process", "datastore") else "",
                     )
                     created_count += 1
                     new_components.append(component)
@@ -170,6 +192,14 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                     orgsystem=None,  # No automatic system assignment
                     component_library=component_library,
                     category=category,
+                    description=node_data.get("description", ""),
+                    actor_type=(
+                        node_data.get("actor_type", "") if node_type == "humanActor"
+                        else node_data.get("system_type", "") if node_type == "systemActor"
+                        else ""
+                    ),
+                    data_store_type=node_data.get("data_store_type", "") if node_type == "datastore" else "",
+                    data_sensitivity_level=node_data.get("data_sensitivity", "") if node_type in ("process", "datastore") else "",
                 )
                 created_count += 1
                 new_components.append(component)
@@ -180,16 +210,37 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         # Update canvas_data with component_ids
         _update_canvas_with_component_ids(dfd, node_component_map)
 
-        # Assign components to their parent trust zones
+        # Assign components to their parent trust zones and system scopes
+        # Build a node lookup for walking parentId chains
+        node_lookup = {node.get("id"): node for node in nodes}
+
         for node in analyzable_nodes:
             node_id = node.get("id")
+            component_id = node_component_map.get(node_id)
+            if not component_id:
+                continue
+
             parent_id = node.get("parent_id")  # React Flow parentId → snake_case
+
+            # Trust zone assignment (direct parent)
             if parent_id and parent_id in node_zone_map:
-                component_id = node_component_map.get(node_id)
-                if component_id:
-                    OrgsystemComponent.objects.filter(id=component_id).update(
-                        trust_zone_id=node_zone_map[parent_id]
-                    )
+                OrgsystemComponent.objects.filter(id=component_id).update(
+                    trust_zone_id=node_zone_map[parent_id]
+                )
+
+            # System scope assignment (walk parentId chain to find systemScope ancestor)
+            system_id = None
+            walk_id = parent_id
+            while walk_id:
+                if walk_id in node_system_map:
+                    system_id = node_system_map[walk_id]
+                    break
+                parent_node = node_lookup.get(walk_id)
+                walk_id = parent_node.get("parent_id") if parent_node else None
+
+            OrgsystemComponent.objects.filter(id=component_id).update(
+                orgsystem_id=system_id
+            )
 
         # Auto-generate threats for new components
         for component in new_components:
@@ -405,6 +456,9 @@ def _sync_edges_to_dataflows(dfd, edges, node_component_map):
         protocol = edge_data.get("protocol", "")
         encrypted = edge_data.get("encrypted", False)
         authenticated = edge_data.get("authenticated", False)
+        description = edge_data.get("description", "")
+        has_sensitive_data = edge_data.get("has_sensitive_data", False)
+        data_classification = edge_data.get("data_classification", [])
 
         # Check if this edge already has a dataflow_id stored
         existing_dataflow_id = edge_data.get("dataflow_id")
@@ -417,6 +471,9 @@ def _sync_edges_to_dataflows(dfd, edges, node_component_map):
                 dataflow.protocol = protocol
                 dataflow.encrypted = encrypted
                 dataflow.authenticated = authenticated
+                dataflow.description = description
+                dataflow.has_sensitive_data = has_sensitive_data
+                dataflow.data_classification = data_classification
                 dataflow.source_component_id = source_component_id
                 dataflow.dest_component_id = target_component_id
                 dataflow.save()
@@ -431,6 +488,9 @@ def _sync_edges_to_dataflows(dfd, edges, node_component_map):
                     protocol=protocol,
                     encrypted=encrypted,
                     authenticated=authenticated,
+                    description=description,
+                    has_sensitive_data=has_sensitive_data,
+                    data_classification=data_classification,
                 )
                 created_count += 1
                 new_flows.append(dataflow)
@@ -444,6 +504,9 @@ def _sync_edges_to_dataflows(dfd, edges, node_component_map):
                 protocol=protocol,
                 encrypted=encrypted,
                 authenticated=authenticated,
+                description=description,
+                has_sensitive_data=has_sensitive_data,
+                data_classification=data_classification,
             )
             created_count += 1
             new_flows.append(dataflow)
@@ -712,6 +775,89 @@ def _update_canvas_with_trust_zone_ids(dfd, node_zone_map):
                 node["data"] = {}
             if node["data"].get("trust_zone_id") != node_zone_map[node_id]:
                 node["data"]["trust_zone_id"] = node_zone_map[node_id]
+                updated = True
+
+    if updated:
+        dfd.canvas_data = canvas_data
+        dfd.save(update_fields=["canvas_data"])
+
+
+def _sync_nodes_to_orgsystems(dfd, nodes, threat_model):
+    """Sync system scope canvas nodes to Orgsystem DB records."""
+    system_scope_nodes = [
+        node for node in nodes if node.get("type") == "systemScope"
+    ]
+
+    synced_count = 0
+    created_count = 0
+    node_system_map = {}  # canvas node_id -> Orgsystem DB id
+
+    # Derive organization from the threat model
+    organization = threat_model.organization if threat_model else None
+
+    for node in system_scope_nodes:
+        node_id = node.get("id")
+        node_data = node.get("data", {})
+
+        label = node_data.get("label", "Unnamed System")
+        owner = node_data.get("owner", "")
+        description = node_data.get("description", "")
+
+        existing_orgsystem_id = node_data.get("orgsystem_id")
+
+        if existing_orgsystem_id:
+            try:
+                orgsystem = Orgsystem.objects.get(id=existing_orgsystem_id)
+                orgsystem.name = label
+                orgsystem.owner = owner
+                orgsystem.description = description
+                orgsystem.save()
+                synced_count += 1
+            except Orgsystem.DoesNotExist:
+                orgsystem = Orgsystem.objects.create(
+                    name=label,
+                    owner=owner,
+                    description=description,
+                    organization=organization,
+                )
+                created_count += 1
+        else:
+            orgsystem = Orgsystem.objects.create(
+                name=label,
+                owner=owner,
+                description=description,
+                organization=organization,
+            )
+            created_count += 1
+            synced_count += 1
+
+        node_system_map[node_id] = orgsystem.id
+
+    _update_canvas_with_orgsystem_ids(dfd, node_system_map)
+
+    return {
+        "synced_count": synced_count,
+        "created_count": created_count,
+        "node_system_map": node_system_map,
+    }
+
+
+def _update_canvas_with_orgsystem_ids(dfd, node_system_map):
+    """Update DFD canvas_data with orgsystem_ids for synced system scope nodes."""
+    if not node_system_map:
+        return
+
+    canvas_data = dfd.canvas_data or {}
+    nodes = canvas_data.get("nodes", [])
+
+    updated = False
+    for node in nodes:
+        node_id = node.get("id")
+        if node_id in node_system_map:
+            if "data" not in node:
+                node["data"] = {}
+            if node["data"].get("orgsystem_id") != node_system_map[node_id]:
+                node["data"]["orgsystem_id"] = node_system_map[node_id]
                 updated = True
 
     if updated:

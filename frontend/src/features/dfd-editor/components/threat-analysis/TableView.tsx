@@ -68,7 +68,7 @@ export function TableView({
 
         const status = deriveThreatStatus(ct.countermeasures)
         const resolved = ct.countermeasures.filter(
-          (cm) => cm.status === 'platform' || cm.status === 'planned' || cm.status === 'waived'
+          (cm) => cm.status !== 'gap'
         ).length
         const gaps = ct.countermeasures.filter((cm) => cm.status === 'gap').length
 

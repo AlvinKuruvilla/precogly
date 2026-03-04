@@ -30,6 +30,7 @@ import { TableView } from './TableView'
 import type { CanvasData } from '../../types'
 import type {
   ComponentThreat,
+  ComponentThreatCountermeasure,
   CountermeasureStatus,
 } from '../../types/threat-analysis'
 // NOTE: countermeasure-registry.ts is no longer used here.
@@ -228,12 +229,10 @@ export function ThreatAnalysisView({
       if (countermeasureInstanceId.startsWith('cm-')) {
         const backendId = parseInt(countermeasureInstanceId.slice(3), 10)
         if (!isNaN(backendId)) {
-          // Map frontend status to backend status
-          const backendStatus = status === 'platform' ? 'verified' : status
           updateCountermeasureMutation.mutate({
             countermeasureId: backendId,
             data: {
-              status: backendStatus,
+              status,
               ...(notes !== undefined && { evidenceUrl: notes }),
             },
           })
@@ -326,10 +325,9 @@ export function ThreatAnalysisView({
           const mutation = isFlowCm ? updateFlowCountermeasureMutation : updateCountermeasureMutation
 
           // Build data payload - include status if provided to avoid race condition
-          const backendStatus = newStatus === 'platform' ? 'verified' : newStatus
           const data: { assignedOwner?: number; status?: string } = { assignedOwner: assignee.userId }
-          if (backendStatus) {
-            data.status = backendStatus
+          if (newStatus) {
+            data.status = newStatus
           }
 
           console.log('[2] Calling mutation.mutate with:', {
@@ -475,6 +473,45 @@ export function ThreatAnalysisView({
       }
     },
     [componentThreats, updateLocalModification, deleteCountermeasureMutation, deleteFlowCountermeasureMutation]
+  )
+
+  // Update countermeasure priority
+  const handleCountermeasurePriorityChange = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string, priority: string) => {
+      const threat = componentThreats.find((ct) => ct.id === componentThreatId)
+      if (!threat) return
+
+      const updatedCountermeasures = threat.countermeasures.map((cm) =>
+        cm.id === countermeasureInstanceId
+          ? { ...cm, priority: priority as ComponentThreatCountermeasure['priority'], updatedAt: new Date().toISOString() }
+          : cm
+      )
+
+      updateLocalModification(componentThreatId, {
+        countermeasures: updatedCountermeasures,
+        updatedAt: new Date().toISOString(),
+      })
+
+      // Persist to backend
+      if (countermeasureInstanceId.startsWith('cm-')) {
+        const backendId = parseInt(countermeasureInstanceId.slice(3), 10)
+        if (!isNaN(backendId)) {
+          updateCountermeasureMutation.mutate({
+            countermeasureId: backendId,
+            data: { priority },
+          })
+        }
+      } else if (countermeasureInstanceId.startsWith('fcm-')) {
+        const backendId = parseInt(countermeasureInstanceId.slice(4), 10)
+        if (!isNaN(backendId)) {
+          updateFlowCountermeasureMutation.mutate({
+            countermeasureId: backendId,
+            data: { priority },
+          })
+        }
+      }
+    },
+    [componentThreats, updateLocalModification, updateCountermeasureMutation, updateFlowCountermeasureMutation]
   )
 
   // Restore a dismissed countermeasure (local modification only - TODO: persist to backend)
@@ -636,6 +673,7 @@ export function ThreatAnalysisView({
       <div className="flex-1 overflow-hidden">
         {viewMode === 'component' ? (
           <ComponentView
+            threatModelId={threatModelId}
             canvasData={canvasData}
             analyzableComponents={analyzableComponents}
             trustZones={trustZones}
@@ -655,6 +693,7 @@ export function ThreatAnalysisView({
             onAddCustomCountermeasure={handleAddCustomCountermeasure}
             onRemoveCountermeasure={handleRemoveCountermeasure}
             onRestoreCountermeasure={handleRestoreCountermeasure}
+            onCountermeasurePriorityChange={handleCountermeasurePriorityChange}
           />
         ) : (
           <TableView

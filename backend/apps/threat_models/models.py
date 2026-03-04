@@ -106,6 +106,8 @@ class ThreatModel(TimestampedModel):
     format_metadata = models.JSONField(default=dict, blank=True)
     # Store system context, progress, etc.
     workspace_data = models.JSONField(default=dict, blank=True)
+    scope_locked = models.BooleanField(default=False)
+    scope_locked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-updated_at"]
@@ -220,6 +222,24 @@ class ThreatModelReferenceImage(TimestampedModel):
 
     def __str__(self):
         return f"{self.filename} - {self.threat_model.name}"
+
+
+class OutOfScopeItem(TimestampedModel):
+    """Out-of-scope item for a threat model."""
+
+    threat_model = models.ForeignKey(
+        ThreatModel,
+        on_delete=models.CASCADE,
+        related_name="out_of_scope_items",
+    )
+    name = models.CharField(max_length=255)
+    reason = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
 
 
 @receiver(post_delete, sender=ThreatModelReferenceImage)

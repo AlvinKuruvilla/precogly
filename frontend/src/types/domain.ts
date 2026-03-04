@@ -271,25 +271,25 @@ export function formatCategoryLabel(category: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-// Data Classification for edges
-export type DataClassification =
-  | 'PII'
-  | 'Customer Data'
-  | 'Financial'
-  | 'PHI'
-  | 'Confidential'
-  | 'Internal'
-  | 'Public'
+// Data Sensitivity Tags — shared by DataAsset.data_sensitivity and edge dataClassification
+// Aligned value set: edges classify what flows through them, assets classify what they contain
+export type DataSensitivityTag = string
 
-export const DATA_CLASSIFICATIONS: DataClassification[] = [
-  'PII',
-  'Customer Data',
-  'Financial',
-  'PHI',
-  'Confidential',
-  'Internal',
-  'Public',
-]
+export const DATA_SENSITIVITY_TAG_CONFIG: Record<string, { label: string; description: string }> = {
+  pii: { label: 'PII', description: 'Personally Identifiable Information' },
+  phi: { label: 'PHI', description: 'Protected Health Information' },
+  fin: { label: 'Financial', description: 'Financial Data' },
+  ip: { label: 'IP', description: 'Intellectual Property' },
+  cred: { label: 'Credentials', description: 'Credentials & Secrets' },
+  biz: { label: 'Business', description: 'Business Critical Data' },
+  gov: { label: 'Government', description: 'Government/Regulatory Data' },
+  pci: { label: 'PCI', description: 'Payment Card Industry Data' },
+  op: { label: 'Operational', description: 'Operational Data' },
+}
+
+// DataClassification is the same tag set, used on edges
+export type DataClassification = DataSensitivityTag
+export const DATA_CLASSIFICATIONS: DataClassification[] = Object.keys(DATA_SENSITIVITY_TAG_CONFIG) as DataClassification[]
 
 // Protocols for data flows
 export type Protocol =

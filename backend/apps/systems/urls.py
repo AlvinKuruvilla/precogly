@@ -6,6 +6,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    ComponentDataAssetViewSet,
     ComponentLibraryViewSet,
     DataAssetViewSet,
     DataFlowViewSet,
@@ -25,6 +26,7 @@ router.register(r"components", OrgsystemComponentViewSet, basename="component")
 router.register(r"data-assets", DataAssetViewSet, basename="data-asset")
 router.register(r"data-flows", DataFlowViewSet, basename="data-flow")
 router.register(r"integrations", IntegrationSourceViewSet, basename="integration")
+router.register(r"component-data-assets", ComponentDataAssetViewSet, basename="component-data-asset")
 
 urlpatterns = [
     path("", include(router.urls)),

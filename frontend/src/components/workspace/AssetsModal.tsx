@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Trash2, Pencil, X, Check } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Trash2, Pencil, X, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,41 +18,55 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
 import { cn } from '@/lib/utils'
 import {
-  type SystemContextAsset,
   type AssetClassification,
   ASSET_CLASSIFICATION_CONFIG,
 } from '@/features/dfd-editor/types/threat-analysis'
+import {
+  type DataSensitivityTag,
+  DATA_SENSITIVITY_TAG_CONFIG,
+} from '@/types/domain'
+import {
+  useDataAssets,
+  useCreateDataAsset,
+  useUpdateDataAsset,
+  useDeleteDataAsset,
+} from '@/api/data-assets'
 
 interface AssetsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  assets: SystemContextAsset[]
-  onSave: (assets: SystemContextAsset[]) => void
+  threatModelId: string
   disabled?: boolean
 }
 
 export function AssetsModal({
   open,
   onOpenChange,
-  assets,
-  onSave,
+  threatModelId,
   disabled,
 }: AssetsModalProps) {
-  const [localAssets, setLocalAssets] = useState<SystemContextAsset[]>(assets)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const { data: assets = [], isLoading } = useDataAssets(threatModelId)
+  const createAssetMutation = useCreateDataAsset()
+  const updateAssetMutation = useUpdateDataAsset()
+  const deleteAssetMutation = useDeleteDataAsset()
+
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
 
   // Form state for add/edit
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formClassification, setFormClassification] = useState<AssetClassification>('other')
+  const [formDataSensitivity, setFormDataSensitivity] = useState<DataSensitivityTag[]>([])
 
   const resetForm = () => {
     setFormName('')
     setFormDescription('')
     setFormClassification('other')
+    setFormDataSensitivity([])
     setEditingId(null)
     setIsAdding(false)
   }
@@ -62,56 +76,63 @@ export function AssetsModal({
     setIsAdding(true)
   }
 
-  const handleStartEdit = (asset: SystemContextAsset) => {
+  const handleStartEdit = (asset: { id: number; name: string; description: string; classification: string; dataSensitivity: string[] }) => {
     setFormName(asset.name)
     setFormDescription(asset.description)
-    setFormClassification(asset.classification)
+    setFormClassification(asset.classification as AssetClassification)
+    setFormDataSensitivity((asset.dataSensitivity || []) as DataSensitivityTag[])
     setEditingId(asset.id)
     setIsAdding(false)
   }
+
+  const dataSensitivityOptions = useMemo(
+    () =>
+      Object.entries(DATA_SENSITIVITY_TAG_CONFIG).map(([value, config]) => ({
+        value,
+        label: config.label,
+        description: config.description,
+      })),
+    []
+  )
 
   const handleSaveAsset = () => {
     if (!formName.trim()) return
 
     if (editingId) {
-      // Update existing
-      setLocalAssets((prev) =>
-        prev.map((a) =>
-          a.id === editingId
-            ? { ...a, name: formName.trim(), description: formDescription.trim(), classification: formClassification }
-            : a
-        )
+      updateAssetMutation.mutate(
+        {
+          id: editingId,
+          data: {
+            name: formName.trim(),
+            description: formDescription.trim(),
+            classification: formClassification,
+            dataSensitivity: formDataSensitivity,
+          },
+        },
+        { onSuccess: () => resetForm() }
       )
     } else {
-      // Add new
-      const newAsset: SystemContextAsset = {
-        id: crypto.randomUUID(),
-        name: formName.trim(),
-        description: formDescription.trim(),
-        classification: formClassification,
-      }
-      setLocalAssets((prev) => [...prev, newAsset])
+      createAssetMutation.mutate(
+        {
+          name: formName.trim(),
+          description: formDescription.trim(),
+          classification: formClassification,
+          dataSensitivity: formDataSensitivity,
+          threatModel: Number(threatModelId),
+        },
+        { onSuccess: () => resetForm() }
+      )
     }
-    resetForm()
   }
 
-  const handleDelete = (id: string) => {
-    setLocalAssets((prev) => prev.filter((a) => a.id !== id))
+  const handleDelete = (id: number) => {
+    deleteAssetMutation.mutate(id)
     if (editingId === id) {
       resetForm()
     }
   }
 
-  const handleSaveAll = () => {
-    onSave(localAssets)
-    onOpenChange(false)
-  }
-
-  const handleCancel = () => {
-    setLocalAssets(assets) // Reset to original
-    resetForm()
-    onOpenChange(false)
-  }
+  const isSaving = createAssetMutation.isPending || updateAssetMutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,8 +148,12 @@ export function AssetsModal({
           {/* Asset list */}
           <ScrollArea className="h-[250px] border rounded-md">
             <div className="p-2 space-y-1">
-              {localAssets.length > 0 ? (
-                localAssets.map((asset) => (
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              ) : assets.length > 0 ? (
+                assets.map((asset) => (
                   <div
                     key={asset.id}
                     className={cn(
@@ -137,11 +162,19 @@ export function AssetsModal({
                     )}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium">{asset.name}</span>
                         <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
-                          {ASSET_CLASSIFICATION_CONFIG[asset.classification]?.label || asset.classification}
+                          {ASSET_CLASSIFICATION_CONFIG[asset.classification as AssetClassification]?.label || asset.classification}
                         </span>
+                        {asset.dataSensitivity?.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded"
+                          >
+                            {DATA_SENSITIVITY_TAG_CONFIG[tag as DataSensitivityTag]?.label || tag}
+                          </span>
+                        ))}
                       </div>
                       {asset.description && (
                         <div className="text-xs text-muted-foreground mt-1">
@@ -232,14 +265,29 @@ export function AssetsModal({
                   rows={2}
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Data Sensitivity</label>
+                <MultiSelectCombobox
+                  options={dataSensitivityOptions}
+                  selected={formDataSensitivity}
+                  onChange={setFormDataSensitivity}
+                  placeholder="Select or add tags..."
+                  searchPlaceholder="Search or type custom..."
+                  allowCustom
+                />
+              </div>
               <div className="flex justify-end">
                 <Button
                   size="sm"
                   onClick={handleSaveAsset}
-                  disabled={!formName.trim()}
+                  disabled={!formName.trim() || isSaving}
                   className="gap-1"
                 >
-                  <Check className="h-3.5 w-3.5" />
+                  {isSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
                   {editingId ? 'Update' : 'Add'}
                 </Button>
               </div>
@@ -259,12 +307,9 @@ export function AssetsModal({
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveAll}>
-              Save Assets
+          <div className="flex justify-end pt-2 border-t">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
             </Button>
           </div>
         </div>

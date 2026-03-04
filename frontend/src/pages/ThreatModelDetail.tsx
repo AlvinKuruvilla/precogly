@@ -38,12 +38,21 @@ import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threa
 import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
 import { useAnalysisComponents } from '@/api/components'
 import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
-import type { WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
+import type { ThreatModelStatus } from '@/types/domain'
 import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
+import type { WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
-import { useDeleteThreatModel, useDeleteDFD, useUpdateThreatModel } from '@/api/threat-models'
+import {
+  useDeleteThreatModel,
+  useDeleteDFD,
+  useUpdateThreatModel,
+  useAddThreatModelSystem,
+  useRemoveThreatModelSystem,
+  useAddReferencedModel,
+  useRemoveReferencedModel,
+} from '@/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
 import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/api/reference-images'
 
@@ -114,6 +123,10 @@ export function ThreatModelDetail() {
   const deleteMutation = useDeleteThreatModel()
   const deleteDFDMutation = useDeleteDFD()
   const updateThreatModelMutation = useUpdateThreatModel()
+  const addSystemMutation = useAddThreatModelSystem()
+  const removeSystemMutation = useRemoveThreatModelSystem()
+  const addReferencedModelMutation = useAddReferencedModel()
+  const removeReferencedModelMutation = useRemoveReferencedModel()
 
   // Reference images
   const { data: referenceImages = [] } = useReferenceImages(id || null)
@@ -149,24 +162,24 @@ export function ThreatModelDetail() {
   // Workspace threat analysis state
   const {
     componentThreats,
-    status,
     currentVersion,
     previousVersions,
-    systemContext,
     progressChecklist,
     summaries,
     isLoadingThreats,
     updateCountermeasureStatus,
+    updateCountermeasurePriority,
     assignOwner,
     dismissThreat,
     restoreThreat,
     addCountermeasure,
     removeCountermeasure,
     restoreCountermeasure,
-    updateStatus,
-    updateSystemContext,
     toggleChecklistItem,
   } = useWorkspaceThreatAnalysis(id, diagrams)
+
+  // Status is read directly from the threat model
+  const status = (threatModel?.status ?? 'draft') as WorkspaceStatus
 
   // Fetch threat model threats data (for nodeComponentMap)
   const { data: threatData, refetch: refetchThreats } = useThreatModelThreats(id)
@@ -349,11 +362,15 @@ export function ThreatModelDetail() {
 
   // Handlers
   const handleStatusChange = (newStatus: WorkspaceStatus) => {
-    updateStatus(newStatus)
+    if (id) {
+      updateThreatModelMutation.mutate({ id, data: { status: newStatus as ThreatModelStatus } as Partial<ThreatModel> })
+    }
   }
 
   const handleSubmitForReview = () => {
-    updateStatus('in_review')
+    if (id) {
+      updateThreatModelMutation.mutate({ id, data: { status: 'pendingReview' as ThreatModelStatus } as Partial<ThreatModel> })
+    }
   }
 
   const handleCreateDFD = () => {
@@ -620,7 +637,7 @@ export function ThreatModelDetail() {
 
           {/* System Context Card */}
           <SystemContextCard
-            systemContext={systemContext}
+            threatModelId={id!}
             onEdit={() => setSystemContextModalOpen(true)}
           />
 
@@ -780,6 +797,7 @@ export function ThreatModelDetail() {
                     onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
                     onRemoveCountermeasure={removeCountermeasure}
                     onRestoreCountermeasure={restoreCountermeasure}
+                    onCountermeasurePriorityChange={updateCountermeasurePriority}
                   />
                 ) : (
                   <TableView
@@ -822,8 +840,7 @@ export function ThreatModelDetail() {
       <SystemContextModal
         open={systemContextModalOpen}
         onOpenChange={setSystemContextModalOpen}
-        systemContext={systemContext}
-        onSave={updateSystemContext}
+        threatModelId={id!}
       />
 
       <ManageSystemsModal
@@ -831,8 +848,8 @@ export function ThreatModelDetail() {
         onOpenChange={setManageSystemsModalOpen}
         connectedSystems={linkedSystems}
         availableSystems={systems}
-        onAdd={(systemId) => console.log('Add system:', systemId)}
-        onRemove={(systemId) => console.log('Remove system:', systemId)}
+        onAdd={(systemId) => addSystemMutation.mutate({ threatModelId: id!, systemId: Number(systemId) })}
+        onRemove={(systemId) => removeSystemMutation.mutate({ threatModelId: id!, systemId: Number(systemId) })}
       />
 
       <ManageThreatModelsModal
@@ -841,8 +858,8 @@ export function ThreatModelDetail() {
         connectedModels={referencedModels}
         availableModels={allThreatModels}
         currentModelId={id!}
-        onAdd={(modelId) => console.log('Add model:', modelId)}
-        onRemove={(modelId) => console.log('Remove model:', modelId)}
+        onAdd={(modelId) => addReferencedModelMutation.mutate({ threatModelId: id!, targetModelId: Number(modelId) })}
+        onRemove={(modelId) => removeReferencedModelMutation.mutate({ threatModelId: id!, targetModelId: Number(modelId) })}
       />
 
       <ManagePeopleModal

@@ -87,9 +87,9 @@ export function ManageSystemsModal({
                     >
                       <div>
                         <div className="text-sm font-medium">{system.name}</div>
-                        {system.description && (
+                        {system.owner && (
                           <div className="text-xs text-muted-foreground">
-                            {system.description}
+                            {system.owner}
                           </div>
                         )}
                       </div>
@@ -131,9 +131,9 @@ export function ManageSystemsModal({
                     >
                       <div>
                         <div className="text-sm font-medium">{system.name}</div>
-                        {system.description && (
+                        {system.owner && (
                           <div className="text-xs text-muted-foreground">
-                            {system.description}
+                            {system.owner}
                           </div>
                         )}
                       </div>

@@ -1,11 +1,13 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { X, Trash2, Cog, Database, User, Server, Shield, Box, ShieldCheck, ArrowRight } from 'lucide-react'
+import { X, Trash2, Cog, Database, User, Server, Shield, Box, ShieldCheck, ArrowRight, Link, Lock, LockOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -14,7 +16,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TechnologyCombobox } from '../technology-combobox'
+import { SuggestionCombobox } from '../suggestion-combobox'
 import { useThreatModelSystems, useUpdateComponentSystem } from '@/api/threat-models'
+import { useDataAssets } from '@/api/data-assets'
+import {
+  useComponentDataAssets,
+  useCreateComponentDataAsset,
+  useUpdateComponentDataAsset,
+  useDeleteComponentDataAsset,
+} from '@/api/component-data-assets'
 import type {
   DiagramNode,
   DiagramNodeType,
@@ -44,6 +54,168 @@ const nodeTypeConfig: Record<
   systemActor: { label: 'System Actor', icon: Server, color: 'text-slate-600' },
   trustZone: { label: 'Trust Zone', icon: Shield, color: 'text-orange-600' },
   systemScope: { label: 'System Scope', icon: Box, color: 'text-gray-600' },
+}
+
+/**
+ * Data Assets section for process/datastore nodes
+ */
+function DataAssetsSection({
+  componentId,
+  threatModelId,
+}: {
+  componentId: number | undefined
+  threatModelId: string | undefined
+}) {
+  const [linkingAsset, setLinkingAsset] = useState(false)
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('')
+
+  const { data: componentDataAssets = [] } = useComponentDataAssets(componentId)
+  const { data: allDataAssets = [] } = useDataAssets(threatModelId)
+  const createMutation = useCreateComponentDataAsset()
+  const updateMutation = useUpdateComponentDataAsset()
+  const deleteMutation = useDeleteComponentDataAsset()
+
+  if (!componentId) return null
+
+  // Filter out already-linked data assets
+  const linkedAssetIds = new Set(componentDataAssets.map((cda) => cda.dataAsset))
+  const availableAssets = allDataAssets.filter((asset) => !linkedAssetIds.has(asset.id))
+
+  const handleLinkAsset = () => {
+    if (!selectedAssetId) return
+    createMutation.mutate(
+      {
+        component: componentId,
+        dataAsset: parseInt(selectedAssetId, 10),
+        dataState: 'processed',
+        encrypted: false,
+      },
+      {
+        onSuccess: () => {
+          setSelectedAssetId('')
+          setLinkingAsset(false)
+        },
+      }
+    )
+  }
+
+  return (
+    <>
+      <Separator />
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5">
+          <Database className="h-3.5 w-3.5 text-purple-600" />
+          Data Assets
+          {componentDataAssets.length > 0 && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+              {componentDataAssets.length}
+            </Badge>
+          )}
+        </Label>
+
+        {/* Linked assets list */}
+        {componentDataAssets.length > 0 && (
+          <div className="space-y-1.5">
+            {componentDataAssets.map((cda) => (
+              <div
+                key={cda.id}
+                className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{cda.dataAssetName}</div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Badge variant="outline" className="text-[10px] h-4 px-1">
+                      {cda.dataState === 'at_rest' ? 'At Rest' : 'Processed'}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Checkbox
+                    checked={cda.encrypted}
+                    onCheckedChange={(checked) =>
+                      updateMutation.mutate({
+                        id: cda.id,
+                        data: { encrypted: !!checked },
+                      })
+                    }
+                    title="Encrypted"
+                  />
+                  {cda.encrypted ? (
+                    <Lock className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <LockOpen className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteMutation.mutate(cda.id)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Link Asset UI */}
+        {linkingAsset ? (
+          <div className="space-y-2">
+            <Select value={selectedAssetId} onValueChange={setSelectedAssetId}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Select a data asset..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableAssets.length === 0 ? (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    No available assets
+                  </div>
+                ) : (
+                  availableAssets.map((asset) => (
+                    <SelectItem key={asset.id} value={String(asset.id)}>
+                      {asset.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                className="h-7 text-xs flex-1"
+                disabled={!selectedAssetId || createMutation.isPending}
+                onClick={handleLinkAsset}
+              >
+                Link
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setLinkingAsset(false)
+                  setSelectedAssetId('')
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 w-full"
+            onClick={() => setLinkingAsset(true)}
+          >
+            <Link className="h-3 w-3" />
+            Link Asset
+          </Button>
+        )}
+      </div>
+    </>
+  )
 }
 
 export const NodeEditPanel = memo(function NodeEditPanel({
@@ -163,6 +335,28 @@ export const NodeEditPanel = memo(function NodeEditPanel({
               />
             </div>
 
+            {node.type === 'datastore' && (
+              <div className="space-y-2">
+                <Label htmlFor="node-storeType">Store Type</Label>
+                <Select
+                  value={(node.data as { dataStoreType?: string }).dataStoreType || ''}
+                  onValueChange={(value) => updateNodeData({ dataStoreType: value })}
+                >
+                  <SelectTrigger id="node-storeType">
+                    <SelectValue placeholder="Select store type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sql">SQL</SelectItem>
+                    <SelectItem value="key_value">Key-Value</SelectItem>
+                    <SelectItem value="document">Document</SelectItem>
+                    <SelectItem value="object">Object</SelectItem>
+                    <SelectItem value="graph">Graph</SelectItem>
+                    <SelectItem value="time_series">Time Series</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="node-sensitivity">Data Sensitivity</Label>
               <Select
@@ -225,7 +419,32 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 </p>
               </div>
             )}
+
+            {/* Data Assets - only shown when component has been synced */}
+            <DataAssetsSection
+              componentId={(node.data as { component_id?: number }).component_id}
+              threatModelId={threatModelId}
+            />
           </>
+        )}
+
+        {node.type === 'humanActor' && (
+          <div className="space-y-2">
+            <Label>Actor Type</Label>
+            <SuggestionCombobox
+              value={(node.data as { actorType?: string }).actorType || ''}
+              onChange={(value) => updateNodeData({ actorType: value })}
+              suggestions={[
+                { value: 'user', label: 'User' },
+                { value: 'power_user', label: 'Power User' },
+                { value: 'administrator', label: 'Administrator' },
+                { value: 'engineer', label: 'Engineer' },
+                { value: 'third_party', label: 'Third Party' },
+                { value: 'customer', label: 'Customer' },
+              ]}
+              placeholder="Select or type actor type..."
+            />
+          </div>
         )}
 
         {node.type === 'trustZone' && (
@@ -357,22 +576,20 @@ export const NodeEditPanel = memo(function NodeEditPanel({
         {node.type === 'systemActor' && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="node-systemType">System Type</Label>
-              <Select
+              <Label>System Type</Label>
+              <SuggestionCombobox
                 value={(node.data as { systemType?: string }).systemType || ''}
-                onValueChange={(value) => updateNodeData({ systemType: value })}
-              >
-                <SelectTrigger id="node-systemType">
-                  <SelectValue placeholder="Select system type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="api">Third-party API</SelectItem>
-                  <SelectItem value="legacy">Legacy System</SelectItem>
-                  <SelectItem value="partner">Partner System</SelectItem>
-                  <SelectItem value="thirdParty">Third-party Service</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(value) => updateNodeData({ systemType: value })}
+                suggestions={[
+                  { value: 'api', label: 'Third-party API' },
+                  { value: 'legacy', label: 'Legacy System' },
+                  { value: 'partner', label: 'Partner System' },
+                  { value: 'third_party', label: 'Third-party Service' },
+                  { value: 'saas', label: 'SaaS' },
+                  { value: 'other', label: 'Other' },
+                ]}
+                placeholder="Select or type system type..."
+              />
             </div>
 
             <div className="space-y-2">
@@ -406,16 +623,6 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 value={(node.data as { owner?: string }).owner || ''}
                 onChange={(e) => updateNodeData({ owner: e.target.value })}
                 placeholder="Team or person responsible..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="node-classification">Classification</Label>
-              <Input
-                id="node-classification"
-                value={(node.data as { classification?: string }).classification || ''}
-                onChange={(e) => updateNodeData({ classification: e.target.value })}
-                placeholder="e.g., Internal, External..."
               />
             </div>
           </>

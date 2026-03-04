@@ -429,6 +429,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         PLANNED = "planned", "Planned"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
+        PLATFORM = "platform", "Platform"
 
     instance_threat = models.ForeignKey(
         ComponentInstanceThreat,
@@ -500,6 +501,7 @@ class FlowInstanceCountermeasure(TimestampedModel):
         PLANNED = "planned", "Planned"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
+        PLATFORM = "platform", "Platform"
 
     flow_threat = models.ForeignKey(
         DataFlowInstanceThreat,

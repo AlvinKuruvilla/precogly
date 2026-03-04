@@ -72,7 +72,7 @@ export function CreateThreatModelForm() {
   const systemOptions = systems.map((system) => ({
     value: system.id,
     label: system.name,
-    description: system.description,
+    description: system.owner,
     meta: system.type,
   }))
 

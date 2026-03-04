@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { normalizeTags } from '@/lib/normalize-tags'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -32,6 +33,7 @@ interface MultiSelectComboboxProps {
   searchPlaceholder?: string
   emptyMessage?: string
   className?: string
+  allowCustom?: boolean
 }
 
 export function MultiSelectCombobox({
@@ -42,12 +44,16 @@ export function MultiSelectCombobox({
   searchPlaceholder = 'Search...',
   emptyMessage = 'No items found.',
   className,
+  allowCustom = false,
 }: MultiSelectComboboxProps) {
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
 
-  const selectedOptions = options.filter((option) =>
-    selected.includes(option.value)
-  )
+  // Build chip display list: known options + fallback for custom values
+  const selectedChips = selected.map((val) => {
+    const knownOption = options.find((o) => o.value === val)
+    return knownOption ?? { value: val, label: val }
+  })
 
   const toggleOption = (value: string) => {
     if (selected.includes(value)) {
@@ -61,6 +67,20 @@ export function MultiSelectCombobox({
     e.stopPropagation()
     onChange(selected.filter((v) => v !== value))
   }
+
+  const handleAddCustom = () => {
+    const normalized = normalizeTags([search])[0]
+    if (normalized && !selected.includes(normalized)) {
+      onChange([...selected, normalized])
+    }
+    setSearch('')
+  }
+
+  const showCustomOption =
+    allowCustom &&
+    search.trim() !== '' &&
+    !options.some((o) => o.value === search.trim().toLowerCase()) &&
+    !selected.includes(search.trim().toLowerCase())
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -82,7 +102,11 @@ export function MultiSelectCombobox({
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
           <Command>
-            <CommandInput placeholder={searchPlaceholder} />
+            <CommandInput
+              placeholder={searchPlaceholder}
+              value={search}
+              onValueChange={setSearch}
+            />
             <CommandList>
               <CommandEmpty>{emptyMessage}</CommandEmpty>
               <CommandGroup>
@@ -121,15 +145,27 @@ export function MultiSelectCombobox({
                   </CommandItem>
                 ))}
               </CommandGroup>
+              {showCustomOption && (
+                <CommandGroup heading="Custom">
+                  <CommandItem
+                    value={`custom-${search}`}
+                    onSelect={handleAddCustom}
+                    className="cursor-pointer"
+                  >
+                    <Check className={cn('mr-2 h-4 w-4 opacity-0')} />
+                    Use &quot;{search.trim()}&quot;
+                  </CommandItem>
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
 
       {/* Selected chips */}
-      {selectedOptions.length > 0 && (
+      {selectedChips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {selectedOptions.map((option) => (
+          {selectedChips.map((option) => (
             <Badge
               key={option.value}
               variant="secondary"

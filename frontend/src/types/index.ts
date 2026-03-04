@@ -62,6 +62,8 @@ export interface ThreatModel {
   riskScoringMethod?: ScoringMethodKey
   referenceImages?: ReferenceImage[]
   formatMetadata?: Record<string, unknown>
+  scopeLocked?: boolean
+  scopeLockedAt?: string
   createdAt?: string
   updatedAt?: string
   createdBy?: string
@@ -104,12 +106,12 @@ export interface System {
   id: string
   name: string
   type: SystemType
-  description: string
+  owner: string
   environment: string
 }
 
 export interface CreateSystemInput {
   name: string
-  description?: string
+  owner?: string
   lifecycleState?: 'development' | 'production' | 'decommissioned'
 }

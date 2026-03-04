@@ -10,8 +10,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import ThreatModel, ThreatModelReferenceImage
+from .models import OutOfScopeItem, ThreatModel, ThreatModelReferenceImage
 from .serializers import (
+    OutOfScopeItemSerializer,
     ThreatModelCreateSerializer,
     ThreatModelListSerializer,
     ThreatModelReferenceImageSerializer,
@@ -247,6 +248,122 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    @action(detail=True, methods=["post"])
+    def add_system(self, request, pk=None):
+        """Add a system to this threat model."""
+        from apps.systems.models import Orgsystem
+
+        threat_model = self.get_object()
+        system_id = request.data.get("system_id")
+
+        if not system_id:
+            return Response(
+                {"error": "system_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            orgsystem = Orgsystem.objects.get(
+                id=system_id,
+                organization=threat_model.organization,
+            )
+        except Orgsystem.DoesNotExist:
+            return Response(
+                {"error": "System not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from .models import ThreatModelOrgsystem
+
+        ThreatModelOrgsystem.objects.get_or_create(
+            threat_model=threat_model, orgsystem=orgsystem
+        )
+        return Response({"status": "system added"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def remove_system(self, request, pk=None):
+        """Remove a system from this threat model."""
+        from .models import ThreatModelOrgsystem
+
+        threat_model = self.get_object()
+        system_id = request.data.get("system_id")
+
+        if not system_id:
+            return Response(
+                {"error": "system_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted, _ = ThreatModelOrgsystem.objects.filter(
+            threat_model=threat_model, orgsystem_id=system_id
+        ).delete()
+
+        if deleted:
+            return Response({"status": "system removed"}, status=status.HTTP_200_OK)
+        return Response(
+            {"error": "System not associated with this threat model"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    @action(detail=True, methods=["post"])
+    def add_referenced_model(self, request, pk=None):
+        """Add a referenced threat model relationship."""
+        threat_model = self.get_object()
+        target_model_id = request.data.get("target_model_id")
+
+        if not target_model_id:
+            return Response(
+                {"error": "target_model_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            target_model = ThreatModel.objects.get(
+                id=target_model_id,
+                organization=threat_model.organization,
+            )
+        except ThreatModel.DoesNotExist:
+            return Response(
+                {"error": "Target threat model not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from .models import ThreatModelRelationship
+
+        ThreatModelRelationship.objects.get_or_create(
+            source_threat_model=threat_model,
+            target_threat_model=target_model,
+            relation_type=ThreatModelRelationship.RelationType.RELATED_TO,
+        )
+        return Response({"status": "reference added"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def remove_referenced_model(self, request, pk=None):
+        """Remove a referenced threat model relationship."""
+        from .models import ThreatModelRelationship
+
+        threat_model = self.get_object()
+        target_model_id = request.data.get("target_model_id")
+
+        if not target_model_id:
+            return Response(
+                {"error": "target_model_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted, _ = ThreatModelRelationship.objects.filter(
+            source_threat_model=threat_model,
+            target_threat_model_id=target_model_id,
+            relation_type=ThreatModelRelationship.RelationType.RELATED_TO,
+        ).delete()
+
+        if deleted:
+            return Response({"status": "reference removed"}, status=status.HTTP_200_OK)
+        return Response(
+            {"error": "Reference not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     def _serialize_taxonomy_entries(self, threat_library):
         """Serialize taxonomy entries for a threat library."""
         if not threat_library:
@@ -409,6 +526,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
                         "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
                         "status": cm.status,
+                        "priority": cm.priority,
                         "evidence_url": cm.evidence_url,
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
@@ -458,6 +576,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
                         "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
                         "status": cm.status,
+                        "priority": cm.priority,
                         "evidence_url": cm.evidence_url,
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
@@ -536,3 +655,23 @@ class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):
             ThreatModelReferenceImageSerializer(image, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class OutOfScopeItemViewSet(viewsets.ModelViewSet):
+    """ViewSet for OutOfScopeItem CRUD, nested under threat models."""
+
+    serializer_class = OutOfScopeItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter by threat model and user's organization."""
+        user = self.request.user
+        org_ids = user.organization_memberships.values_list("organization_id", flat=True)
+        return OutOfScopeItem.objects.filter(
+            threat_model_id=self.kwargs["threat_model_pk"],
+            threat_model__organization_id__in=org_ids,
+        )
+
+    def perform_create(self, serializer):
+        """Set threat_model from URL kwargs."""
+        serializer.save(threat_model_id=self.kwargs["threat_model_pk"])

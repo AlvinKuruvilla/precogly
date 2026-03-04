@@ -5,12 +5,10 @@ import type {
   ComponentThreat,
   ComponentThreatCountermeasure,
   CountermeasureStatus,
-  WorkspaceStatus,
   ThreatModelVersion,
-  SystemContext,
   ProgressChecklistItem,
 } from '@/features/dfd-editor/types/threat-analysis'
-import { DEFAULT_PROGRESS_CHECKLIST, deriveThreatStatus } from '@/features/dfd-editor/types/threat-analysis'
+import { deriveThreatStatus } from '@/features/dfd-editor/types/threat-analysis'
 import {
   useThreatModelThreats,
   useUpdateCountermeasure,
@@ -23,41 +21,25 @@ import { api } from '@/lib/api'
 interface WorkspaceThreatAnalysisState {
   threatModelId: string
   componentThreats: ComponentThreat[]
-  status: WorkspaceStatus
   currentVersion: ThreatModelVersion
   previousVersions: ThreatModelVersion[]
-  systemContext: SystemContext
-  progressChecklist: ProgressChecklistItem[]
 }
 
 interface WorkspaceData {
-  status?: WorkspaceStatus
   currentVersion?: ThreatModelVersion
   previousVersions?: ThreatModelVersion[]
-  systemContext?: SystemContext
-  progressChecklist?: ProgressChecklistItem[]
-  criticality?: string
-  frameworks?: string[]
 }
 
 function getDefaultState(threatModelId: string | undefined): WorkspaceThreatAnalysisState {
   return {
     threatModelId: threatModelId || '',
     componentThreats: [],
-    status: 'draft',
     currentVersion: {
       version: 1,
       trigger: 'initial',
       createdAt: new Date().toISOString(),
     },
     previousVersions: [],
-    systemContext: {
-      scopeLocked: false,
-    },
-    progressChecklist: DEFAULT_PROGRESS_CHECKLIST.map((item) => ({
-      ...item,
-      checked: false,
-    })),
   }
 }
 
@@ -70,27 +52,17 @@ function extractWorkspaceState(
   if (!workspaceData) return {}
 
   return {
-    status: workspaceData.status || 'draft',
     currentVersion: workspaceData.currentVersion || {
       version: 1,
       trigger: 'initial',
       createdAt: new Date().toISOString(),
     },
     previousVersions: workspaceData.previousVersions || [],
-    systemContext: workspaceData.systemContext || { scopeLocked: false },
-    progressChecklist: workspaceData.progressChecklist?.length
-      ? workspaceData.progressChecklist
-      : DEFAULT_PROGRESS_CHECKLIST.map((item) => ({ ...item, checked: false })),
   }
 }
 
 // NOTE: Local threat generation has been removed from this hook.
 // The backend is now the single source of truth for threats.
-// Previously, this hook used frontend registries (threat-registry.ts, countermeasure-registry.ts)
-// to generate local threats with IDs like 'ct-...' and 'ctcm-...'.
-// These local IDs were not recognized by parseCountermeasureId() as backend IDs,
-// causing owner assignments to only update local state without persisting to the backend.
-// Now, only threats from useThreatModelThreats (backend API) are displayed and editable.
 
 export function useWorkspaceThreatAnalysis(
   threatModelId: string | undefined,
@@ -131,7 +103,7 @@ export function useWorkspaceThreatAnalysis(
     }
   }, [threatModel])
 
-  // Debounced save to backend when workspace metadata changes (status, systemContext, etc.)
+  // Debounced save to backend — only currentVersion, previousVersions
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -148,14 +120,8 @@ export function useWorkspaceThreatAnalysis(
       if (!threatModelId) return
 
       const workspaceData = {
-        status: state.status,
         currentVersion: state.currentVersion,
         previousVersions: state.previousVersions,
-        systemContext: state.systemContext,
-        progressChecklist: state.progressChecklist,
-        // Preserve existing fields
-        criticality: (threatModel?.workspaceData as WorkspaceData)?.criticality,
-        frameworks: (threatModel?.workspaceData as WorkspaceData)?.frameworks,
       }
 
       updateThreatModelMutation.mutate({
@@ -169,29 +135,11 @@ export function useWorkspaceThreatAnalysis(
         clearTimeout(saveTimeoutRef.current)
       }
     }
-  }, [state.status, state.systemContext, state.progressChecklist, state.currentVersion, state.previousVersions, threatModelId])
+  }, [state.currentVersion, state.previousVersions, threatModelId])
 
   // Use backend threats directly - no local threat generation
-  // Backend is the single source of truth for threats
   useEffect(() => {
-    console.log('[useWorkspaceThreatAnalysis] Backend threats effect triggered:', {
-      hasBackendThreats: !!backendThreats?.componentThreats,
-      backendThreatsCount: backendThreats?.componentThreats?.length || 0,
-    })
-
     if (backendThreats?.componentThreats) {
-      console.log('[useWorkspaceThreatAnalysis] Using backend threats directly (no local generation)')
-      if (backendThreats.componentThreats.length > 0) {
-        console.log('[useWorkspaceThreatAnalysis] Backend threats sample:',
-          backendThreats.componentThreats.slice(0, 2).map(t => ({
-            id: t.id,
-            componentId: t.componentId,
-            threatId: t.threatId,
-            countermeasures: t.countermeasures?.map(cm => ({ id: cm.id, countermeasureId: cm.countermeasureId }))
-          }))
-        )
-      }
-
       setState((prev) => ({
         ...prev,
         componentThreats: backendThreats.componentThreats,
@@ -200,15 +148,11 @@ export function useWorkspaceThreatAnalysis(
   }, [backendThreats])
 
   // Filter threats when diagrams change (remove threats for deleted diagrams/components)
-  // NOTE: Local threat generation has been removed - backend is the single source of truth
   useEffect(() => {
     if (!diagrams || diagrams.length === 0) return
-    // Skip if backend threats are loading
     if (isLoadingThreats) return
 
     setState((prev) => {
-      // Build a set of all valid component IDs (nodes + edges) across all diagrams
-      // Note: Convert IDs to strings to handle type mismatches (backend may return string or number)
       const validComponentIds = new Set<string>()
       const currentDiagramIds = new Set<string>()
       diagrams.forEach((d) => {
@@ -220,23 +164,17 @@ export function useWorkspaceThreatAnalysis(
         }
       })
 
-      // Filter out threats for deleted diagrams OR deleted components
-      // BUT preserve analysis-only component threats (they have no diagram association)
       const filteredThreats = prev.componentThreats.filter((ct) => {
-        // Analysis-only components have synthetic IDs like "analysis-33" and no diagram
         const isAnalysisOnly = String(ct.componentId).startsWith('analysis-') ||
                                (!ct.sourceDiagramId && !ct.diagramId)
-        if (isAnalysisOnly) return true  // Always keep analysis-only threats
+        if (isAnalysisOnly) return true
 
         const diagramId = String(ct.sourceDiagramId || ct.diagramId)
-        // Remove if diagram was deleted
         if (!currentDiagramIds.has(diagramId)) return false
-        // Remove if component was deleted from the diagram
         if (!validComponentIds.has(String(ct.componentId))) return false
         return true
       })
 
-      // Only update state if threats were actually filtered out
       if (filteredThreats.length !== prev.componentThreats.length) {
         return { ...prev, componentThreats: filteredThreats }
       }
@@ -252,11 +190,9 @@ export function useWorkspaceThreatAnalysis(
       status: CountermeasureStatus,
       notes?: string
     ) => {
-      // Find the threat to check if it's a backend threat
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.countermeasureId === countermeasureId)
 
-      // If this is a backend countermeasure, update via appropriate API
       if (threat && countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
         const backendStatus = status === 'platform' ? 'verified' : status
@@ -310,23 +246,19 @@ export function useWorkspaceThreatAnalysis(
       componentThreatId: string,
       countermeasureInstanceId: string,
       assignee: { type: 'member' | 'team'; userId?: number; email?: string; name?: string | null; teamId?: number },
-      newStatus?: CountermeasureStatus // Optional: also update status in the same API call
+      newStatus?: CountermeasureStatus
     ) => {
-      // Determine owner string for local state storage
       const ownerString =
         assignee.type === 'team'
           ? `team:${assignee.name}`
           : assignee.email || ''
 
-      // Find the threat and countermeasure
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
 
-      // If this is a backend countermeasure, call the appropriate API
       if (assignee.type === 'member' && countermeasure && assignee.userId) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
-        // Build the data payload - include status if provided
         const backendStatus = newStatus === 'platform' ? 'verified' : newStatus
         const data: { assignedOwner: number; status?: string } = { assignedOwner: assignee.userId }
         if (backendStatus) {
@@ -346,7 +278,6 @@ export function useWorkspaceThreatAnalysis(
         }
       }
 
-      // Update local state immediately for responsiveness
       const finalStatus = newStatus || (countermeasure?.status === 'gap' ? 'planned' : countermeasure?.status)
       setState((prev) => ({
         ...prev,
@@ -361,6 +292,59 @@ export function useWorkspaceThreatAnalysis(
                 ...cm,
                 owner: ownerString,
                 status: finalStatus || cm.status,
+                updatedAt: new Date().toISOString(),
+              }
+            }),
+          }
+        }),
+      }))
+    },
+    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+  )
+
+  // Update countermeasure priority
+  const updateCountermeasurePriority = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string, priority: string) => {
+      console.log('[DEBUG priority] updateCountermeasurePriority called:', { componentThreatId, countermeasureInstanceId, priority })
+      const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+      const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
+      console.log('[DEBUG priority] found threat:', !!threat, 'found countermeasure:', !!countermeasure, 'cm.id:', countermeasure?.id)
+
+      if (countermeasure) {
+        const parsed = parseCountermeasureId(countermeasure.id)
+        console.log('[DEBUG priority] parsed countermeasure id:', parsed)
+
+        if (parsed.type === 'component' && parsed.id !== null) {
+          console.log('[DEBUG priority] calling PATCH /component-countermeasures/', parsed.id, 'with:', { priority })
+          updateCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { priority },
+          })
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          console.log('[DEBUG priority] calling PATCH /flow-countermeasures/', parsed.id, 'with:', { priority })
+          updateFlowCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { priority },
+          })
+        } else {
+          console.log('[DEBUG priority] no valid backend id — skipping API call')
+        }
+      }
+
+      // Update local state immediately for responsiveness
+      setState((prev) => ({
+        ...prev,
+        componentThreats: prev.componentThreats.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            updatedAt: new Date().toISOString(),
+            countermeasures: ct.countermeasures.map((cm) => {
+              if (cm.id !== countermeasureInstanceId) return cm
+              console.log('[DEBUG priority] local state update:', cm.id, 'priority:', cm.priority, '->', priority)
+              return {
+                ...cm,
+                priority,
                 updatedAt: new Date().toISOString(),
               }
             }),
@@ -425,7 +409,7 @@ export function useWorkspaceThreatAnalysis(
     []
   )
 
-  // Dismiss countermeasure (mark as dismissed instead of removing)
+  // Dismiss countermeasure
   const removeCountermeasure = useCallback(
     (componentThreatId: string, countermeasureInstanceId: string) => {
       setState((prev) => ({
@@ -467,31 +451,15 @@ export function useWorkspaceThreatAnalysis(
     []
   )
 
-  // Update status
-  const updateStatus = useCallback((status: WorkspaceStatus) => {
-    setState((prev) => ({ ...prev, status }))
-  }, [])
-
-  // Update system context
-  const updateSystemContext = useCallback((context: SystemContext) => {
-    setState((prev) => ({ ...prev, systemContext: context }))
-  }, [])
-
-  // Toggle checklist item
-  const toggleChecklistItem = useCallback((itemId: string, checked: boolean) => {
-    setState((prev) => ({
-      ...prev,
-      progressChecklist: prev.progressChecklist.map((item) =>
-        item.id === itemId ? { ...item, checked } : item
-      ),
-    }))
+  // Toggle checklist item — no-op since all items are now auto-computed by the backend
+  const toggleChecklistItem = useCallback((_itemId: string, _checked: boolean) => {
+    // All checklist items are auto-computed by the backend; no local state to update
   }, [])
 
   // Compute summary statistics
   const summaries = useMemo(() => {
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
-    // Component summary
     const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
     const componentSummary = {
       total: allNodes.filter(
@@ -504,7 +472,6 @@ export function useWorkspaceThreatAnalysis(
       trustZones: allNodes.filter((n) => n.type === 'trustZone').length,
     }
 
-    // Threat summary
     let exposedThreats = 0
     let addressableThreats = 0
     let mitigatedThreats = 0
@@ -523,7 +490,6 @@ export function useWorkspaceThreatAnalysis(
       mitigated: mitigatedThreats,
     }
 
-    // Countermeasure summary
     const allCountermeasures = activeThreats.flatMap((ct) => ct.countermeasures)
     const countermeasureSummary = {
       total: allCountermeasures.length,
@@ -536,80 +502,29 @@ export function useWorkspaceThreatAnalysis(
     return { componentSummary, threatSummary, countermeasureSummary }
   }, [state.componentThreats, diagrams])
 
-  // Compute auto-checked progress items
-  const computedProgressChecklist = useMemo(() => {
-    const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
-    const allEdges = diagrams.flatMap((d) => d.canvasData?.edges || [])
-    const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
-
-    const hasComponents = allNodes.some(
-      (n) => n.type === 'process' || n.type === 'datastore'
-    )
-    const hasTrustZones = allNodes.some((n) => n.type === 'trustZone')
-    const hasDataFlows = allEdges.length > 0
-    const hasOwnersAssigned = activeThreats.some((ct) =>
-      ct.countermeasures.some((cm) => cm.owner)
-    )
-    const hasThreatsLinkedToComponents = activeThreats.some((ct) =>
-      allNodes.some((n) => n.id === ct.componentId)
-    )
-    const hasThreatsLinkedToFlows = activeThreats.some((ct) =>
-      allEdges.some((e) => e.id === ct.componentId)
-    )
-    const hasCountermeasuresAssigned = activeThreats.some(
-      (ct) => ct.countermeasures.length > 0
-    )
-
-    return state.progressChecklist.map((item) => {
-      if (!item.autoComputed) return item
-
-      let checked = false
-      switch (item.id) {
-        case 'components_identified':
-          checked = hasComponents
-          break
-        case 'trust_boundaries_identified':
-          checked = hasTrustZones
-          break
-        case 'data_flows_defined':
-          checked = hasDataFlows
-          break
-        case 'owners_assigned':
-          checked = hasOwnersAssigned
-          break
-        case 'threats_linked_components':
-          checked = hasThreatsLinkedToComponents
-          break
-        case 'threats_linked_flows':
-          checked = hasThreatsLinkedToFlows
-          break
-        case 'countermeasures_assigned':
-          checked = hasCountermeasuresAssigned
-          break
-      }
-      return { ...item, checked }
-    })
-  }, [state.progressChecklist, state.componentThreats, diagrams])
+  // Progress checklist is computed by the backend and returned in workspace_data
+  const progressChecklist: ProgressChecklistItem[] = useMemo(() => {
+    const backendChecklist = (threatModel?.workspaceData as WorkspaceData & { progressChecklist?: ProgressChecklistItem[] })?.progressChecklist
+    if (backendChecklist?.length) return backendChecklist
+    return []
+  }, [threatModel?.workspaceData])
 
   return {
     componentThreats: state.componentThreats,
-    status: state.status,
     currentVersion: state.currentVersion,
     previousVersions: state.previousVersions,
-    systemContext: state.systemContext,
-    progressChecklist: computedProgressChecklist,
+    progressChecklist,
     summaries,
     isLoading: isLoadingThreats || isLoadingThreatModel,
     isLoadingThreats,
     updateCountermeasureStatus,
+    updateCountermeasurePriority,
     assignOwner,
     dismissThreat,
     restoreThreat,
     addCountermeasure,
     removeCountermeasure,
     restoreCountermeasure,
-    updateStatus,
-    updateSystemContext,
     toggleChecklistItem,
   }
 }

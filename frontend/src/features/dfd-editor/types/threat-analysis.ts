@@ -15,7 +15,7 @@ export interface ComplianceStandardMapping {
 /**
  * Status of a countermeasure for a specific component-threat
  */
-export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'waived'
+export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
 
 export const COUNTERMEASURE_STATUS_CONFIG: Record<
   CountermeasureStatus,
@@ -38,6 +38,12 @@ export const COUNTERMEASURE_STATUS_CONFIG: Record<
     color: '#eab308', // yellow
     bgColor: 'bg-yellow-500',
     description: 'Implementation planned or in progress',
+  },
+  verified: {
+    label: 'Verified',
+    color: '#22c55e', // green
+    bgColor: 'bg-green-500',
+    description: 'Implementation verified by security team',
   },
   waived: {
     label: 'Waived',
@@ -88,6 +94,8 @@ export interface ComponentThreatCountermeasure {
   componentThreatId: string
   // Current status
   status: CountermeasureStatus
+  // Priority (none, low, medium, high, critical)
+  priority?: string
   // Owner (email or username)
   owner?: string
   // Notes or justification (especially for waived)
@@ -106,6 +114,8 @@ export interface ComponentThreatCountermeasure {
   controlType?: string
   // Compliance standard mappings from backend
   standardMappings?: ComplianceStandardMapping[]
+  // Priority level
+  priority?: 'none' | 'low' | 'medium' | 'high' | 'critical'
 }
 
 /**
@@ -271,14 +281,15 @@ export interface ExpandedCountermeasure {
 /**
  * Workspace status for threat model review workflow
  */
-export type WorkspaceStatus = 'draft' | 'in_review' | 'approved' | 'archived'
+export type WorkspaceStatus = 'draft' | 'inProgress' | 'pendingReview' | 'approved' | 'archived'
 
 export const WORKSPACE_STATUS_CONFIG: Record<
   WorkspaceStatus,
   { label: string; color: string; bgColor: string }
 > = {
   draft: { label: 'Draft', color: '#6b7280', bgColor: 'bg-gray-100 text-gray-700' },
-  in_review: { label: 'In Review', color: '#f59e0b', bgColor: 'bg-yellow-100 text-yellow-700' },
+  inProgress: { label: 'In Progress', color: '#3b82f6', bgColor: 'bg-blue-100 text-blue-700' },
+  pendingReview: { label: 'Pending Review', color: '#f59e0b', bgColor: 'bg-yellow-100 text-yellow-700' },
   approved: { label: 'Approved', color: '#22c55e', bgColor: 'bg-green-100 text-green-700' },
   archived: { label: 'Archived', color: '#6b7280', bgColor: 'bg-gray-100 text-gray-500' },
 }
@@ -395,7 +406,7 @@ export interface ProgressChecklistItem {
  * Default progress checklist items
  */
 export const DEFAULT_PROGRESS_CHECKLIST: Omit<ProgressChecklistItem, 'checked'>[] = [
-  { id: 'assets_defined', label: 'Primary assets defined', autoComputed: false },
+  { id: 'assets_defined', label: 'Primary assets defined', autoComputed: true },
   { id: 'components_identified', label: 'Components identified', autoComputed: true },
   { id: 'trust_boundaries_identified', label: 'Trust boundaries identified', autoComputed: true },
   { id: 'data_flows_defined', label: 'Data flows defined', autoComputed: true },

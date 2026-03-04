@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2, Pencil } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, LockOpen, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -13,6 +13,13 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { useTeamMembers, useTeams, useOrganizationMembers } from '@/api/organizations'
@@ -31,9 +38,18 @@ import {
   THREAT_STATUS_CONFIG,
 } from '../../types/threat-analysis'
 import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
+import { useComponentDataAssets } from '@/api/component-data-assets'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import { parseCountermeasureId } from '@/api/threats'
+
+const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
+  none: { label: 'None', color: 'bg-gray-100 text-gray-600' },
+  low: { label: 'Low', color: 'bg-blue-100 text-blue-700' },
+  medium: { label: 'Medium', color: 'bg-yellow-100 text-yellow-700' },
+  high: { label: 'High', color: 'bg-orange-100 text-orange-700' },
+  critical: { label: 'Critical', color: 'bg-red-100 text-red-700' },
+}
 
 /** Unified assignee type for the combobox */
 export type Assignee =
@@ -513,6 +529,7 @@ function ComplianceDetailSection({
 }
 
 interface ComponentViewProps {
+  threatModelId: string
   canvasData: CanvasData
   analyzableComponents: DiagramNode[]
   trustZones: DiagramNode[]
@@ -542,6 +559,11 @@ interface ComponentViewProps {
   onAddCustomCountermeasure: () => void
   onRemoveCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
   onRestoreCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
+  onCountermeasurePriorityChange: (
+    componentThreatId: string,
+    countermeasureInstanceId: string,
+    priority: string
+  ) => void
 }
 
 /**
@@ -582,6 +604,64 @@ function ThreatStatusBadge({ status }: { status: ThreatStatus }) {
 }
 
 /**
+ * Read-only display of data assets linked to a component
+ */
+function ComponentDataAssetsDisplay({
+  componentId,
+}: {
+  componentId: number | undefined
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+  const { data: componentDataAssets = [] } = useComponentDataAssets(componentId)
+
+  if (!componentId || componentDataAssets.length === 0) return null
+
+  const shouldDefaultCollapse = componentDataAssets.length > 5
+
+  return (
+    <div className="px-3 py-2 border-b">
+      <button
+        className="w-full flex items-center justify-between text-xs"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <div className="flex items-center gap-1.5">
+          <Database className="h-3 w-3 text-purple-600" />
+          <span className="font-medium text-muted-foreground">Data Assets</span>
+          <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+            {componentDataAssets.length}
+          </Badge>
+        </div>
+        {collapsed || shouldDefaultCollapse ? (
+          collapsed ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronUp className="h-3 w-3 text-muted-foreground" />
+        ) : (
+          <ChevronUp className="h-3 w-3 text-muted-foreground" />
+        )}
+      </button>
+      {!collapsed && (
+        <div className="mt-1.5 space-y-1">
+          {componentDataAssets.map((cda) => (
+            <div
+              key={cda.id}
+              className="flex items-center gap-2 py-1 text-xs"
+            >
+              {cda.encrypted ? (
+                <Lock className="h-3 w-3 text-green-600 flex-shrink-0" />
+              ) : (
+                <LockOpen className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              )}
+              <span className="truncate flex-1">{cda.dataAssetName}</span>
+              <Badge variant="outline" className="text-[10px] h-4 px-1 flex-shrink-0">
+                {cda.dataState === 'at_rest' ? 'At Rest' : 'Processed'}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Countermeasure status button group
  */
 function CountermeasureStatusButtons({
@@ -599,7 +679,7 @@ function CountermeasureStatusButtons({
   onPlannedWithoutOwner: () => void
   onWaivedWithoutReason: () => void
 }) {
-  const statuses: CountermeasureStatus[] = ['gap', 'planned', 'waived']
+  const statuses: CountermeasureStatus[] = ['gap', 'planned', 'verified', 'waived']
 
   const handleStatusClick = (newStatus: CountermeasureStatus) => {
     // If clicking "Planned" and no owner assigned, trigger owner assignment first
@@ -638,6 +718,7 @@ function CountermeasureStatusButtons({
               'h-7 px-2 text-xs',
               isActive && s === 'gap' && 'bg-red-500 hover:bg-red-600',
               isActive && s === 'planned' && 'bg-yellow-500 hover:bg-yellow-600 text-black',
+              isActive && s === 'verified' && 'bg-green-500 hover:bg-green-600',
               isActive && s === 'waived' && 'bg-blue-500 hover:bg-blue-600'
             )}
             onClick={() => handleStatusClick(s)}
@@ -651,6 +732,7 @@ function CountermeasureStatusButtons({
 }
 
 export function ComponentView({
+  threatModelId,
   canvasData,
   analyzableComponents,
   trustZones,
@@ -670,6 +752,7 @@ export function ComponentView({
   onAddCustomCountermeasure,
   onRemoveCountermeasure,
   onRestoreCountermeasure,
+  onCountermeasurePriorityChange,
 }: ComponentViewProps) {
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
   const [showDismissedCountermeasures, setShowDismissedCountermeasures] = useState(false)
@@ -806,7 +889,7 @@ export function ComponentView({
   // Total countermeasures count
   const totalCountermeasures = selectedComponentThreat?.countermeasures.length || 0
   const resolvedCountermeasures = selectedComponentThreat?.countermeasures.filter(
-    (cm) => cm.status === 'platform' || cm.status === 'planned' || cm.status === 'waived'
+    (cm) => cm.status !== 'gap'
   ).length || 0
 
   return (
@@ -1105,6 +1188,15 @@ export function ComponentView({
           </div>
         </div>
 
+        {/* Data Assets section - read-only display */}
+        <ComponentDataAssetsDisplay
+          componentId={
+            selectedComponent
+              ? (selectedComponent.data as { component_id?: number }).component_id
+              : undefined
+          }
+        />
+
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
             {/* Active Threats - shown with dismiss button */}
@@ -1389,6 +1481,35 @@ export function ComponentView({
                         <span>Add compliance mapping</span>
                       </button>
                     )}
+
+                    {/* Priority */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Priority:</span>
+                      <Select
+                        value={cm.priority || 'none'}
+                        onValueChange={(value) => {
+                          console.log('[DEBUG priority] ComponentView onValueChange:', { threatId: selectedComponentThreat.id, cmId: cm.id, value, currentPriority: cm.priority })
+                          onCountermeasurePriorityChange(
+                            selectedComponentThreat.id,
+                            cm.id,
+                            value
+                          )
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-28 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>
+                              <Badge variant="outline" className={cn('text-[10px]', config.color)}>
+                                {config.label}
+                              </Badge>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                     {/* Owner display */}
                     {cm.owner && !isAssigning && (

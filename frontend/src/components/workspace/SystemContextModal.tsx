@@ -16,57 +16,55 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type {
-  SystemContext,
-  SystemContextAsset,
-  SystemContextOutOfScopeItem,
-} from '@/features/dfd-editor/types/threat-analysis'
+import { useThreatModel, useUpdateThreatModel } from '@/api/threat-models'
+import { useDataAssets } from '@/api/data-assets'
+import { useOutOfScopeItems } from '@/api/out-of-scope-items'
 import { AssetsModal } from './AssetsModal'
 import { OutOfScopeModal } from './OutOfScopeModal'
+import type { ThreatModel } from '@/types'
 
 type ActiveView = 'assets' | 'out-of-scope' | 'describe'
 
 interface SystemContextModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  systemContext: SystemContext
-  onSave: (context: SystemContext) => void
+  threatModelId: string
 }
 
 export function SystemContextModal({
   open,
   onOpenChange,
-  systemContext,
-  onSave,
+  threatModelId,
 }: SystemContextModalProps) {
-  const [description, setDescription] = useState(systemContext.description || '')
-  const [scopeLocked, setScopeLocked] = useState(systemContext.scopeLocked)
-  const [assets, setAssets] = useState<SystemContextAsset[]>(systemContext.assets || [])
-  const [outOfScopeItems, setOutOfScopeItems] = useState<SystemContextOutOfScopeItem[]>(
-    systemContext.outOfScopeItems || []
-  )
+  const { data: threatModel } = useThreatModel(threatModelId)
+  const { data: assets = [] } = useDataAssets(threatModelId)
+  const { data: outOfScopeItems = [] } = useOutOfScopeItems(threatModelId)
+  const updateThreatModelMutation = useUpdateThreatModel()
+
+  const [description, setDescription] = useState('')
+  const [scopeLocked, setScopeLocked] = useState(false)
   const [activeView, setActiveView] = useState<ActiveView>('describe')
 
   // Sub-modal states
   const [assetsModalOpen, setAssetsModalOpen] = useState(false)
   const [outOfScopeModalOpen, setOutOfScopeModalOpen] = useState(false)
 
-  // Sync state when systemContext prop changes
+  // Sync state when threatModel data changes
   useEffect(() => {
-    setDescription(systemContext.description || '')
-    setScopeLocked(systemContext.scopeLocked)
-    setAssets(systemContext.assets || [])
-    setOutOfScopeItems(systemContext.outOfScopeItems || [])
-  }, [systemContext])
+    if (threatModel) {
+      setDescription(threatModel.description || '')
+      setScopeLocked(threatModel.scopeLocked ?? false)
+    }
+  }, [threatModel])
 
   const handleSave = () => {
-    onSave({
-      ...systemContext,
-      description,
-      assets,
-      outOfScopeItems,
-      scopeLocked,
-      scopeLockedAt: scopeLocked ? new Date().toISOString() : undefined,
+    updateThreatModelMutation.mutate({
+      id: threatModelId,
+      data: {
+        description,
+        scopeLocked,
+        scopeLockedAt: scopeLocked ? new Date().toISOString() : null,
+      } as Partial<ThreatModel>,
     })
     onOpenChange(false)
   }
@@ -91,14 +89,6 @@ export function SystemContextModal({
 
   const handleDescribeClick = () => {
     setActiveView('describe')
-  }
-
-  const handleAssetsSave = (newAssets: SystemContextAsset[]) => {
-    setAssets(newAssets)
-  }
-
-  const handleOutOfScopeSave = (newItems: SystemContextOutOfScopeItem[]) => {
-    setOutOfScopeItems(newItems)
   }
 
   return (
@@ -226,16 +216,14 @@ export function SystemContextModal({
       <AssetsModal
         open={assetsModalOpen}
         onOpenChange={setAssetsModalOpen}
-        assets={assets}
-        onSave={handleAssetsSave}
+        threatModelId={threatModelId}
         disabled={scopeLocked}
       />
 
       <OutOfScopeModal
         open={outOfScopeModalOpen}
         onOpenChange={setOutOfScopeModalOpen}
-        items={outOfScopeItems}
-        onSave={handleOutOfScopeSave}
+        threatModelId={threatModelId}
         disabled={scopeLocked}
       />
     </>

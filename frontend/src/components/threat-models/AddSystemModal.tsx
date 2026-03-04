@@ -41,7 +41,7 @@ export function AddSystemModal({ open, onClose, onSystemCreated }: AddSystemModa
     try {
       const newSystem = await createMutation.mutateAsync({
         name,
-        description: description || undefined,
+        owner: description || undefined,
         lifecycleState,
       })
       onSystemCreated(newSystem)

@@ -5,6 +5,7 @@ Serializers for systems app.
 from rest_framework import serializers
 
 from .models import (
+    ComponentDataAsset,
     ComponentLibrary,
     DataAsset,
     DataFlow,
@@ -19,10 +20,6 @@ from .models import (
 class OrgsystemSerializer(serializers.ModelSerializer):
     """Serializer for Orgsystem model."""
 
-    # Accept 'description' from frontend, map to 'owner' field
-    description = serializers.CharField(
-        source="owner", required=False, allow_blank=True
-    )
     # Map to frontend expected fields for response
     type = serializers.SerializerMethodField()
     environment = serializers.CharField(source="lifecycle_state", read_only=True)
@@ -32,12 +29,13 @@ class OrgsystemSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
-            "owner",
             "description",
+            "owner",
             "type",
             "environment",
             "criticality",
             "lifecycle_state",
+            "format_metadata",
             "organization",
             "created_at",
             "updated_at",
@@ -68,20 +66,15 @@ class OrgsystemListSerializer(serializers.ModelSerializer):
 
     # Map to frontend expected fields
     type = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
     environment = serializers.CharField(source="lifecycle_state")
 
     class Meta:
         model = Orgsystem
-        fields = ["id", "name", "type", "description", "environment"]
+        fields = ["id", "name", "description", "type", "owner", "environment"]
 
     def get_type(self, obj):
         """Return type based on lifecycle state."""
         return "system"
-
-    def get_description(self, obj):
-        """Return owner as description for now."""
-        return obj.owner or ""
 
 
 class TrustZoneSerializer(serializers.ModelSerializer):
@@ -180,6 +173,7 @@ class OrgsystemComponentSerializer(serializers.ModelSerializer):
             "category",
             "actor_type",
             "data_store_type",
+            "data_sensitivity_level",
             "orgsystem",
             "component_library",
             "component_library_name",
@@ -244,6 +238,7 @@ class DataFlowSerializer(serializers.ModelSerializer):
             "authenticated",
             "crosses_trust_zone",
             "has_sensitive_data",
+            "data_classification",
             "format_metadata",
             "created_at",
             "updated_at",
@@ -274,3 +269,26 @@ class IntegrationSourceSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ComponentDataAssetSerializer(serializers.ModelSerializer):
+    """Serializer for ComponentDataAsset model."""
+
+    component_name = serializers.CharField(source="component.name", read_only=True)
+    data_asset_name = serializers.CharField(source="data_asset.name", read_only=True)
+
+    class Meta:
+        model = ComponentDataAsset
+        fields = [
+            "id",
+            "component",
+            "component_name",
+            "data_asset",
+            "data_asset_name",
+            "data_state",
+            "volume",
+            "encrypted",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "component_name", "data_asset_name"]

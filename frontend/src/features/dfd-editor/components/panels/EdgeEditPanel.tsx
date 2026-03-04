@@ -1,8 +1,9 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { X, Trash2, ArrowRight, ArrowLeftRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
@@ -13,14 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
 import type {
   DataFlowEdge,
   Protocol,
-  DataClassification,
   DiagramNode,
   TrustZoneNodeData,
 } from '../../types'
-import { PROTOCOLS, DATA_CLASSIFICATIONS, TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { PROTOCOLS, TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { DATA_SENSITIVITY_TAG_CONFIG } from '@/types/domain'
 
 interface EdgeEditPanelProps {
   edge: DataFlowEdge
@@ -36,6 +38,16 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
   const nodes = getNodes()
   const sourceNode = nodes.find((n) => n.id === edge.source)
   const targetNode = nodes.find((n) => n.id === edge.target)
+
+  const dataClassificationOptions = useMemo(
+    () =>
+      Object.entries(DATA_SENSITIVITY_TAG_CONFIG).map(([value, config]) => ({
+        value,
+        label: config.label,
+        description: config.description,
+      })),
+    []
+  )
 
   const updateEdgeData = (updates: Partial<DataFlowEdge['data']>) => {
     setEdges((edges) =>
@@ -58,14 +70,6 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
           : e
       )
     )
-  }
-
-  const toggleClassification = (classification: DataClassification) => {
-    const current = edge.data?.dataClassification || []
-    const updated = current.includes(classification)
-      ? current.filter((c) => c !== classification)
-      : [...current, classification]
-    updateEdgeData({ dataClassification: updated })
   }
 
   return (
@@ -122,6 +126,17 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
           />
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="edge-description">Description</Label>
+          <Textarea
+            id="edge-description"
+            value={edge.data?.description || ''}
+            onChange={(e) => updateEdgeData({ description: e.target.value })}
+            placeholder="Describe this data flow..."
+            rows={3}
+          />
+        </div>
+
         {/* Protocol */}
         <div className="space-y-2">
           <Label htmlFor="edge-protocol">Protocol</Label>
@@ -147,23 +162,14 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
         {/* Data Classification */}
         <div className="space-y-2">
           <Label>Data Classification</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {DATA_CLASSIFICATIONS.map((classification) => (
-              <div key={classification} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`classification-${classification}`}
-                  checked={edge.data?.dataClassification?.includes(classification) || false}
-                  onCheckedChange={() => toggleClassification(classification)}
-                />
-                <Label
-                  htmlFor={`classification-${classification}`}
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {classification}
-                </Label>
-              </div>
-            ))}
-          </div>
+          <MultiSelectCombobox
+            options={dataClassificationOptions}
+            selected={edge.data?.dataClassification || []}
+            onChange={(tags) => updateEdgeData({ dataClassification: tags })}
+            placeholder="Select or add tags..."
+            searchPlaceholder="Search or type custom..."
+            allowCustom
+          />
         </div>
 
         <Separator />
@@ -201,6 +207,22 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
               className="text-sm font-normal cursor-pointer"
             >
               Authentication Required
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="edge-sensitive-data"
+              checked={edge.data?.hasSensitiveData || false}
+              onCheckedChange={(checked) =>
+                updateEdgeData({ hasSensitiveData: checked as boolean })
+              }
+            />
+            <Label
+              htmlFor="edge-sensitive-data"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Contains Sensitive Data
             </Label>
           </div>
         </div>
