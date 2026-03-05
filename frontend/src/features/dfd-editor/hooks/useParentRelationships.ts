@@ -1,5 +1,10 @@
 import { useCallback } from 'react'
 import type { DiagramNode } from '../types'
+import {
+  MAX_PROCESS_HIERARCHY_DEPTH,
+  getProcessAncestorDepth,
+  getProcessDescendantDepth,
+} from '../types/diagram'
 
 interface BoundingBox {
   x: number
@@ -97,39 +102,67 @@ export function useParentRelationships() {
       // Create a map for fast O(1) lookups during recursion
       const nodesMap = new Map(allNodes.map((n) => [n.id, n]))
 
-      // Filter valid candidates (Boundaries only)
-      const boundaries = allNodes.filter(
-        (n) =>
-          (n.type === 'trustZone' || n.type === 'systemScope') &&
-          n.id !== node.id
-      )
+      // Filter valid parent candidates:
+      // - Trust zones and system scopes are always candidates
+      // - Process containers (processes with existing children) are candidates
+      //   only for process nodes being dragged (D2: process-only hierarchy)
+      const candidates = allNodes.filter((n) => {
+        if (n.id === node.id) return false
+        if (n.type === 'trustZone' || n.type === 'systemScope') return true
+        if (n.type === 'process' && (node.type === 'process' || node.type === 'datastore')) {
+          // A process can parent another process or data store if it already
+          // has children, OR if it's significantly larger than the dragged node
+          // (i.e. user resized it to act as a container). We check measured
+          // dimensions because NodeResizer updates measured (via ResizeObserver),
+          // not style.
+          const hasChildren = allNodes.some((child) => child.parentId === n.id)
+          if (hasChildren) return true
+
+          const candidateWidth = n.measured?.width || (n.style?.width as number) || 0
+          const candidateHeight = n.measured?.height || (n.style?.height as number) || 0
+          const nodeWidth = node.measured?.width || (node.style?.width as number) || 0
+          const nodeHeight = node.measured?.height || (node.style?.height as number) || 0
+          const isSignificantlyLarger = candidateWidth * candidateHeight > nodeWidth * nodeHeight * 1.5
+          return isSignificantlyLarger
+        }
+        return false
+      })
 
       const nodeBox = getAbsoluteBoundingBox(node, nodesMap)
       let bestMatch: DiagramNode | null = null
       let bestArea = Infinity
 
-      for (const boundary of boundaries) {
-        // Cycle Check: Skip if the boundary is actually inside the node we are dragging
-        if (isDescendant(boundary.id, node.id, nodesMap)) continue
+      for (const candidate of candidates) {
+        // Cycle Check: Skip if the candidate is actually inside the node we are dragging
+        if (isDescendant(candidate.id, node.id, nodesMap)) continue
 
-        const boundaryBox = getAbsoluteBoundingBox(boundary, nodesMap)
+        const candidateBox = getAbsoluteBoundingBox(candidate, nodesMap)
 
         // Check Intersection (Center method is good for UX)
         const nodeCenterX = nodeBox.x + nodeBox.width / 2
         const nodeCenterY = nodeBox.y + nodeBox.height / 2
 
         const isInside =
-          nodeCenterX >= boundaryBox.x &&
-          nodeCenterX <= boundaryBox.x + boundaryBox.width &&
-          nodeCenterY >= boundaryBox.y &&
-          nodeCenterY <= boundaryBox.y + boundaryBox.height
+          nodeCenterX >= candidateBox.x &&
+          nodeCenterX <= candidateBox.x + candidateBox.width &&
+          nodeCenterY >= candidateBox.y &&
+          nodeCenterY <= candidateBox.y + candidateBox.height
 
         if (isInside) {
-          const area = boundaryBox.width * boundaryBox.height
+          // For process candidates, enforce max depth (D4)
+          if (candidate.type === 'process') {
+            const parentProcessDepth = getProcessAncestorDepth(candidate.id, allNodes) + 1
+            const childProcessDepth = getProcessDescendantDepth(node.id, allNodes)
+            if (parentProcessDepth + 1 + childProcessDepth > MAX_PROCESS_HIERARCHY_DEPTH) {
+              continue // Would exceed max depth — skip to next candidate
+            }
+          }
+
+          const area = candidateBox.width * candidateBox.height
           // Specificity: Always pick the smallest parent that fits
           if (area < bestArea) {
             bestArea = area
-            bestMatch = boundary
+            bestMatch = candidate
           }
         }
       }
@@ -160,7 +193,7 @@ export function useParentRelationships() {
           // Only preserve if: parent exists, is a boundary, AND child is still inside parent bounds
           if (node.parentId) {
             const currentParent = liveNodesMap.get(node.parentId)
-            if (currentParent && (currentParent.type === 'trustZone' || currentParent.type === 'systemScope')) {
+            if (currentParent && (currentParent.type === 'trustZone' || currentParent.type === 'systemScope' || currentParent.type === 'process')) {
               const nodeBox = getAbsoluteBoundingBox(node, liveNodesMap)
               const parentBox = getAbsoluteBoundingBox(currentParent, liveNodesMap)
 
@@ -243,14 +276,28 @@ export function useParentRelationships() {
 
         if (!hasChanges) return currentNodes
 
-        // Update boundaries that received children (for receive animation)
+        // Update boundaries that received children (for receive animation + auto-sizing)
         const finalNodes = updatedNodes.map((node) => {
           if (
-            (node.type === 'trustZone' || node.type === 'systemScope') &&
+            (node.type === 'trustZone' || node.type === 'systemScope' || node.type === 'process') &&
             boundariesReceivingChildren.has(node.id)
           ) {
+            // React Flow sub-flows require parent nodes to have style.width/height.
+            // NodeResizer updates measured (via ResizeObserver), not style, so we
+            // must ensure style dimensions are always set on process parents.
+            let styleUpdate: Record<string, unknown> | undefined
+            if (node.type === 'process') {
+              const hasStyleSize = node.style?.width && node.style?.height
+              if (!hasStyleSize) {
+                // Copy measured dimensions to style, or use default container size
+                const width = node.measured?.width || 350
+                const height = node.measured?.height || 250
+                styleUpdate = { style: { ...node.style, width, height } }
+              }
+            }
             return {
               ...node,
+              ...styleUpdate,
               data: {
                 ...node.data,
                 receiveChildAnimationKey: Date.now() + Math.random(),
@@ -264,9 +311,23 @@ export function useParentRelationships() {
         // This ensures proper z-indexing and React Flow rendering order
         const updatedNodesMap = new Map(finalNodes.map((n) => [n.id, n]))
 
-        return [...finalNodes].sort(
-          (a, b) => getDepth(a, updatedNodesMap) - getDepth(b, updatedNodesMap)
-        )
+        // Set explicit zIndex based on depth so children always render on top of parents
+        const sortedNodes = [...finalNodes]
+          .sort(
+            (a, b) => getDepth(a, updatedNodesMap) - getDepth(b, updatedNodesMap)
+          )
+          .map((node) => {
+            const depth = getDepth(node, updatedNodesMap)
+            if (depth > 0 && node.zIndex !== depth) {
+              return { ...node, zIndex: depth }
+            }
+            if (depth === 0 && node.zIndex !== undefined) {
+              return { ...node, zIndex: undefined }
+            }
+            return node
+          })
+
+        return sortedNodes
       })
     },
     [findParentBoundary]

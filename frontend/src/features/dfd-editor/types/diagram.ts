@@ -47,6 +47,8 @@ export interface BaseNodeData {
 export interface ProcessNodeData extends BaseNodeData {
   technology?: string
   dataSensitivity?: DataSensitivity
+  // Backend component ID of the parent process (for sync to OrgsystemComponent.parent_component)
+  parentComponentId?: number
 }
 
 export interface DataStoreNodeData extends BaseNodeData {
@@ -214,8 +216,47 @@ export function isSystemScopeNode(node: DiagramNode): node is Node<SystemScopeNo
   return node.type === 'systemScope'
 }
 
+/** Returns true for nodes that are always containers (trust zones, system scopes). */
 export function isContainerNode(node: DiagramNode): boolean {
   return node.type === 'trustZone' || node.type === 'systemScope'
+}
+
+/** Returns true for any node that can currently accept children.
+ *  Trust zones and system scopes are always valid parents.
+ *  Process nodes are valid parents when they already have children
+ *  (i.e., another node's parentId points to them). */
+export function isValidParentNode(node: DiagramNode, allNodes: DiagramNode[]): boolean {
+  if (isContainerNode(node)) return true
+  if (node.type === 'process') {
+    return allNodes.some(n => n.parentId === node.id)
+  }
+  return false
+}
+
+/** Max depth for process-to-process nesting (Parent → Child → Grandchild). */
+export const MAX_PROCESS_HIERARCHY_DEPTH = 3
+
+/** Count process-to-process ancestor levels above a node. */
+export function getProcessAncestorDepth(nodeId: string, allNodes: DiagramNode[]): number {
+  const nodeMap = new Map(allNodes.map(n => [n.id, n]))
+  let depth = 0
+  let currentId = nodeMap.get(nodeId)?.parentId
+  const visited = new Set<string>()
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId)
+    const parent = nodeMap.get(currentId)
+    if (!parent) break
+    if (parent.type === 'process') depth++
+    currentId = parent.parentId
+  }
+  return depth
+}
+
+/** Count the deepest process-to-process descendant chain below a node. */
+export function getProcessDescendantDepth(nodeId: string, allNodes: DiagramNode[]): number {
+  const children = allNodes.filter(n => n.parentId === nodeId && n.type === 'process')
+  if (children.length === 0) return 0
+  return 1 + Math.max(...children.map(c => getProcessDescendantDepth(c.id, allNodes)))
 }
 
 // Edge type guards

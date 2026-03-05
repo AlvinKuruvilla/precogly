@@ -36,6 +36,9 @@ import {
   TRUST_LEVEL_CONFIG,
   DATA_SENSITIVITY_CONFIG,
   TRUST_ZONE_TYPE_CONFIG,
+  MAX_PROCESS_HIERARCHY_DEPTH,
+  getProcessAncestorDepth,
+  getProcessDescendantDepth,
 } from '../../types'
 
 interface NodeEditPanelProps {
@@ -248,8 +251,9 @@ export const NodeEditPanel = memo(function NodeEditPanel({
   const handleDelete = () => {
     const nodes = getNodes() as DiagramNode[]
 
-    // For boundary nodes, convert children to root nodes
-    if (node.type === 'trustZone' || node.type === 'systemScope') {
+    // For container nodes (boundaries or process containers), convert children to root nodes
+    const hasChildren = nodes.some((n) => n.parentId === node.id)
+    if (node.type === 'trustZone' || node.type === 'systemScope' || hasChildren) {
       const boundaryPos = node.position
       const updatedNodes = nodes
         .filter((n) => n.id !== node.id)
@@ -383,6 +387,142 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Parent Process - only for process nodes */}
+            {node.type === 'process' && (
+              <div className="space-y-2">
+                <Label htmlFor="node-parent-process">Parent Process</Label>
+                <Select
+                  value={(() => {
+                    if (!node.parentId) return 'none'
+                    const parent = (getNodes() as DiagramNode[]).find(
+                      (n) => n.id === node.parentId
+                    )
+                    return parent?.type === 'process' ? node.parentId : 'none'
+                  })()}
+                  onValueChange={(value) => {
+                    const newParentId = value === 'none' ? undefined : value
+                    const allNodes = getNodes() as DiagramNode[]
+                    const nodesMap = new Map(allNodes.map((n) => [n.id, n]))
+
+                    // Calculate absolute position by walking parentId chain
+                    const getAbsPos = (nodeId: string) => {
+                      const n = nodesMap.get(nodeId)
+                      if (!n) return { x: 0, y: 0 }
+                      let x = n.position.x
+                      let y = n.position.y
+                      let pid = n.parentId
+                      while (pid) {
+                        const p = nodesMap.get(pid)
+                        if (!p) break
+                        x += p.position.x
+                        y += p.position.y
+                        pid = p.parentId
+                      }
+                      return { x, y }
+                    }
+
+                    let newPos: { x: number; y: number }
+
+                    if (newParentId) {
+                      // Place child at a default offset inside the parent
+                      newPos = { x: 20, y: 40 }
+                    } else {
+                      // Un-nesting: convert relative position back to absolute
+                      newPos = getAbsPos(node.id)
+                    }
+
+                    setNodes((nodes) =>
+                      nodes.map((n) => {
+                        if (n.id === node.id) {
+                          return {
+                            ...n,
+                            parentId: newParentId,
+                            position: newPos,
+                            data: {
+                              ...n.data,
+                              lockAnimationKey: newParentId
+                                ? Date.now() + Math.random()
+                                : undefined,
+                            },
+                          }
+                        }
+                        // When becoming a parent, ensure it has container dimensions
+                        if (newParentId && n.id === newParentId) {
+                          const hasStyleSize = n.style?.width && n.style?.height
+                          const width = hasStyleSize ? undefined : (n.measured?.width || 350)
+                          const height = hasStyleSize ? undefined : (n.measured?.height || 250)
+                          return {
+                            ...n,
+                            ...(!hasStyleSize && {
+                              style: {
+                                ...n.style,
+                                width: Math.max(width!, 350),
+                                height: Math.max(height!, 250),
+                              },
+                            }),
+                            data: {
+                              ...n.data,
+                              receiveChildAnimationKey: Date.now() + Math.random(),
+                            },
+                          }
+                        }
+                        return n
+                      })
+                    )
+                  }}
+                >
+                  <SelectTrigger id="node-parent-process">
+                    <SelectValue placeholder="None (top-level)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (top-level)</SelectItem>
+                    {(() => {
+                      const allNodes = getNodes() as DiagramNode[]
+                      const nodesMap = new Map(allNodes.map((n) => [n.id, n]))
+
+                      return allNodes
+                        .filter((n) => {
+                          if (n.id === node.id || n.type !== 'process') return false
+
+                          // Cycle check: candidate must not be a descendant of this node
+                          let checkId: string | undefined = n.parentId
+                          const visited = new Set<string>()
+                          while (checkId) {
+                            if (visited.has(checkId)) break
+                            visited.add(checkId)
+                            if (checkId === node.id) return false
+                            checkId = nodesMap.get(checkId)?.parentId
+                          }
+
+                          // Depth check
+                          const parentProcessDepth =
+                            getProcessAncestorDepth(n.id, allNodes) + 1
+                          const childProcessDepth = getProcessDescendantDepth(
+                            node.id,
+                            allNodes
+                          )
+                          if (
+                            parentProcessDepth + 1 + childProcessDepth >
+                            MAX_PROCESS_HIERARCHY_DEPTH
+                          )
+                            return false
+
+                          return true
+                        })
+                        .map((n) => (
+                          <SelectItem key={n.id} value={n.id}>
+                            {n.data.label || n.id}
+                          </SelectItem>
+                        ))
+                    })()}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Nest this process inside another process
+                </p>
+              </div>
+            )}
 
             {/* System Assignment - only shown if threat model has linked systems */}
             {hasLinkedSystems && (node.data as { component_id?: number }).component_id && (
@@ -637,6 +777,8 @@ export const NodeEditPanel = memo(function NodeEditPanel({
               <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
                 {parentNode.type === 'trustZone' ? (
                   <Shield className="h-4 w-4 text-orange-600" />
+                ) : parentNode.type === 'process' ? (
+                  <Cog className="h-4 w-4 text-blue-600" />
                 ) : (
                   <Box className="h-4 w-4 text-gray-600" />
                 )}

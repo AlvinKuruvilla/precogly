@@ -372,9 +372,14 @@ function DFDEditorContent() {
   )
 
   // Handle node drag end - update parent relationships
+  // Use requestAnimationFrame to ensure React Flow has fully processed all
+  // internal state updates (position changes, dimension measurements) before
+  // we modify parentId and transform coordinates.
   const handleNodeDragStop = useCallback(
     () => {
-      updateParentRelationships(nodes, setNodes)
+      requestAnimationFrame(() => {
+        updateParentRelationships(nodes, setNodes)
+      })
     },
     [nodes, setNodes, updateParentRelationships]
   )

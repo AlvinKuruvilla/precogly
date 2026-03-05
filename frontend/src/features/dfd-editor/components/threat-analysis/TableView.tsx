@@ -16,6 +16,7 @@ import type { ComponentThreat, CountermeasureStatus } from '../../types/threat-a
 import { deriveThreatStatus, THREAT_STATUS_CONFIG } from '../../types/threat-analysis'
 import type { TaxonomyEntry } from '@/types/domain'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
+import { getAncestryPath, buildNodesMap } from './hierarchy-utils'
 
 interface TableViewProps {
   canvasData: CanvasData
@@ -34,6 +35,7 @@ interface FlattenedThreat {
   componentLabel: string
   componentType: string
   technology?: string
+  parentPath?: string
   threatId: string
   threatName: string
   taxonomyEntries: TaxonomyEntry[]
@@ -51,6 +53,12 @@ export function TableView({
 }: TableViewProps) {
   // Mark as used - inline editing will be added later
   void _onCountermeasureStatusChange
+  // Build nodes map once for hierarchy lookups
+  const nodesMap = useMemo(
+    () => buildNodesMap(canvasData.nodes),
+    [canvasData.nodes]
+  )
+
   // Flatten all threats into table rows
   const flattenedThreats = useMemo((): FlattenedThreat[] => {
     const rows: FlattenedThreat[] = []
@@ -66,6 +74,19 @@ export function TableView({
 
         const technologyName = (node.data as { technology?: string }).technology
 
+        // Compute parent path for nested process nodes
+        let parentPath: string | undefined
+        if (node.type === 'process') {
+          const ancestry = getAncestryPath(node.id, nodesMap)
+          if (ancestry.length > 1) {
+            // Exclude the node itself — show only ancestors
+            parentPath = ancestry
+              .slice(0, -1)
+              .map((a) => (a.data as { technology?: string }).technology || String(a.data.label))
+              .join(' > ')
+          }
+        }
+
         const status = deriveThreatStatus(ct.countermeasures)
         const resolved = ct.countermeasures.filter(
           (cm) => cm.status !== 'gap'
@@ -78,6 +99,7 @@ export function TableView({
           componentLabel: String(node.data.label),
           componentType: node.type as string,
           technology: technologyName,
+          parentPath,
           threatId: ct.threatId,
           threatName: ct.threatName,
           taxonomyEntries: ct.taxonomyEntries || [],
@@ -93,7 +115,7 @@ export function TableView({
     rows.sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
 
     return rows
-  }, [componentThreats, canvasData.nodes])
+  }, [componentThreats, canvasData.nodes, nodesMap])
 
   // Summary stats
   const stats = useMemo(() => {
@@ -165,6 +187,11 @@ export function TableView({
                     />
                   </TableCell>
                   <TableCell>
+                    {row.parentPath && (
+                      <div className="text-[10px] text-muted-foreground leading-tight">
+                        {row.parentPath}
+                      </div>
+                    )}
                     <div className="font-medium">{row.componentLabel}</div>
                     <div className="text-xs text-muted-foreground capitalize">
                       {row.componentType}

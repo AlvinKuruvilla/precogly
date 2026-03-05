@@ -1170,7 +1170,12 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
 
 
 def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
-    """Load components from components.yaml."""
+    """Load components from components.yaml.
+
+    Uses a two-pass approach to handle parent references:
+      Pass 1: Create/update all ComponentLibrary records with parent=None.
+      Pass 2: Resolve parent slug references and set the FK.
+    """
     if not file_path.exists():
         return 0
 
@@ -1183,6 +1188,8 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
 
     components_list = data.get("components", [])
 
+    # Pass 1: Create/update all records without parent
+    slug_to_instance = {}
     count = 0
     for comp in components_list:
         comp_id = comp.get("id", comp.get("slug", ""))
@@ -1192,7 +1199,7 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
 
         qualified_slug = f"{library_pack.slug}/{comp_id}"
 
-        ComponentLibrary.objects.update_or_create(
+        instance, _ = ComponentLibrary.objects.update_or_create(
             qualified_slug=qualified_slug,
             defaults={
                 "source_pack": library_pack,
@@ -1202,9 +1209,53 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
                 "component_type": comp.get("type", comp.get("component_type", "")),
                 "provider": _infer_provider(library_pack.slug),
                 "customization_status": "original",
+                "parent": None,
             },
         )
+        slug_to_instance[comp_id] = instance
         count += 1
+
+    # Pass 2: Resolve parent references
+    for comp in components_list:
+        parent_slug = comp.get("parent")
+        if not parent_slug:
+            continue
+
+        comp_id = comp.get("id", comp.get("slug", ""))
+        child_instance = slug_to_instance.get(comp_id)
+        parent_instance = slug_to_instance.get(parent_slug)
+
+        if not child_instance or not parent_instance:
+            logger.warning(
+                f"Cannot resolve parent '{parent_slug}' for component "
+                f"'{comp_id}' — skipping parent assignment."
+            )
+            continue
+
+        if child_instance.category != ComponentLibrary.Category.PROCESS:
+            logger.warning(
+                f"Component '{comp_id}' has category '{child_instance.category}' "
+                f"but only process components can have a parent — skipping."
+            )
+            continue
+
+        if parent_instance.category != ComponentLibrary.Category.PROCESS:
+            logger.warning(
+                f"Parent '{parent_slug}' has category '{parent_instance.category}' "
+                f"but only process components can be parents — skipping."
+            )
+            continue
+
+        child_instance.parent = parent_instance
+        try:
+            child_instance.full_clean()
+            child_instance.save(update_fields=["parent"])
+        except Exception as e:
+            logger.warning(
+                f"Invalid parent assignment '{parent_slug}' -> '{comp_id}': {e}"
+            )
+            child_instance.parent = None
+            child_instance.save(update_fields=["parent"])
 
     return count
 

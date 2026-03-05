@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Cog, Database, User, ChevronDown, ChevronUp, X, Lock, LockOpen, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2, Pencil } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Lock, LockOpen, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -42,6 +42,13 @@ import { useComponentDataAssets } from '@/api/component-data-assets'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import { parseCountermeasureId } from '@/api/threats'
+import {
+  buildComponentTree,
+  buildNodesMap,
+  getAncestryPath,
+  getDirectProcessChildren,
+  type ComponentTreeNode,
+} from './hierarchy-utils'
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   none: { label: 'None', color: 'bg-gray-100 text-gray-600' },
@@ -604,6 +611,127 @@ function ThreatStatusBadge({ status }: { status: ThreatStatus }) {
 }
 
 /**
+ * Single item in the component tree (left panel).
+ * Renders the node with indentation based on depth, an expand/collapse chevron
+ * for parents, and the existing threat summary badges.
+ */
+function ComponentTreeItem({
+  treeNode,
+  componentThreats,
+  selectedComponentId,
+  collapsedNodes,
+  onSelectComponent,
+  onToggleCollapsed,
+}: {
+  treeNode: ComponentTreeNode
+  componentThreats: ComponentThreat[]
+  selectedComponentId: string | null
+  collapsedNodes: Set<string>
+  onSelectComponent: (id: string) => void
+  onToggleCollapsed: (id: string) => void
+}) {
+  const { node, children, depth } = treeNode
+  const Icon = nodeTypeIcons[node.type as string] || Cog
+  const summary = getComponentThreatSummary(node.id, componentThreats)
+  const isSelected = node.id === selectedComponentId
+  const technologyName = (node.data as { technology?: string }).technology
+  const nodeLabel = String(node.data.label)
+  const displayName = technologyName || nodeLabel
+  const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
+  const hasChildren = children.length > 0
+  const isCollapsed = collapsedNodes.has(node.id)
+
+  return (
+    <>
+      <button
+        onClick={() => onSelectComponent(node.id)}
+        className={cn(
+          'w-full text-left p-2 rounded-md transition-colors',
+          isSelected
+            ? 'bg-slate-100 border border-slate-300'
+            : 'hover:bg-slate-50'
+        )}
+        style={{ paddingLeft: `${8 + depth * 16}px` }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {/* Chevron for parents, spacer for leaves */}
+            {hasChildren ? (
+              <span
+                role="button"
+                className="flex-shrink-0 p-0.5 rounded hover:bg-slate-200 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleCollapsed(node.id)
+                }}
+              >
+                <ChevronRight
+                  className={cn(
+                    'h-3 w-3 text-muted-foreground transition-transform',
+                    !isCollapsed && 'rotate-90'
+                  )}
+                />
+              </span>
+            ) : (
+              <span className="w-4 flex-shrink-0" />
+            )}
+            <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium text-sm truncate">
+                {displayName}
+              </div>
+              {showSecondaryLabel && (
+                <div className="text-xs text-muted-foreground truncate">
+                  {nodeLabel}
+                </div>
+              )}
+            </div>
+          </div>
+          {summary.exposed > 0 ? (
+            <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
+              {summary.exposed} exposed
+            </Badge>
+          ) : summary.addressable > 0 ? (
+            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
+              {summary.addressable} in progress
+            </Badge>
+          ) : summary.total > 0 ? (
+            <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+              No threats
+            </span>
+          ) : null}
+        </div>
+        {summary.total > 0 && (
+          <div className="flex items-center gap-1 mt-1" style={{ marginLeft: `${hasChildren ? 24 : 20}px` }}>
+            <span
+              className={cn(
+                'w-2 h-2 rounded-full',
+                summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
+              )}
+            />
+            <span className="text-xs text-muted-foreground">
+              {summary.total}
+            </span>
+          </div>
+        )}
+      </button>
+      {/* Recursively render children when not collapsed */}
+      {hasChildren && !isCollapsed && children.map((child) => (
+        <ComponentTreeItem
+          key={child.node.id}
+          treeNode={child}
+          componentThreats={componentThreats}
+          selectedComponentId={selectedComponentId}
+          collapsedNodes={collapsedNodes}
+          onSelectComponent={onSelectComponent}
+          onToggleCollapsed={onToggleCollapsed}
+        />
+      ))}
+    </>
+  )
+}
+
+/**
  * Read-only display of data assets linked to a component
  */
 function ComponentDataAssetsDisplay({
@@ -764,6 +892,8 @@ export function ComponentView({
   const [waivingReasonFor, setWaivingReasonFor] = useState<string | null>(null)
   // Track which countermeasures have expanded compliance sections
   const [expandedComplianceFor, setExpandedComplianceFor] = useState<Set<string>>(new Set())
+  // Track collapsed nodes in the hierarchy tree
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
   // Track which countermeasure is having its compliance mappings edited
   const [editingComplianceFor, setEditingComplianceFor] = useState<{
     id: string
@@ -785,6 +915,30 @@ export function ComponentView({
     })
   }
 
+  // Build nodes map for hierarchy lookups
+  const nodesMap = useMemo(
+    () => buildNodesMap(canvasData.nodes),
+    [canvasData.nodes]
+  )
+
+  // Build component tree for the left panel
+  const { treeRoots, flatNonProcess } = useMemo(
+    () => buildComponentTree(analyzableComponents, canvasData.nodes),
+    [analyzableComponents, canvasData.nodes]
+  )
+
+  const toggleNodeCollapsed = useCallback((nodeId: string) => {
+    setCollapsedNodes((prev) => {
+      const next = new Set(prev)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+      } else {
+        next.add(nodeId)
+      }
+      return next
+    })
+  }, [])
+
   // Get selected component or data flow
   const selectedComponent = useMemo(() => {
     if (!selectedComponentId) return null
@@ -800,6 +954,19 @@ export function ComponentView({
     if (!selectedComponentId) return null
     return trustZones.find((n) => n.id === selectedComponentId) || null
   }, [trustZones, selectedComponentId])
+
+  // Ancestry path for breadcrumb (only for process nodes with ancestors)
+  const ancestryPath = useMemo(() => {
+    if (!selectedComponent || selectedComponent.type !== 'process') return []
+    const path = getAncestryPath(selectedComponent.id, nodesMap)
+    return path.length > 1 ? path : []
+  }, [selectedComponent, nodesMap])
+
+  // Direct process children of the selected component
+  const childProcesses = useMemo(() => {
+    if (!selectedComponent || selectedComponent.type !== 'process') return []
+    return getDirectProcessChildren(selectedComponent.id, canvasData.nodes)
+  }, [selectedComponent, canvasData.nodes])
 
   // Helper to get source and target node labels for a data flow
   const getDataFlowLabels = (edge: DataFlowEdge) => {
@@ -937,72 +1104,91 @@ export function ComponentView({
         {/* Components list */}
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
-            {analyzableComponents.map((node) => {
-              const Icon = nodeTypeIcons[node.type as string] || Cog
-              const summary = getComponentThreatSummary(node.id, componentThreats)
-              const isSelected = node.id === selectedComponentId
-              const technologyName = (node.data as { technology?: string }).technology
-              const nodeLabel = String(node.data.label)
-              // Show technology name as primary if available, otherwise show label
-              // Show label as secondary only if it differs from technology name
-              const displayName = technologyName || nodeLabel
-              const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
+            {/* Process nodes as a tree */}
+            {treeRoots.map((treeNode) => (
+              <ComponentTreeItem
+                key={treeNode.node.id}
+                treeNode={treeNode}
+                componentThreats={componentThreats}
+                selectedComponentId={selectedComponentId}
+                collapsedNodes={collapsedNodes}
+                onSelectComponent={onSelectComponent}
+                onToggleCollapsed={toggleNodeCollapsed}
+              />
+            ))}
 
-              return (
-                <button
-                  key={node.id}
-                  onClick={() => onSelectComponent(node.id)}
-                  className={cn(
-                    'w-full text-left p-2 rounded-md transition-colors',
-                    isSelected
-                      ? 'bg-slate-100 border border-slate-300'
-                      : 'hover:bg-slate-50'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="font-medium text-sm truncate">
-                          {displayName}
-                        </div>
-                        {showSecondaryLabel && (
-                          <div className="text-xs text-muted-foreground truncate">
-                            {nodeLabel}
+            {/* Data Stores & Actors separator + flat list */}
+            {flatNonProcess.length > 0 && (
+              <>
+                <div className="pt-3 pb-1 px-2 border-t mt-2">
+                  <span className="text-xs font-medium text-muted-foreground">Data Stores & Actors</span>
+                </div>
+                {flatNonProcess.map((node) => {
+                  const Icon = nodeTypeIcons[node.type as string] || Cog
+                  const summary = getComponentThreatSummary(node.id, componentThreats)
+                  const isSelected = node.id === selectedComponentId
+                  const technologyName = (node.data as { technology?: string }).technology
+                  const nodeLabel = String(node.data.label)
+                  const displayName = technologyName || nodeLabel
+                  const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
+
+                  return (
+                    <button
+                      key={node.id}
+                      onClick={() => onSelectComponent(node.id)}
+                      className={cn(
+                        'w-full text-left p-2 rounded-md transition-colors',
+                        isSelected
+                          ? 'bg-slate-100 border border-slate-300'
+                          : 'hover:bg-slate-50'
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {displayName}
+                            </div>
+                            {showSecondaryLabel && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                {nodeLabel}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
+                        {summary.exposed > 0 ? (
+                          <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
+                            {summary.exposed} exposed
+                          </Badge>
+                        ) : summary.addressable > 0 ? (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
+                            {summary.addressable} in progress
+                          </Badge>
+                        ) : summary.total > 0 ? (
+                          <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                            No threats
+                          </span>
+                        ) : null}
                       </div>
-                    </div>
-                    {summary.exposed > 0 ? (
-                      <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
-                        {summary.exposed} exposed
-                      </Badge>
-                    ) : summary.addressable > 0 ? (
-                      <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
-                        {summary.addressable} in progress
-                      </Badge>
-                    ) : summary.total > 0 ? (
-                      <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                        No threats
-                      </span>
-                    ) : null}
-                  </div>
-                  {summary.total > 0 && (
-                    <div className="flex items-center gap-1 mt-1 ml-6">
-                      <span
-                        className={cn(
-                          'w-2 h-2 rounded-full',
-                          summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
-                        )}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {summary.total}
-                      </span>
-                    </div>
-                  )}
-                </button>
-              )
-            })}
+                      {summary.total > 0 && (
+                        <div className="flex items-center gap-1 mt-1 ml-6">
+                          <span
+                            className={cn(
+                              'w-2 h-2 rounded-full',
+                              summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
+                            )}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {summary.total}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </>
+            )}
 
             {/* Trust Boundaries section */}
             {trustZones.length > 0 && (
@@ -1174,6 +1360,31 @@ export function ComponentView({
               )}
             </div>
           </div>
+          {/* Breadcrumb path for nested process nodes */}
+          {ancestryPath.length > 1 && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-0.5 flex-wrap">
+              {ancestryPath.map((ancestor, index) => {
+                const isLast = index === ancestryPath.length - 1
+                const ancestorLabel =
+                  (ancestor.data as { technology?: string }).technology || String(ancestor.data.label)
+                return (
+                  <span key={ancestor.id} className="flex items-center gap-1">
+                    {index > 0 && <ChevronRight className="h-3 w-3 flex-shrink-0" />}
+                    {isLast ? (
+                      <span className="font-semibold text-foreground">{ancestorLabel}</span>
+                    ) : (
+                      <button
+                        className="hover:text-foreground hover:underline"
+                        onClick={() => onSelectComponent(ancestor.id)}
+                      >
+                        {ancestorLabel}
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          )}
           <div className="text-xs text-muted-foreground">
             {selectedComponent
               ? (selectedComponent.data as { technology?: string }).technology || String(selectedComponent.data.label)
@@ -1196,6 +1407,38 @@ export function ComponentView({
               : undefined
           }
         />
+
+        {/* Child Components section */}
+        {childProcesses.length > 0 && (
+          <div className="px-3 py-2 border-b">
+            <div className="flex items-center gap-1.5 text-xs">
+              <Cog className="h-3 w-3 text-muted-foreground" />
+              <span className="font-medium text-muted-foreground">Child Components</span>
+              <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                {childProcesses.length}
+              </Badge>
+            </div>
+            <div className="mt-1.5 space-y-0.5">
+              {childProcesses.map((child) => {
+                const childLabel =
+                  (child.data as { technology?: string }).technology || String(child.data.label)
+                const childSummary = getComponentThreatSummary(child.id, componentThreats)
+                return (
+                  <button
+                    key={child.id}
+                    className="w-full flex items-center gap-2 py-1 px-1 text-xs rounded hover:bg-slate-50"
+                    onClick={() => onSelectComponent(child.id)}
+                  >
+                    {childSummary.exposed > 0 && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                    )}
+                    <span className="truncate text-blue-600 hover:underline">{childLabel}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">

@@ -210,8 +210,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         # Update canvas_data with component_ids
         _update_canvas_with_component_ids(dfd, node_component_map)
 
-        # Assign components to their parent trust zones and system scopes
-        # Build a node lookup for walking parentId chains
+        # Assign trust zones, system scopes, and parent components
+        # by walking each node's parentId ancestry chain.
+        # With process container hierarchy (D1), a node's direct parentId
+        # may point to a process (not a trust zone), so we must walk up.
         node_lookup = {node.get("id"): node for node in nodes}
 
         for node in analyzable_nodes:
@@ -222,24 +224,46 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
 
             parent_id = node.get("parent_id")  # React Flow parentId → snake_case
 
-            # Trust zone assignment (direct parent)
-            if parent_id and parent_id in node_zone_map:
-                OrgsystemComponent.objects.filter(id=component_id).update(
-                    trust_zone_id=node_zone_map[parent_id]
-                )
-
-            # System scope assignment (walk parentId chain to find systemScope ancestor)
+            # Walk up parentId chain to resolve trust zone, system scope,
+            # and parent component in a single traversal
+            zone_id = None
             system_id = None
+            parent_component_db_id = None
             walk_id = parent_id
-            while walk_id:
-                if walk_id in node_system_map:
+            visited = set()
+
+            while walk_id and walk_id not in visited:
+                visited.add(walk_id)
+
+                # Check for parent component (nearest process ancestor)
+                if (
+                    not parent_component_db_id
+                    and node.get("type") == "process"
+                    and walk_id in node_component_map
+                ):
+                    ancestor_node = node_lookup.get(walk_id)
+                    if ancestor_node and ancestor_node.get("type") == "process":
+                        parent_component_db_id = node_component_map[walk_id]
+
+                # Check for trust zone
+                if not zone_id and walk_id in node_zone_map:
+                    zone_id = node_zone_map[walk_id]
+
+                # Check for system scope
+                if not system_id and walk_id in node_system_map:
                     system_id = node_system_map[walk_id]
+
+                # Stop early if all resolved
+                if zone_id and system_id and (parent_component_db_id or node.get("type") != "process"):
                     break
-                parent_node = node_lookup.get(walk_id)
-                walk_id = parent_node.get("parent_id") if parent_node else None
+
+                ancestor_node = node_lookup.get(walk_id)
+                walk_id = ancestor_node.get("parent_id") if ancestor_node else None
 
             OrgsystemComponent.objects.filter(id=component_id).update(
-                orgsystem_id=system_id
+                trust_zone_id=zone_id,
+                orgsystem_id=system_id,
+                parent_component_id=parent_component_db_id,
             )
 
         # Auto-generate threats for new components

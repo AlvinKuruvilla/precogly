@@ -3,6 +3,7 @@ Systems models - Orgsystems, components, data flows.
 """
 
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import TimestampedModel
@@ -207,6 +208,18 @@ class ComponentLibrary(TimestampedModel):
         help_text="Previous slugs for backward compatibility",
     )
 
+    # Parent component hierarchy (process-only, max 3 levels)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="children",
+        help_text="Parent component in hierarchy (process category only)",
+    )
+
+    MAX_HIERARCHY_DEPTH = 3
+
     class Meta:
         verbose_name_plural = "Component libraries"
         ordering = ["name"]
@@ -219,6 +232,66 @@ class ComponentLibrary(TimestampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.category})"
+
+    def clean(self):
+        super().clean()
+        if self.parent:
+            if self.category != self.Category.PROCESS:
+                raise ValidationError(
+                    {"parent": "Only process-category components can have a parent."}
+                )
+            if self.parent.category != self.Category.PROCESS:
+                raise ValidationError(
+                    {"parent": "Parent must be a process-category component."}
+                )
+            if self.parent_id == self.pk:
+                raise ValidationError(
+                    {"parent": "A component cannot be its own parent."}
+                )
+            self._validate_no_circular_reference()
+            self._validate_max_depth()
+
+    def _validate_no_circular_reference(self):
+        """Walk up the parent chain to detect cycles."""
+        visited = {self.pk}
+        current = self.parent
+        while current is not None:
+            if current.pk in visited:
+                raise ValidationError(
+                    {"parent": "Circular parent reference detected."}
+                )
+            visited.add(current.pk)
+            current = current.parent
+
+    def _validate_max_depth(self):
+        """Ensure total hierarchy depth does not exceed MAX_HIERARCHY_DEPTH."""
+        # Count levels above (ancestors)
+        ancestor_depth = 0
+        current = self.parent
+        while current is not None:
+            ancestor_depth += 1
+            current = current.parent
+
+        # Count levels below (descendants)
+        descendant_depth = self._get_descendant_depth()
+
+        # Total depth = ancestors + self + descendants
+        total_depth = ancestor_depth + 1 + descendant_depth
+        if total_depth > self.MAX_HIERARCHY_DEPTH:
+            raise ValidationError(
+                {
+                    "parent": f"Hierarchy depth would exceed maximum of "
+                    f"{self.MAX_HIERARCHY_DEPTH} levels."
+                }
+            )
+
+    def _get_descendant_depth(self):
+        """Return the deepest level of descendants below this node."""
+        max_depth = 0
+        for child in self.children.all():
+            child_depth = 1 + child._get_descendant_depth()
+            max_depth = max(max_depth, child_depth)
+        return max_depth
 
     def save(self, *args, **kwargs):
         # Auto-generate qualified_slug if not set

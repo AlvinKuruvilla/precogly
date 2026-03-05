@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
+import { Handle, Position, NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import { Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DataStoreNodeData } from '../../types'
@@ -25,6 +25,15 @@ export const DataStoreNode = memo(function DataStoreNode({
 
   return (
     <>
+      <NodeResizer
+        minWidth={120}
+        minHeight={50}
+        isVisible={selected}
+        lineClassName="!border-solid"
+        handleClassName="!w-2 !h-2 !rounded-sm"
+        lineStyle={{ borderColor: '#a855f7' }}
+        handleStyle={{ backgroundColor: '#a855f7', borderColor: '#a855f7' }}
+      />
       {/* Handles on all 4 sides for flexible edge routing */}
       {/* Top */}
       <Handle id="top-target" type="target" position={Position.Top} className="!bg-purple-500 !w-2 !h-2 !min-w-0 !min-h-0" />
@@ -41,7 +50,7 @@ export const DataStoreNode = memo(function DataStoreNode({
 
       <div
         className={cn(
-          'relative min-w-[120px] transition-all',
+          'w-full h-full relative min-w-[120px] transition-all',
           isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg',
           showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2 rounded-lg'
         )}
@@ -49,15 +58,15 @@ export const DataStoreNode = memo(function DataStoreNode({
         {/* Cylinder shape using CSS */}
         <div
           className={cn(
-            'relative bg-purple-50 border-2 rounded-lg overflow-hidden',
+            'w-full h-full relative bg-purple-50 border-2 rounded-lg overflow-hidden flex flex-col',
             selected ? 'border-purple-500 shadow-md' : 'border-purple-200'
           )}
         >
           {/* Top ellipse */}
-          <div className="h-3 bg-purple-100 border-b border-purple-200 rounded-t-lg" />
+          <div className="h-3 bg-purple-100 border-b border-purple-200 rounded-t-lg flex-shrink-0" />
 
           {/* Body */}
-          <div className="px-4 py-3">
+          <div className="px-4 py-3 flex-1">
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-purple-600 flex-shrink-0" />
               <div className="flex flex-col min-w-0">
@@ -85,7 +94,7 @@ export const DataStoreNode = memo(function DataStoreNode({
           </div>
 
           {/* Bottom ellipse */}
-          <div className="h-3 bg-purple-100 border-t border-purple-200 rounded-b-lg" />
+          <div className="h-3 bg-purple-100 border-t border-purple-200 rounded-b-lg flex-shrink-0" />
         </div>
       </div>
     </>
