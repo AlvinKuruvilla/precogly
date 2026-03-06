@@ -1624,6 +1624,7 @@ export function ComponentView({
               <span className="text-muted-foreground">Platform</span>
               <Lock className="h-3 w-3 text-muted-foreground" />
             </div>
+            <span className="text-muted-foreground/40">|</span>
             <div className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-red-500" />
               <span className="text-muted-foreground">Gap</span>
@@ -1631,6 +1632,10 @@ export function ComponentView({
             <div className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-yellow-500" />
               <span className="text-muted-foreground">Planned</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-muted-foreground">Verified</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -1809,7 +1814,7 @@ export function ComponentView({
                     ) : isWaiving ? (
                       <div className="mt-3">
                         <WaiverReasonInput
-                          onSubmit={(reason) => handleWaiverSubmit(cm.countermeasureId, reason)}
+                          onSubmit={(reason) => handleWaiverSubmit(cm.id, reason)}
                           onCancel={handleCancelWaiver}
                         />
                       </div>
@@ -1822,7 +1827,7 @@ export function ComponentView({
                           onChange={(status) =>
                             onCountermeasureStatusChange(
                               selectedComponentThreat.id,
-                              cm.countermeasureId,
+                              cm.id,
                               status
                             )
                           }

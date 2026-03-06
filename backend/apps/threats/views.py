@@ -220,9 +220,9 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
         Recalculate the threat status based on applied countermeasures.
 
         Status logic:
-            - OPEN: No countermeasures applied OR all countermeasures are gaps
-            - MITIGATED: All countermeasures are verified
-            - OPEN (addressable): Some countermeasures planned/verified but not all
+            - EXPOSED: No countermeasures applied OR any countermeasure is a gap
+            - ADDRESSABLE: Some countermeasures are planned/waived (none are gaps)
+            - MITIGATED: All countermeasures are verified or platform
         """
         instance_threat = self.get_object()
         new_status = self._recalculate_threat_status(instance_threat)
@@ -235,36 +235,22 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
         })
 
     def _recalculate_threat_status(self, instance_threat):
-        """
-        Internal method to recalculate threat status.
-
-        Status determination:
-            - MITIGATED: All applicable countermeasures verified OR accepted risk
-            - OPEN: No countermeasures, all gaps, or incomplete mitigation
-        """
+        """Derive threat status from countermeasures (matches frontend logic)."""
         countermeasures = instance_threat.countermeasures.all()
 
         if not countermeasures.exists():
-            # No countermeasures = open
-            new_status = ComponentInstanceThreat.Status.OPEN
+            new_status = ComponentInstanceThreat.Status.EXPOSED
         else:
             statuses = list(countermeasures.values_list("status", flat=True))
+            has_gaps = any(s == "gap" for s in statuses)
 
-            # All verified = mitigated
-            if all(s == ComponentInstanceCountermeasure.Status.VERIFIED for s in statuses):
-                new_status = ComponentInstanceThreat.Status.MITIGATED
-            # All waived = accepted
-            elif all(s == ComponentInstanceCountermeasure.Status.WAIVED for s in statuses):
-                new_status = ComponentInstanceThreat.Status.ACCEPTED
-            # Mix of verified/waived = mitigated (risk accepted for some)
-            elif all(
-                s in [ComponentInstanceCountermeasure.Status.VERIFIED, ComponentInstanceCountermeasure.Status.WAIVED]
-                for s in statuses
-            ):
-                new_status = ComponentInstanceThreat.Status.MITIGATED
+            if has_gaps:
+                new_status = ComponentInstanceThreat.Status.EXPOSED
+            elif any(s in ("planned", "waived") for s in statuses):
+                new_status = ComponentInstanceThreat.Status.ADDRESSABLE
             else:
-                # Gaps or planned = still open
-                new_status = ComponentInstanceThreat.Status.OPEN
+                # All verified/platform
+                new_status = ComponentInstanceThreat.Status.MITIGATED
 
         if instance_threat.status != new_status:
             instance_threat.status = new_status
@@ -341,25 +327,22 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
         })
 
     def _recalculate_threat_status(self, flow_threat):
-        """Internal method to recalculate flow threat status."""
+        """Derive flow threat status from countermeasures (matches frontend logic)."""
         countermeasures = flow_threat.countermeasures.all()
 
         if not countermeasures.exists():
-            new_status = DataFlowInstanceThreat.Status.OPEN
+            new_status = DataFlowInstanceThreat.Status.EXPOSED
         else:
             statuses = list(countermeasures.values_list("status", flat=True))
+            has_gaps = any(s == "gap" for s in statuses)
 
-            if all(s == FlowInstanceCountermeasure.Status.VERIFIED for s in statuses):
-                new_status = DataFlowInstanceThreat.Status.MITIGATED
-            elif all(s == FlowInstanceCountermeasure.Status.WAIVED for s in statuses):
-                new_status = DataFlowInstanceThreat.Status.ACCEPTED
-            elif all(
-                s in [FlowInstanceCountermeasure.Status.VERIFIED, FlowInstanceCountermeasure.Status.WAIVED]
-                for s in statuses
-            ):
-                new_status = DataFlowInstanceThreat.Status.MITIGATED
+            if has_gaps:
+                new_status = DataFlowInstanceThreat.Status.EXPOSED
+            elif any(s in ("planned", "waived") for s in statuses):
+                new_status = DataFlowInstanceThreat.Status.ADDRESSABLE
             else:
-                new_status = DataFlowInstanceThreat.Status.OPEN
+                # All verified/platform
+                new_status = DataFlowInstanceThreat.Status.MITIGATED
 
         if flow_threat.status != new_status:
             flow_threat.status = new_status
@@ -388,11 +371,7 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     ]
 
     def perform_update(self, serializer):
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info("[DEBUG priority] ComponentInstanceCountermeasure perform_update - validated_data: %s", serializer.validated_data)
         instance = serializer.save()
-        logger.info("[DEBUG priority] ComponentInstanceCountermeasure saved - id: %s, priority: %s", instance.id, instance.priority)
         recalculate_risks_for_threat(instance.instance_threat, threat_type="component")
 
 
@@ -416,11 +395,7 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     ]
 
     def perform_update(self, serializer):
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info("[DEBUG priority] FlowInstanceCountermeasure perform_update - validated_data: %s", serializer.validated_data)
         instance = serializer.save()
-        logger.info("[DEBUG priority] FlowInstanceCountermeasure saved - id: %s, priority: %s", instance.id, instance.priority)
         recalculate_risks_for_threat(instance.flow_threat, threat_type="flow")
 
 

@@ -4,12 +4,12 @@
 
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
+import type { ComponentThreat, ComponentThreatCountermeasure, CountermeasureStatus } from '@/features/dfd-editor/types/threat-analysis'
 import type { TaxonomyEntry } from '@/types/domain'
 import { getStrideFromTaxonomy } from '@/types/domain'
 
-// Backend countermeasure status (uses 'verified', differs from frontend 'platform')
-type BackendCountermeasureStatus = 'gap' | 'planned' | 'verified' | 'waived'
+// Backend countermeasure status (aligned with frontend CountermeasureStatus)
+type BackendCountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
 
 // Types
 export interface ComponentInstanceThreat {
@@ -21,7 +21,7 @@ export interface ComponentInstanceThreat {
   taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
-  status: 'open' | 'mitigated' | 'accepted'
+  status: 'exposed' | 'addressable' | 'mitigated'
   justification: string
   isDismissed: boolean
   dismissalReason: string
@@ -575,7 +575,7 @@ export interface BackendThreat {
   taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
-  status: 'open' | 'mitigated' | 'accepted'
+  status: 'exposed' | 'addressable' | 'mitigated'
   justification: string
   isDismissed: boolean
   dismissalReason: string
@@ -611,18 +611,6 @@ export interface BackendCountermeasure {
 }
 
 /**
- * Transform backend countermeasure status to frontend format.
- * Backend uses 'verified', frontend uses 'platform' for implemented countermeasures.
- */
-function transformCountermeasureStatus(backendStatus: string): 'platform' | 'gap' | 'planned' | 'waived' {
-  if (backendStatus === 'verified') return 'platform'
-  if (backendStatus === 'gap') return 'gap'
-  if (backendStatus === 'planned') return 'planned'
-  if (backendStatus === 'waived') return 'waived'
-  return 'gap'
-}
-
-/**
  * Transform backend threats to frontend ComponentThreat format.
  */
 export function transformBackendThreatsToComponentThreats(
@@ -640,7 +628,7 @@ export function transformBackendThreatsToComponentThreats(
       id: isDataflow ? `fcm-${cm.id}` : `cm-${cm.id}`,
       countermeasureId: `lib-${cm.countermeasureLibraryId}`,
       componentThreatId,
-      status: transformCountermeasureStatus(cm.status),
+      status: cm.status as CountermeasureStatus,
       priority: cm.priority || 'none',
       owner: cm.assignedOwnerEmail || undefined,
       notes: cm.evidenceUrl || undefined,

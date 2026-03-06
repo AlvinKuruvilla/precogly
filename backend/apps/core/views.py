@@ -45,13 +45,13 @@ class DashboardStatsView(APIView):
         )
         level_map = {entry["inherent_level"]: entry["count"] for entry in risk_level_counts}
 
-        open_count = 0
+        exposed_count = 0
         mitigated_count = 0
         for risk in risks:
             risk_status = derive_risk_status(risk)
-            if risk_status == "open":
-                open_count += 1
-            elif risk_status in ["mitigated", "accepted"]:
+            if risk_status == "exposed":
+                exposed_count += 1
+            elif risk_status in ["mitigated", "addressable"]:
                 mitigated_count += 1
 
         return Response(
@@ -66,7 +66,7 @@ class DashboardStatsView(APIView):
                     "high": level_map.get("high", 0),
                     "medium": level_map.get("medium", 0),
                     "low": level_map.get("low", 0),
-                    "open": open_count,
+                    "exposed": exposed_count,
                     "mitigated": mitigated_count,
                 },
             }

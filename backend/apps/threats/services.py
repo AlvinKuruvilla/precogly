@@ -5,6 +5,7 @@ from .scoring.registry import get_scoring_methods, score_to_level
 
 STATUS_EFFECTIVENESS_FALLBACK = {
     "verified": 1.0,
+    "platform": 1.0,
     "planned": 0.5,
     "gap": 0.0,
     "waived": 0.0,
@@ -14,14 +15,14 @@ STATUS_EFFECTIVENESS_FALLBACK = {
 def derive_risk_status(risk):
     """Aggregate status from all linked threats' statuses.
 
-    Returns: "open" / "mitigated" / "accepted"
+    Returns: "exposed" / "addressable" / "mitigated"
     """
     risk_threats = risk.risk_threats.select_related(
         "component_threat", "flow_threat"
     ).all()
 
     if not risk_threats.exists():
-        return "open"
+        return "exposed"
 
     all_threat_statuses = []
     for risk_threat in risk_threats:
@@ -30,15 +31,13 @@ def derive_risk_status(risk):
             all_threat_statuses.append(threat.status)
 
     if not all_threat_statuses:
-        return "open"
+        return "exposed"
 
     if all(s == "mitigated" for s in all_threat_statuses):
         return "mitigated"
-    if all(s == "accepted" for s in all_threat_statuses):
-        return "accepted"
-    if all(s in ["mitigated", "accepted"] for s in all_threat_statuses):
-        return "mitigated"
-    return "open"
+    if all(s in ["mitigated", "addressable"] for s in all_threat_statuses):
+        return "addressable"
+    return "exposed"
 
 
 def compute_residual_score(risk):

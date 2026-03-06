@@ -289,9 +289,9 @@ class ComponentInstanceThreat(TimestampedModel):
         CRITICAL = "critical", "Critical"
 
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
+        EXPOSED = "exposed", "Exposed"
+        ADDRESSABLE = "addressable", "Addressable"
         MITIGATED = "mitigated", "Mitigated"
-        ACCEPTED = "accepted", "Accepted"
 
     component = models.ForeignKey(
         OrgsystemComponent,
@@ -315,7 +315,7 @@ class ComponentInstanceThreat(TimestampedModel):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.OPEN,
+        default=Status.EXPOSED,
     )
     justification = models.TextField(blank=True)
 
@@ -361,9 +361,9 @@ class DataFlowInstanceThreat(TimestampedModel):
         CRITICAL = "critical", "Critical"
 
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
+        EXPOSED = "exposed", "Exposed"
+        ADDRESSABLE = "addressable", "Addressable"
         MITIGATED = "mitigated", "Mitigated"
-        ACCEPTED = "accepted", "Accepted"
 
     data_flow = models.ForeignKey(
         DataFlow,
@@ -387,7 +387,7 @@ class DataFlowInstanceThreat(TimestampedModel):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.OPEN,
+        default=Status.EXPOSED,
     )
 
     # Dismiss functionality

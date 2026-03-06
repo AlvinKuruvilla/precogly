@@ -186,34 +186,29 @@ export function useWorkspaceThreatAnalysis(
   const updateCountermeasureStatus = useCallback(
     (
       componentThreatId: string,
-      countermeasureId: string,
+      countermeasureInstanceId: string,
       status: CountermeasureStatus,
       notes?: string
     ) => {
-      const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
-      const countermeasure = threat?.countermeasures.find((cm) => cm.countermeasureId === countermeasureId)
+      // Use the instance ID directly for the API call (always unique)
+      const parsed = parseCountermeasureId(countermeasureInstanceId)
 
-      if (threat && countermeasure) {
-        const parsed = parseCountermeasureId(countermeasure.id)
-        const backendStatus = status === 'platform' ? 'verified' : status
-
-        if (parsed.type === 'component' && parsed.id !== null) {
-          updateCountermeasureMutation.mutate({
-            countermeasureId: parsed.id,
-            data: {
-              status: backendStatus as 'gap' | 'planned' | 'verified' | 'waived',
-              ...(notes !== undefined && { evidenceUrl: notes }),
-            },
-          })
-        } else if (parsed.type === 'flow' && parsed.id !== null) {
-          updateFlowCountermeasureMutation.mutate({
-            countermeasureId: parsed.id,
-            data: {
-              status: backendStatus as 'gap' | 'planned' | 'verified' | 'waived',
-              ...(notes !== undefined && { evidenceUrl: notes }),
-            },
-          })
-        }
+      if (parsed.type === 'component' && parsed.id !== null) {
+        updateCountermeasureMutation.mutate({
+          countermeasureId: parsed.id,
+          data: {
+            status: status as 'platform' | 'gap' | 'planned' | 'verified' | 'waived',
+            ...(notes !== undefined && { evidenceUrl: notes }),
+          },
+        })
+      } else if (parsed.type === 'flow' && parsed.id !== null) {
+        updateFlowCountermeasureMutation.mutate({
+          countermeasureId: parsed.id,
+          data: {
+            status: status as 'platform' | 'gap' | 'planned' | 'verified' | 'waived',
+            ...(notes !== undefined && { evidenceUrl: notes }),
+          },
+        })
       }
 
       // Update local state immediately for responsiveness
@@ -225,7 +220,7 @@ export function useWorkspaceThreatAnalysis(
             ...ct,
             updatedAt: new Date().toISOString(),
             countermeasures: ct.countermeasures.map((cm) => {
-              if (cm.countermeasureId !== countermeasureId) return cm
+              if (cm.id !== countermeasureInstanceId) return cm
               return {
                 ...cm,
                 status,
@@ -237,7 +232,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+    [updateCountermeasureMutation, updateFlowCountermeasureMutation]
   )
 
   // Assign owner to countermeasure
@@ -259,10 +254,9 @@ export function useWorkspaceThreatAnalysis(
       if (assignee.type === 'member' && countermeasure && assignee.userId) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
-        const backendStatus = newStatus === 'platform' ? 'verified' : newStatus
         const data: { assignedOwner: number; status?: string } = { assignedOwner: assignee.userId }
-        if (backendStatus) {
-          data.status = backendStatus
+        if (newStatus) {
+          data.status = newStatus
         }
 
         if (parsed.type === 'component' && parsed.id !== null) {
@@ -494,6 +488,7 @@ export function useWorkspaceThreatAnalysis(
     const countermeasureSummary = {
       total: allCountermeasures.length,
       platform: allCountermeasures.filter((cm) => cm.status === 'platform').length,
+      verified: allCountermeasures.filter((cm) => cm.status === 'verified').length,
       gap: allCountermeasures.filter((cm) => cm.status === 'gap').length,
       planned: allCountermeasures.filter((cm) => cm.status === 'planned').length,
       waived: allCountermeasures.filter((cm) => cm.status === 'waived').length,

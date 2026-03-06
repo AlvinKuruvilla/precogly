@@ -192,7 +192,7 @@ export function deriveThreatStatus(countermeasures: ComponentThreatCountermeasur
   const hasWaived = countermeasures.some((cm) => cm.status === 'waived')
   if (hasPlanned || hasWaived) return 'addressable'
 
-  // All are 'platform' (no gaps, no planned, no waived)
+  // All are 'platform' or 'verified' (no gaps, no planned, no waived)
   return 'mitigated'
 }
 

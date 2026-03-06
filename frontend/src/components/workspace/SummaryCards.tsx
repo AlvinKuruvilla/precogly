@@ -21,6 +21,7 @@ interface ThreatSummary {
 interface CountermeasureSummary {
   total: number
   platform: number
+  verified: number
   gap: number
   planned: number
   waived: number
@@ -148,6 +149,14 @@ export function SummaryCards({
                 <span className="w-2 h-2 rounded-full bg-green-500" />
                 <span className="text-xs text-muted-foreground">
                   {countermeasures.platform} platform
+                </span>
+              </div>
+            )}
+            {countermeasures.verified > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs text-muted-foreground">
+                  {countermeasures.verified} verified
                 </span>
               </div>
             )}
