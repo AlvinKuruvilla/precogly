@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { Fragment, useState, useMemo, useCallback } from 'react'
 import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Lock, LockOpen, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Building2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +39,7 @@ import {
 } from '../../types/threat-analysis'
 import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
 import { useComponentDataAssets } from '@/api/component-data-assets'
+import { useDataFlowAssets } from '@/api/data-flow-assets'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import { parseCountermeasureId } from '@/api/threats'
@@ -655,6 +656,12 @@ function ComponentTreeItem({
           </div>
         )}
       </button>
+      {/* Data assets inline under selected component */}
+      {isSelected && (
+        <ComponentDataAssetsDisplay
+          componentId={(node.data as { componentId?: number }).componentId}
+        />
+      )}
       {/* Recursively render children when not collapsed */}
       {hasChildren && !isCollapsed && children.map((child) => (
         <ComponentTreeItem
@@ -672,7 +679,7 @@ function ComponentTreeItem({
 }
 
 /**
- * Read-only display of data assets linked to a component
+ * Read-only display of data assets linked to a component (inline under sidebar item)
  */
 function ComponentDataAssetsDisplay({
   componentId,
@@ -684,13 +691,14 @@ function ComponentDataAssetsDisplay({
 
   if (!componentId || componentDataAssets.length === 0) return null
 
-  const shouldDefaultCollapse = componentDataAssets.length > 5
-
   return (
-    <div className="px-3 py-2 border-b">
+    <div className="ml-6 mt-1 mb-1">
       <button
         className="w-full flex items-center justify-between text-xs"
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={(e) => {
+          e.stopPropagation()
+          setCollapsed(!collapsed)
+        }}
       >
         <div className="flex items-center gap-1.5">
           <Database className="h-3 w-3 text-purple-600" />
@@ -699,8 +707,8 @@ function ComponentDataAssetsDisplay({
             {componentDataAssets.length}
           </Badge>
         </div>
-        {collapsed || shouldDefaultCollapse ? (
-          collapsed ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronUp className="h-3 w-3 text-muted-foreground" />
+        {collapsed ? (
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
         ) : (
           <ChevronUp className="h-3 w-3 text-muted-foreground" />
         )}
@@ -720,6 +728,73 @@ function ComponentDataAssetsDisplay({
               <span className="truncate flex-1">{cda.dataAssetName}</span>
               <Badge variant="outline" className="text-[10px] h-4 px-1 flex-shrink-0">
                 {cda.dataState === 'at_rest' ? 'At Rest' : 'Processed'}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Read-only display of data assets linked to a data flow (inline under sidebar item)
+ */
+function DataFlowAssetsDisplay({
+  dataFlowId,
+}: {
+  dataFlowId: number | undefined
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+  const { data: flowDataAssets = [] } = useDataFlowAssets(dataFlowId)
+
+  if (!dataFlowId || flowDataAssets.length === 0) return null
+
+  const protectionLabels: Record<string, string> = {
+    encrypted: 'Encrypted',
+    masked: 'Masked',
+    tokenized: 'Tokenized',
+    hashed: 'Hashed',
+    none: 'None',
+  }
+
+  return (
+    <div className="ml-6 mt-1 mb-1">
+      <button
+        className="w-full flex items-center justify-between text-xs"
+        onClick={(e) => {
+          e.stopPropagation()
+          setCollapsed(!collapsed)
+        }}
+      >
+        <div className="flex items-center gap-1.5">
+          <Database className="h-3 w-3 text-purple-600" />
+          <span className="font-medium text-muted-foreground">Data Assets</span>
+          <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+            {flowDataAssets.length}
+          </Badge>
+        </div>
+        {collapsed ? (
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        ) : (
+          <ChevronUp className="h-3 w-3 text-muted-foreground" />
+        )}
+      </button>
+      {!collapsed && (
+        <div className="mt-1.5 space-y-1">
+          {flowDataAssets.map((fda) => (
+            <div
+              key={fda.id}
+              className="flex items-center gap-2 py-1 text-xs"
+            >
+              {fda.protectionMethod === 'encrypted' ? (
+                <Lock className="h-3 w-3 text-green-600 flex-shrink-0" />
+              ) : (
+                <LockOpen className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              )}
+              <span className="truncate flex-1">{fda.dataAssetName}</span>
+              <Badge variant="outline" className="text-[10px] h-4 px-1 flex-shrink-0">
+                {protectionLabels[fda.protectionMethod] || fda.protectionMethod}
               </Badge>
             </div>
           ))}
@@ -1042,58 +1117,64 @@ export function ComponentView({
                   const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
 
                   return (
-                    <button
-                      key={node.id}
-                      onClick={() => onSelectComponent(node.id)}
-                      className={cn(
-                        'w-full text-left p-2 rounded-md transition-colors',
-                        isSelected
-                          ? 'bg-slate-100 border border-slate-300'
-                          : 'hover:bg-slate-50'
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">
-                              {displayName}
-                            </div>
-                            {showSecondaryLabel && (
-                              <div className="text-xs text-muted-foreground truncate">
-                                {nodeLabel}
+                    <Fragment key={node.id}>
+                      <button
+                        onClick={() => onSelectComponent(node.id)}
+                        className={cn(
+                          'w-full text-left p-2 rounded-md transition-colors',
+                          isSelected
+                            ? 'bg-slate-100 border border-slate-300'
+                            : 'hover:bg-slate-50'
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">
+                                {displayName}
                               </div>
-                            )}
+                              {showSecondaryLabel && (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {nodeLabel}
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          {summary.exposed > 0 ? (
+                            <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
+                              {summary.exposed} exposed
+                            </Badge>
+                          ) : summary.addressable > 0 ? (
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
+                              {summary.addressable} in progress
+                            </Badge>
+                          ) : summary.total > 0 ? (
+                            <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                              No threats
+                            </span>
+                          ) : null}
                         </div>
-                        {summary.exposed > 0 ? (
-                          <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
-                            {summary.exposed} exposed
-                          </Badge>
-                        ) : summary.addressable > 0 ? (
-                          <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
-                            {summary.addressable} in progress
-                          </Badge>
-                        ) : summary.total > 0 ? (
-                          <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                            No threats
-                          </span>
-                        ) : null}
-                      </div>
-                      {summary.total > 0 && (
-                        <div className="flex items-center gap-1 mt-1 ml-6">
-                          <span
-                            className={cn(
-                              'w-2 h-2 rounded-full',
-                              summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
-                            )}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {summary.total}
-                          </span>
-                        </div>
+                        {summary.total > 0 && (
+                          <div className="flex items-center gap-1 mt-1 ml-6">
+                            <span
+                              className={cn(
+                                'w-2 h-2 rounded-full',
+                                summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
+                              )}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {summary.total}
+                            </span>
+                          </div>
+                        )}
+                      </button>
+                      {isSelected && (
+                        <ComponentDataAssetsDisplay
+                          componentId={(node.data as { componentId?: number }).componentId}
+                        />
                       )}
-                    </button>
+                    </Fragment>
                   )
                 })}
               </>
@@ -1185,58 +1266,63 @@ export function ComponentView({
                   const isSelected = edge.id === selectedComponentId
                   const { sourceLabel, targetLabel } = getDataFlowLabels(edge)
                   const flowLabel = edge.data?.label || `${sourceLabel} → ${targetLabel}`
+                  const dataflowId = edge.data?.dataflowId as number | undefined
 
                   return (
-                    <button
-                      key={edge.id}
-                      onClick={() => onSelectComponent(edge.id)}
-                      className={cn(
-                        'w-full text-left p-2 rounded-md transition-colors',
-                        isSelected
-                          ? 'bg-slate-100 border border-slate-300'
-                          : 'hover:bg-slate-50'
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">
-                              {flowLabel}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {sourceLabel} → {targetLabel}
+                    <Fragment key={edge.id}>
+                      <button
+                        onClick={() => onSelectComponent(edge.id)}
+                        className={cn(
+                          'w-full text-left p-2 rounded-md transition-colors',
+                          isSelected
+                            ? 'bg-slate-100 border border-slate-300'
+                            : 'hover:bg-slate-50'
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">
+                                {flowLabel}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {sourceLabel} → {targetLabel}
+                              </div>
                             </div>
                           </div>
+                          {summary.exposed > 0 ? (
+                            <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
+                              {summary.exposed} exposed
+                            </Badge>
+                          ) : summary.addressable > 0 ? (
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
+                              {summary.addressable} in progress
+                            </Badge>
+                          ) : summary.total > 0 ? (
+                            <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                              No threats
+                            </span>
+                          ) : null}
                         </div>
-                        {summary.exposed > 0 ? (
-                          <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
-                            {summary.exposed} exposed
-                          </Badge>
-                        ) : summary.addressable > 0 ? (
-                          <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
-                            {summary.addressable} in progress
-                          </Badge>
-                        ) : summary.total > 0 ? (
-                          <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                            No threats
-                          </span>
-                        ) : null}
-                      </div>
-                      {summary.total > 0 && (
-                        <div className="flex items-center gap-1 mt-1 ml-6">
-                          <span
-                            className={cn(
-                              'w-2 h-2 rounded-full',
-                              summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
-                            )}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {summary.total}
-                          </span>
-                        </div>
+                        {summary.total > 0 && (
+                          <div className="flex items-center gap-1 mt-1 ml-6">
+                            <span
+                              className={cn(
+                                'w-2 h-2 rounded-full',
+                                summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
+                              )}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {summary.total}
+                            </span>
+                          </div>
+                        )}
+                      </button>
+                      {isSelected && (
+                        <DataFlowAssetsDisplay dataFlowId={dataflowId} />
                       )}
-                    </button>
+                    </Fragment>
                   )
                 })}
               </>
@@ -1307,15 +1393,6 @@ export function ComponentView({
                   : 'Select a component, boundary, or data flow'}
           </div>
         </div>
-
-        {/* Data Assets section - read-only display */}
-        <ComponentDataAssetsDisplay
-          componentId={
-            selectedComponent
-              ? (selectedComponent.data as { component_id?: number }).component_id
-              : undefined
-          }
-        />
 
         {/* Child Components section */}
         {childProcesses.length > 0 && (

@@ -135,6 +135,53 @@ export function useDiagramState({
       queryClient.invalidateQueries({ queryKey: ['diagrams'] })
       queryClient.invalidateQueries({ queryKey: ['threat-model'] })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+
+      // Merge backend-generated IDs (componentId, trustZoneId, orgsystemId)
+      // back into local node state so features like Data Assets become available
+      // without requiring a page reload
+      const savedNodes = (updatedDiagram.canvasData?.nodes || []) as DiagramNode[]
+      const savedNodeMap = new Map(
+        savedNodes.map((n) => [n.id, n.data])
+      )
+      setNodesInternal((currentNodes) =>
+        currentNodes.map((node) => {
+          const savedData = savedNodeMap.get(node.id)
+          if (!savedData) return node
+          const backendKeys = ['componentId', 'trustZoneId', 'orgsystemId'] as const
+          let updated = false
+          const mergedData = { ...node.data }
+          for (const key of backendKeys) {
+            if (key in savedData && (savedData as Record<string, unknown>)[key] !== (node.data as Record<string, unknown>)[key]) {
+              ;(mergedData as Record<string, unknown>)[key] = (savedData as Record<string, unknown>)[key]
+              updated = true
+            }
+          }
+          return updated ? { ...node, data: mergedData } : node
+        })
+      )
+
+      // Merge backend-generated dataflow_id into local edge state
+      const savedEdges = (updatedDiagram.canvasData?.edges || []) as DiagramEdge[]
+      const savedEdgeMap = new Map(
+        savedEdges.map((e) => [e.id, e.data])
+      )
+      setEdgesInternal((currentEdges) =>
+        currentEdges.map((edge) => {
+          const savedData = savedEdgeMap.get(edge.id)
+          if (!savedData) return edge
+          const edgeBackendKeys = ['dataflowId', 'trustBoundaryId'] as const
+          let updated = false
+          const mergedData = { ...edge.data }
+          for (const key of edgeBackendKeys) {
+            if (key in savedData && (savedData as Record<string, unknown>)[key] !== (edge.data as Record<string, unknown>)[key]) {
+              ;(mergedData as Record<string, unknown>)[key] = (savedData as Record<string, unknown>)[key]
+              updated = true
+            }
+          }
+          return updated ? { ...edge, data: mergedData } : edge
+        })
+      )
+
       setHasUnsavedChanges(false)
       setLastSaved(new Date())
     },

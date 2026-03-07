@@ -102,6 +102,8 @@ export interface DataFlowEdgeData {
   authenticated?: boolean
   hasSensitiveData?: boolean
   isNewlyInserted?: boolean
+  // Backend data flow ID (written back by diagram sync)
+  dataflowId?: number
   // Trust zone crossing
   crossesZoneId?: string           // ID of the zone this flow crosses
   crossesZoneLabel?: string        // Label of the zone (for display)

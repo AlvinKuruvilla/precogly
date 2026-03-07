@@ -20,6 +20,7 @@ from .models import (
     ComponentLibrary,
     DataAsset,
     DataFlow,
+    DataFlowAsset,
     IntegrationSource,
     Orgsystem,
     OrgsystemComponent,
@@ -30,6 +31,7 @@ from .serializers import (
     ComponentDataAssetSerializer,
     ComponentLibrarySerializer,
     DataAssetSerializer,
+    DataFlowAssetSerializer,
     DataFlowSerializer,
     IntegrationSourceSerializer,
     OrgsystemComponentSerializer,
@@ -309,3 +311,22 @@ class ComponentDataAssetViewSet(viewsets.ModelViewSet):
             Q(component__orgsystem__organization_id__in=org_ids)
             | Q(component__orgsystem__isnull=True)
         ).select_related("component", "data_asset")
+
+
+class DataFlowAssetViewSet(viewsets.ModelViewSet):
+    """ViewSet for DataFlowAsset CRUD operations."""
+
+    serializer_class = DataFlowAssetSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["data_flow", "data_asset"]
+
+    def get_queryset(self):
+        """Filter by user's organizations via data flow's source component."""
+        user = self.request.user
+        org_ids = user.organization_memberships.values_list("organization_id", flat=True)
+        return DataFlowAsset.objects.filter(
+            data_flow__source_component__orgsystem__organization_id__in=org_ids
+        ).select_related(
+            "data_flow__source_component", "data_flow__dest_component", "data_asset"
+        )

@@ -249,7 +249,7 @@ export function ThreatModelDetail() {
     // Get IDs of components already on canvas to avoid duplicates
     const canvasComponentIds = new Set(
       canvasComponents
-        .map((node) => node.data?.component_id)
+        .map((node) => node.data?.componentId)
         .filter(Boolean)
     )
 
@@ -267,7 +267,7 @@ export function ThreatModelDetail() {
             position: { x: 0, y: 0 },
             data: {
               label: comp.name,
-              component_id: comp.id,
+              componentId: comp.id,
               isAnalysisOnly: true,
             },
           }))

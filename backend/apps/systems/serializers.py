@@ -9,6 +9,7 @@ from .models import (
     ComponentLibrary,
     DataAsset,
     DataFlow,
+    DataFlowAsset,
     IntegrationSource,
     Orgsystem,
     OrgsystemComponent,
@@ -292,3 +293,38 @@ class ComponentDataAssetSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "component_name", "data_asset_name"]
+
+
+class DataFlowAssetSerializer(serializers.ModelSerializer):
+    """Serializer for DataFlowAsset model."""
+
+    data_flow_name = serializers.SerializerMethodField()
+    data_asset_name = serializers.CharField(source="data_asset.name", read_only=True)
+
+    class Meta:
+        model = DataFlowAsset
+        fields = [
+            "id",
+            "data_flow",
+            "data_flow_name",
+            "data_asset",
+            "data_asset_name",
+            "protection_method",
+            "encryption_type",
+            "format",
+            "sensitivity_override",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "data_flow_name",
+            "data_asset_name",
+        ]
+
+    def get_data_flow_name(self, obj):
+        """Return 'source → dest' label for the data flow."""
+        flow = obj.data_flow
+        return f"{flow.source_component.name} → {flow.dest_component.name}"

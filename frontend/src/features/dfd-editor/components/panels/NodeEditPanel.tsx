@@ -525,13 +525,13 @@ export const NodeEditPanel = memo(function NodeEditPanel({
             )}
 
             {/* System Assignment - only shown if threat model has linked systems */}
-            {hasLinkedSystems && (node.data as { component_id?: number }).component_id && (
+            {hasLinkedSystems && (node.data as { componentId?: number }).componentId && (
               <div className="space-y-2">
                 <Label htmlFor="node-system">System</Label>
                 <Select
                   value={(node.data as { orgsystemId?: number }).orgsystemId?.toString() || 'none'}
                   onValueChange={(value) => {
-                    const componentId = (node.data as { component_id?: number }).component_id
+                    const componentId = (node.data as { componentId?: number }).componentId
                     if (componentId) {
                       const orgsystemId = value === 'none' ? null : parseInt(value, 10)
                       updateNodeData({ orgsystemId: orgsystemId ?? undefined })
@@ -562,7 +562,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
 
             {/* Data Assets - only shown when component has been synced */}
             <DataAssetsSection
-              componentId={(node.data as { component_id?: number }).component_id}
+              componentId={(node.data as { componentId?: number }).componentId}
               threatModelId={threatModelId}
             />
           </>

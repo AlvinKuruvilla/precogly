@@ -1,10 +1,11 @@
-import { memo, useMemo } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { X, Trash2, ArrowRight, ArrowLeftRight } from 'lucide-react'
+import { X, Trash2, ArrowRight, ArrowLeftRight, Database, Link, Lock, LockOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -15,6 +16,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
+import { useDataAssets } from '@/api/data-assets'
+import {
+  useDataFlowAssets,
+  useCreateDataFlowAsset,
+  useUpdateDataFlowAsset,
+  useDeleteDataFlowAsset,
+} from '@/api/data-flow-assets'
 import type {
   DataFlowEdge,
   Protocol,
@@ -24,20 +32,200 @@ import type {
 import { PROTOCOLS, TRUST_ZONE_TYPE_CONFIG } from '../../types'
 import { DATA_SENSITIVITY_TAG_CONFIG } from '@/types/domain'
 
+const PROTECTION_METHODS = [
+  { value: 'none', label: 'None' },
+  { value: 'encrypted', label: 'Encrypted' },
+  { value: 'masked', label: 'Masked' },
+  { value: 'tokenized', label: 'Tokenized' },
+  { value: 'hashed', label: 'Hashed' },
+] as const
+
+/**
+ * Data Assets section for data flow edges
+ */
+function DataFlowDataAssetsSection({
+  dataFlowId,
+  threatModelId,
+}: {
+  dataFlowId: number | undefined
+  threatModelId: string | undefined
+}) {
+  const [linkingAsset, setLinkingAsset] = useState(false)
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('')
+
+  const { data: flowDataAssets = [] } = useDataFlowAssets(dataFlowId)
+  const { data: allDataAssets = [] } = useDataAssets(threatModelId)
+  const createMutation = useCreateDataFlowAsset()
+  const updateMutation = useUpdateDataFlowAsset()
+  const deleteMutation = useDeleteDataFlowAsset()
+
+  if (!dataFlowId) return null
+
+  // Filter out already-linked data assets
+  const linkedAssetIds = new Set(flowDataAssets.map((fda) => fda.dataAsset))
+  const availableAssets = allDataAssets.filter((asset) => !linkedAssetIds.has(asset.id))
+
+  const handleLinkAsset = () => {
+    if (!selectedAssetId) return
+    createMutation.mutate(
+      {
+        dataFlow: dataFlowId,
+        dataAsset: parseInt(selectedAssetId, 10),
+        protectionMethod: 'none',
+      },
+      {
+        onSuccess: () => {
+          setSelectedAssetId('')
+          setLinkingAsset(false)
+        },
+      }
+    )
+  }
+
+  return (
+    <>
+      <Separator />
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5">
+          <Database className="h-3.5 w-3.5 text-purple-600" />
+          Data Assets
+          {flowDataAssets.length > 0 && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+              {flowDataAssets.length}
+            </Badge>
+          )}
+        </Label>
+
+        {/* Linked assets list */}
+        {flowDataAssets.length > 0 && (
+          <div className="space-y-1.5">
+            {flowDataAssets.map((fda) => (
+              <div
+                key={fda.id}
+                className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{fda.dataAssetName}</div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Select
+                      value={fda.protectionMethod}
+                      onValueChange={(value) =>
+                        updateMutation.mutate({
+                          id: fda.id,
+                          data: { protectionMethod: value as typeof fda.protectionMethod },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-5 w-24 text-[10px] px-1.5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROTECTION_METHODS.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {fda.protectionMethod === 'encrypted' ? (
+                    <Lock className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <LockOpen className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteMutation.mutate(fda.id)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Link Asset UI */}
+        {linkingAsset ? (
+          <div className="space-y-2">
+            <Select value={selectedAssetId} onValueChange={setSelectedAssetId}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Select a data asset..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableAssets.length === 0 ? (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    No available assets
+                  </div>
+                ) : (
+                  availableAssets.map((asset) => (
+                    <SelectItem key={asset.id} value={String(asset.id)}>
+                      {asset.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                className="h-7 text-xs flex-1"
+                disabled={!selectedAssetId || createMutation.isPending}
+                onClick={handleLinkAsset}
+              >
+                Link
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setLinkingAsset(false)
+                  setSelectedAssetId('')
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 w-full"
+            onClick={() => setLinkingAsset(true)}
+          >
+            <Link className="h-3 w-3" />
+            Link Asset
+          </Button>
+        )}
+      </div>
+    </>
+  )
+}
+
 interface EdgeEditPanelProps {
   edge: DataFlowEdge
   onClose: () => void
+  threatModelId?: string
 }
 
 export const EdgeEditPanel = memo(function EdgeEditPanel({
   edge,
   onClose,
+  threatModelId,
 }: EdgeEditPanelProps) {
   const { setEdges, getNodes } = useReactFlow()
 
   const nodes = getNodes()
   const sourceNode = nodes.find((n) => n.id === edge.source)
   const targetNode = nodes.find((n) => n.id === edge.target)
+
+  const dataflowId = edge.data?.dataflowId as number | undefined
 
   const dataClassificationOptions = useMemo(
     () =>
@@ -226,6 +414,14 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
             </Label>
           </div>
         </div>
+
+        {/* Data Flow Assets - only visible when edge has been synced to backend */}
+        {dataflowId && (
+          <DataFlowDataAssetsSection
+            dataFlowId={dataflowId}
+            threatModelId={threatModelId}
+          />
+        )}
 
         <Separator />
 

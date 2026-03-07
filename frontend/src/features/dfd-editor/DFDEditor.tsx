@@ -867,6 +867,7 @@ function DFDEditorContent() {
           <EdgeEditPanel
             edge={currentSelectedEdge as DataFlowEdge}
             onClose={() => setSelectedEdge(null)}
+            threatModelId={threatModelId}
           />
         )}
         {currentSelectedEdge?.type === 'trustBoundary' && (

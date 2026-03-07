@@ -9,6 +9,7 @@ from .views import (
     ComponentDataAssetViewSet,
     ComponentLibraryViewSet,
     DataAssetViewSet,
+    DataFlowAssetViewSet,
     DataFlowViewSet,
     IntegrationSourceViewSet,
     OrgsystemComponentViewSet,
@@ -27,6 +28,7 @@ router.register(r"data-assets", DataAssetViewSet, basename="data-asset")
 router.register(r"data-flows", DataFlowViewSet, basename="data-flow")
 router.register(r"integrations", IntegrationSourceViewSet, basename="integration")
 router.register(r"component-data-assets", ComponentDataAssetViewSet, basename="component-data-asset")
+router.register(r"data-flow-assets", DataFlowAssetViewSet, basename="data-flow-asset")
 
 urlpatterns = [
     path("", include(router.urls)),

@@ -4,6 +4,7 @@ Services for diagrams app - DFD node synchronization and threat generation.
 
 from django.db import transaction
 
+
 from apps.systems.models import (
     ComponentLibrary,
     DataFlow,
