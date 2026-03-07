@@ -80,7 +80,7 @@ export const DataStoreNode = memo(function DataStoreNode({
                 )}
               </div>
             </div>
-            {data.dataSensitivity && (
+            {data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity] && (
               <div
                 className="mt-2 text-xs px-1.5 py-0.5 rounded text-center"
                 style={{

@@ -199,7 +199,7 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
                     threat_library=threat_lib,
                     defaults={
                         "inherent_severity": lib_threat.default_severity,
-                        "status": ComponentInstanceThreat.Status.OPEN,
+                        "status": ComponentInstanceThreat.Status.EXPOSED,
                         # Copy metadata for self-sufficiency if library is later removed
                         "threat_name": threat_lib.name if threat_lib else "",
                         "threat_description": threat_lib.description if threat_lib else "",

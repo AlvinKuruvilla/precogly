@@ -1,0 +1,22 @@
+pack:
+  slug: bci-mini
+  name: BCI Mini
+  version: 1.0.0
+  pack_type: full
+  description: |
+    A minimal Brain-Computer Interface pack for threat modeling BCI systems.
+    Includes neural signal acquisition, signal processing, decoder engine,
+    stimulation controller, and cloud analytics components with STRIDE-based threats.
+  tier: free
+  source: official
+  author: Precogly
+  depends_on: [stride-taxonomy, mini-capec, mini-cwe, mini-attack]
+  industries:
+    - healthcare
+    - medtech
+  tags:
+    - bci
+    - neurotech
+    - medical-device
+    - iot
+    - demo
