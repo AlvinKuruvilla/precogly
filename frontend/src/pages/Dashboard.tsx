@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatsCards, ThreatModelsTable } from '@/components/dashboard'
 import { useDashboardStats, useThreatModels } from '@/api/threat-models'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
 
 export function Dashboard() {
+  const { currentTeam } = useWorkspace()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
-  const { data: threatModels, isLoading: modelsLoading } = useThreatModels()
+  const { data: threatModels, isLoading: modelsLoading } = useThreatModels(currentTeam?.id)
 
   return (
     <div className="space-y-6">

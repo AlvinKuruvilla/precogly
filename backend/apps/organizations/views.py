@@ -5,7 +5,9 @@ Views for organizations app.
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
@@ -205,6 +207,40 @@ class TeamViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return super().get_permissions()
 
+    def perform_create(self, serializer):
+        """Create team and add creator as team lead."""
+        team = serializer.save()
+        TeamMembership.objects.create(
+            team=team,
+            user=self.request.user,
+            role=TeamMembership.Role.LEAD,
+        )
+
+    @action(detail=True, methods=["post"], url_path="change-member-role")
+    def change_member_role(self, request, pk=None):
+        """Change a team member's role."""
+        team = self.get_object()
+        user_id = request.data.get("user_id")
+        new_role = request.data.get("role")
+
+        if not user_id or not new_role:
+            return Response(
+                {"error": "user_id and role are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            membership = team.memberships.get(user_id=user_id)
+        except TeamMembership.DoesNotExist:
+            return Response(
+                {"error": "Member not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        membership.role = new_role
+        membership.save(update_fields=["role", "updated_at"])
+        return Response(TeamMembershipSerializer(membership).data)
+
     @action(detail=True, methods=["get"])
     def members(self, request, pk=None):
         """List members of a team."""
@@ -286,6 +322,25 @@ class TeamViewSet(viewsets.ModelViewSet):
                     "expires_at": timezone.now() + timedelta(days=7),
                 },
             )
+
+            # Send invitation email (prints to console in development)
+            frontend_base = settings.FRONTEND_URL if hasattr(settings, "FRONTEND_URL") else "http://localhost:5173"
+            invite_url = f"{frontend_base}/invite/{invitation.token}"
+            send_mail(
+                subject=f"You've been invited to join {team.name} on Precogly",
+                message=(
+                    f"Hi,\n\n"
+                    f"{request.user.email} has invited you to join the team "
+                    f'"{team.name}" in the organization "{team.organization.name}".\n\n'
+                    f"Click the link below to accept the invitation:\n"
+                    f"{invite_url}\n\n"
+                    f"This invitation expires in 7 days.\n\n"
+                    f"— Precogly"
+                ),
+                from_email=None,  # uses DEFAULT_FROM_EMAIL
+                recipient_list=[email],
+            )
+
             return Response(
                 {
                     "status": "invited",

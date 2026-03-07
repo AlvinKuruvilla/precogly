@@ -57,6 +57,8 @@ export interface ThreatModel {
   modelingMode?: ModelingMode
   frameworks?: string[]
   owner?: string
+  owningTeam?: number | null
+  owningTeamName?: string | null
   systemIds?: string[]
   referencedModelIds?: string[]
   riskScoringMethod?: ScoringMethodKey
@@ -77,6 +79,7 @@ export interface CreateThreatModelInput {
   description?: string
   criticality?: Criticality
   modelingMode?: ModelingMode
+  owningTeam?: number
   frameworkIds?: number[]
   systemIds?: number[]
   referencedModelIds?: number[]

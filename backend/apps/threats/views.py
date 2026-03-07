@@ -2,6 +2,7 @@
 Views for threats app.
 """
 
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -9,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permissions import CanWrite
 from apps.threat_models.models import ThreatModel
 
 from .models import (
@@ -110,11 +112,16 @@ class ComponentLibraryThreatViewSet(viewsets.ModelViewSet):
 class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
     """ViewSet for ComponentInstanceThreat."""
 
-    queryset = ComponentInstanceThreat.objects.select_related(
-        "component", "threat_library"
-    ).all()
     serializer_class = ComponentInstanceThreatSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return ComponentInstanceThreat.objects.filter(
+            component__orgsystem__organization_id__in=org_ids
+        ).select_related("component", "threat_library")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["component", "threat_library", "status", "inherent_severity"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
@@ -262,11 +269,16 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
 class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
     """ViewSet for DataFlowInstanceThreat."""
 
-    queryset = DataFlowInstanceThreat.objects.select_related(
-        "data_flow", "threat_library"
-    ).all()
     serializer_class = DataFlowInstanceThreatSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return DataFlowInstanceThreat.objects.filter(
+            data_flow__source_component__orgsystem__organization_id__in=org_ids
+        ).select_related("data_flow", "threat_library")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
@@ -354,14 +366,21 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
 class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for ComponentInstanceCountermeasure."""
 
-    queryset = ComponentInstanceCountermeasure.objects.select_related(
-        "instance_threat",
-        "countermeasure_library",
-        "verified_by",
-        "assigned_owner",
-    ).all()
     serializer_class = ComponentInstanceCountermeasureSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return ComponentInstanceCountermeasure.objects.filter(
+            instance_threat__component__orgsystem__organization_id__in=org_ids
+        ).select_related(
+            "instance_threat",
+            "countermeasure_library",
+            "verified_by",
+            "assigned_owner",
+        )
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
         "instance_threat",
@@ -378,14 +397,21 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
 class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for FlowInstanceCountermeasure."""
 
-    queryset = FlowInstanceCountermeasure.objects.select_related(
-        "flow_threat",
-        "countermeasure_library",
-        "verified_by",
-        "assigned_owner",
-    ).all()
     serializer_class = FlowInstanceCountermeasureSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return FlowInstanceCountermeasure.objects.filter(
+            flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+        ).select_related(
+            "flow_threat",
+            "countermeasure_library",
+            "verified_by",
+            "assigned_owner",
+        )
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
         "flow_threat",
@@ -402,9 +428,24 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
 class VerificationTestViewSet(viewsets.ModelViewSet):
     """ViewSet for VerificationTest."""
 
-    queryset = VerificationTest.objects.all()
     serializer_class = VerificationTestSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from .models import ComponentInstanceCountermeasureTest, FlowInstanceCountermeasureTest
+
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        component_test_ids = ComponentInstanceCountermeasureTest.objects.filter(
+            component_countermeasure__instance_threat__component__orgsystem__organization_id__in=org_ids
+        ).values_list("test_id", flat=True)
+        flow_test_ids = FlowInstanceCountermeasureTest.objects.filter(
+            flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+        ).values_list("test_id", flat=True)
+        return VerificationTest.objects.filter(
+            Q(id__in=component_test_ids) | Q(id__in=flow_test_ids)
+        )
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["method", "passed"]
     search_fields = ["name"]
@@ -413,14 +454,21 @@ class VerificationTestViewSet(viewsets.ModelViewSet):
 class PentestFindingViewSet(viewsets.ModelViewSet):
     """ViewSet for PentestFinding."""
 
-    queryset = PentestFinding.objects.select_related(
-        "threat_model",
-        "matched_threat_library",
-        "matched_component_countermeasure",
-        "matched_flow_countermeasure",
-    ).all()
     serializer_class = PentestFindingSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return PentestFinding.objects.filter(
+            threat_model__organization_id__in=org_ids
+        ).select_related(
+            "threat_model",
+            "matched_threat_library",
+            "matched_component_countermeasure",
+            "matched_flow_countermeasure",
+        )
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["threat_model", "reconciliation_status", "severity"]
     ordering_fields = ["severity", "created_at"]
@@ -433,13 +481,20 @@ class ComponentInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
     These mappings override library-level compliance mappings for specific countermeasure instances.
     """
 
-    queryset = ComponentInstanceCountermeasureStandard.objects.select_related(
-        "component_countermeasure",
-        "requirement",
-        "requirement__framework",
-    ).all()
     serializer_class = ComponentInstanceCountermeasureStandardSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return ComponentInstanceCountermeasureStandard.objects.filter(
+            component_countermeasure__instance_threat__component__orgsystem__organization_id__in=org_ids
+        ).select_related(
+            "component_countermeasure",
+            "requirement",
+            "requirement__framework",
+        )
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["component_countermeasure", "requirement", "sufficiency"]
 
@@ -450,13 +505,20 @@ class FlowInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
     These mappings override library-level compliance mappings for specific flow countermeasure instances.
     """
 
-    queryset = FlowInstanceCountermeasureStandard.objects.select_related(
-        "flow_countermeasure",
-        "requirement",
-        "requirement__framework",
-    ).all()
     serializer_class = FlowInstanceCountermeasureStandardSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return FlowInstanceCountermeasureStandard.objects.filter(
+            flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+        ).select_related(
+            "flow_countermeasure",
+            "requirement",
+            "requirement__framework",
+        )
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["flow_countermeasure", "requirement", "sufficiency"]
 
@@ -483,7 +545,7 @@ class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
 class RiskViewSet(viewsets.ModelViewSet):
     """ViewSet for Risk CRUD operations, nested under threat models."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["inherent_level", "residual_level", "owner", "assigned_to"]
     search_fields = ["name", "description"]
@@ -491,8 +553,12 @@ class RiskViewSet(viewsets.ModelViewSet):
     ordering = ["-inherent_score"]
 
     def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
         return Risk.objects.filter(
-            threat_model_id=self.kwargs["threat_model_pk"]
+            threat_model_id=self.kwargs["threat_model_pk"],
+            threat_model__organization_id__in=org_ids,
         ).select_related("owner", "assigned_to", "threat_model")
 
     def get_serializer_class(self):

@@ -1,10 +1,20 @@
 /**
- * Team management page.
+ * Team management page with create, edit, delete, and member role management.
  */
 
 import { useState } from 'react'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
-import { useTeams, useTeamMembers, useInviteTeamMember, useRemoveTeamMember } from '@/api/organizations'
+import {
+  useTeams,
+  useTeamMembers,
+  useCreateTeam,
+  useUpdateTeam,
+  useDeleteTeam,
+  useInviteTeamMember,
+  useRemoveTeamMember,
+  useChangeTeamMemberRole,
+  useBusinessUnits,
+} from '@/api/organizations'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -25,21 +35,39 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog'
-import { UserPlus, Trash2 } from 'lucide-react'
+import { UserPlus, Trash2, Plus, Pencil, Loader2 } from 'lucide-react'
 import type { TeamListItem, TeamRole } from '@/types/organization'
 
 export function TeamManagement() {
   const { currentOrganization, isLoading: workspaceLoading } = useWorkspace()
   const { data: teams = [], isLoading: teamsLoading } = useTeams(currentOrganization?.id)
+  const { data: businessUnits = [] } = useBusinessUnits(currentOrganization?.id)
+  const createTeamMutation = useCreateTeam()
+  const updateTeamMutation = useUpdateTeam()
+  const deleteTeamMutation = useDeleteTeam()
 
   const [selectedTeam, setSelectedTeam] = useState<TeamListItem | null>(null)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editingTeam, setEditingTeam] = useState<TeamListItem | null>(null)
+
+  // Create team form state
+  const [newTeamName, setNewTeamName] = useState('')
+  const [newTeamCode, setNewTeamCode] = useState('')
+  const [newTeamDescription, setNewTeamDescription] = useState('')
+  const [newTeamBusinessUnit, setNewTeamBusinessUnit] = useState<string>('')
+
+  // Edit team form state
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
 
   if (workspaceLoading || teamsLoading) {
     return <div>Loading...</div>
@@ -49,14 +77,65 @@ export function TeamManagement() {
     return <div>No organization selected.</div>
   }
 
+  const handleCreateTeam = () => {
+    if (!newTeamName.trim()) return
+    createTeamMutation.mutate(
+      {
+        organization: currentOrganization.id,
+        name: newTeamName,
+        code: newTeamCode || undefined,
+        description: newTeamDescription || undefined,
+        businessUnit: newTeamBusinessUnit ? parseInt(newTeamBusinessUnit, 10) : undefined,
+      },
+      {
+        onSuccess: () => {
+          setShowCreateDialog(false)
+          setNewTeamName('')
+          setNewTeamCode('')
+          setNewTeamDescription('')
+          setNewTeamBusinessUnit('')
+        },
+      }
+    )
+  }
+
+  const handleEditTeam = () => {
+    if (!editingTeam || !editName.trim()) return
+    updateTeamMutation.mutate(
+      { id: editingTeam.id, data: { name: editName, description: editDescription } },
+      {
+        onSuccess: () => setEditingTeam(null),
+      }
+    )
+  }
+
+  const handleDeleteTeam = (teamId: number, teamName: string) => {
+    if (!confirm(`Are you sure you want to delete "${teamName}"? This cannot be undone.`)) return
+    deleteTeamMutation.mutate(teamId)
+  }
+
+  const openEditDialog = (team: TeamListItem) => {
+    setEditingTeam(team)
+    setEditName(team.name)
+    setEditDescription(team.description ?? '')
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Teams</CardTitle>
-          <CardDescription>
-            Manage teams in {currentOrganization.name}.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Teams</CardTitle>
+              <CardDescription>
+                Manage teams in {currentOrganization.name}.
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Team
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {teams.length === 0 ? (
@@ -87,13 +166,32 @@ export function TeamManagement() {
                     </TableCell>
                     <TableCell>{team.memberCount}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedTeam(team)}
-                      >
-                        Manage
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedTeam(team)}
+                        >
+                          Manage
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditDialog(team)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteTeam(team.id, team.name)}
+                          disabled={deleteTeamMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -102,6 +200,97 @@ export function TeamManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Team Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Team</DialogTitle>
+            <DialogDescription>Add a new team to your organization.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="team-name">Name</Label>
+              <Input
+                id="team-name"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="e.g., Platform Security"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="team-code">Code (optional)</Label>
+              <Input
+                id="team-code"
+                value={newTeamCode}
+                onChange={(e) => setNewTeamCode(e.target.value)}
+                placeholder="e.g., PLAT-SEC"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="team-desc">Description (optional)</Label>
+              <Textarea
+                id="team-desc"
+                value={newTeamDescription}
+                onChange={(e) => setNewTeamDescription(e.target.value)}
+                rows={2}
+              />
+            </div>
+            {businessUnits.length > 0 && (
+              <div className="space-y-2">
+                <Label>{currentOrganization.businessUnitLabel}</Label>
+                <Select value={newTeamBusinessUnit} onValueChange={setNewTeamBusinessUnit}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessUnits.map((bu) => (
+                      <SelectItem key={bu.id} value={bu.id.toString()}>
+                        {bu.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTeam} disabled={!newTeamName.trim() || createTeamMutation.isPending}>
+              {createTeamMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Team Dialog */}
+      <Dialog open={!!editingTeam} onOpenChange={(open) => !open && setEditingTeam(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Team</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTeam(null)}>Cancel</Button>
+            <Button onClick={handleEditTeam} disabled={!editName.trim() || updateTeamMutation.isPending}>
+              {updateTeamMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Team Members Dialog */}
       {selectedTeam && (
@@ -125,6 +314,7 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
   const { data: members = [], isLoading } = useTeamMembers(team.id)
   const { mutate: inviteMember, isPending: isInviting } = useInviteTeamMember()
   const { mutate: removeMember, isPending: isRemoving } = useRemoveTeamMember()
+  const { mutate: changeRole, isPending: isChangingRole } = useChangeTeamMemberRole()
 
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<TeamRole>('member')
@@ -154,13 +344,17 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
     }
   }
 
+  const handleRoleChange = (userId: number, newRole: string) => {
+    changeRole({ teamId: team.id, userId, role: newRole })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Manage Team: {team.name}</DialogTitle>
           <DialogDescription>
-            Add or remove members from this team.
+            Add, remove, or change roles of team members.
           </DialogDescription>
         </DialogHeader>
 
@@ -217,9 +411,22 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
                       <p className="text-xs text-muted-foreground">{member.userEmail}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={roleColors[member.role]}>
-                        {member.role}
-                      </Badge>
+                      <Select
+                        value={member.role}
+                        onValueChange={(value) => handleRoleChange(member.user, value)}
+                        disabled={isChangingRole}
+                      >
+                        <SelectTrigger className="w-28 h-8">
+                          <Badge className={roleColors[member.role]}>
+                            {member.role}
+                          </Badge>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lead">Lead</SelectItem>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button
                         variant="ghost"
                         size="icon"

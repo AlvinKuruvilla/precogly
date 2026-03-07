@@ -145,6 +145,10 @@ class TeamSerializer(serializers.ModelSerializer):
             "member_count",
             "business_unit_name",
         ]
+        extra_kwargs = {
+            "code": {"required": False, "default": ""},
+            "description": {"required": False},
+        }
 
     def get_member_count(self, obj):
         """Return the number of members in the team."""

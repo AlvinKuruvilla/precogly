@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Lock, LockOpen, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Users, Building2, Pencil } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Lock, LockOpen, Check, ChevronsUpDown, Plus, ArrowRight, Shield, Building2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -22,8 +22,8 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
-import { useTeamMembers, useTeams, useOrganizationMembers } from '@/api/organizations'
-import type { TeamMembership, TeamListItem, OrganizationMembership } from '@/types/organization'
+import { useTeamMembers, useOrganizationMembers } from '@/api/organizations'
+import type { TeamMembership, OrganizationMembership } from '@/types/organization'
 import type { DiagramNode, DataFlowEdge, CanvasData, TrustZoneNodeData } from '../../types'
 import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
 import type {
@@ -58,10 +58,8 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   critical: { label: 'Critical', color: 'bg-red-100 text-red-700' },
 }
 
-/** Unified assignee type for the combobox */
-export type Assignee =
-  | { type: 'member'; userId: number; email: string; name: string | null }
-  | { type: 'team'; teamId: number; name: string }
+/** Assignee type for the combobox — individuals only */
+export type Assignee = { type: 'member'; userId: number; email: string; name: string | null }
 
 // Icon map for node types
 const nodeTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -124,7 +122,6 @@ function UserSearchCombobox({
   const [open, setOpen] = useState(true)
   const [search, setSearch] = useState('')
   const [teamMembersOpen, setTeamMembersOpen] = useState(true)
-  const [teamsOpen, setTeamsOpen] = useState(false)
   const [orgMembersOpen, setOrgMembersOpen] = useState(false)
 
   // Get current workspace context
@@ -134,15 +131,9 @@ function UserSearchCombobox({
   const { data: teamMembers = [], isLoading: teamMembersLoading } = useTeamMembers(
     currentTeam?.id ?? 0
   )
-  const { data: teams = [], isLoading: teamsLoading } = useTeams(
-    currentOrganization?.id
-  )
   const { data: orgMembers = [], isLoading: orgMembersLoading } = useOrganizationMembers(
     currentOrganization?.id ?? 0
   )
-
-  // Filter out current team from teams list
-  const otherTeams = teams.filter((t) => t.id !== currentTeam?.id)
 
   // Filter org members to exclude those already in the current team
   const teamMemberEmails = new Set(teamMembers.map((m) => m.userEmail))
@@ -162,25 +153,18 @@ function UserSearchCombobox({
     )
   }
 
-  const filterTeam = (team: TeamListItem) => {
-    const searchLower = search.toLowerCase()
-    return team.name.toLowerCase().includes(searchLower)
-  }
-
   const filterOrgMember = (member: OrganizationMembership) => {
     const searchLower = search.toLowerCase()
     return member.userEmail.toLowerCase().includes(searchLower)
   }
 
   const filteredTeamMembers = teamMembers.filter(filterTeamMember)
-  const filteredTeams = otherTeams.filter(filterTeam)
   const filteredOrgMembers = otherOrgMembers.filter(filterOrgMember)
 
-  const isLoading = teamMembersLoading || teamsLoading || orgMembersLoading
+  const isLoading = teamMembersLoading || orgMembersLoading
   const hasNoResults =
     !isLoading &&
     filteredTeamMembers.length === 0 &&
-    filteredTeams.length === 0 &&
     filteredOrgMembers.length === 0
 
   return (
@@ -254,50 +238,6 @@ function UserSearchCombobox({
                               {member.userEmail}
                             </div>
                           </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-                </div>
-              )}
-
-              {/* Teams Section */}
-              {filteredTeams.length > 0 && (
-                <div>
-                  <SectionHeader
-                    icon={Users}
-                    label="Teams"
-                    count={filteredTeams.length}
-                    isOpen={teamsOpen}
-                    onClick={() => setTeamsOpen(!teamsOpen)}
-                    hasBorderTop
-                  />
-                  {teamsOpen && (
-                    <CommandGroup>
-                      {filteredTeams.map((team) => (
-                        <CommandItem
-                          key={team.id}
-                          value={`team-${team.id}-${team.name}`}
-                          onSelect={() => {
-                            onSelect({ type: 'team', teamId: team.id, name: team.name })
-                            setOpen(false)
-                          }}
-                          className="flex items-center gap-2 py-2"
-                        >
-                          <Check className="h-4 w-4 flex-shrink-0 opacity-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">
-                              {team.name}
-                            </div>
-                            {team.businessUnitName && (
-                              <div className="text-xs text-muted-foreground truncate">
-                                {team.businessUnitName}
-                              </div>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-[10px]">
-                            {team.memberCount} members
-                          </Badge>
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -991,41 +931,10 @@ export function ComponentView({
 
   // Handle owner assignment from UserSearchCombobox
   const handleAssignOwner = (countermeasureInstanceId: string, assignee: Assignee) => {
-    console.log('=== [1] ComponentView.handleAssignOwner START ===')
-    console.log('[1] countermeasureInstanceId:', countermeasureInstanceId)
-    console.log('[1] assignee:', JSON.stringify(assignee, null, 2))
-    console.log('[1] selectedComponentThreat:', selectedComponentThreat ? {
-      id: selectedComponentThreat.id,
-      componentId: selectedComponentThreat.componentId,
-      threatId: selectedComponentThreat.threatId,
-      countermeasures: selectedComponentThreat.countermeasures.map(cm => ({
-        id: cm.id,
-        countermeasureId: cm.countermeasureId,
-        status: cm.status,
-        owner: cm.owner,
-      }))
-    } : null)
-
     if (selectedComponentThreat) {
-      console.log('[1] Calling parent onAssignOwner with:', {
-        componentThreatId: selectedComponentThreat.id,
-        countermeasureInstanceId,
-        assignee,
-      })
-      console.log('[1] onAssignOwner function:', onAssignOwner)
-      console.log('[1] typeof onAssignOwner:', typeof onAssignOwner)
-      console.log('[1] pendingPlannedStatus:', pendingPlannedStatus)
-      try {
-        // If there's a pending planned status, pass it to onAssignOwner so both updates
-        // happen in a single API call (avoids race condition)
-        const statusToSet = pendingPlannedStatus ? 'planned' as CountermeasureStatus : undefined
-        onAssignOwner(selectedComponentThreat.id, countermeasureInstanceId, assignee, statusToSet)
-        console.log('[1] onAssignOwner returned successfully')
-      } catch (error) {
-        console.error('[1] ERROR calling onAssignOwner:', error)
-      }
+      const statusToSet = pendingPlannedStatus ? 'planned' as CountermeasureStatus : undefined
+      onAssignOwner(selectedComponentThreat.id, countermeasureInstanceId, assignee, statusToSet)
 
-      // Clear pending status (already handled by onAssignOwner)
       if (pendingPlannedStatus) {
         setPendingPlannedStatus(null)
       }
@@ -1657,12 +1566,6 @@ export function ComponentView({
                 const isAssigning = assigningOwnerFor === cm.id
                 const isWaiving = waivingReasonFor === cm.id
 
-                // Parse owner - can be "team:TeamName" for teams or email for members
-                const isTeamOwner = cm.owner?.startsWith('team:')
-                const ownerDisplay = isTeamOwner
-                  ? cm.owner?.replace('team:', '')
-                  : cm.owner
-
                 return (
                   <div key={cm.id} className="border rounded-lg p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -1736,7 +1639,6 @@ export function ComponentView({
                       <Select
                         value={cm.priority || 'none'}
                         onValueChange={(value) => {
-                          console.log('[DEBUG priority] ComponentView onValueChange:', { threatId: selectedComponentThreat.id, cmId: cm.id, value, currentPriority: cm.priority })
                           onCountermeasurePriorityChange(
                             selectedComponentThreat.id,
                             cm.id,
@@ -1762,12 +1664,8 @@ export function ComponentView({
                     {/* Owner display */}
                     {cm.owner && !isAssigning && (
                       <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                        {isTeamOwner ? (
-                          <Users className="h-3 w-3" />
-                        ) : (
-                          <User className="h-3 w-3" />
-                        )}
-                        <span>{ownerDisplay}</span>
+                        <User className="h-3 w-3" />
+                        <span>{cm.owner}</span>
                       </div>
                     )}
 

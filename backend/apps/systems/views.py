@@ -10,6 +10,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.permissions import CanWrite
+
 from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
 from apps.threats.serializers import ComponentInstanceThreatSerializer
 
@@ -41,7 +43,7 @@ from .serializers import (
 class OrgsystemViewSet(viewsets.ModelViewSet):
     """ViewSet for Orgsystem CRUD operations."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["criticality", "lifecycle_state", "organization"]
     search_fields = ["name", "owner"]
@@ -66,22 +68,37 @@ class OrgsystemViewSet(viewsets.ModelViewSet):
 class TrustZoneViewSet(viewsets.ModelViewSet):
     """ViewSet for TrustZone CRUD operations."""
 
-    queryset = TrustZone.objects.all()
     serializer_class = TrustZoneSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["name", "description"]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return TrustZone.objects.filter(
+            components__orgsystem__organization_id__in=org_ids
+        ).distinct()
 
 
 class TrustBoundaryViewSet(viewsets.ModelViewSet):
     """ViewSet for TrustBoundary CRUD operations."""
 
-    queryset = TrustBoundary.objects.all()
     serializer_class = TrustBoundarySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["zone_a", "zone_b"]
     search_fields = ["label"]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return TrustBoundary.objects.filter(
+            Q(zone_a__components__orgsystem__organization_id__in=org_ids)
+            | Q(zone_b__components__orgsystem__organization_id__in=org_ids)
+        ).distinct()
 
 
 class ComponentLibraryViewSet(viewsets.ModelViewSet):
@@ -106,7 +123,7 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
     """ViewSet for OrgsystemComponent CRUD operations."""
 
     serializer_class = OrgsystemComponentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["orgsystem", "trust_zone", "threat_model"]
     search_fields = ["name"]
@@ -226,19 +243,26 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
 class DataAssetViewSet(viewsets.ModelViewSet):
     """ViewSet for DataAsset CRUD operations."""
 
-    queryset = DataAsset.objects.all()
     serializer_class = DataAssetSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["classification", "confidentiality", "threat_model"]
     search_fields = ["name"]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return DataAsset.objects.filter(
+            threat_model__organization_id__in=org_ids
+        )
 
 
 class DataFlowViewSet(viewsets.ModelViewSet):
     """ViewSet for DataFlow CRUD operations."""
 
     serializer_class = DataFlowSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["crosses_trust_zone", "protocol"]
 

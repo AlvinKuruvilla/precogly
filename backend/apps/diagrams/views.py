@@ -9,6 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.permissions import CanWrite
 from apps.threat_models.models import ThreatModel
 
 from .models import DFD, DFDTemplatesLibrary, ThreatModelDFD
@@ -23,7 +24,7 @@ from .services import get_threat_model_for_dfd, sync_dfd_nodes_to_components
 class DFDViewSet(viewsets.ModelViewSet):
     """ViewSet for DFD CRUD operations."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["diagram_type"]
     search_fields = ["name"]

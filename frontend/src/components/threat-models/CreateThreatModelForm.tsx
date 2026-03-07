@@ -24,6 +24,7 @@ import {
   useCreateThreatModel,
 } from '@/api/threat-models'
 import { AddSystemModal } from './AddSystemModal'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
 import type { Criticality, CreateThreatModelInput, ModelingMode, System } from '@/types'
 import { MODELING_MODES } from '@/types/domain'
 
@@ -38,6 +39,7 @@ const criticalityOptions: { value: Criticality; label: string }[] = [
 
 export function CreateThreatModelForm() {
   const navigate = useNavigate()
+  const { teams, currentTeam, isMultiTeam } = useWorkspace()
   const { data: frameworks = [], isLoading: frameworksLoading } = useFrameworks()
   const { data: systems = [], isLoading: systemsLoading } = useSystems()
   const { data: threatModels = [], isLoading: modelsLoading } = useThreatModels()
@@ -48,6 +50,7 @@ export function CreateThreatModelForm() {
   const [description, setDescription] = useState('')
   const [criticality, setCriticality] = useState<Criticality | ''>('')
   const [modelingMode, setModelingMode] = useState<ModelingMode>('dfdBased')
+  const [selectedTeamId, setSelectedTeamId] = useState<number | undefined>(currentTeam?.id)
   const [selectedFrameworkIds, setSelectedFrameworkIds] = useState<number[]>([])
   const [selectedSystemIds, setSelectedSystemIds] = useState<number[]>([])
   const [selectedModelIds, setSelectedModelIds] = useState<number[]>([])
@@ -108,6 +111,7 @@ export function CreateThreatModelForm() {
       description: description || undefined,
       criticality: criticality || undefined,
       modelingMode,
+      owningTeam: selectedTeamId,
       frameworkIds: selectedFrameworkIds.length > 0 ? selectedFrameworkIds : undefined,
       systemIds: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
       referencedModelIds: selectedModelIds.length > 0 ? selectedModelIds : undefined,
@@ -173,6 +177,27 @@ export function CreateThreatModelForm() {
               </SelectContent>
             </Select>
           </div>
+
+          {isMultiTeam && (
+            <div className="space-y-2">
+              <Label htmlFor="owning-team">Owning Team</Label>
+              <Select
+                value={selectedTeamId?.toString() ?? ''}
+                onValueChange={(value) => setSelectedTeamId(parseInt(value, 10))}
+              >
+                <SelectTrigger id="owning-team">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id.toString()}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 

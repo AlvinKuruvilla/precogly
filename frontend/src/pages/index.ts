@@ -22,4 +22,5 @@ export {
   OrganizationSettings,
   MemberManagement,
   TeamManagement,
+  BusinessUnitsSettings,
 } from './settings'

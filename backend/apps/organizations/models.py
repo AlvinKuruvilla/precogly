@@ -119,8 +119,14 @@ class Team(TimestampedModel):
     is_default = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = ["organization", "code"]
         ordering = ["organization", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "code"],
+                condition=~models.Q(code=""),
+                name="unique_team_code_per_org",
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.organization})"
@@ -286,41 +292,3 @@ class SharedWithMe(TimestampedModel):
         return f"{self.threat_model} shared with {self.user}"
 
 
-class ShadowUser(TimestampedModel):
-    """
-    Temporary user for 'test drive' functionality.
-    Converted to real user upon registration.
-    """
-
-    class Status(models.TextChoices):
-        ACTIVE = "active", "Active"
-        CONVERTED = "converted", "Converted"
-        EXPIRED = "expired", "Expired"
-
-    session_key = models.CharField(max_length=64, unique=True, db_index=True)
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="shadow_profile",
-    )
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        related_name="shadow_users",
-    )
-    team = models.ForeignKey(
-        Team,
-        on_delete=models.CASCADE,
-        related_name="shadow_users",
-    )
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.ACTIVE
-    )
-    expires_at = models.DateTimeField()
-    converted_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"ShadowUser {self.session_key[:8]}..."

@@ -8,7 +8,6 @@ from .models import (
     TeamMembership,
     TeamInvitation,
     MagicLink,
-    ShadowUser,
 )
 
 
@@ -81,8 +80,3 @@ class MagicLinkAdmin(admin.ModelAdmin):
     readonly_fields = ["token", "accessed_count"]
 
 
-@admin.register(ShadowUser)
-class ShadowUserAdmin(admin.ModelAdmin):
-    list_display = ["session_key", "user", "organization", "status", "expires_at"]
-    list_filter = ["status", "organization"]
-    readonly_fields = ["session_key"]

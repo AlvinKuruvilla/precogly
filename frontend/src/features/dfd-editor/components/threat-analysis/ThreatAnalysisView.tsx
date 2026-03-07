@@ -80,23 +80,10 @@ export function ThreatAnalysisView({
 
   // Filter backend threats to current diagram
   const backendThreats = useMemo(() => {
-    if (!backendData?.componentThreats) {
-      console.log('[ThreatAnalysisView] backendThreats: no backendData?.componentThreats')
-      return []
-    }
-    console.log('[ThreatAnalysisView] Filtering backendThreats:', {
-      diagramId,
-      allBackendThreats: backendData.componentThreats.map(t => ({
-        id: t.id,
-        diagramId: t.diagramId,
-        sourceDiagramId: t.sourceDiagramId,
-      })),
-    })
-    const filtered = backendData.componentThreats.filter(
+    if (!backendData?.componentThreats) return []
+    return backendData.componentThreats.filter(
       (t) => t.sourceDiagramId === diagramId || t.diagramId === diagramId
     )
-    console.log('[ThreatAnalysisView] Filtered backendThreats count:', filtered.length)
-    return filtered
   }, [backendData, diagramId])
 
   // Track local state for modifications not yet persisted
@@ -105,19 +92,13 @@ export function ThreatAnalysisView({
   // Backend threats with local modifications applied
   const componentThreats = useMemo(() => {
     // Apply local modifications to backend threats
-    const modifiedBackendThreats = backendThreats.map((t) => {
+    return backendThreats.map((t) => {
       const mods = localModifications[t.id]
       if (mods) {
         return { ...t, ...mods }
       }
       return t
     })
-    console.log('[ThreatAnalysisView] componentThreats computed:', {
-      backendThreatsCount: backendThreats.length,
-      totalCount: modifiedBackendThreats.length,
-      threatIds: modifiedBackendThreats.map(t => t.id),
-    })
-    return modifiedBackendThreats
   }, [backendThreats, localModifications])
 
   // Selected component and threat for drill-down
@@ -248,36 +229,10 @@ export function ThreatAnalysisView({
       componentThreatId: string,
       countermeasureInstanceId: string,
       assignee: Assignee,
-      newStatus?: CountermeasureStatus // Optional: also update status in the same API call
+      newStatus?: CountermeasureStatus
     ) => {
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      console.log('=== [2] ThreatAnalysisView.handleAssignOwner START ===')
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      console.log('[2] componentThreatId:', componentThreatId)
-      console.log('[2] countermeasureInstanceId:', countermeasureInstanceId)
-      console.log('[2] assignee:', JSON.stringify(assignee, null, 2))
-      console.log('[2] newStatus:', newStatus)
-
-      // Find the threat to update
       const threat = componentThreats.find((ct) => ct.id === componentThreatId)
-      console.log('[2] Found threat:', threat ? {
-        id: threat.id,
-        componentId: threat.componentId,
-        countermeasuresCount: threat.countermeasures.length,
-        countermeasureIds: threat.countermeasures.map(cm => cm.id),
-      } : 'NOT FOUND')
-
-      if (!threat) {
-        console.log('[2] ERROR: Threat not found, returning early')
-        return
-      }
-
-      // Determine owner string for local state storage
-      const ownerString =
-        assignee.type === 'team'
-          ? `team:${assignee.name}`
-          : assignee.email
-      console.log('[2] ownerString:', ownerString)
+      if (!threat) return
 
       // Determine final status - use explicit newStatus if provided, otherwise auto-set to planned
       const currentCm = threat.countermeasures.find(cm => cm.id === countermeasureInstanceId)
@@ -285,78 +240,41 @@ export function ThreatAnalysisView({
 
       const updatedCountermeasures = threat.countermeasures.map((cm) => {
         if (cm.id !== countermeasureInstanceId) return cm
-        console.log('[2] Found matching countermeasure to update:', cm.id)
         return {
           ...cm,
-          owner: ownerString,
+          owner: assignee.email,
           status: finalStatus || cm.status,
           updatedAt: new Date().toISOString(),
         }
       })
 
-      const matchingCm = updatedCountermeasures.find(cm => cm.owner === ownerString)
-      console.log('[2] Countermeasure was updated:', !!matchingCm)
-
       // Update local modifications
-      console.log('[2] Calling updateLocalModification...')
       updateLocalModification(componentThreatId, {
         countermeasures: updatedCountermeasures,
         updatedAt: new Date().toISOString(),
       })
-      console.log('[2] Local modification updated')
 
-      // Persist to backend if this is a backend countermeasure
-      // Supports both cm-{id} (component) and fcm-{id} (flow) countermeasure IDs
+      // Persist to backend — supports both cm-{id} (component) and fcm-{id} (flow) IDs
       const isComponentCm = countermeasureInstanceId.startsWith('cm-')
       const isFlowCm = countermeasureInstanceId.startsWith('fcm-')
-      console.log('[2] Checking backend persistence conditions:', {
-        assigneeType: assignee.type,
-        isComponentCm,
-        isFlowCm,
-      })
 
-      if (assignee.type === 'member' && (isComponentCm || isFlowCm)) {
-        const prefix = isFlowCm ? 4 : 3 // 'fcm-' is 4 chars, 'cm-' is 3 chars
+      if (isComponentCm || isFlowCm) {
+        const prefix = isFlowCm ? 4 : 3
         const backendId = parseInt(countermeasureInstanceId.slice(prefix), 10)
-        console.log('[2] Parsed backendId:', backendId, 'type:', isFlowCm ? 'flow' : 'component')
 
         if (!isNaN(backendId)) {
-          // Use the correct mutation based on countermeasure type
           const mutation = isFlowCm ? updateFlowCountermeasureMutation : updateCountermeasureMutation
-
-          // Build data payload - include status if provided to avoid race condition
-          const data: { assignedOwner?: number; status?: string } = { assignedOwner: assignee.userId }
+          const data: { assignedOwner: number; status?: string } = { assignedOwner: assignee.userId }
           if (newStatus) {
             data.status = newStatus
           }
 
-          console.log('[2] Calling mutation.mutate with:', {
+          mutation.mutate({
             countermeasureId: backendId,
             data,
-            mutationType: isFlowCm ? 'flow' : 'component',
           })
-          mutation.mutate(
-            {
-              countermeasureId: backendId,
-              data,
-            },
-            {
-              onSuccess: (data) => {
-                console.log('[2] ✅ Backend mutation SUCCESS:', data)
-              },
-              onError: (error) => {
-                console.log('[2] ❌ Backend mutation ERROR:', error)
-              },
-            }
-          )
-        } else {
-          console.log('[2] ERROR: backendId is NaN, skipping backend call')
         }
-      } else {
-        console.log('[2] Skipping backend persistence (not a backend countermeasure or not a member)')
       }
-
-      console.log('=== [2] ThreatAnalysisView.handleAssignOwner END ===')
     },
     [componentThreats, updateLocalModification, updateCountermeasureMutation, updateFlowCountermeasureMutation]
   )

@@ -1,15 +1,16 @@
 """
 Signal handlers for organizations app.
 Auto-provisions Personal Organization and Team for new users.
-Handles shadow user merge and invitation acceptance on login.
+Handles invitation acceptance on login.
 """
 
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
-from .models import Organization, OrganizationMember, Team, TeamMembership
-from .utils import check_and_accept_invitations_on_login, check_and_merge_shadow_on_login
+from .models import Organization, OrganizationMember, Team, TeamInvitation, TeamMembership
+from .utils import check_and_accept_invitations_on_login
 
 User = get_user_model()
 
@@ -27,12 +28,24 @@ def create_personal_workspace(sender, instance, created, **kwargs):
     """
     Auto-provision Personal Organization and Team for new users.
     Implements 'Zero-Config' mode from section 2 of the design doc.
+
+    Skips personal workspace creation if the user has pending invitations,
+    so they land directly in the inviting org instead of getting a throwaway workspace.
     """
     if not created:
         return
 
     # Skip if user already has an organization (e.g., invited to existing org)
     if instance.organization_memberships.exists():
+        return
+
+    # Skip if there are pending invitations for this email
+    pending_invitations = TeamInvitation.objects.filter(
+        email__iexact=instance.email,
+        status=TeamInvitation.Status.PENDING,
+        expires_at__gt=timezone.now(),
+    )
+    if pending_invitations.exists():
         return
 
     # Create personal organization
@@ -65,11 +78,8 @@ def create_personal_workspace(sender, instance, created, **kwargs):
 
 def handle_user_auth(request, user, **kwargs):
     """
-    On login/signup:
-    1. Merge any shadow user data
-    2. Auto-accept pending team invitations
+    On login/signup: auto-accept pending team invitations.
     """
-    check_and_merge_shadow_on_login(user)
     check_and_accept_invitations_on_login(user)
 
 

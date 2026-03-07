@@ -291,35 +291,7 @@ export function useRevokeMagicLink() {
 export function useMagicLinkAccess(token: string) {
   return useQuery({
     queryKey: magicLinkKeys.access(token),
-    queryFn: async () => {
-      console.log('\n' + '='.repeat(80))
-      console.log('DEBUG: useMagicLinkAccess - Fetching data')
-      console.log(`DEBUG: Token: ${token}`)
-
-      const response = await api.get<MagicLinkAccessResponse>(`/share/${token}/`)
-
-      console.log('DEBUG: Response received from backend:')
-      console.log('DEBUG: Response keys:', Object.keys(response))
-      console.log('DEBUG: threatAnalysis exists:', 'threatAnalysis' in response)
-
-      if (response.threatAnalysis) {
-        console.log('DEBUG: threatAnalysis.totalCount:', response.threatAnalysis.totalCount)
-        console.log('DEBUG: threatAnalysis.threats.length:', response.threatAnalysis.threats?.length)
-        if (response.threatAnalysis.threats?.length > 0) {
-          console.log('DEBUG: First threat:', {
-            id: response.threatAnalysis.threats[0].id,
-            type: response.threatAnalysis.threats[0].type,
-            threatName: response.threatAnalysis.threats[0].threatName,
-            countermeasures: response.threatAnalysis.threats[0].countermeasures?.length,
-          })
-        }
-      } else {
-        console.warn('WARNING: threatAnalysis is missing from response!')
-      }
-      console.log('='.repeat(80) + '\n')
-
-      return response
-    },
+    queryFn: () => api.get<MagicLinkAccessResponse>(`/share/${token}/`),
     enabled: !!token,
     retry: false, // Don't retry on 404/410
   })
@@ -348,3 +320,108 @@ export function useRemoveSharedWithMe() {
     },
   })
 }
+
+// Organization mutations
+export function useUpdateOrganization() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Organization> }) =>
+      api.patch<Organization>(`/organizations/${id}/`, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(id) })
+    },
+  })
+}
+
+// Organization member mutations
+export function useAddOrgMember() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orgId, userId, role }: { orgId: number; userId: number; role: string }) =>
+      api.post(`/organizations/${orgId}/add-member/`, { user: userId, role }),
+    onSuccess: (_, { orgId }) => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) })
+    },
+  })
+}
+
+export function useRemoveOrgMember() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orgId, userId }: { orgId: number; userId: number }) =>
+      api.post(`/organizations/${orgId}/remove-member/`, { user: userId }),
+    onSuccess: (_, { orgId }) => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) })
+    },
+  })
+}
+
+export function useUpdateOrgMemberRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ membershipId, role }: { membershipId: number; role: string }) =>
+      api.patch<OrganizationMembership>(`/organization-members/${membershipId}/`, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+    },
+  })
+}
+
+// Team mutations (additional)
+export function useDeleteTeam() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (teamId: number) => api.delete(`/teams/${teamId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamKeys.all })
+    },
+  })
+}
+
+export function useChangeTeamMemberRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ teamId, userId, role }: { teamId: number; userId: number; role: string }) =>
+      api.post<TeamMembership>(`/teams/${teamId}/change-member-role/`, { userId, role }),
+    onSuccess: (_, { teamId }) => {
+      queryClient.invalidateQueries({ queryKey: teamKeys.members(teamId) })
+      queryClient.invalidateQueries({ queryKey: teamKeys.detail(teamId) })
+    },
+  })
+}
+
+// Business Unit mutations
+export function useCreateBusinessUnit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { organization: number; name: string; code?: string; description?: string; parent?: number }) =>
+      api.post<BusinessUnit>('/business-units/', input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: businessUnitKeys.all })
+    },
+  })
+}
+
+export function useUpdateBusinessUnit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<BusinessUnit> }) =>
+      api.patch<BusinessUnit>(`/business-units/${id}/`, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: businessUnitKeys.all })
+      queryClient.invalidateQueries({ queryKey: businessUnitKeys.detail(id) })
+    },
+  })
+}
+
+export function useDeleteBusinessUnit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/business-units/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: businessUnitKeys.all })
+    },
+  })
+}
+

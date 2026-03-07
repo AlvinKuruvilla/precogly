@@ -10,11 +10,14 @@ export function useDashboardStats() {
   })
 }
 
-export function useThreatModels() {
+export function useThreatModels(teamId?: number) {
   return useQuery({
-    queryKey: ['threat-models'],
+    queryKey: ['threat-models', { teamId }],
     queryFn: async () => {
-      const response = await api.get<{ results: ThreatModel[] } | ThreatModel[]>('/threat-models/')
+      const url = teamId
+        ? `/threat-models/?owning_team=${teamId}`
+        : '/threat-models/'
+      const response = await api.get<{ results: ThreatModel[] } | ThreatModel[]>(url)
       // Handle both paginated and non-paginated responses
       return Array.isArray(response) ? response : response.results
     },

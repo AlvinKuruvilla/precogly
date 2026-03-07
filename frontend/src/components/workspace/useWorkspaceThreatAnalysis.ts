@@ -240,18 +240,13 @@ export function useWorkspaceThreatAnalysis(
     (
       componentThreatId: string,
       countermeasureInstanceId: string,
-      assignee: { type: 'member' | 'team'; userId?: number; email?: string; name?: string | null; teamId?: number },
+      assignee: { type: 'member'; userId: number; email: string; name: string | null },
       newStatus?: CountermeasureStatus
     ) => {
-      const ownerString =
-        assignee.type === 'team'
-          ? `team:${assignee.name}`
-          : assignee.email || ''
-
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
 
-      if (assignee.type === 'member' && countermeasure && assignee.userId) {
+      if (countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
         const data: { assignedOwner: number; status?: string } = { assignedOwner: assignee.userId }
@@ -284,7 +279,7 @@ export function useWorkspaceThreatAnalysis(
               if (cm.id !== countermeasureInstanceId) return cm
               return {
                 ...cm,
-                owner: ownerString,
+                owner: assignee.email,
                 status: finalStatus || cm.status,
                 updatedAt: new Date().toISOString(),
               }
@@ -299,29 +294,22 @@ export function useWorkspaceThreatAnalysis(
   // Update countermeasure priority
   const updateCountermeasurePriority = useCallback(
     (componentThreatId: string, countermeasureInstanceId: string, priority: string) => {
-      console.log('[DEBUG priority] updateCountermeasurePriority called:', { componentThreatId, countermeasureInstanceId, priority })
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
-      console.log('[DEBUG priority] found threat:', !!threat, 'found countermeasure:', !!countermeasure, 'cm.id:', countermeasure?.id)
 
       if (countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
-        console.log('[DEBUG priority] parsed countermeasure id:', parsed)
 
         if (parsed.type === 'component' && parsed.id !== null) {
-          console.log('[DEBUG priority] calling PATCH /component-countermeasures/', parsed.id, 'with:', { priority })
           updateCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data: { priority },
           })
         } else if (parsed.type === 'flow' && parsed.id !== null) {
-          console.log('[DEBUG priority] calling PATCH /flow-countermeasures/', parsed.id, 'with:', { priority })
           updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data: { priority },
           })
-        } else {
-          console.log('[DEBUG priority] no valid backend id — skipping API call')
         }
       }
 
@@ -335,7 +323,6 @@ export function useWorkspaceThreatAnalysis(
             updatedAt: new Date().toISOString(),
             countermeasures: ct.countermeasures.map((cm) => {
               if (cm.id !== countermeasureInstanceId) return cm
-              console.log('[DEBUG priority] local state update:', cm.id, 'priority:', cm.priority, '->', priority)
               return {
                 ...cm,
                 priority,

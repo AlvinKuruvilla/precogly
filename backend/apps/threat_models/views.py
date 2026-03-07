@@ -10,6 +10,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.permissions import CanWrite
+
 from .models import OutOfScopeItem, ThreatModel, ThreatModelReferenceImage
 from .serializers import (
     OutOfScopeItemSerializer,
@@ -24,7 +26,7 @@ from .serializers import (
 class ThreatModelViewSet(viewsets.ModelViewSet):
     """ViewSet for ThreatModel CRUD operations."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["status", "trigger", "organization"]
     search_fields = ["name", "description"]
@@ -32,13 +34,31 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
     ordering = ["-updated_at"]
 
     def get_queryset(self):
-        """Filter threat models by user's organizations."""
+        """Filter threat models by user's team memberships within their orgs."""
         user = self.request.user
-        # Get organizations the user belongs to
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
-        return ThreatModel.objects.filter(organization_id__in=org_ids).select_related(
-            "created_by", "organization"
-        )
+
+        # Get teams the user belongs to
+        from apps.organizations.models import TeamMembership
+        user_team_ids = TeamMembership.objects.filter(
+            user=user
+        ).values_list("team_id", flat=True)
+
+        # Show threat models owned by user's teams + unassigned (legacy)
+        queryset = ThreatModel.objects.filter(
+            organization_id__in=org_ids
+        ).filter(
+            Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
+        ).select_related("created_by", "organization", "owning_team")
+
+        # Optional further filter by specific team
+        owning_team_id = self.request.query_params.get("owning_team")
+        if owning_team_id:
+            queryset = queryset.filter(
+                Q(owning_team_id=owning_team_id) | Q(owning_team__isnull=True)
+            )
+
+        return queryset
 
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""

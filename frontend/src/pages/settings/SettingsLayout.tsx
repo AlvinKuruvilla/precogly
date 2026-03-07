@@ -3,33 +3,46 @@
  */
 
 import { NavLink, Outlet } from 'react-router-dom'
-import { User, Building2, Users, UsersRound } from 'lucide-react'
+import { User, Building2, Users, UsersRound, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
 
-const settingsNavItems = [
-  {
-    to: '/settings/profile',
-    label: 'Profile',
-    icon: User,
-  },
-  {
-    to: '/settings/organization',
-    label: 'Organization',
-    icon: Building2,
-  },
-  {
-    to: '/settings/members',
-    label: 'Members',
-    icon: Users,
-  },
-  {
-    to: '/settings/teams',
-    label: 'Teams',
-    icon: UsersRound,
-  },
-]
+function useSettingsNavItems() {
+  const { currentOrganization } = useWorkspace()
+  const businessUnitLabel = currentOrganization?.businessUnitLabel ?? 'Business Units'
+
+  return [
+    {
+      to: '/settings/profile',
+      label: 'Profile',
+      icon: User,
+    },
+    {
+      to: '/settings/organization',
+      label: 'Organization',
+      icon: Building2,
+    },
+    {
+      to: '/settings/members',
+      label: 'Members',
+      icon: Users,
+    },
+    {
+      to: '/settings/teams',
+      label: 'Teams',
+      icon: UsersRound,
+    },
+    {
+      to: '/settings/business-units',
+      label: businessUnitLabel,
+      icon: Layers,
+    },
+  ]
+}
 
 export function SettingsLayout() {
+  const settingsNavItems = useSettingsNavItems()
+
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>

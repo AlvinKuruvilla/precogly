@@ -55,6 +55,9 @@ class ThreatModelSerializer(serializers.ModelSerializer):
     """Serializer for ThreatModel model."""
 
     created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
+    owning_team_name = serializers.CharField(
+        source="owning_team.name", read_only=True, allow_null=True
+    )
     dfds = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
     frameworks = serializers.SerializerMethodField()
@@ -73,6 +76,8 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "trigger",
             "criticality",
             "organization",
+            "owning_team",
+            "owning_team_name",
             "created_by",
             "created_by_email",
             "owner",
@@ -91,7 +96,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by_email", "owner"]
+        read_only_fields = ["id", "created_at", "updated_at", "created_by_email", "owner", "owning_team_name"]
 
     def get_dfds(self, obj):
         """Get associated DFDs with canvas_data for threat analysis."""
@@ -236,6 +241,9 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for ThreatModel listing."""
 
     owner = serializers.SerializerMethodField()
+    owning_team_name = serializers.CharField(
+        source="owning_team.name", read_only=True, allow_null=True
+    )
     frameworks = serializers.SerializerMethodField()
 
     class Meta:
@@ -247,6 +255,8 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
             "status",
             "criticality",
             "owner",
+            "owning_team",
+            "owning_team_name",
             "frameworks",
             "risk_scoring_method",
             "created_at",
@@ -294,6 +304,7 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "organization",
+            "owning_team",
             "criticality",
             "modeling_mode",
             "framework_ids",
@@ -303,6 +314,7 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
         extra_kwargs = {
             "organization": {"required": False},
+            "owning_team": {"required": False},
             "criticality": {"required": False},
             "modeling_mode": {"required": False},
         }
@@ -326,6 +338,18 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"organization": "User has no organization membership."}
                 )
+
+        # Auto-assign owning_team if not provided
+        if "owning_team" not in validated_data or validated_data["owning_team"] is None:
+            from apps.organizations.models import TeamMembership
+
+            org = validated_data["organization"]
+            user_team_memberships = TeamMembership.objects.filter(
+                user=user,
+                team__organization=org,
+            ).select_related("team")
+            if user_team_memberships.count() == 1:
+                validated_data["owning_team"] = user_team_memberships.first().team
 
         # Initialize workspace_data — only progressChecklist remains here;
         # status, description, scope_locked, assets, out_of_scope_items

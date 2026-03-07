@@ -25,6 +25,7 @@ import {
   OrganizationSettings,
   MemberManagement,
   TeamManagement,
+  BusinessUnitsSettings,
 } from '@/pages'
 
 export const router = createBrowserRouter([
@@ -88,6 +89,7 @@ export const router = createBrowserRouter([
           { path: 'organization', element: <OrganizationSettings /> },
           { path: 'members', element: <MemberManagement /> },
           { path: 'teams', element: <TeamManagement /> },
+          { path: 'business-units', element: <BusinessUnitsSettings /> },
         ],
       },
     ],

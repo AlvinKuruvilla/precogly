@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.organizations.models import TeamMembership
 from apps.threat_models.models import ThreatModel
 from apps.threats.models import Risk
 from apps.threats.services import derive_risk_status
@@ -18,14 +19,23 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get dashboard statistics for the current user."""
+        """Get dashboard statistics scoped to user's team memberships."""
         user = request.user
 
         # Get organizations the user belongs to
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
 
-        # Get threat models in user's organizations
-        threat_models = ThreatModel.objects.filter(organization_id__in=org_ids)
+        # Get teams the user belongs to
+        user_team_ids = TeamMembership.objects.filter(
+            user=user
+        ).values_list("team_id", flat=True)
+
+        # Threat models: user's teams + unassigned, within user's orgs
+        threat_models = ThreatModel.objects.filter(
+            organization_id__in=org_ids
+        ).filter(
+            Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
+        )
 
         # Calculate threat model stats
         stats = threat_models.aggregate(
@@ -38,6 +48,9 @@ class DashboardStatsView(APIView):
         # Calculate risk stats
         risks = Risk.objects.filter(
             threat_model__organization_id__in=org_ids
+        ).filter(
+            Q(threat_model__owning_team_id__in=user_team_ids)
+            | Q(threat_model__owning_team__isnull=True)
         ).prefetch_related("risk_threats__component_threat", "risk_threats__flow_threat")
 
         risk_level_counts = risks.values("inherent_level").annotate(

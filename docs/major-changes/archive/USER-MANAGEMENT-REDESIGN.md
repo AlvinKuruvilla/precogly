@@ -1,3 +1,4 @@
+ALL TASKS COMPLETED (EXCEPT SHADOW USERS WHICH WAS DISCARDED)
 Precogly: User Management & Governance Architecture
 Executive Summary
 This document outlines the proposed architecture for User Management and Access Control within Precogly. The goal is to satisfy strict enterprise compliance requirements (hierarchy, ownership, auditability) while maintaining a frictionless "Product-Led Growth" experience for individual testers and small teams.
@@ -77,6 +78,7 @@ This section details the technical implementation based on the current Precogly 
 5.1 Current State Summary
 
 Backend:
+
 - Organization model exists with plan tiers (FREE, PRO, ENTERPRISE)
 - OrganizationMember model with roles: ADMIN, SECURITY_TEAM, CHAMPION, VIEWER
 - ThreatModel has `organization` FK and `created_by` user FK
@@ -84,12 +86,13 @@ Backend:
 - All models inherit from TimestampedModel (created_at, updated_at)
 
 Frontend:
+
 - React with TanStack Query for data fetching
 - AuthContext manages user state (minimal: pk, email only)
 - Protected routes implemented
 - No organization/team management UI exists yet
 
-5.2 Phase 1: Database Models (Backend)
+  5.2 Phase 1: Database Models (Backend)
 
 Location: /backend/apps/organizations/models.py
 
@@ -974,88 +977,92 @@ Location: /frontend/src/types/organization.ts
 
 ```typescript
 // Role types
-export type OrganizationRole = 'admin' | 'security_team' | 'champion' | 'viewer'
-export type TeamRole = 'lead' | 'member' | 'viewer'
+export type OrganizationRole =
+  | "admin"
+  | "security_team"
+  | "champion"
+  | "viewer";
+export type TeamRole = "lead" | "member" | "viewer";
 
 // Organization
 export interface Organization {
-  id: number
-  name: string
-  domain: string
-  plan: 'free' | 'pro' | 'enterprise'
-  businessUnitLabel: string  // Custom label for grouping layer
-  memberCount: number
-  createdAt: string
-  updatedAt: string
+  id: number;
+  name: string;
+  domain: string;
+  plan: "free" | "pro" | "enterprise";
+  businessUnitLabel: string; // Custom label for grouping layer
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Business Unit (flexible grouping layer)
 export interface BusinessUnit {
-  id: number
-  organization: number
-  name: string
-  code: string
-  description: string
-  parent: number | null
-  teamCount: number
-  createdAt: string
+  id: number;
+  organization: number;
+  name: string;
+  code: string;
+  description: string;
+  parent: number | null;
+  teamCount: number;
+  createdAt: string;
 }
 
 // Team
 export interface Team {
-  id: number
-  organization: number
-  businessUnit: number | null
-  businessUnitName: string | null
-  name: string
-  code: string
-  description: string
-  memberCount: number
-  isDefault: boolean
-  createdAt: string
+  id: number;
+  organization: number;
+  businessUnit: number | null;
+  businessUnitName: string | null;
+  name: string;
+  code: string;
+  description: string;
+  memberCount: number;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 // Memberships
 export interface OrganizationMembership {
-  id: number
-  organization: number
-  organizationName: string
-  user: number
-  userEmail: string
-  role: OrganizationRole
-  joinedAt: string
+  id: number;
+  organization: number;
+  organizationName: string;
+  user: number;
+  userEmail: string;
+  role: OrganizationRole;
+  joinedAt: string;
 }
 
 export interface TeamMembership {
-  id: number
-  team: number
-  teamName: string
-  user: number
-  userEmail: string
-  role: TeamRole
-  joinedAt: string
+  id: number;
+  team: number;
+  teamName: string;
+  user: number;
+  userEmail: string;
+  role: TeamRole;
+  joinedAt: string;
 }
 
 // Magic Link
 export interface MagicLink {
-  id: string
-  threatModel: number
-  token: string
-  url: string
-  expiresAt: string
-  accessedCount: number
-  isRevoked: boolean
-  createdAt: string
+  id: string;
+  threatModel: number;
+  token: string;
+  url: string;
+  expiresAt: string;
+  accessedCount: number;
+  isRevoked: boolean;
+  createdAt: string;
 }
 
 // Extended User (update AuthContext)
 export interface User {
-  pk: number
-  email: string
-  organizations: OrganizationMembership[]
-  teams: TeamMembership[]
-  currentOrganization: Organization | null
-  currentTeam: Team | null
+  pk: number;
+  email: string;
+  organizations: OrganizationMembership[];
+  teams: TeamMembership[];
+  currentOrganization: Organization | null;
+  currentTeam: Team | null;
 }
 ```
 
@@ -1064,32 +1071,39 @@ export interface User {
 Location: /frontend/src/api/organizations.ts
 
 ```typescript
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '@/lib/api'
-import type { Organization, BusinessUnit, Team, TeamMembership, MagicLink } from '@/types/organization'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import type {
+  Organization,
+  BusinessUnit,
+  Team,
+  TeamMembership,
+  MagicLink,
+} from "@/types/organization";
 
 // Query keys
 export const organizationKeys = {
-  all: ['organizations'] as const,
-  list: () => [...organizationKeys.all, 'list'] as const,
-  detail: (id: number) => [...organizationKeys.all, 'detail', id] as const,
-  businessUnits: (orgId: number) => [...organizationKeys.all, orgId, 'business-units'] as const,
-  teams: (orgId: number) => [...organizationKeys.all, orgId, 'teams'] as const,
-}
+  all: ["organizations"] as const,
+  list: () => [...organizationKeys.all, "list"] as const,
+  detail: (id: number) => [...organizationKeys.all, "detail", id] as const,
+  businessUnits: (orgId: number) =>
+    [...organizationKeys.all, orgId, "business-units"] as const,
+  teams: (orgId: number) => [...organizationKeys.all, orgId, "teams"] as const,
+};
 
 export const teamKeys = {
-  all: ['teams'] as const,
-  list: () => [...teamKeys.all, 'list'] as const,
-  detail: (id: number) => [...teamKeys.all, 'detail', id] as const,
-  members: (id: number) => [...teamKeys.all, id, 'members'] as const,
-}
+  all: ["teams"] as const,
+  list: () => [...teamKeys.all, "list"] as const,
+  detail: (id: number) => [...teamKeys.all, "detail", id] as const,
+  members: (id: number) => [...teamKeys.all, id, "members"] as const,
+};
 
 // Organization queries
 export function useOrganizations() {
   return useQuery({
     queryKey: organizationKeys.list(),
-    queryFn: () => api.get<{ results: Organization[] }>('/organizations/'),
-  })
+    queryFn: () => api.get<{ results: Organization[] }>("/organizations/"),
+  });
 }
 
 export function useOrganization(id: number) {
@@ -1097,7 +1111,7 @@ export function useOrganization(id: number) {
     queryKey: organizationKeys.detail(id),
     queryFn: () => api.get<Organization>(`/organizations/${id}/`),
     enabled: id > 0,
-  })
+  });
 }
 
 // Team queries
@@ -1107,11 +1121,11 @@ export function useTeams(organizationId?: number) {
     queryFn: async () => {
       const url = organizationId
         ? `/teams/?organization=${organizationId}`
-        : '/teams/'
-      const response = await api.get<{ results: Team[] }>(url)
-      return response.results
+        : "/teams/";
+      const response = await api.get<{ results: Team[] }>(url);
+      return response.results;
     },
-  })
+  });
 }
 
 export function useTeamMembers(teamId: number) {
@@ -1119,38 +1133,45 @@ export function useTeamMembers(teamId: number) {
     queryKey: teamKeys.members(teamId),
     queryFn: () => api.get<TeamMembership[]>(`/teams/${teamId}/members/`),
     enabled: teamId > 0,
-  })
+  });
 }
 
 // Team mutations
 export function useAddTeamMember() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ teamId, userId, role }: { teamId: number; userId: number; role: string }) =>
-      api.post(`/teams/${teamId}/add_member/`, { user_id: userId, role }),
+    mutationFn: ({
+      teamId,
+      userId,
+      role,
+    }: {
+      teamId: number;
+      userId: number;
+      role: string;
+    }) => api.post(`/teams/${teamId}/add_member/`, { user_id: userId, role }),
     onSuccess: (_, { teamId }) => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.members(teamId) })
+      queryClient.invalidateQueries({ queryKey: teamKeys.members(teamId) });
     },
-  })
+  });
 }
 
 // Magic link mutations
 export function useCreateMagicLink() {
   return useMutation({
     mutationFn: (threatModelId: number) =>
-      api.post<MagicLink>('/magic-links/', { threat_model: threatModelId }),
-  })
+      api.post<MagicLink>("/magic-links/", { threat_model: threatModelId }),
+  });
 }
 
 export function useRevokeMagicLink() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (linkId: string) =>
       api.patch(`/magic-links/${linkId}/`, { is_revoked: true }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['magic-links'] })
+      queryClient.invalidateQueries({ queryKey: ["magic-links"] });
     },
-  })
+  });
 }
 ```
 
@@ -1403,12 +1424,14 @@ import { TeamSwitcher } from './TeamSwitcher'
 5.9 Migration Strategy
 
 Step 1: Database migrations (non-breaking)
+
 ```bash
 python manage.py makemigrations organizations --name add_business_unit_team_models
 python manage.py migrate
 ```
 
 Step 2: Data migration for existing threat models
+
 ```python
 # Migration: Assign existing threat models to auto-created teams
 def migrate_threat_models(apps, schema_editor):
@@ -1427,18 +1450,21 @@ def migrate_threat_models(apps, schema_editor):
 ```
 
 Step 3: Frontend deployment
+
 - Deploy new types and API hooks
 - Deploy WorkspaceContext
 - Deploy TeamSwitcher (hidden by progressive disclosure for single-team users)
 - Deploy settings pages
 
 Step 4: Enable features progressively
+
 - Magic links: Feature flag or plan-based
 - Business units: Enterprise plan only
 
-5.10 Testing Checklist
+  5.10 Testing Checklist
 
 Backend:
+
 - [ ] BusinessUnit CRUD operations
 - [ ] Team CRUD operations
 - [ ] TeamMembership many-to-many relationships
@@ -1449,6 +1475,7 @@ Backend:
 - [ ] Organization-scoped query filtering
 
 Team Invitations:
+
 - [ ] TeamInvitation created for non-existent user email
 - [ ] TeamInvitation converts to TeamMembership when user registers
 - [ ] Existing user added directly via invite_member (no invitation created)
@@ -1457,6 +1484,7 @@ Team Invitations:
 - [ ] Duplicate invitations handled (update_or_create)
 
 Shadow User Merge:
+
 - [ ] merge_shadow_user transfers all team memberships
 - [ ] merge_shadow_user transfers organization memberships
 - [ ] merge_shadow_user re-assigns threat model ownership
@@ -1467,6 +1495,7 @@ Shadow User Merge:
 - [ ] Auto-merge triggered on login/signup signal
 
 Permission Scope:
+
 - [ ] Org admin can LIST all teams in org (read visibility)
 - [ ] Org admin can RETRIEVE team details (read visibility)
 - [ ] Org admin CANNOT update/delete team without explicit membership
@@ -1476,6 +1505,7 @@ Permission Scope:
 - [ ] Org admin can use /join endpoint to add themselves to team
 
 Frontend:
+
 - [ ] WorkspaceContext loads organizations and teams
 - [ ] TeamSwitcher hidden when user has one team (progressive disclosure)
 - [ ] TeamSwitcher visible and functional with multiple teams
@@ -1485,6 +1515,7 @@ Frontend:
 - [ ] Invitation flow: send invite, user receives, user accepts
 
 Integration:
+
 - [ ] New user gets Personal Org + Team automatically
 - [ ] Invited user joins existing org without creating personal workspace
 - [ ] Threat models scoped to current team

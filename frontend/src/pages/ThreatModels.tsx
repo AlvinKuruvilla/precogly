@@ -6,9 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { ThreatModelsTable } from '@/components/dashboard'
 import { useThreatModels } from '@/api/threat-models'
 import { useSharedWithMe, useRemoveSharedWithMe } from '@/api/organizations'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
 
 export function ThreatModels() {
-  const { data: threatModels, isLoading } = useThreatModels()
+  const { currentTeam } = useWorkspace()
+  const { data: threatModels, isLoading } = useThreatModels(currentTeam?.id)
   const { data: sharedModels, isLoading: isLoadingShared } = useSharedWithMe()
   const removeSharedMutation = useRemoveSharedWithMe()
 
