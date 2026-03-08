@@ -1,3 +1,5 @@
+# ALL TASKS COMPLETED
+
 # Update: Pack Import — Platform-Owned Countermeasures
 
 > **Pre-release code.** All data in the system is test data. Destructive migrations and schema resets are acceptable.
@@ -42,9 +44,9 @@ Add an optional `default_status` field to countermeasure entries in `countermeas
 countermeasures:
   - slug: sql-injection-filtering
     name: "SQL Injection Filtering"
-    control_type: preventive       # see Section 6 for control_type migration
+    control_type: preventive # see Section 6 for control_type migration
     cost: low
-    default_status: platform       # optional, defaults to "gap" if omitted
+    default_status: platform # optional, defaults to "gap" if omitted
 ```
 
 Existing packs without `default_status` will continue to work — omitting the field preserves current behavior (status = gap).
@@ -53,13 +55,13 @@ Existing packs without `default_status` will continue to work — omitting the f
 
 All code paths that create countermeasure instances currently hardcode `status="gap"`. Each must read `default_status` from the linked `CountermeasureLibrary` instead.
 
-| Code Path | File | What It Does |
-|---|---|---|
-| `_load_countermeasures()` | `packs/services.py` | Parse `default_status` from YAML into `CountermeasureLibrary` |
-| `_generate_countermeasures_for_threat()` | `diagrams/services.py` | Auto-generates `ComponentInstanceCountermeasure` on DFD canvas sync |
-| `_generate_countermeasures_for_flow_threat()` | `diagrams/services.py` | Same for `FlowInstanceCountermeasure` |
-| `generate_threats` action | `systems/views.py` | Delegates to the above — no direct hardcoding, but verify the call chain |
-| `apply_countermeasure` action | `threats/views.py` | Manual add-from-library. Already accepts `status` in request body — change the fallback chain to: request `status` → library `default_status` → `"gap"` |
+| Code Path                                     | File                   | What It Does                                                                                                                                            |
+| --------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_load_countermeasures()`                     | `packs/services.py`    | Parse `default_status` from YAML into `CountermeasureLibrary`                                                                                           |
+| `_generate_countermeasures_for_threat()`      | `diagrams/services.py` | Auto-generates `ComponentInstanceCountermeasure` on DFD canvas sync                                                                                     |
+| `_generate_countermeasures_for_flow_threat()` | `diagrams/services.py` | Same for `FlowInstanceCountermeasure`                                                                                                                   |
+| `generate_threats` action                     | `systems/views.py`     | Delegates to the above — no direct hardcoding, but verify the call chain                                                                                |
+| `apply_countermeasure` action                 | `threats/views.py`     | Manual add-from-library. Already accepts `status` in request body — change the fallback chain to: request `status` → library `default_status` → `"gap"` |
 
 For paths that create instances, the pattern changes from:
 
@@ -83,13 +85,13 @@ The recalculation logic currently lives as `_recalculate_threat_status()` method
 
 ### 5. Serializer, Type, and Preview Updates
 
-| Layer | File | Change |
-|---|---|---|
-| Backend serializer | `threats/serializers.py` | Add `default_status` to `CountermeasureLibrarySerializer` fields |
-| Pack preview | `packs/services.py` (`_extract_pack_preview()`) | Include `default_status` in preview data |
-| Frontend type | `types/libraries.ts` (`CountermeasureLibrary`) | Add `defaultStatus?: 'gap' \| 'platform'` |
-| Pack preview UI | `PreviewPackDialog.tsx` | Show "Platform" badge on countermeasures with `default_status: platform` |
-| Add countermeasure dialog | `AddCountermeasureDialog.tsx` | Use library's `defaultStatus` for library-sourced countermeasures (see Section 3 note) |
+| Layer                     | File                                            | Change                                                                                 |
+| ------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Backend serializer        | `threats/serializers.py`                        | Add `default_status` to `CountermeasureLibrarySerializer` fields                       |
+| Pack preview              | `packs/services.py` (`_extract_pack_preview()`) | Include `default_status` in preview data                                               |
+| Frontend type             | `types/libraries.ts` (`CountermeasureLibrary`)  | Add `defaultStatus?: 'gap' \| 'platform'`                                              |
+| Pack preview UI           | `PreviewPackDialog.tsx`                         | Show "Platform" badge on countermeasures with `default_status: platform`               |
+| Add countermeasure dialog | `AddCountermeasureDialog.tsx`                   | Use library's `defaultStatus` for library-sourced countermeasures (see Section 3 note) |
 
 ### 6. Fix `control_type` — Free-Text Field (DONE)
 
@@ -101,13 +103,13 @@ The instance models (`ComponentInstanceCountermeasure.control_type` and `FlowIns
 
 **Changes made:**
 
-| Layer | File | Change |
-|---|---|---|
-| Model | `threats/models.py` | Removed `ControlType` TextChoices, changed field to `CharField(max_length=50, default="preventive")` |
-| Frontend type | `types/libraries.ts` | Changed `controlType` from union to `string` |
-| Frontend UI | `Countermeasures.tsx` | Added all 7 control type labels/colors, `formatControlTypeLabel()` fallback for unknown values |
-| Pack YAML | `libraries/packs/base-stride/countermeasures.yaml` | Replaced `technical` with `preventive`, kept `procedural` as-is |
-| Database migration | `threats/0005_...` | Altered `control_type` field (removed choices, widened max_length to 50) |
+| Layer              | File                                               | Change                                                                                               |
+| ------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Model              | `threats/models.py`                                | Removed `ControlType` TextChoices, changed field to `CharField(max_length=50, default="preventive")` |
+| Frontend type      | `types/libraries.ts`                               | Changed `controlType` from union to `string`                                                         |
+| Frontend UI        | `Countermeasures.tsx`                              | Added all 7 control type labels/colors, `formatControlTypeLabel()` fallback for unknown values       |
+| Pack YAML          | `libraries/packs/base-stride/countermeasures.yaml` | Replaced `technical` with `preventive`, kept `procedural` as-is                                      |
+| Database migration | `threats/0005_...`                                 | Altered `control_type` field (removed choices, widened max_length to 50)                             |
 
 ### 7. Delete Legacy Management Command
 
