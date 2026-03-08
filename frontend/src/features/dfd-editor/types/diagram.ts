@@ -3,7 +3,6 @@ import type { Node, Edge } from '@xyflow/react'
 // Re-export domain types for convenience
 export {
   type DiagramNodeType,
-  type TrustLevel,
   type TrustZoneType,
   type TrustZonePresetName,
   type TrustZoneConfig,
@@ -13,7 +12,6 @@ export {
   type TemplateCategory,
   type DiagramTypeValue,
   type ThreatFramework,
-  TRUST_LEVEL_CONFIG,
   TRUST_ZONE_TYPE_CONFIG,
   TRUST_ZONE_PRESET_NAMES,
   DATA_CLASSIFICATIONS,
@@ -24,7 +22,6 @@ export {
 
 import type {
   DiagramNodeType,
-  TrustLevel,
   TrustZoneType,
   DataClassification,
   Protocol,
@@ -69,8 +66,6 @@ export interface SystemActorNodeData extends BaseNodeData {
 export interface TrustZoneNodeData extends BaseNodeData {
   // Zone type for the trust zone
   zoneType?: TrustZoneType
-  // Legacy trust level (kept for backward compatibility)
-  trustLevel?: TrustLevel
   // Technology implementing this zone (e.g., AWS VPC, Azure VNet)
   technology?: string
   // Written back by backend sync (trust_zone_id → trustZoneId)

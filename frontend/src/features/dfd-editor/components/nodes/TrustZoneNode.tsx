@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TrustZoneNodeData } from '../../types'
-import { TRUST_LEVEL_CONFIG, TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
 
 type TrustZoneNodeType = Node<TrustZoneNodeData, 'trustZone'>
 
@@ -27,23 +27,15 @@ export const TrustZoneNode = memo(function TrustZoneNode({
   const isNewlyInserted = data.isNewlyInserted
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 
-  // Get config from new zoneType or fallback to legacy trustLevel
-  const zoneConfig = data.zoneType
-    ? TRUST_ZONE_TYPE_CONFIG[data.zoneType]
-    : null
-  const legacyConfig = data.trustLevel
-    ? TRUST_LEVEL_CONFIG[data.trustLevel]
-    : TRUST_LEVEL_CONFIG.internal
+  // Get config from zoneType, defaulting to zoneInternal
+  const zoneConfig = TRUST_ZONE_TYPE_CONFIG[data.zoneType || 'zoneInternal']
 
-  // Use new config if available, otherwise fallback to legacy
-  const displayColor = zoneConfig?.color || legacyConfig.color
-  const displayBorderColor = zoneConfig?.borderColor || legacyConfig.borderColor
-  const displayLabel = zoneConfig?.label || legacyConfig.label
+  const displayColor = zoneConfig.color
+  const displayBorderColor = zoneConfig.borderColor
+  const displayLabel = zoneConfig.label
 
   // Get the icon component
-  const IconComponent = zoneConfig
-    ? ZONE_ICONS[zoneConfig.icon] || Shield
-    : Shield
+  const IconComponent = ZONE_ICONS[zoneConfig.icon] || Shield
 
   // Trigger lock animation when receiveChildAnimationKey changes (new timestamp = new animation)
   useEffect(() => {

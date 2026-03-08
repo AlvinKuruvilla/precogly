@@ -28,12 +28,10 @@ import {
 import type {
   DiagramNode,
   DiagramNodeType,
-  TrustLevel,
   TrustZoneType,
   DataSensitivity,
 } from '../../types'
 import {
-  TRUST_LEVEL_CONFIG,
   DATA_SENSITIVITY_CONFIG,
   TRUST_ZONE_TYPE_CONFIG,
   MAX_PROCESS_HIERARCHY_DEPTH,
@@ -623,36 +621,6 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 </p>
               )}
             </div>
-
-            {/* Legacy trust level (for backward compatibility) */}
-            {!(node.data as { zoneType?: TrustZoneType }).zoneType && (
-              <div className="space-y-2">
-                <Label htmlFor="node-trustLevel">Trust Level (Legacy)</Label>
-                <Select
-                  value={(node.data as { trustLevel?: TrustLevel }).trustLevel || 'internal'}
-                  onValueChange={(value) =>
-                    updateNodeData({ trustLevel: value as TrustLevel })
-                  }
-                >
-                  <SelectTrigger id="node-trustLevel">
-                    <SelectValue placeholder="Select trust level..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TRUST_LEVEL_CONFIG).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: config.borderColor }}
-                          />
-                          {config.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label>Technology</Label>

@@ -180,16 +180,6 @@ export type Criticality = 'low' | 'medium' | 'high' | 'critical'
 // System types
 export type SystemType = 'system' | 'process'
 
-// Trust Levels
-export type TrustLevel = 'internet' | 'trustedPartner' | 'privateSecured' | 'internal'
-
-export const TRUST_LEVEL_CONFIG: Record<TrustLevel, { label: string; color: string; borderColor: string }> = {
-  internet: { label: 'Internet/Public', color: 'rgba(239, 68, 68, 0.1)', borderColor: '#ef4444' },
-  trustedPartner: { label: 'Trusted Partner', color: 'rgba(234, 179, 8, 0.1)', borderColor: '#eab308' },
-  privateSecured: { label: 'Private/Secured', color: 'rgba(59, 130, 246, 0.1)', borderColor: '#3b82f6' },
-  internal: { label: 'Internal', color: 'rgba(34, 197, 94, 0.1)', borderColor: '#22c55e' },
-}
-
 // Trust Zone Types
 export type TrustZoneType = 'zoneInternet' | 'zoneDmz' | 'zoneInternal' | 'zoneRestricted'
 

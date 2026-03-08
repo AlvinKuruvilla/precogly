@@ -35,7 +35,6 @@ export * from './hooks'
 // Types (use 'export type' for type-only exports)
 export type {
   DiagramNodeType,
-  TrustLevel,
   DataClassification,
   Protocol,
   DataSensitivity,
@@ -65,7 +64,6 @@ export type {
 } from './types'
 
 export {
-  TRUST_LEVEL_CONFIG,
   DATA_CLASSIFICATIONS,
   PROTOCOLS,
   DATA_SENSITIVITY_CONFIG,

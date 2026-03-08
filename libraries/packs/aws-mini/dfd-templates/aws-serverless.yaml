@@ -30,7 +30,6 @@ canvas_data:
       data:
         label: "Internal"
         zoneType: "zoneInternal"
-        trustLevel: "internal"
 
     - id: "tb-external"
       type: "trustZone"
@@ -39,7 +38,7 @@ canvas_data:
       style: { width: 300, height: 260 }
       data:
         label: "External"
-        trustLevel: "internet"
+        zoneType: "zoneInternet"
 
     - id: "process-api-gateway"
       type: "process"

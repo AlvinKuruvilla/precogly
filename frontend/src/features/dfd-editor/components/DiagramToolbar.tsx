@@ -100,7 +100,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
       systemActor: { label: 'New System Actor' },
       process: { label: 'New Process', technology: '' },
       datastore: { label: 'New Data Store', technology: '' },
-      trustZone: { label: 'Trust Zone', trustLevel: 'internal' },
+      trustZone: { label: 'Trust Zone', zoneType: 'zoneInternal' },
       systemScope: { label: 'System Scope' },
     }
 

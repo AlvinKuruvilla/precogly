@@ -716,19 +716,15 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
     return created_count
 
 
-def _trust_level_to_numeric(trust_level_str):
-    """Convert frontend trust level string to numeric 0-100 value."""
+def _zone_type_to_trust_level(zone_type_str):
+    """Convert frontend zone type string to numeric 0-100 trust level."""
     mapping = {
-        "internet": 0,
-        "trustedPartner": 25,      # camelCase preserved by parser if key is a value
-        "trusted_partner": 25,     # snake_case if parser converts it
-        "privateSecured": 75,
-        "private_secured": 75,
-        "internal": 100,
+        "zone_internet": 0,
+        "zone_dmz": 25,
+        "zone_internal": 75,
+        "zone_restricted": 100,
     }
-    if isinstance(trust_level_str, int):
-        return trust_level_str
-    return mapping.get(trust_level_str, 50)
+    return mapping.get(zone_type_str, 50)
 
 
 def _sync_nodes_to_trust_zones(dfd, nodes):
@@ -747,8 +743,8 @@ def _sync_nodes_to_trust_zones(dfd, nodes):
 
         # snake_case — parser already converted from frontend camelCase
         label = node_data.get("label", "Unnamed Zone")
-        raw_trust_level = node_data.get("trust_level", 50)
-        trust_level = _trust_level_to_numeric(raw_trust_level)
+        zone_type = node_data.get("zone_type")
+        trust_level = _zone_type_to_trust_level(zone_type)
         description = node_data.get("description", "")
 
         existing_trust_zone_id = node_data.get("trust_zone_id")
