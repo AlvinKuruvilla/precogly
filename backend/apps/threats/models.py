@@ -474,7 +474,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         help_text="Copied from CountermeasureLibrary.description on creation",
     )
     control_type = models.CharField(
-        max_length=20,
+        max_length=50,
         blank=True,
         help_text="Copied from CountermeasureLibrary.control_type on creation",
     )
@@ -546,7 +546,7 @@ class FlowInstanceCountermeasure(TimestampedModel):
         help_text="Copied from CountermeasureLibrary.description on creation",
     )
     control_type = models.CharField(
-        max_length=20,
+        max_length=50,
         blank=True,
         help_text="Copied from CountermeasureLibrary.control_type on creation",
     )
