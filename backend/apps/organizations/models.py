@@ -27,9 +27,17 @@ class Organization(TimestampedModel):
         default="Business Unit",
         help_text="Custom label for the grouping layer (e.g., 'Department', 'Product Area')",
     )
+    is_primary = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_primary"],
+                condition=models.Q(is_primary=True),
+                name="unique_primary_organization",
+            )
+        ]
 
     def __str__(self):
         return self.name
@@ -39,10 +47,8 @@ class OrganizationMember(TimestampedModel):
     """Organization membership with roles."""
 
     class Role(models.TextChoices):
-        ADMIN = "admin", "Admin"
         SECURITY_TEAM = "security_team", "Security Team"
-        CHAMPION = "champion", "Security Champion"
-        VIEWER = "viewer", "Viewer"
+        MEMBER = "member", "Member"
 
     organization = models.ForeignKey(
         Organization,
@@ -54,7 +60,7 @@ class OrganizationMember(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="organization_memberships",
     )
-    role = models.CharField(max_length=20, choices=Role.choices, default=Role.VIEWER)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

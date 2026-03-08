@@ -16,6 +16,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permissions import IsSecurityTeam
+
 from .models import (
     Organization,
     OrganizationMember,
@@ -53,6 +55,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
     ordering = ["name"]
 
+    def get_permissions(self):
+        """Apply IsSecurityTeam for write operations and member management."""
+        if self.action in ["create", "update", "partial_update", "destroy", "add_member", "remove_member"]:
+            return [IsAuthenticated(), IsSecurityTeam()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
         """Return organizations the user belongs to."""
         user = self.request.user
@@ -71,7 +79,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         OrganizationMember.objects.create(
             organization=org,
             user=self.request.user,
-            role=OrganizationMember.Role.ADMIN,
+            role=OrganizationMember.Role.SECURITY_TEAM,
         )
 
     @action(detail=True, methods=["get"])
@@ -89,7 +97,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         serializer = OrganizationMemberSerializer(data={
             "organization": org.id,
             "user": request.data.get("user"),
-            "role": request.data.get("role", OrganizationMember.Role.VIEWER),
+            "role": request.data.get("role", OrganizationMember.Role.MEMBER),
         })
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -115,7 +123,7 @@ class OrganizationMemberViewSet(viewsets.ModelViewSet):
     """ViewSet for OrganizationMember CRUD operations."""
 
     serializer_class = OrganizationMemberSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["organization", "user", "role"]
 
@@ -132,7 +140,7 @@ class BusinessUnitViewSet(viewsets.ModelViewSet):
     """ViewSet for BusinessUnit CRUD operations."""
 
     serializer_class = BusinessUnitSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["organization", "parent"]
     search_fields = ["name", "code"]
@@ -977,7 +985,7 @@ class TeamInvitationAcceptView(APIView):
         OrganizationMember.objects.get_or_create(
             organization=invitation.team.organization,
             user=request.user,
-            defaults={"role": OrganizationMember.Role.VIEWER},
+            defaults={"role": OrganizationMember.Role.MEMBER},
         )
 
         return Response({

@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.permissions import CanWrite
+from apps.core.permissions import CanWrite, IsSecurityTeam
 from apps.threat_models.models import ThreatModel
 
 from .models import (
@@ -56,7 +56,7 @@ from .services import recalculate_risk, recalculate_risks_for_threat, recalculat
 class ThreatLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for ThreatLibrary CRUD operations."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = []
@@ -78,7 +78,7 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
 class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for CountermeasureLibrary CRUD operations."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["control_type", "cost"]
@@ -104,7 +104,7 @@ class ComponentLibraryThreatViewSet(viewsets.ModelViewSet):
         "component_library", "threat_library"
     ).all()
     serializer_class = ComponentLibraryThreatSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["component_library", "threat_library", "applies_to"]
 
@@ -383,7 +383,7 @@ class VerificationTestViewSet(viewsets.ModelViewSet):
     """ViewSet for VerificationTest."""
 
     serializer_class = VerificationTestSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
 
     def get_queryset(self):
         from .models import ComponentInstanceCountermeasureTest, FlowInstanceCountermeasureTest
@@ -436,7 +436,7 @@ class ComponentInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = ComponentInstanceCountermeasureStandardSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
 
     def get_queryset(self):
         org_ids = self.request.user.organization_memberships.values_list(
@@ -460,7 +460,7 @@ class FlowInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = FlowInstanceCountermeasureStandardSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
 
     def get_queryset(self):
         org_ids = self.request.user.organization_memberships.values_list(

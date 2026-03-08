@@ -6,6 +6,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.permissions import IsSecurityTeam
+
 from .models import CountermeasureLibraryStandard, StandardFramework, StandardRequirement
 from .serializers import (
     CountermeasureLibraryStandardSerializer,
@@ -19,7 +21,7 @@ class StandardFrameworkViewSet(viewsets.ModelViewSet):
     """ViewSet for StandardFramework CRUD operations."""
 
     queryset = StandardFramework.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "issuer", "description"]
@@ -38,7 +40,7 @@ class StandardRequirementViewSet(viewsets.ModelViewSet):
 
     queryset = StandardRequirement.objects.select_related("framework", "parent").all()
     serializer_class = StandardRequirementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["framework"]
@@ -52,6 +54,6 @@ class CountermeasureLibraryStandardViewSet(viewsets.ModelViewSet):
         "countermeasure_library", "requirement", "requirement__framework"
     ).all()
     serializer_class = CountermeasureLibraryStandardSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["countermeasure_library", "requirement", "sufficiency"]

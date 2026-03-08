@@ -48,27 +48,44 @@ def create_personal_workspace(sender, instance, created, **kwargs):
     if pending_invitations.exists():
         return
 
-    # Create personal organization
+    # Try to add user to the primary organization
+    primary_org = Organization.objects.filter(is_primary=True).first()
+    if primary_org:
+        OrganizationMember.objects.create(
+            organization=primary_org,
+            user=instance,
+            role=OrganizationMember.Role.MEMBER,
+        )
+        # Add to default team as member
+        default_team = Team.objects.filter(
+            organization=primary_org, is_default=True
+        ).first()
+        if default_team:
+            TeamMembership.objects.create(
+                team=default_team,
+                user=instance,
+                role=TeamMembership.Role.MEMBER,
+            )
+        return
+
+    # Fallback: create personal workspace if no primary org exists
     org = Organization.objects.create(
         name=f"{instance.email}'s Workspace",
         plan=Organization.Plan.FREE,
     )
 
-    # Add user as admin
     OrganizationMember.objects.create(
         organization=org,
         user=instance,
-        role=OrganizationMember.Role.ADMIN,
+        role=OrganizationMember.Role.SECURITY_TEAM,
     )
 
-    # Create default team
     team = Team.objects.create(
         organization=org,
         name="My Team",
         is_default=True,
     )
 
-    # Add user as team lead
     TeamMembership.objects.create(
         team=team,
         user=instance,

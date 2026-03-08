@@ -34,21 +34,17 @@ import { UserPlus, Trash2, Loader2 } from 'lucide-react'
 import type { OrganizationRole } from '@/types/organization'
 
 const roleLabels: Record<string, string> = {
-  admin: 'Admin',
   security_team: 'Security Team',
-  champion: 'Champion',
-  viewer: 'Viewer',
+  member: 'Member',
 }
 
 const roleColors: Record<string, string> = {
-  admin: 'bg-red-100 text-red-800',
   security_team: 'bg-blue-100 text-blue-800',
-  champion: 'bg-green-100 text-green-800',
-  viewer: 'bg-gray-100 text-gray-800',
+  member: 'bg-gray-100 text-gray-800',
 }
 
 export function MemberManagement() {
-  const { currentOrganization, isLoading: workspaceLoading } = useWorkspace()
+  const { currentOrganization, isLoading: workspaceLoading, isSecurityTeam } = useWorkspace()
   const { data: members = [], isLoading: membersLoading } = useOrganizationMembers(
     currentOrganization?.id ?? 0
   )
@@ -57,7 +53,7 @@ export function MemberManagement() {
   const updateRoleMutation = useUpdateOrgMemberRole()
 
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<OrganizationRole>('viewer')
+  const [inviteRole, setInviteRole] = useState<OrganizationRole>('member')
   const [inviteError, setInviteError] = useState('')
 
   if (workspaceLoading || membersLoading) {
@@ -108,7 +104,8 @@ export function MemberManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Invite Section */}
+      {/* Invite Section — security team only */}
+      {isSecurityTeam && (
       <Card>
         <CardHeader>
           <CardTitle>Invite Member</CardTitle>
@@ -133,10 +130,8 @@ export function MemberManagement() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="security_team">Security Team</SelectItem>
-                <SelectItem value="champion">Champion</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleInvite} disabled={addMemberMutation.isPending || !inviteEmail}>
@@ -152,6 +147,7 @@ export function MemberManagement() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Members Table */}
       <Card>
@@ -179,37 +175,43 @@ export function MemberManagement() {
                   <TableRow key={member.id}>
                     <TableCell className="font-medium">{member.userEmail}</TableCell>
                     <TableCell>
-                      <Select
-                        value={member.role}
-                        onValueChange={(value) => handleRoleChange(member.id, value)}
-                        disabled={updateRoleMutation.isPending}
-                      >
-                        <SelectTrigger className="w-36">
-                          <Badge className={roleColors[member.role] ?? 'bg-gray-100'}>
-                            {roleLabels[member.role] ?? member.role}
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="security_team">Security Team</SelectItem>
-                          <SelectItem value="champion">Champion</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {isSecurityTeam ? (
+                        <Select
+                          value={member.role}
+                          onValueChange={(value) => handleRoleChange(member.id, value)}
+                          disabled={updateRoleMutation.isPending}
+                        >
+                          <SelectTrigger className="w-36">
+                            <Badge className={roleColors[member.role] ?? 'bg-gray-100'}>
+                              {roleLabels[member.role] ?? member.role}
+                            </Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="security_team">Security Team</SelectItem>
+                            <SelectItem value="member">Member</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge className={roleColors[member.role] ?? 'bg-gray-100'}>
+                          {roleLabels[member.role] ?? member.role}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(member.joinedAt)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleRemove(member.user)}
-                        disabled={removeMemberMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isSecurityTeam && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleRemove(member.user)}
+                          disabled={removeMemberMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

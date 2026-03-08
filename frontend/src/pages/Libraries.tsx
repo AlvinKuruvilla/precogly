@@ -54,6 +54,7 @@ import {
 import { useComponentLibraries, useThreatLibraries, useCountermeasureLibraries, useRequirements } from '@/api/libraries'
 import type { PackFilters } from '@/types/packs'
 import { Link } from 'react-router-dom'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
 
 // Unified pack type that can represent both source and database packs
 interface UnifiedPack {
@@ -109,6 +110,7 @@ export function Libraries() {
  * Catalog view - browse and import available packs
  */
 function CatalogView() {
+  const { isSecurityTeam } = useWorkspace()
   const [filters, setFilters] = useState<PackFilters>({})
   const [searchInput, setSearchInput] = useState('')
   const [previewPackId, setPreviewPackId] = useState<number | null>(null)
@@ -313,6 +315,7 @@ function CatalogView() {
               onImport={handleImportClick}
               onPreview={handlePreview}
               isImporting={importingSlug === pack.slug}
+              isSecurityTeam={isSecurityTeam}
             />
           ))}
         </div>
@@ -567,11 +570,13 @@ function PackCard({
   onImport,
   onPreview,
   isImporting,
+  isSecurityTeam,
 }: {
   pack: UnifiedPack
   onImport: (pack: UnifiedPack) => void
   onPreview: (pack: UnifiedPack) => void
   isImporting: boolean
+  isSecurityTeam: boolean
 }) {
   const packTypeColors: Record<string, string> = {
     technology: 'bg-blue-100 text-blue-800',
@@ -647,7 +652,7 @@ function PackCard({
               <Check className="mr-1 h-3 w-3" />
               Imported
             </Badge>
-          ) : (
+          ) : isSecurityTeam ? (
             <Button size="sm" onClick={() => onImport(pack)} disabled={isImporting}>
               {isImporting ? (
                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
@@ -656,7 +661,7 @@ function PackCard({
               )}
               Import
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -667,6 +672,7 @@ function PackCard({
  * Imported view - pack-centric expandable list of imported content
  */
 function ImportedView() {
+  const { isSecurityTeam } = useWorkspace()
   const { data: dbPacks, isLoading } = usePacks({})
   const [expandedPacks, setExpandedPacks] = useState<Set<number>>(new Set())
   const [unimportDialogPack, setUnimportDialogPack] = useState<{
@@ -773,6 +779,7 @@ function ImportedView() {
           onToggleExpand={() => toggleExpanded(pack.id)}
           onUnimport={() => handleUnimportClick({ id: pack.id, name: pack.name, slug: pack.slug })}
           isUnimporting={unimportingId === pack.id}
+          isSecurityTeam={isSecurityTeam}
         />
       ))}
 
@@ -795,6 +802,7 @@ function ImportedPackRow({
   onToggleExpand,
   onUnimport,
   isUnimporting,
+  isSecurityTeam,
 }: {
   pack: {
     id: number
@@ -808,6 +816,7 @@ function ImportedPackRow({
   onToggleExpand: () => void
   onUnimport: () => void
   isUnimporting: boolean
+  isSecurityTeam: boolean
 }) {
   const packTypeColors: Record<string, string> = {
     technology: 'bg-blue-100 text-blue-800',
@@ -852,21 +861,23 @@ function ImportedPackRow({
           >
             {pack.packType}
           </Badge>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleUnimportClick}
-            disabled={isUnimporting}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Unimport this pack"
-          >
-            {isUnimporting ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : (
-              <Trash2 className="h-3 w-3 mr-1" />
-            )}
-            Unimport
-          </Button>
+          {isSecurityTeam && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleUnimportClick}
+              disabled={isUnimporting}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Unimport this pack"
+            >
+              {isUnimporting ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Trash2 className="h-3 w-3 mr-1" />
+              )}
+              Unimport
+            </Button>
+          )}
         </div>
       </div>
 

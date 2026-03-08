@@ -20,6 +20,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     """Serializer for Organization model."""
 
     member_count = serializers.SerializerMethodField()
+    my_role = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -30,22 +31,41 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "plan",
             "business_unit_label",
             "member_count",
+            "my_role",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "member_count"]
+        read_only_fields = ["id", "created_at", "updated_at", "member_count", "my_role"]
 
     def get_member_count(self, obj):
         """Return the number of members in the organization."""
         return obj.members.count()
 
+    def get_my_role(self, obj):
+        """Return the current user's role in this organization."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        membership = obj.members.filter(user=request.user).first()
+        return membership.role if membership else None
+
 
 class OrganizationListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for organization listing."""
 
+    my_role = serializers.SerializerMethodField()
+
     class Meta:
         model = Organization
-        fields = ["id", "name", "plan"]
+        fields = ["id", "name", "plan", "my_role"]
+
+    def get_my_role(self, obj):
+        """Return the current user's role in this organization."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        membership = obj.members.filter(user=request.user).first()
+        return membership.role if membership else None
 
 
 class OrganizationMemberSerializer(serializers.ModelSerializer):

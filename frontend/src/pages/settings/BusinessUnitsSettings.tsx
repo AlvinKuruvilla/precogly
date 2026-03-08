@@ -41,7 +41,7 @@ import {
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
 
 export function BusinessUnitsSettings() {
-  const { currentOrganization, isLoading: workspaceLoading } = useWorkspace()
+  const { currentOrganization, isLoading: workspaceLoading, isSecurityTeam } = useWorkspace()
   const { data: businessUnits = [], isLoading: busLoading } = useBusinessUnits(
     currentOrganization?.id
   )
@@ -123,10 +123,12 @@ export function BusinessUnitsSettings() {
                 Manage {label.toLowerCase()} in {currentOrganization.name}.
               </CardDescription>
             </div>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create {label.replace(/s$/, '')}
-            </Button>
+            {isSecurityTeam && (
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create {label.replace(/s$/, '')}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -140,7 +142,7 @@ export function BusinessUnitsSettings() {
                   <TableHead>Code</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Parent</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  {isSecurityTeam && <TableHead className="w-24">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -156,6 +158,7 @@ export function BusinessUnitsSettings() {
                         ? businessUnits.find((p) => p.id === bu.parent)?.name ?? '-'
                         : '-'}
                     </TableCell>
+                    {isSecurityTeam && (
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button
@@ -184,6 +187,7 @@ export function BusinessUnitsSettings() {
                         </Button>
                       </div>
                     </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

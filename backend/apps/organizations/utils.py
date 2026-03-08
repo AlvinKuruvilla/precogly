@@ -29,7 +29,7 @@ def check_and_accept_invitations_on_login(user):
         OrganizationMember.objects.get_or_create(
             organization=invitation.team.organization,
             user=user,
-            defaults={"role": OrganizationMember.Role.VIEWER},
+            defaults={"role": OrganizationMember.Role.MEMBER},
         )
         accepted_count += 1
 

@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from django.db import transaction
 
+from apps.core.permissions import IsSecurityTeam
 from apps.diagrams.models import DFDTemplatesLibrary
 
 from .models import LibraryPack
@@ -130,7 +131,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             "needs_update": sum(1 for p in packs if p.is_in_database and p.database_version != p.version),
         })
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsSecurityTeam])
     def sync_from_source(self, request):
         """
         Sync packs from the libraries folder to the database.
@@ -155,7 +156,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             "message": f"Synced {len(successful)} packs, {len(failed)} failed",
         })
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsSecurityTeam])
     def import_single(self, request):
         """
         Import a single pack from the libraries folder by slug.
@@ -274,7 +275,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             "available_count": sum(1 for o in overlays if o.framework_exists),
         })
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsSecurityTeam])
     def validate(self, request):
         """
         Validate a pack's references without importing (dry-run).
@@ -307,7 +308,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(result.to_dict())
 
-    @action(detail=True, methods=["delete"])
+    @action(detail=True, methods=["delete"], permission_classes=[IsAuthenticated, IsSecurityTeam])
     def unimport(self, request, pk=None):
         """
         Unimport a pack by deleting all its library items and the pack record.

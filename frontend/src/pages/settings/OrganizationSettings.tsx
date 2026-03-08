@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Check } from 'lucide-react'
 
 export function OrganizationSettings() {
-  const { currentOrganization, isLoading, refresh } = useWorkspace()
+  const { currentOrganization, isLoading, refresh, isSecurityTeam } = useWorkspace()
   const updateOrgMutation = useUpdateOrganization()
 
   const [name, setName] = useState('')
@@ -82,6 +82,7 @@ export function OrganizationSettings() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="max-w-md"
+              readOnly={!isSecurityTeam}
             />
           </div>
 
@@ -93,6 +94,7 @@ export function OrganizationSettings() {
               onChange={(e) => setDomain(e.target.value)}
               placeholder="example.com"
               className="max-w-md"
+              readOnly={!isSecurityTeam}
             />
           </div>
 
@@ -113,12 +115,14 @@ export function OrganizationSettings() {
               value={businessUnitLabel}
               onChange={(e) => setBusinessUnitLabel(e.target.value)}
               className="max-w-md"
+              readOnly={!isSecurityTeam}
             />
             <p className="text-xs text-muted-foreground">
               The label used for grouping teams (e.g., "Department", "Product Area").
             </p>
           </div>
 
+          {isSecurityTeam && (
           <div className="flex items-center gap-3 pt-2">
             <Button
               onClick={handleSave}
@@ -136,6 +140,7 @@ export function OrganizationSettings() {
               </span>
             )}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

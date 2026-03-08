@@ -34,22 +34,29 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
     ordering = ["-updated_at"]
 
     def get_queryset(self):
-        """Filter threat models by user's team memberships within their orgs."""
+        """Filter threat models by user's team memberships within their orgs.
+        Security team members see all threat models in their org."""
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
 
-        # Get teams the user belongs to
-        from apps.organizations.models import TeamMembership
-        user_team_ids = TeamMembership.objects.filter(
-            user=user
-        ).values_list("team_id", flat=True)
+        # Security team sees all threat models in their org
+        if user.organization_memberships.filter(role="security_team").exists():
+            queryset = ThreatModel.objects.filter(
+                organization_id__in=org_ids
+            ).select_related("created_by", "organization", "owning_team")
+        else:
+            # Get teams the user belongs to
+            from apps.organizations.models import TeamMembership
+            user_team_ids = TeamMembership.objects.filter(
+                user=user
+            ).values_list("team_id", flat=True)
 
-        # Show threat models owned by user's teams + unassigned (legacy)
-        queryset = ThreatModel.objects.filter(
-            organization_id__in=org_ids
-        ).filter(
-            Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
-        ).select_related("created_by", "organization", "owning_team")
+            # Show threat models owned by user's teams + unassigned (legacy)
+            queryset = ThreatModel.objects.filter(
+                organization_id__in=org_ids
+            ).filter(
+                Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
+            ).select_related("created_by", "organization", "owning_team")
 
         # Optional further filter by specific team
         owning_team_id = self.request.query_params.get("owning_team")
@@ -619,7 +626,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):
     """ViewSet for managing threat model reference images."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     serializer_class = ThreatModelReferenceImageSerializer
 
     def get_queryset(self):
@@ -681,7 +688,7 @@ class OutOfScopeItemViewSet(viewsets.ModelViewSet):
     """ViewSet for OutOfScopeItem CRUD, nested under threat models."""
 
     serializer_class = OutOfScopeItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
 
     def get_queryset(self):
         """Filter by threat model and user's organization."""

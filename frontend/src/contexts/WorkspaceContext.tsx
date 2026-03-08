@@ -29,6 +29,9 @@ interface WorkspaceContextType {
   isMultiOrg: boolean
   isMultiTeam: boolean
 
+  // Role-based access
+  isSecurityTeam: boolean
+
   // Loading state
   isLoading: boolean
 
@@ -109,6 +112,8 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     refetchTeams()
   }, [refetchOrgs, refetchTeams])
 
+  const isSecurityTeam = currentOrganization?.myRole === 'security_team'
+
   const value: WorkspaceContextType = {
     organizations,
     currentOrganization,
@@ -118,6 +123,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     setCurrentTeam,
     isMultiOrg: organizations.length > 1,
     isMultiTeam: teams.length > 1,
+    isSecurityTeam,
     isLoading: orgsLoading || teamsLoading,
     refresh,
   }

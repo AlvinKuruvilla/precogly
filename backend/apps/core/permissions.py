@@ -5,11 +5,27 @@ Core permission classes for RBAC.
 from rest_framework import permissions
 
 
+class IsSecurityTeam(permissions.BasePermission):
+    """
+    Restricts write operations to security team members.
+    Read operations are allowed for all authenticated users.
+    """
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        if not request.user.is_authenticated:
+            return False
+        return request.user.organization_memberships.filter(
+            role="security_team",
+        ).exists()
+
+
 class CanWrite(permissions.BasePermission):
     """
     Allows read access to all authenticated users.
-    Denies write access to users who are org-level 'viewer' AND don't have
-    a non-viewer team role for the object's owning team.
+    Security team members get unconditional write access.
+    Regular members must have a non-viewer team role for the object's owning team.
     """
 
     def has_permission(self, request, view):
@@ -33,12 +49,11 @@ class CanWrite(permissions.BasePermission):
         if org_membership is None:
             return False
 
-        # Non-viewer org members can always write
-        if org_membership.role != "viewer":
+        # Security team gets unconditional write access
+        if org_membership.role == "security_team":
             return True
 
-        # Org-level viewers: check if they have a non-viewer team role
-        # for the owning team of this object
+        # Regular members: check team role for the object's owning team
         owning_team = self._get_owning_team(obj)
         if owning_team is None:
             return False

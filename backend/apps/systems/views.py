@@ -10,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.permissions import CanWrite
+from apps.core.permissions import CanWrite, IsSecurityTeam
 
 from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
 from apps.threats.serializers import ComponentInstanceThreatSerializer
@@ -107,7 +107,7 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for ComponentLibrary (shared component templates)."""
 
     serializer_class = ComponentLibrarySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSecurityTeam]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["category", "component_type", "provider"]
     search_fields = ["name", "component_type", "slug"]
@@ -281,7 +281,7 @@ class IntegrationSourceViewSet(viewsets.ModelViewSet):
     """ViewSet for IntegrationSource CRUD operations."""
 
     serializer_class = IntegrationSourceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["source_type", "status", "orgsystem"]
     search_fields = ["name"]
@@ -299,7 +299,7 @@ class ComponentDataAssetViewSet(viewsets.ModelViewSet):
     """ViewSet for ComponentDataAsset CRUD operations."""
 
     serializer_class = ComponentDataAssetSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["component", "data_asset"]
 
@@ -317,7 +317,7 @@ class DataFlowAssetViewSet(viewsets.ModelViewSet):
     """ViewSet for DataFlowAsset CRUD operations."""
 
     serializer_class = DataFlowAssetSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["data_flow", "data_asset"]
 

@@ -3,7 +3,7 @@
  */
 
 // Role types
-export type OrganizationRole = 'admin' | 'security_team' | 'champion' | 'viewer'
+export type OrganizationRole = 'security_team' | 'member'
 export type TeamRole = 'lead' | 'member' | 'viewer'
 
 // Organization
@@ -14,6 +14,7 @@ export interface Organization {
   plan: 'free' | 'pro' | 'enterprise'
   businessUnitLabel: string
   memberCount: number
+  myRole?: OrganizationRole
   createdAt: string
   updatedAt: string
 }
