@@ -366,12 +366,14 @@ def _generate_countermeasures_for_threat(threat_instance):
     )
 
     created_count = 0
+    has_platform_countermeasure = False
     for countermeasure_library in applicable_countermeasures:
+        countermeasure_status = countermeasure_library.default_status
         _, created = ComponentInstanceCountermeasure.objects.get_or_create(
             instance_threat=threat_instance,
             countermeasure_library=countermeasure_library,
             defaults={
-                "status": "gap",
+                "status": countermeasure_status,
                 # Copy metadata for self-sufficiency if library is later removed
                 "countermeasure_name": countermeasure_library.name if countermeasure_library else "",
                 "countermeasure_description": countermeasure_library.description if countermeasure_library else "",
@@ -380,6 +382,13 @@ def _generate_countermeasures_for_threat(threat_instance):
         )
         if created:
             created_count += 1
+            if countermeasure_status == "platform":
+                has_platform_countermeasure = True
+
+    # Recalculate threat status if any platform countermeasures were created
+    if has_platform_countermeasure:
+        from apps.threats.services import recalculate_threat_status
+        recalculate_threat_status(threat_instance)
 
     return created_count
 
@@ -680,12 +689,14 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
     )
 
     created_count = 0
+    has_platform_countermeasure = False
     for countermeasure_library in applicable_countermeasures:
+        countermeasure_status = countermeasure_library.default_status
         _, created = FlowInstanceCountermeasure.objects.get_or_create(
             flow_threat=threat_instance,
             countermeasure_library=countermeasure_library,
             defaults={
-                "status": "gap",
+                "status": countermeasure_status,
                 # Copy metadata for self-sufficiency if library is later removed
                 "countermeasure_name": countermeasure_library.name if countermeasure_library else "",
                 "countermeasure_description": countermeasure_library.description if countermeasure_library else "",
@@ -694,6 +705,13 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
         )
         if created:
             created_count += 1
+            if countermeasure_status == "platform":
+                has_platform_countermeasure = True
+
+    # Recalculate threat status if any platform countermeasures were created
+    if has_platform_countermeasure:
+        from apps.threats.services import recalculate_threat_status
+        recalculate_threat_status(threat_instance)
 
     return created_count
 

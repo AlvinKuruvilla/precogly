@@ -4,7 +4,7 @@ countermeasures:
   - slug: multi-factor-authentication
     name: "Multi-Factor Authentication (MFA)"
     description: "Require additional authentication factors beyond passwords"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: credential-rotation
@@ -22,26 +22,26 @@ countermeasures:
   - slug: secure-session-management
     name: "Secure Session Management"
     description: "Use secure, random session tokens with proper expiration and invalidation"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: session-binding
     name: "Session Binding"
     description: "Bind sessions to client fingerprints (IP, user agent) to detect hijacking"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: https-only
     name: "HTTPS Only"
     description: "Enforce HTTPS to prevent session token interception"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Secrets Management
   - slug: secrets-management
     name: "Secrets Management"
     description: "Store API keys in dedicated secrets management systems (Vault, KMS)"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: api-key-rotation
@@ -53,196 +53,196 @@ countermeasures:
   - slug: key-scope-limitation
     name: "Key Scope Limitation"
     description: "Limit API key permissions to minimum required scope"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Encryption & Transport Security
   - slug: tls-encryption
     name: "TLS Encryption"
     description: "Use TLS 1.2+ for all network communications"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: certificate-pinning
     name: "Certificate Pinning"
     description: "Pin expected certificates in clients to prevent MITM with forged certs"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: mutual-tls
     name: "Mutual TLS (mTLS)"
     description: "Require client certificates for service-to-service authentication"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: encryption-at-rest
     name: "Encryption at Rest"
     description: "Encrypt all sensitive data at rest using strong encryption (AES-256)"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: encryption-in-transit
     name: "Encryption in Transit"
     description: "Encrypt all data in transit using TLS 1.2+"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Service Security
   - slug: service-authentication
     name: "Service Authentication"
     description: "Authenticate services using certificates or tokens before trusting them"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: service-mesh
     name: "Service Mesh with Identity"
     description: "Use service mesh (Istio, Linkerd) to enforce service identity"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   # Data Integrity
   - slug: data-integrity-checks
     name: "Data Integrity Checks"
     description: "Use checksums, HMACs, or digital signatures to detect tampering"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: immutable-audit-logs
     name: "Immutable Audit Logs"
     description: "Store audit logs in append-only storage to prevent tampering"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: database-access-controls
     name: "Database Access Controls"
     description: "Implement role-based access control for database modifications"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Input Validation & Output Encoding
   - slug: input-validation
     name: "Input Validation"
     description: "Validate and sanitize all user inputs against expected patterns"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: parameterized-queries
     name: "Parameterized Queries"
     description: "Use prepared statements and parameterized queries to prevent SQL injection"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: output-encoding
     name: "Output Encoding"
     description: "Encode output to prevent XSS attacks"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: content-security-policy
     name: "Content Security Policy"
     description: "Implement CSP headers to mitigate XSS and injection attacks"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Configuration & Infrastructure Security
   - slug: configuration-management
     name: "Configuration Management"
     description: "Use infrastructure-as-code with version control for all configurations"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: configuration-drift-detection
     name: "Configuration Drift Detection"
     description: "Monitor for unauthorized configuration changes"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: immutable-infrastructure
     name: "Immutable Infrastructure"
     description: "Deploy immutable infrastructure that cannot be modified in place"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   # Message Security
   - slug: message-signing
     name: "Message Signing"
     description: "Digitally sign messages to detect tampering"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: message-encryption
     name: "Message Encryption"
     description: "Encrypt messages in transit to prevent reading and modification"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Supply Chain Security
   - slug: image-signing
     name: "Image Signing"
     description: "Sign container images and verify signatures before deployment"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: binary-verification
     name: "Binary Verification"
     description: "Verify checksums and signatures of all deployed binaries"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: supply-chain-security
     name: "Supply Chain Security"
     description: "Scan dependencies for vulnerabilities and verify provenance"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   # Logging & Audit
   - slug: comprehensive-audit-logging
     name: "Comprehensive Audit Logging"
     description: "Log all security-relevant actions with user identity and timestamp"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: tamper-evident-logs
     name: "Tamper-Evident Logs"
     description: "Use append-only storage or blockchain for critical audit logs"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: log-integrity-monitoring
     name: "Log Integrity Monitoring"
     description: "Monitor logs for tampering and alert on suspicious modifications"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: centralized-logging
     name: "Centralized Logging"
     description: "Send logs to a centralized, secured logging system"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: log-replication
     name: "Log Replication"
     description: "Replicate logs to multiple storage locations"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: write-once-storage
     name: "Write-Once Storage"
     description: "Store critical logs in WORM (Write Once Read Many) storage"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   # Transaction Security
   - slug: digital-signatures
     name: "Digital Signatures"
     description: "Require digital signatures for critical transactions"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: transaction-receipts
     name: "Transaction Receipts"
     description: "Generate and store cryptographic receipts for all transactions"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: multi-party-approval
@@ -261,38 +261,38 @@ countermeasures:
   - slug: data-loss-prevention
     name: "Data Loss Prevention (DLP)"
     description: "Implement DLP tools to detect and prevent data exfiltration"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   - slug: log-sanitization
     name: "Log Sanitization"
     description: "Mask or remove sensitive data from logs before storage"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: error-handling
     name: "Secure Error Handling"
     description: "Return generic error messages to users, log details internally"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: debug-mode-controls
     name: "Debug Mode Controls"
     description: "Disable debug mode in production environments"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Access Control
   - slug: access-control-enforcement
     name: "Access Control Enforcement"
     description: "Implement and enforce role-based or attribute-based access control"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: authorization-checks
     name: "Server-Side Authorization Checks"
     description: "Verify authorization on every request, never trust client-side checks"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: principle-of-least-privilege
@@ -310,7 +310,7 @@ countermeasures:
   - slug: privilege-separation
     name: "Privilege Separation"
     description: "Run services with minimal required privileges"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: regular-access-reviews
@@ -323,150 +323,150 @@ countermeasures:
   - slug: header-hardening
     name: "HTTP Header Hardening"
     description: "Remove server version headers and unnecessary metadata"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: api-response-filtering
     name: "API Response Filtering"
     description: "Filter API responses to include only necessary fields"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: constant-time-operations
     name: "Constant-Time Operations"
     description: "Use constant-time algorithms for cryptographic operations"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: rate-limiting
     name: "Rate Limiting"
     description: "Rate limit requests to prevent timing-based enumeration"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # DDoS Protection
   - slug: ddos-protection
     name: "DDoS Protection Service"
     description: "Use cloud-based DDoS protection (AWS Shield, Cloudflare, Azure DDoS)"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: rate-limiting-network
     name: "Network Rate Limiting"
     description: "Implement rate limiting at network edge"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: geo-blocking
     name: "Geographic Blocking"
     description: "Block traffic from regions where service is not offered"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: api-rate-limiting
     name: "API Rate Limiting"
     description: "Limit requests per user/IP to prevent abuse"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: request-size-limits
     name: "Request Size Limits"
     description: "Enforce maximum request body and file upload sizes"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: query-complexity-limits
     name: "Query Complexity Limits"
     description: "Limit database query complexity and execution time"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: circuit-breakers
     name: "Circuit Breakers"
     description: "Implement circuit breakers to prevent cascade failures"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   # Resource Management
   - slug: resource-quotas
     name: "Resource Quotas"
     description: "Set CPU, memory, and storage limits for applications"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: connection-pooling
     name: "Connection Pooling"
     description: "Use connection pools with maximum limits"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: auto-scaling
     name: "Auto-Scaling"
     description: "Automatically scale resources based on demand"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: resource-monitoring
     name: "Resource Monitoring and Alerting"
     description: "Monitor resource usage and alert on anomalies"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Resilience
   - slug: redundancy
     name: "Redundancy"
     description: "Deploy redundant instances of critical dependencies"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   - slug: graceful-degradation
     name: "Graceful Degradation"
     description: "Design systems to continue operating with reduced functionality"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: timeout-configuration
     name: "Timeout Configuration"
     description: "Configure appropriate timeouts for all external calls"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: fallback-mechanisms
     name: "Fallback Mechanisms"
     description: "Implement fallback options when primary services fail"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   # Deserialization & Code Security
   - slug: safe-deserialization
     name: "Safe Deserialization"
     description: "Use safe serialization formats (JSON) and validate before deserializing"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: input-type-validation
     name: "Input Type Validation"
     description: "Validate expected types before processing deserialized data"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   # Container Security
   - slug: container-hardening
     name: "Container Hardening"
     description: "Run containers as non-root, drop capabilities, use seccomp"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: container-runtime-security
     name: "Container Runtime Security"
     description: "Use secure container runtimes (gVisor, Kata Containers)"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   - slug: pod-security-policies
     name: "Pod Security Policies"
     description: "Enforce Kubernetes pod security standards"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   # IAM Security
@@ -479,13 +479,13 @@ countermeasures:
   - slug: iam-policy-constraints
     name: "IAM Policy Constraints"
     description: "Use policy conditions to restrict when permissions apply"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: service-control-policies
     name: "Service Control Policies"
     description: "Use organization-level policies to prevent dangerous actions"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   # Insider Threat
@@ -498,13 +498,13 @@ countermeasures:
   - slug: user-activity-monitoring
     name: "User Activity Monitoring"
     description: "Monitor and audit user activities for suspicious behavior"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: just-in-time-access
     name: "Just-in-Time Access"
     description: "Grant elevated access only when needed, with automatic expiration"
-    control_type: technical
+    control_type: preventive
     cost: high
 
   - slug: background-checks
@@ -517,17 +517,17 @@ countermeasures:
   - slug: ssrf-protection
     name: "SSRF Protection"
     description: "Validate and whitelist allowed destination URLs"
-    control_type: technical
+    control_type: preventive
     cost: low
 
   - slug: network-segmentation
     name: "Network Segmentation"
     description: "Isolate internal services from externally-facing applications"
-    control_type: technical
+    control_type: preventive
     cost: medium
 
   - slug: metadata-service-protection
     name: "Metadata Service Protection"
     description: "Block access to cloud metadata services from applications"
-    control_type: technical
+    control_type: preventive
     cost: low

@@ -35,8 +35,9 @@ export interface CountermeasureLibrary {
   id: number
   name: string
   description?: string
-  controlType: 'technical' | 'procedural'
+  controlType: string
   cost: 'low' | 'medium' | 'high'
+  defaultStatus?: 'gap' | 'platform'
   organization?: number
   sourcePack?: number
   sourcePackName?: string

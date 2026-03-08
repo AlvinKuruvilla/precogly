@@ -1,5 +1,9 @@
 # Update: Pack Import — Platform-Owned Countermeasures
 
+> **Pre-release code.** All data in the system is test data. Destructive migrations and schema resets are acceptable.
+>
+> **Environment.** The Python backend must be invoked using the project's available venv.
+
 ## Context
 
 Countermeasures now have 5 distinct statuses: `platform`, `gap`, `planned`, `verified`, `waived`.
@@ -38,9 +42,9 @@ Add an optional `default_status` field to countermeasure entries in `countermeas
 countermeasures:
   - slug: sql-injection-filtering
     name: "SQL Injection Filtering"
-    control_type: preventive
+    control_type: preventive       # see Section 6 for control_type migration
     cost: low
-    default_status: platform    # optional, defaults to "gap" if omitted
+    default_status: platform       # optional, defaults to "gap" if omitted
 ```
 
 Existing packs without `default_status` will continue to work — omitting the field preserves current behavior (status = gap).
@@ -54,8 +58,8 @@ All code paths that create countermeasure instances currently hardcode `status="
 | `_load_countermeasures()` | `packs/services.py` | Parse `default_status` from YAML into `CountermeasureLibrary` |
 | `_generate_countermeasures_for_threat()` | `diagrams/services.py` | Auto-generates `ComponentInstanceCountermeasure` on DFD canvas sync |
 | `_generate_countermeasures_for_flow_threat()` | `diagrams/services.py` | Same for `FlowInstanceCountermeasure` |
-| `generate_threats` action | `systems/views.py` | Manual "Analyze Threats" button |
-| `apply_countermeasure` action | `threats/views.py` | Manual add-from-library (already accepts `status` in request body — should fall back to library `default_status` instead of `"gap"`) |
+| `generate_threats` action | `systems/views.py` | Delegates to the above — no direct hardcoding, but verify the call chain |
+| `apply_countermeasure` action | `threats/views.py` | Manual add-from-library. Already accepts `status` in request body — change the fallback chain to: request `status` → library `default_status` → `"gap"` |
 
 For paths that create instances, the pattern changes from:
 
@@ -69,9 +73,13 @@ to:
 "status": countermeasure_library.default_status if countermeasure_library else "gap",
 ```
 
+**Note on `AddCountermeasureDialog.tsx`:** This dialog has three hardcoded `'gap'` sites — two for library-sourced countermeasures (component and flow) and one for custom/freeform countermeasures. Only the library-sourced paths should read `defaultStatus` from the library; the custom path should keep defaulting to `'gap'`.
+
 ### 4. Threat Status Recalculation After Generation
 
-There are no Django signals on countermeasure save. After creating platform countermeasures during threat generation, explicitly call `_recalculate_threat_status()` on the parent threat instance so its status updates from `exposed` to `mitigated`.
+There are no Django signals on countermeasure save. After creating platform countermeasures during threat generation, explicitly call threat status recalculation on the parent threat instance so its status updates from `exposed` to `mitigated`.
+
+The recalculation logic currently lives as `_recalculate_threat_status()` methods on `ComponentInstanceThreatViewSet` and `DataFlowInstanceThreatViewSet` in `threats/views.py`. For use from `diagrams/services.py`, either extract a standalone helper or replicate the logic inline.
 
 ### 5. Serializer, Type, and Preview Updates
 
@@ -81,51 +89,34 @@ There are no Django signals on countermeasure save. After creating platform coun
 | Pack preview | `packs/services.py` (`_extract_pack_preview()`) | Include `default_status` in preview data |
 | Frontend type | `types/libraries.ts` (`CountermeasureLibrary`) | Add `defaultStatus?: 'gap' \| 'platform'` |
 | Pack preview UI | `PreviewPackDialog.tsx` | Show "Platform" badge on countermeasures with `default_status: platform` |
-| Add countermeasure dialog | `AddCountermeasureDialog.tsx` | Use library's `defaultStatus` instead of hardcoded `'gap'` |
+| Add countermeasure dialog | `AddCountermeasureDialog.tsx` | Use library's `defaultStatus` for library-sourced countermeasures (see Section 3 note) |
 
-### 6. Fix `control_type` Choices
+### 6. Fix `control_type` — Free-Text Field (DONE)
 
-The `CountermeasureLibrary.ControlType` enum is wrong. Current model:
+The `ControlType` TextChoices enum has been **removed entirely**. The `control_type` field on `CountermeasureLibrary` is now a plain `CharField(max_length=50, default="preventive")` — no `choices` constraint.
 
-```python
-class ControlType(models.TextChoices):
-    TECHNICAL  = "technical",  "Technical"
-    PROCEDURAL = "procedural", "Procedural"
-```
+This allows pack authors to use any control type value they want. The frontend provides 7 defaults in dropdowns (preventive, detective, corrective, deterrent, recovery, compensating, procedural) and handles unknown values by capitalizing them as a fallback.
 
-Correct values (already used by pack YAML files):
+The instance models (`ComponentInstanceCountermeasure.control_type` and `FlowInstanceCountermeasure.control_type`) were already plain CharFields with `blank=True` — no changes needed there.
 
-```python
-class ControlType(models.TextChoices):
-    PREVENTIVE = "preventive", "Preventive"
-    DETECTIVE  = "detective",  "Detective"
-    CORRECTIVE = "corrective", "Corrective"
-```
-
-Since `update_or_create` in the import path doesn't run `full_clean()`, the YAML values are silently saved despite not matching the model choices. This is a data integrity issue.
-
-**Changes needed:**
+**Changes made:**
 
 | Layer | File | Change |
 |---|---|---|
-| Model | `threats/models.py` | Replace `ControlType` choices with `preventive`/`detective`/`corrective` |
-| Instance models | `threats/models.py` | Update `ComponentInstanceCountermeasure.control_type` and `FlowInstanceCountermeasure.control_type` choices to match |
-| Serializers | `threats/serializers.py` | Update any hardcoded references to old values |
-| Frontend types | `types/threat-analysis.ts`, `types/libraries.ts` | Update `controlType` type to `'preventive' \| 'detective' \| 'corrective'` |
-| Frontend UI | `AddCountermeasureDialog.tsx`, any control type selectors/badges | Update labels and dropdown options |
-| Pack YAML example | Section 2 above | Update example to use `control_type: preventive` |
-| Database migration | — | Migrate existing rows (all test data, so a simple replacement or reset is fine) |
-
-**Requires:** database migration. Since this is pre-release and all data is test data, no backward-compatibility shim is needed — just replace the old values.
+| Model | `threats/models.py` | Removed `ControlType` TextChoices, changed field to `CharField(max_length=50, default="preventive")` |
+| Frontend type | `types/libraries.ts` | Changed `controlType` from union to `string` |
+| Frontend UI | `Countermeasures.tsx` | Added all 7 control type labels/colors, `formatControlTypeLabel()` fallback for unknown values |
+| Pack YAML | `libraries/packs/base-stride/countermeasures.yaml` | Replaced `technical` with `preventive`, kept `procedural` as-is |
+| Database migration | `threats/0005_...` | Altered `control_type` field (removed choices, widened max_length to 50) |
 
 ### 7. Delete Legacy Management Command
 
-`packs/management/commands/import_pack.py` is a v1 single-file import path with its own separate countermeasure logic. Since this is pre-release code, delete it entirely rather than maintaining two import paths. The v2 multi-file import via `packs/services.py` is the only supported path.
+`packs/management/commands/import_pack.py` is a v1 single-file import path with its own separate countermeasure logic. Delete it entirely rather than maintaining two import paths. The v2 multi-file import via `packs/services.py` is the only supported path.
 
 ## Existing Behavior That Already Works
 
-- **Threat status derivation:** Both backend (`_recalculate_threat_status`) and frontend (`deriveThreatStatus`) already treat `platform` identically to `verified` — no changes needed.
-- **Risk scoring:** `scoring/services.py` already assigns `effectiveness = 1.0` to `platform` countermeasures — no changes needed.
+- **Threat status derivation:** Both backend (`_recalculate_threat_status` in `threats/views.py`) and frontend (`deriveThreatStatus` in `dfd-editor/types/threat-analysis.ts`) already treat `platform` identically to `verified` — no changes needed.
+- **Risk scoring:** `threats/services.py` (`STATUS_EFFECTIVENESS_FALLBACK`) already assigns `effectiveness = 1.0` to `platform` countermeasures — no changes needed.
 - **UI rendering:** Platform badge (green + lock) already renders for `status === 'platform'` — no changes needed.
 
 ## Scope

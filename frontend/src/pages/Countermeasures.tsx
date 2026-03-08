@@ -23,14 +23,24 @@ const controlTypeLabels: Record<string, string> = {
   preventive: 'Preventive',
   detective: 'Detective',
   corrective: 'Corrective',
+  deterrent: 'Deterrent',
+  recovery: 'Recovery',
   compensating: 'Compensating',
+  procedural: 'Procedural',
 }
 
 const controlTypeColors: Record<string, string> = {
   preventive: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   detective: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   corrective: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  deterrent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  recovery: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
   compensating: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  procedural: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+}
+
+function formatControlTypeLabel(controlType: string): string {
+  return controlTypeLabels[controlType] || controlType.charAt(0).toUpperCase() + controlType.slice(1)
 }
 
 const costColors: Record<string, string> = {
@@ -146,7 +156,7 @@ export function Countermeasures() {
                       className={controlTypeColors[countermeasure.controlType] || ''}
                       variant="secondary"
                     >
-                      {controlTypeLabels[countermeasure.controlType] || countermeasure.controlType}
+                      {formatControlTypeLabel(countermeasure.controlType)}
                     </Badge>
                   </TableCell>
                   <TableCell>

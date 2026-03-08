@@ -190,10 +190,6 @@ class ComponentLibraryThreat(TimestampedModel):
 class CountermeasureLibrary(TimestampedModel):
     """Countermeasure/control template."""
 
-    class ControlType(models.TextChoices):
-        TECHNICAL = "technical", "Technical"
-        PROCEDURAL = "procedural", "Procedural"
-
     class Cost(models.TextChoices):
         LOW = "low", "Low"
         MEDIUM = "medium", "Medium"
@@ -226,7 +222,12 @@ class CountermeasureLibrary(TimestampedModel):
     )
     name = models.CharField(max_length=255)
     description = models.TextField()
-    control_type = models.CharField(max_length=20, choices=ControlType.choices)
+    control_type = models.CharField(max_length=50, default="preventive")
+    default_status = models.CharField(
+        max_length=20,
+        choices=[("gap", "Gap"), ("platform", "Platform")],
+        default="gap",
+    )
     cost = models.CharField(max_length=20, choices=Cost.choices, default=Cost.MEDIUM)
     applicable_threats = models.ManyToManyField(
         "ThreatLibrary",

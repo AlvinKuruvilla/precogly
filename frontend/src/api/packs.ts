@@ -100,6 +100,7 @@ export interface PackPreviewCountermeasure {
   name: string
   controlType: string
   cost: string
+  defaultStatus?: string
   description: string
 }
 

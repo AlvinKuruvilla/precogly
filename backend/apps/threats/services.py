@@ -1,6 +1,11 @@
 """Service functions for risk computation and recalculation."""
 
-from .models import Risk, RiskThreat
+from .models import (
+    ComponentInstanceThreat,
+    DataFlowInstanceThreat,
+    Risk,
+    RiskThreat,
+)
 from .scoring.registry import get_scoring_methods, score_to_level
 
 STATUS_EFFECTIVENESS_FALLBACK = {
@@ -10,6 +15,39 @@ STATUS_EFFECTIVENESS_FALLBACK = {
     "gap": 0.0,
     "waived": 0.0,
 }
+
+
+def recalculate_threat_status(instance_threat):
+    """Derive threat status from countermeasures.
+
+    Works for both ComponentInstanceThreat and DataFlowInstanceThreat.
+
+    Status logic:
+        - EXPOSED: No countermeasures applied OR any countermeasure is a gap
+        - ADDRESSABLE: Some countermeasures are planned/waived (none are gaps)
+        - MITIGATED: All countermeasures are verified or platform
+    """
+    countermeasures = instance_threat.countermeasures.all()
+
+    if not countermeasures.exists():
+        new_status = "exposed"
+    else:
+        statuses = list(countermeasures.values_list("status", flat=True))
+        has_gaps = any(s == "gap" for s in statuses)
+
+        if has_gaps:
+            new_status = "exposed"
+        elif any(s in ("planned", "waived") for s in statuses):
+            new_status = "addressable"
+        else:
+            # All verified/platform
+            new_status = "mitigated"
+
+    if instance_threat.status != new_status:
+        instance_threat.status = new_status
+        instance_threat.save(update_fields=["status", "updated_at"])
+
+    return new_status
 
 
 def derive_risk_status(risk):

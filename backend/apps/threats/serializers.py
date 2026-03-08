@@ -117,6 +117,7 @@ class CountermeasureLibrarySerializer(serializers.ModelSerializer):
             "description",
             "control_type",
             "cost",
+            "default_status",
             "source_pack",
             "source_pack_name",
             "source_pack_slug",
@@ -134,7 +135,7 @@ class CountermeasureLibraryListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CountermeasureLibrary
-        fields = ["id", "name", "control_type", "cost", "source_pack", "source_pack_name", "source_pack_slug"]
+        fields = ["id", "name", "control_type", "cost", "default_status", "source_pack", "source_pack_name", "source_pack_slug"]
 
 
 class ComponentLibraryThreatSerializer(serializers.ModelSerializer):

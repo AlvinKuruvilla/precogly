@@ -387,6 +387,7 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
                     "name": cm.get("name", ""),
                     "control_type": cm.get("control_type", ""),
                     "cost": cm.get("cost", ""),
+                    "default_status": cm.get("default_status", "gap"),
                     "description": cm.get("description", ""),
                 })
         except Exception as e:
@@ -1327,8 +1328,9 @@ def _load_countermeasures(library_pack: LibraryPack, file_path: Path) -> int:
                 "slug": cm_id,
                 "name": cm.get("name", cm_id),
                 "description": cm.get("description", ""),
-                "control_type": cm.get("control_type", "technical"),
+                "control_type": cm.get("control_type", "preventive"),
                 "cost": cm.get("cost", "medium"),
+                "default_status": cm.get("default_status", "gap"),
                 "customization_status": "original",
             },
         )

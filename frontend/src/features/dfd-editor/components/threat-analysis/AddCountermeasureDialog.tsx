@@ -85,9 +85,10 @@ export function AddCountermeasureDialog({
     if (!selectedCountermeasureId) return
 
     const mutation = threatType === 'component' ? createComponentCountermeasure : createFlowCountermeasure
+    const countermeasureDefaultStatus = selectedCountermeasure?.defaultStatus ?? 'gap'
     const data = threatType === 'component'
-      ? { instanceThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: 'gap' }
-      : { flowThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: 'gap' }
+      ? { instanceThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus }
+      : { flowThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus }
 
     mutation.mutate(data, {
       onSuccess: () => {

@@ -248,6 +248,11 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">{cm.name}</span>
                     <div className="flex gap-1">
+                      {cm.defaultStatus === 'platform' && (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                          Platform
+                        </Badge>
+                      )}
                       {cm.controlType && (
                         <Badge variant="secondary" className="text-xs">
                           {cm.controlType}

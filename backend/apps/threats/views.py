@@ -50,7 +50,7 @@ from .serializers import (
     ThreatLibrarySerializer,
     VerificationTestSerializer,
 )
-from .services import recalculate_risk, recalculate_risks_for_threat
+from .services import recalculate_risk, recalculate_risks_for_threat, recalculate_threat_status
 
 
 class ThreatLibraryViewSet(viewsets.ModelViewSet):
@@ -199,11 +199,12 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             )
 
         # Create or get the instance countermeasure
+        default_status = request.data.get("status", countermeasure.default_status)
         instance_cm, created = ComponentInstanceCountermeasure.objects.get_or_create(
             instance_threat=instance_threat,
             countermeasure_library=countermeasure,
             defaults={
-                "status": request.data.get("status", ComponentInstanceCountermeasure.Status.GAP),
+                "status": default_status,
             },
         )
 
@@ -214,7 +215,7 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             )
 
         # Recalculate threat status
-        self._recalculate_threat_status(instance_threat)
+        recalculate_threat_status(instance_threat)
 
         return Response({
             "countermeasure": ComponentInstanceCountermeasureSerializer(instance_cm).data,
@@ -232,7 +233,7 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             - MITIGATED: All countermeasures are verified or platform
         """
         instance_threat = self.get_object()
-        new_status = self._recalculate_threat_status(instance_threat)
+        new_status = recalculate_threat_status(instance_threat)
 
         return Response({
             "threat_id": instance_threat.id,
@@ -240,30 +241,6 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             "new_status": new_status,
             "message": f"Status updated to {new_status}",
         })
-
-    def _recalculate_threat_status(self, instance_threat):
-        """Derive threat status from countermeasures (matches frontend logic)."""
-        countermeasures = instance_threat.countermeasures.all()
-
-        if not countermeasures.exists():
-            new_status = ComponentInstanceThreat.Status.EXPOSED
-        else:
-            statuses = list(countermeasures.values_list("status", flat=True))
-            has_gaps = any(s == "gap" for s in statuses)
-
-            if has_gaps:
-                new_status = ComponentInstanceThreat.Status.EXPOSED
-            elif any(s in ("planned", "waived") for s in statuses):
-                new_status = ComponentInstanceThreat.Status.ADDRESSABLE
-            else:
-                # All verified/platform
-                new_status = ComponentInstanceThreat.Status.MITIGATED
-
-        if instance_threat.status != new_status:
-            instance_threat.status = new_status
-            instance_threat.save(update_fields=["status", "updated_at"])
-
-        return new_status
 
 
 class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
@@ -304,11 +281,12 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        default_status = request.data.get("status", countermeasure.default_status)
         instance_cm, created = FlowInstanceCountermeasure.objects.get_or_create(
             flow_threat=flow_threat,
             countermeasure_library=countermeasure,
             defaults={
-                "status": FlowInstanceCountermeasure.Status.GAP,
+                "status": default_status,
             },
         )
 
@@ -318,7 +296,7 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        self._recalculate_threat_status(flow_threat)
+        recalculate_threat_status(flow_threat)
 
         return Response({
             "countermeasure": FlowInstanceCountermeasureSerializer(instance_cm).data,
@@ -329,7 +307,7 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
     def recalculate_status(self, request, pk=None):
         """Recalculate the flow threat status based on applied countermeasures."""
         flow_threat = self.get_object()
-        new_status = self._recalculate_threat_status(flow_threat)
+        new_status = recalculate_threat_status(flow_threat)
 
         return Response({
             "threat_id": flow_threat.id,
@@ -337,30 +315,6 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
             "new_status": new_status,
             "message": f"Status updated to {new_status}",
         })
-
-    def _recalculate_threat_status(self, flow_threat):
-        """Derive flow threat status from countermeasures (matches frontend logic)."""
-        countermeasures = flow_threat.countermeasures.all()
-
-        if not countermeasures.exists():
-            new_status = DataFlowInstanceThreat.Status.EXPOSED
-        else:
-            statuses = list(countermeasures.values_list("status", flat=True))
-            has_gaps = any(s == "gap" for s in statuses)
-
-            if has_gaps:
-                new_status = DataFlowInstanceThreat.Status.EXPOSED
-            elif any(s in ("planned", "waived") for s in statuses):
-                new_status = DataFlowInstanceThreat.Status.ADDRESSABLE
-            else:
-                # All verified/platform
-                new_status = DataFlowInstanceThreat.Status.MITIGATED
-
-        if flow_threat.status != new_status:
-            flow_threat.status = new_status
-            flow_threat.save(update_fields=["status", "updated_at"])
-
-        return new_status
 
 
 class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
