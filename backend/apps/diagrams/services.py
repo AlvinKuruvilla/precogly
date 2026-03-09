@@ -722,12 +722,21 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
 
 
 def _zone_type_to_trust_level(zone_type_str):
-    """Convert frontend zone type string to numeric 0-100 trust level."""
+    """Convert frontend zone type string to numeric 0-100 trust level.
+
+    Handles both camelCase (from canvas data values) and snake_case formats.
+    """
     mapping = {
+        # snake_case (expected after key conversion)
         "zone_internet": 0,
         "zone_dmz": 25,
         "zone_internal": 75,
         "zone_restricted": 100,
+        # camelCase (actual canvas data values — DRF converts keys, not values)
+        "zoneInternet": 0,
+        "zoneDmz": 25,
+        "zoneInternal": 75,
+        "zoneRestricted": 100,
     }
     return mapping.get(zone_type_str, 50)
 
