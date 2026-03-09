@@ -320,6 +320,9 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "assigned_owner",
             "assigned_owner_email",
             "format_metadata",
+            "is_inherited",
+            "inherited_from_component_name",
+            "inherited_from_zone_name",
             "created_at",
             "updated_at",
         ]
@@ -389,6 +392,9 @@ class FlowInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "assigned_owner",
             "assigned_owner_email",
             "format_metadata",
+            "is_inherited",
+            "inherited_from_component_name",
+            "inherited_from_zone_name",
             "created_at",
             "updated_at",
         ]

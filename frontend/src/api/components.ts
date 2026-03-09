@@ -17,6 +17,13 @@ export interface ComponentLibraryItem {
   sourcePackSlug: string | null
 }
 
+export interface TrustZone {
+  id: number
+  name: string
+  trustLevel: number
+  description: string
+}
+
 export interface OrgsystemComponent {
   id: number
   name: string
@@ -79,6 +86,24 @@ export function useAnalysisComponents(threatModelId: string | null) {
   })
 }
 
+/**
+ * Fetch trust zones. When threatModelId is provided, scopes to zones
+ * that have components belonging to that threat model (avoids duplicates
+ * from other models).
+ */
+export function useTrustZones(threatModelId?: string | null) {
+  return useQuery({
+    queryKey: ['trust-zones', threatModelId],
+    queryFn: async () => {
+      const url = threatModelId
+        ? `/trust-zones/?threat_model=${threatModelId}`
+        : '/trust-zones/'
+      const response = await api.get<{ results: TrustZone[] } | TrustZone[]>(url)
+      return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
 // Mutation Hooks
 
 /**
@@ -93,6 +118,7 @@ export function useCreateAnalysisComponent() {
       category: string
       componentLibrary?: number | null
       threatModel: number
+      trustZone?: number | null
     }) => api.post<OrgsystemComponent>('/components/', data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: componentKeys.all })

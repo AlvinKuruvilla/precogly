@@ -79,8 +79,16 @@ class TrustZoneViewSet(viewsets.ModelViewSet):
         org_ids = self.request.user.organization_memberships.values_list(
             "organization_id", flat=True
         )
+        threat_model_id = self.request.query_params.get("threat_model")
+        if threat_model_id:
+            # Scoped: zones that have components belonging to this threat model
+            return TrustZone.objects.filter(
+                components__threat_model_id=threat_model_id
+            ).distinct()
+        # Default: zones reachable through any component in user's org
         return TrustZone.objects.filter(
-            components__orgsystem__organization_id__in=org_ids
+            Q(components__orgsystem__organization_id__in=org_ids)
+            | Q(components__threat_model__organization_id__in=org_ids)
         ).distinct()
 
 

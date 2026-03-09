@@ -63,6 +63,9 @@ export interface ComponentInstanceCountermeasure {
   assignedOwner: number | null
   assignedOwnerEmail: string | null
   formatMetadata: Record<string, unknown>
+  isInherited?: boolean
+  inheritedFromComponentName?: string
+  inheritedFromZoneName?: string
   createdAt: string
   updatedAt: string
 }

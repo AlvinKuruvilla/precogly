@@ -182,6 +182,45 @@ export function useWorkspaceThreatAnalysis(
     })
   }, [diagrams, isLoadingThreats])
 
+  // Revert an inherited countermeasure back to gap status
+  const revertInheritedCountermeasure = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string) => {
+      const parsed = parseCountermeasureId(countermeasureInstanceId)
+      if (parsed.type === 'component' && parsed.id !== null) {
+        updateCountermeasureMutation.mutate({
+          countermeasureId: parsed.id,
+          data: {
+            status: 'gap',
+            isInherited: false,
+            inheritedFromComponentName: '',
+            inheritedFromZoneName: '',
+          },
+        })
+      }
+      // Optimistic local state update
+      setState((prev) => ({
+        ...prev,
+        componentThreats: prev.componentThreats.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            countermeasures: ct.countermeasures.map((cm) => {
+              if (cm.id !== countermeasureInstanceId) return cm
+              return {
+                ...cm,
+                status: 'gap' as CountermeasureStatus,
+                isInherited: false,
+                inheritedFromComponentName: undefined,
+                inheritedFromZoneName: undefined,
+              }
+            }),
+          }
+        }),
+      }))
+    },
+    [updateCountermeasureMutation]
+  )
+
   // Update countermeasure status
   const updateCountermeasureStatus = useCallback(
     (
@@ -499,6 +538,7 @@ export function useWorkspaceThreatAnalysis(
     summaries,
     isLoading: isLoadingThreats || isLoadingThreatModel,
     isLoadingThreats,
+    revertInheritedCountermeasure,
     updateCountermeasureStatus,
     updateCountermeasurePriority,
     assignOwner,

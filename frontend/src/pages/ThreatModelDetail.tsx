@@ -169,6 +169,7 @@ export function ThreatModelDetail() {
     progressChecklist,
     summaries,
     isLoadingThreats,
+    revertInheritedCountermeasure,
     updateCountermeasureStatus,
     updateCountermeasurePriority,
     assignOwner,
@@ -811,6 +812,7 @@ export function ThreatModelDetail() {
                     onRemoveCountermeasure={removeCountermeasure}
                     onRestoreCountermeasure={restoreCountermeasure}
                     onCountermeasurePriorityChange={updateCountermeasurePriority}
+                    onRevertCountermeasure={revertInheritedCountermeasure}
                     isSecurityTeam={isSecurityTeam}
                   />
                 ) : (

@@ -512,6 +512,7 @@ interface ComponentViewProps {
     countermeasureInstanceId: string,
     priority: string
   ) => void
+  onRevertCountermeasure?: (componentThreatId: string, countermeasureInstanceId: string) => void
   isSecurityTeam?: boolean
 }
 
@@ -903,6 +904,7 @@ export function ComponentView({
   onRemoveCountermeasure,
   onRestoreCountermeasure,
   onCountermeasurePriorityChange,
+  onRevertCountermeasure,
   isSecurityTeam,
 }: ComponentViewProps) {
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
@@ -1776,13 +1778,21 @@ export function ComponentView({
                     {cm.isInherited && cm.inheritedFromZoneName && (
                       <div className="mt-2 text-xs text-purple-600 flex items-center gap-1 bg-purple-50 px-2 py-1 rounded border border-purple-200">
                         <Shield className="h-3 w-3" />
-                        <span>
+                        <span className="flex-1">
                           Inherited from{' '}
                           <span className="font-medium">
                             {cm.inheritedFromComponentName}
                           </span>
                           {' '}({cm.inheritedFromZoneName})
                         </span>
+                        {onRevertCountermeasure && selectedComponentThreat && (
+                          <button
+                            className="text-purple-500 hover:text-purple-700 underline ml-2"
+                            onClick={() => onRevertCountermeasure(selectedComponentThreat.id, cm.id)}
+                          >
+                            Revert
+                          </button>
+                        )}
                       </div>
                     )}
 
