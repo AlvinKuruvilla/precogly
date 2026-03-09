@@ -116,6 +116,10 @@ export interface ComponentThreatCountermeasure {
   standardMappings?: ComplianceStandardMapping[]
   // Priority level
   priority?: 'none' | 'low' | 'medium' | 'high' | 'critical'
+  // Zone inheritance tracking
+  isInherited?: boolean
+  inheritedFromComponentName?: string
+  inheritedFromZoneName?: string
 }
 
 /**

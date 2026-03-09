@@ -130,6 +130,18 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
     filterset_fields = ["orgsystem", "trust_zone", "threat_model"]
     search_fields = ["name"]
 
+    def perform_create(self, serializer):
+        """Auto-assign orgsystem from the threat model when not explicitly provided."""
+        instance = serializer.save()
+        if instance.orgsystem_id is None and instance.threat_model_id:
+            from apps.threat_models.models import ThreatModelOrgsystem
+            association = ThreatModelOrgsystem.objects.filter(
+                threat_model_id=instance.threat_model_id
+            ).select_related("orgsystem").first()
+            if association:
+                instance.orgsystem = association.orgsystem
+                instance.save(update_fields=["orgsystem"])
+
     def get_queryset(self):
         """
         Filter by user's organizations.

@@ -160,6 +160,9 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                     if node_type in ("process", "datastore"):
                         component.data_sensitivity_level = node_data.get("data_sensitivity", "")
                     # NOTE: Don't overwrite orgsystem - preserve user's system assignment
+                    # Backfill threat_model if not set (for components created before this link existed)
+                    if component.threat_model_id is None:
+                        component.threat_model = threat_model
                     component.save()
                     synced_count += 1
 
@@ -172,6 +175,7 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                     component = OrgsystemComponent.objects.create(
                         name=label,
                         orgsystem=None,  # No automatic system assignment
+                        threat_model=threat_model,
                         component_library=component_library,
                         category=category,
                         description=node_data.get("description", ""),
@@ -191,6 +195,7 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
                 component = OrgsystemComponent.objects.create(
                     name=label,
                     orgsystem=None,  # No automatic system assignment
+                    threat_model=threat_model,
                     component_library=component_library,
                     category=category,
                     description=node_data.get("description", ""),

@@ -35,6 +35,7 @@ import { TableView } from '@/features/dfd-editor/components/threat-analysis/Tabl
 import { AddThreatDialog } from '@/features/dfd-editor/components/threat-analysis/AddThreatDialog'
 import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat-analysis/AddCountermeasureDialog'
 import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threat-analysis/AddCustomComponentDialog'
+import { ReviewZoneProtectionsDialog } from '@/features/dfd-editor/components/threat-analysis/ReviewZoneProtectionsDialog'
 import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
 import { useAnalysisComponents } from '@/api/components'
 import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
@@ -90,7 +91,7 @@ export function ThreatModelDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { currentTeam } = useWorkspace()
+  const { currentTeam, isSecurityTeam } = useWorkspace()
 
   // View state
   const [activeTab, setActiveTab] = useState<string>('overview')
@@ -114,6 +115,7 @@ export function ThreatModelDetail() {
   const [addThreatDialogOpen, setAddThreatDialogOpen] = useState(false)
   const [addCountermeasureDialogOpen, setAddCountermeasureDialogOpen] = useState(false)
   const [addComponentDialogOpen, setAddComponentDialogOpen] = useState(false)
+  const [zoneProtectionsDialogOpen, setZoneProtectionsDialogOpen] = useState(false)
 
   // Reference image states
   const [referenceImageViewerOpen, setReferenceImageViewerOpen] = useState(false)
@@ -747,6 +749,17 @@ export function ThreatModelDetail() {
                     <Plus className="h-4 w-4" />
                     Add Component
                   </Button>
+
+                  {/* Zone Protections Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setZoneProtectionsDialogOpen(true)}
+                    className="gap-1"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Zone Protections
+                  </Button>
                 </div>
                 <div className="flex items-center rounded-lg border bg-background p-1">
                   <Button
@@ -798,6 +811,7 @@ export function ThreatModelDetail() {
                     onRemoveCountermeasure={removeCountermeasure}
                     onRestoreCountermeasure={restoreCountermeasure}
                     onCountermeasurePriorityChange={updateCountermeasurePriority}
+                    isSecurityTeam={isSecurityTeam}
                   />
                 ) : (
                   <TableView
@@ -938,6 +952,16 @@ export function ThreatModelDetail() {
       <AddCustomComponentDialog
         open={addComponentDialogOpen}
         onOpenChange={setAddComponentDialogOpen}
+        threatModelId={id!}
+        onSuccess={() => {
+          refetchThreats()
+        }}
+      />
+
+      {/* Zone Protections Dialog */}
+      <ReviewZoneProtectionsDialog
+        open={zoneProtectionsDialogOpen}
+        onOpenChange={setZoneProtectionsDialogOpen}
         threatModelId={id!}
         onSuccess={() => {
           refetchThreats()

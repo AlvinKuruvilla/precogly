@@ -558,6 +558,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
                         "standard_mappings": self._serialize_standard_mappings(cm.countermeasure_library),
+                        "is_inherited": cm.is_inherited,
+                        "inherited_from_component_name": cm.inherited_from_component_name,
+                        "inherited_from_zone_name": cm.inherited_from_zone_name,
                     }
                     for cm in threat.countermeasures.all()
                 ],
@@ -608,6 +611,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
                         "standard_mappings": self._serialize_standard_mappings(cm.countermeasure_library),
+                        "is_inherited": cm.is_inherited,
+                        "inherited_from_component_name": cm.inherited_from_component_name,
+                        "inherited_from_zone_name": cm.inherited_from_zone_name,
                     }
                     for cm in threat.countermeasures.all()
                 ],
@@ -621,6 +627,28 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             "node_component_map": node_component_map,
             "edge_dataflow_map": edge_dataflow_map,
         })
+
+    @action(detail=True, methods=["get"])
+    def zone_protections(self, request, pk=None):
+        """Analyze zone topology and return inheritance suggestions."""
+        from apps.threats.zone_protections import analyze_zone_protections
+
+        threat_model = self.get_object()
+        suggestions = analyze_zone_protections(threat_model)
+        return Response({
+            "suggestions": suggestions,
+            "total_count": len(suggestions),
+        })
+
+    @action(detail=True, methods=["post"])
+    def apply_zone_protections(self, request, pk=None):
+        """Apply selected zone inheritance suggestions."""
+        from apps.threats.zone_protections import apply_zone_protections
+
+        self.get_object()  # Permission check
+        items = request.data.get("items", [])
+        result = apply_zone_protections(items)
+        return Response(result)
 
 
 class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):

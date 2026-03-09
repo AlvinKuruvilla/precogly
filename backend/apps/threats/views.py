@@ -120,7 +120,9 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         return ComponentInstanceThreat.objects.filter(
-            component__orgsystem__organization_id__in=org_ids
+            Q(component__orgsystem__organization_id__in=org_ids)
+            | Q(component__orgsystem__isnull=True,
+                component__threat_model__organization_id__in=org_ids)
         ).select_related("component", "threat_library")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["component", "threat_library", "status", "inherent_severity"]
@@ -254,7 +256,9 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         return DataFlowInstanceThreat.objects.filter(
-            data_flow__source_component__orgsystem__organization_id__in=org_ids
+            Q(data_flow__source_component__orgsystem__organization_id__in=org_ids)
+            | Q(data_flow__source_component__orgsystem__isnull=True,
+                data_flow__source_component__threat_model__organization_id__in=org_ids)
         ).select_related("data_flow", "threat_library")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity"]
@@ -328,7 +332,9 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         return ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component__orgsystem__organization_id__in=org_ids
+            Q(instance_threat__component__orgsystem__organization_id__in=org_ids)
+            | Q(instance_threat__component__orgsystem__isnull=True,
+                instance_threat__component__threat_model__organization_id__in=org_ids)
         ).select_related(
             "instance_threat",
             "countermeasure_library",
@@ -359,7 +365,9 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         return FlowInstanceCountermeasure.objects.filter(
-            flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+            Q(flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids)
+            | Q(flow_threat__data_flow__source_component__orgsystem__isnull=True,
+                flow_threat__data_flow__source_component__threat_model__organization_id__in=org_ids)
         ).select_related(
             "flow_threat",
             "countermeasure_library",
@@ -392,10 +400,14 @@ class VerificationTestViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         component_test_ids = ComponentInstanceCountermeasureTest.objects.filter(
-            component_countermeasure__instance_threat__component__orgsystem__organization_id__in=org_ids
+            Q(component_countermeasure__instance_threat__component__orgsystem__organization_id__in=org_ids)
+            | Q(component_countermeasure__instance_threat__component__orgsystem__isnull=True,
+                component_countermeasure__instance_threat__component__threat_model__organization_id__in=org_ids)
         ).values_list("test_id", flat=True)
         flow_test_ids = FlowInstanceCountermeasureTest.objects.filter(
-            flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+            Q(flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids)
+            | Q(flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__isnull=True,
+                flow_countermeasure__flow_threat__data_flow__source_component__threat_model__organization_id__in=org_ids)
         ).values_list("test_id", flat=True)
         return VerificationTest.objects.filter(
             Q(id__in=component_test_ids) | Q(id__in=flow_test_ids)
@@ -443,7 +455,9 @@ class ComponentInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         return ComponentInstanceCountermeasureStandard.objects.filter(
-            component_countermeasure__instance_threat__component__orgsystem__organization_id__in=org_ids
+            Q(component_countermeasure__instance_threat__component__orgsystem__organization_id__in=org_ids)
+            | Q(component_countermeasure__instance_threat__component__orgsystem__isnull=True,
+                component_countermeasure__instance_threat__component__threat_model__organization_id__in=org_ids)
         ).select_related(
             "component_countermeasure",
             "requirement",
@@ -467,7 +481,9 @@ class FlowInstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
             "organization_id", flat=True
         )
         return FlowInstanceCountermeasureStandard.objects.filter(
-            flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+            Q(flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids)
+            | Q(flow_countermeasure__flow_threat__data_flow__source_component__orgsystem__isnull=True,
+                flow_countermeasure__flow_threat__data_flow__source_component__threat_model__organization_id__in=org_ids)
         ).select_related(
             "flow_countermeasure",
             "requirement",

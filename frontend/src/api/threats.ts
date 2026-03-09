@@ -608,6 +608,9 @@ export interface BackendCountermeasure {
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
   standardMappings: BackendStandardMapping[]
+  isInherited?: boolean
+  inheritedFromComponentName?: string | null
+  inheritedFromZoneName?: string | null
 }
 
 /**
@@ -638,6 +641,9 @@ export function transformBackendThreatsToComponentThreats(
       countermeasureName: cm.countermeasureName || undefined,
       controlType: cm.controlType || undefined,
       standardMappings: cm.standardMappings || [],
+      isInherited: cm.isInherited || false,
+      inheritedFromComponentName: cm.inheritedFromComponentName || undefined,
+      inheritedFromZoneName: cm.inheritedFromZoneName || undefined,
     }))
 
     return {
@@ -687,5 +693,67 @@ export function useThreatModelThreats(threatModelId: string | null | undefined) 
         }
       : skipToken,
     staleTime: 30000, // Consider fresh for 30 seconds
+  })
+}
+
+// ============================================
+// Zone Protections API
+// ============================================
+
+export interface ZoneProtectionSuggestion {
+  targetCountermeasureId: number
+  targetComponentName: string
+  targetZoneName: string
+  sourceComponentName: string
+  sourceZoneName: string
+  countermeasureName: string
+  controlType: string
+}
+
+interface ZoneProtectionsResponse {
+  suggestions: ZoneProtectionSuggestion[]
+  totalCount: number
+}
+
+interface ApplyZoneProtectionsResponse {
+  updatedCount: number
+}
+
+/**
+ * Fetch zone protection suggestions for a threat model.
+ */
+export function useZoneProtections(threatModelId: string | null | undefined, enabled = false) {
+  return useQuery({
+    queryKey: ['zone-protections', threatModelId],
+    queryFn: threatModelId && enabled
+      ? () => api.get<ZoneProtectionsResponse>(
+          `/threat-models/${threatModelId}/zone_protections/`
+        )
+      : skipToken,
+  })
+}
+
+/**
+ * Apply selected zone protection suggestions.
+ */
+export function useApplyZoneProtections() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      threatModelId,
+      items,
+    }: {
+      threatModelId: string
+      items: { countermeasureId: number; sourceComponentName: string; sourceZoneName: string }[]
+    }) =>
+      api.post<ApplyZoneProtectionsResponse>(
+        `/threat-models/${threatModelId}/apply_zone_protections/`,
+        { items }
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['zone-protections'] })
+    },
   })
 }

@@ -512,6 +512,7 @@ interface ComponentViewProps {
     countermeasureInstanceId: string,
     priority: string
   ) => void
+  isSecurityTeam?: boolean
 }
 
 /**
@@ -810,6 +811,7 @@ function DataFlowAssetsDisplay({
 function CountermeasureStatusButtons({
   status,
   isPlatformLevel,
+  isSecurityTeam,
   hasOwner,
   onChange,
   onPlannedWithoutOwner,
@@ -817,12 +819,15 @@ function CountermeasureStatusButtons({
 }: {
   status: CountermeasureStatus
   isPlatformLevel: boolean
+  isSecurityTeam?: boolean
   hasOwner: boolean
   onChange: (status: CountermeasureStatus) => void
   onPlannedWithoutOwner: () => void
   onWaivedWithoutReason: () => void
 }) {
-  const statuses: CountermeasureStatus[] = ['gap', 'planned', 'verified', 'waived']
+  const statuses: CountermeasureStatus[] = isSecurityTeam
+    ? ['platform', 'gap', 'planned', 'verified', 'waived']
+    : ['gap', 'planned', 'verified', 'waived']
 
   const handleStatusClick = (newStatus: CountermeasureStatus) => {
     // If clicking "Planned" and no owner assigned, trigger owner assignment first
@@ -840,7 +845,8 @@ function CountermeasureStatusButtons({
 
   return (
     <div className="flex items-center gap-1">
-      {isPlatformLevel && status === 'platform' && (
+      {/* Non-security users see locked Platform badge for platform countermeasures */}
+      {!isSecurityTeam && isPlatformLevel && status === 'platform' && (
         <Badge
           variant="outline"
           className="bg-green-100 text-green-700 border-green-300 cursor-default"
@@ -859,6 +865,7 @@ function CountermeasureStatusButtons({
             size="sm"
             className={cn(
               'h-7 px-2 text-xs',
+              isActive && s === 'platform' && 'bg-green-600 hover:bg-green-700',
               isActive && s === 'gap' && 'bg-red-500 hover:bg-red-600',
               isActive && s === 'planned' && 'bg-yellow-500 hover:bg-yellow-600 text-black',
               isActive && s === 'verified' && 'bg-green-500 hover:bg-green-600',
@@ -896,6 +903,7 @@ export function ComponentView({
   onRemoveCountermeasure,
   onRestoreCountermeasure,
   onCountermeasurePriorityChange,
+  isSecurityTeam,
 }: ComponentViewProps) {
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
   const [showDismissedCountermeasures, setShowDismissedCountermeasures] = useState(false)
@@ -1764,6 +1772,20 @@ export function ComponentView({
                       </div>
                     )}
 
+                    {/* Inherited from zone badge */}
+                    {cm.isInherited && cm.inheritedFromZoneName && (
+                      <div className="mt-2 text-xs text-purple-600 flex items-center gap-1 bg-purple-50 px-2 py-1 rounded border border-purple-200">
+                        <Shield className="h-3 w-3" />
+                        <span>
+                          Inherited from{' '}
+                          <span className="font-medium">
+                            {cm.inheritedFromComponentName}
+                          </span>
+                          {' '}({cm.inheritedFromZoneName})
+                        </span>
+                      </div>
+                    )}
+
                     {/* Waiver reason display */}
                     {cm.status === 'waived' && cm.notes && !isWaiving && (
                       <div className="mt-2 text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
@@ -1798,6 +1820,7 @@ export function ComponentView({
                         <CountermeasureStatusButtons
                           status={cm.status}
                           isPlatformLevel={cm.status === 'platform'}
+                          isSecurityTeam={isSecurityTeam}
                           hasOwner={!!cm.owner}
                           onChange={(status) =>
                             onCountermeasureStatusChange(

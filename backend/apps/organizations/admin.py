@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from .models import (
     Organization,
@@ -10,10 +12,40 @@ from .models import (
     MagicLink,
 )
 
+User = get_user_model()
+
 
 class OrganizationMemberInline(admin.TabularInline):
     model = OrganizationMember
     extra = 1
+
+
+class UserOrganizationMemberInline(admin.TabularInline):
+    """Inline for OrganizationMember on the User admin page."""
+    model = OrganizationMember
+    extra = 0
+    fields = ["organization", "role", "joined_at"]
+    readonly_fields = ["joined_at"]
+
+
+# Unregister the default User admin, then re-register with org role column
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    list_display = list(BaseUserAdmin.list_display) + ["org_role"]
+    inlines = list(BaseUserAdmin.inlines or []) + [UserOrganizationMemberInline]
+
+    @admin.display(description="Org Role")
+    def org_role(self, obj):
+        roles = list(
+            OrganizationMember.objects.filter(user=obj)
+            .values_list("organization__name", "role")
+        )
+        if not roles:
+            return "-"
+        return ", ".join(f"{org}: {role}" for org, role in roles)
 
 
 class TeamInline(admin.TabularInline):

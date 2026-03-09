@@ -487,6 +487,11 @@ class ComponentInstanceCountermeasure(TimestampedModel):
     priority = models.CharField(max_length=10, default="none", blank=True)
     format_metadata = models.JSONField(default=dict, blank=True)
 
+    # Zone inheritance tracking
+    is_inherited = models.BooleanField(default=False)
+    inherited_from_component_name = models.CharField(max_length=255, blank=True)
+    inherited_from_zone_name = models.CharField(max_length=255, blank=True)
+
     class Meta:
         unique_together = ["instance_threat", "countermeasure_library"]
 
@@ -558,6 +563,11 @@ class FlowInstanceCountermeasure(TimestampedModel):
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
     format_metadata = models.JSONField(default=dict, blank=True)
+
+    # Zone inheritance tracking
+    is_inherited = models.BooleanField(default=False)
+    inherited_from_component_name = models.CharField(max_length=255, blank=True)
+    inherited_from_zone_name = models.CharField(max_length=255, blank=True)
 
     class Meta:
         unique_together = ["flow_threat", "countermeasure_library"]

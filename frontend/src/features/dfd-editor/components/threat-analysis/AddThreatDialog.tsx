@@ -113,7 +113,7 @@ export function AddThreatDialog({
       threatName: customName,
       threatDescription: customDescription,
       inherentSeverity: customSeverity,
-      status: 'open',
+      status: 'exposed',
     }
 
     const data = targetType === 'component'
