@@ -162,6 +162,12 @@ export function ThreatModelDetail() {
     queryFn: fetchThreatModels,
   })
 
+  // Fetch analysis-only components (linked directly to threat model, not via DFD canvas)
+  const { data: analysisComponents = [] } = useAnalysisComponents(id ?? null)
+
+  // Fetch trust zones for this threat model (used for models without DFD canvas)
+  const { data: backendTrustZones = [] } = useTrustZones(id)
+
   // Workspace threat analysis state
   const {
     componentThreats,
@@ -180,7 +186,7 @@ export function ThreatModelDetail() {
     removeCountermeasure,
     restoreCountermeasure,
     toggleChecklistItem,
-  } = useWorkspaceThreatAnalysis(id, diagrams)
+  } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
 
   // Status is read directly from the threat model
   const status = (threatModel?.status ?? 'draft') as WorkspaceStatus
@@ -188,12 +194,6 @@ export function ThreatModelDetail() {
   // Fetch threat model threats data (for nodeComponentMap)
   const { data: threatData, refetch: refetchThreats } = useThreatModelThreats(id)
   const nodeComponentMap = threatData?.nodeComponentMap || {}
-
-  // Fetch analysis-only components (linked directly to threat model, not via DFD canvas)
-  const { data: analysisComponents = [] } = useAnalysisComponents(id ?? null)
-
-  // Fetch trust zones for this threat model (used for models without DFD canvas)
-  const { data: backendTrustZones = [] } = useTrustZones(id)
 
   // Create diagram mutation
   const createDiagramMutation = useMutation({

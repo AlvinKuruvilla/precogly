@@ -66,7 +66,8 @@ function extractWorkspaceState(
 
 export function useWorkspaceThreatAnalysis(
   threatModelId: string | undefined,
-  diagrams: Diagram[]
+  diagrams: Diagram[],
+  analysisComponents: { id: number; category: string }[] = []
 ) {
   // Track if we've initialized from backend to avoid overwriting with defaults
   const hasInitializedFromBackend = useRef(false)
@@ -481,14 +482,28 @@ export function useWorkspaceThreatAnalysis(
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
     const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
+
+    // Get IDs of components already on canvas to avoid double-counting
+    const canvasComponentIds = new Set(
+      allNodes
+        .map((n) => n.data?.componentId)
+        .filter(Boolean)
+    )
+    // Analysis-only components not already on canvas
+    const analysisOnly = analysisComponents.filter((c) => !canvasComponentIds.has(c.id))
+
     const componentSummary = {
       total: allNodes.filter(
         (n) => n.type === 'process' || n.type === 'datastore' || n.type === 'humanActor' || n.type === 'systemActor'
-      ).length,
-      processes: allNodes.filter((n) => n.type === 'process').length,
-      datastores: allNodes.filter((n) => n.type === 'datastore').length,
-      humanActors: allNodes.filter((n) => n.type === 'humanActor').length,
-      systemActors: allNodes.filter((n) => n.type === 'systemActor').length,
+      ).length + analysisOnly.length,
+      processes: allNodes.filter((n) => n.type === 'process').length
+        + analysisOnly.filter((c) => c.category === 'process').length,
+      datastores: allNodes.filter((n) => n.type === 'datastore').length
+        + analysisOnly.filter((c) => c.category === 'datastore').length,
+      humanActors: allNodes.filter((n) => n.type === 'humanActor').length
+        + analysisOnly.filter((c) => c.category === 'human_actor').length,
+      systemActors: allNodes.filter((n) => n.type === 'systemActor').length
+        + analysisOnly.filter((c) => c.category === 'system_actor').length,
       trustZones: allNodes.filter((n) => n.type === 'trustZone').length,
     }
 
@@ -521,7 +536,7 @@ export function useWorkspaceThreatAnalysis(
     }
 
     return { componentSummary, threatSummary, countermeasureSummary }
-  }, [state.componentThreats, diagrams])
+  }, [state.componentThreats, diagrams, analysisComponents])
 
   // Progress checklist is computed by the backend and returned in workspace_data
   const progressChecklist: ProgressChecklistItem[] = useMemo(() => {
