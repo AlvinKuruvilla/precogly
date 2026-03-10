@@ -501,6 +501,7 @@ interface ComponentViewProps {
     assignee: Assignee,
     newStatus?: CountermeasureStatus // Optional: also update status in the same API call
   ) => void
+  onAddComponent: () => void
   onAddCustomThreat: () => void
   onDismissThreat: (componentThreatId: string) => void
   onRestoreThreat: (componentThreatId: string) => void
@@ -897,6 +898,7 @@ export function ComponentView({
   onSelectThreat,
   onCountermeasureStatusChange,
   onAssignOwner,
+  onAddComponent,
   onAddCustomThreat,
   onDismissThreat,
   onRestoreThreat,
@@ -1059,7 +1061,18 @@ export function ComponentView({
       <div className="w-64 border-r flex flex-col">
         {/* Components list header */}
         <div className="px-3 py-2 border-b">
-          <div className="font-medium">Components & Zones</div>
+          <div className="flex items-center justify-between">
+            <div className="font-medium">Components & Zones</div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={onAddComponent}
+            >
+              <Plus className="h-3 w-3" />
+              Add
+            </Button>
+          </div>
           <div className="text-xs text-muted-foreground">
             {analyzableComponents.length} components &nbsp;|&nbsp;{' '}
             {trustZones.length} zones &nbsp;|&nbsp;{' '}
@@ -1607,9 +1620,22 @@ export function ComponentView({
               {selectedThreatDef?.threatName || 'Select a threat'}
             </div>
           </div>
-          {selectedComponentThreat && (
-            <ThreatStatusBadge status={deriveThreatStatus(selectedComponentThreat.countermeasures)} />
-          )}
+          <div className="flex items-center gap-2">
+            {selectedComponentThreat && (
+              <ThreatStatusBadge status={deriveThreatStatus(selectedComponentThreat.countermeasures)} />
+            )}
+            {selectedComponentThreat && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={onAddCustomCountermeasure}
+              >
+                <Plus className="h-3 w-3" />
+                Add
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Legend */}
@@ -1863,18 +1889,6 @@ export function ComponentView({
                 )
               })}
 
-            {/* Add countermeasure */}
-            {selectedComponentThreat && (
-              <div className="pt-2 border-t">
-                <button
-                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                  onClick={onAddCustomCountermeasure}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Countermeasure
-                </button>
-              </div>
-            )}
 
             {/* Dismissed countermeasures section */}
             {selectedComponentThreat && (() => {

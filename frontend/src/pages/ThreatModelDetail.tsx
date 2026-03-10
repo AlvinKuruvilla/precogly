@@ -740,17 +740,6 @@ export function ThreatModelDetail() {
                       </select>
                     </div>
                   )}
-                  {/* Add Component Button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAddComponentDialogOpen(true)}
-                    className="gap-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Component
-                  </Button>
-
                   {/* Zone Protections Button */}
                   <Button
                     variant="outline"
@@ -805,6 +794,7 @@ export function ThreatModelDetail() {
                     onSelectThreat={setSelectedThreatId}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}
+                    onAddComponent={() => setAddComponentDialogOpen(true)}
                     onAddCustomThreat={() => setAddThreatDialogOpen(true)}
                     onDismissThreat={dismissThreat}
                     onRestoreThreat={restoreThreat}
