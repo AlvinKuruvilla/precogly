@@ -318,7 +318,7 @@ class ComponentInstanceThreat(TimestampedModel):
         choices=Status.choices,
         default=Status.EXPOSED,
     )
-    justification = models.TextField(blank=True)
+    severity_scoring_metadata = models.JSONField(default=dict, blank=True)
 
     # Dismiss functionality
     is_dismissed = models.BooleanField(
@@ -390,6 +390,7 @@ class DataFlowInstanceThreat(TimestampedModel):
         choices=Status.choices,
         default=Status.EXPOSED,
     )
+    severity_scoring_metadata = models.JSONField(default=dict, blank=True)
 
     # Dismiss functionality
     is_dismissed = models.BooleanField(

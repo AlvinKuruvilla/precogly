@@ -137,7 +137,7 @@ export function AddCountermeasureDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Countermeasure</DialogTitle>
           <DialogDescription>
@@ -162,7 +162,7 @@ export function AddCountermeasureDialog({
               />
             </div>
 
-            {threatLibraryId && (
+            {threatLibraryId != null && !Number.isNaN(threatLibraryId) && (
               <p className="text-xs text-muted-foreground">
                 Showing countermeasures applicable to this threat type. Clear search to see all.
               </p>

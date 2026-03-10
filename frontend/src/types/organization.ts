@@ -215,7 +215,7 @@ export interface SharedThreat {
   inherentSeverity: string
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'
-  justification?: string
+  severityScoringMetadata?: Record<string, unknown>
   isDismissed: boolean
   countermeasures: SharedCountermeasure[]
 }

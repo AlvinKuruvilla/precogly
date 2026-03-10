@@ -22,7 +22,7 @@ export interface ComponentInstanceThreat {
   inherentSeverity: string
   residualSeverity: string
   status: 'exposed' | 'addressable' | 'mitigated'
-  justification: string
+  severityScoringMetadata: Record<string, unknown>
   isDismissed: boolean
   dismissalReason: string
   formatMetadata: Record<string, unknown>
@@ -326,7 +326,7 @@ export function useRecalculateThreatStatus() {
 }
 
 /**
- * Update a threat instance (e.g., status, justification).
+ * Update a threat instance (e.g., status, severity).
  */
 export function useUpdateThreat() {
   const queryClient = useQueryClient()
@@ -341,6 +341,27 @@ export function useUpdateThreat() {
     }) => api.patch<ComponentInstanceThreat>(`/component-threats/${threatId}/`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
+    },
+  })
+}
+
+/**
+ * Update a flow threat instance (e.g., status, severity).
+ */
+export function useUpdateFlowThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      threatId,
+      data,
+    }: {
+      threatId: number
+      data: Record<string, unknown>
+    }) => api.patch(`/flow-threats/${threatId}/`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
   })
 }
@@ -551,11 +572,22 @@ export function parseCountermeasureId(idString: string): {
 /**
  * Backend response for threat model threats endpoint.
  */
+export interface EdgeDataflowMapEntry {
+  dataflowId: number
+  dfdId: string | null
+  dfdName: string | null
+  isAnalysisOnly?: boolean
+  label?: string
+  sourceComponentName?: string
+  destComponentName?: string
+}
+
 export interface ThreatModelThreatsResponse {
   threatModelId: string
   threats: BackendThreat[]
   totalCount: number
   nodeComponentMap: Record<string, { componentId: number; dfdId: string; dfdName: string }>
+  edgeDataflowMap: Record<string, EdgeDataflowMapEntry>
 }
 
 /**
@@ -579,7 +611,7 @@ export interface BackendThreat {
   inherentSeverity: string
   residualSeverity: string
   status: 'exposed' | 'addressable' | 'mitigated'
-  justification: string
+  severityScoringMetadata: Record<string, unknown>
   isDismissed: boolean
   dismissalReason: string
   countermeasures: BackendCountermeasure[]
@@ -661,7 +693,6 @@ export function transformBackendThreatsToComponentThreats(
       threatId: `lib-${bt.threatLibraryId}`,
       dismissed: bt.isDismissed,
       dismissalReason: bt.dismissalReason || undefined,
-      notes: bt.justification || undefined,
       countermeasures,
       createdAt: now,
       updatedAt: now,
@@ -669,6 +700,9 @@ export function transformBackendThreatsToComponentThreats(
       threatName: bt.threatName || undefined,
       threatDescription: bt.threatDescription || undefined,
       taxonomyEntries: bt.taxonomyEntries,
+      // Severity scoring metadata
+      inherentSeverity: bt.inherentSeverity,
+      severityScoringMetadata: bt.severityScoringMetadata,
       // Backend IDs for API operations
       backendThreatId: bt.id,
       backendComponentId: bt.componentId,

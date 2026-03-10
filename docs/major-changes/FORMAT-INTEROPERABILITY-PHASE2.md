@@ -25,6 +25,9 @@ Implement TM-Library import and export for threat models. TM-Library (OWASP Proj
 | Import mode | New threat model only | No merge conflict resolution needed. User uploads a file → gets a new threat model. |
 | Enum translation | Map to closest match + preserve original in `format_metadata` | Round-trip fidelity without blocking import on unmapped values. |
 | Pack interaction | No pack linkage | Imported threats/countermeasures are standalone instances (no `*_library` FK). Keeps adapters simple and pack-agnostic. |
+| Team assignment | Auto-assign to user's default team | Imported threat model is assigned to `created_by`'s default team. |
+| Multi-threat controls | Duplicate per threat | A TM-Library control referencing N threats creates N countermeasure instances (same name/description/status, different `instance_threat` FK). Export re-merges by `symbolic_name`. This aligns with Precogly's per-threat assessment model (effectiveness, status, owner are per-threat properties). |
+| Flow threat routing | Route by entity type | `components_affected` referencing data flows → `DataFlowInstanceThreat`. Referencing components/actors/data_stores → `ComponentInstanceThreat`. Assume TM-Library schema gaps will be fixed upstream. |
 
 ---
 
@@ -179,7 +182,7 @@ Route based on which threat type the referenced threat resolved to.
 | `symbolic_name` | `format_metadata.tm_library.symbolic_name` |
 | `title` | `countermeasure_name` |
 | `description` | `countermeasure_description` |
-| `threats` | `instance_threat` / `flow_threat` (FK, resolved via symbolic_name) |
+| `threats` | `instance_threat` / `flow_threat` (FK, resolved via symbolic_name). **If multiple threats referenced, create one countermeasure instance per threat** (see Decisions table). All instances share the same `symbolic_name` in `format_metadata` for export re-merging. |
 | `status` | `status` — see enum mapping below |
 | `priority` | `priority` (core column, direct map: none/low/medium/high/critical) |
 | `trust_boundary` | `format_metadata.tm_library.trust_boundary` |
@@ -240,6 +243,7 @@ Reverse of the import mapping. Key differences:
 - **symbolic_name generation:** Use `<entity_type>_<pk>` (e.g., `component_42`, `threat_7`). If `format_metadata.tm_library.symbolic_name` exists (round-trip), use that instead.
 - **Enum reverse mapping:** If `format_metadata.tm_library.original_status` exists, use that. Otherwise, map back: verified→active, platform→assumed, planned→suggested, waived→retired, gap→*(omit or use a sensible default)*.
 - **Threat routing:** ComponentInstanceThreat and DataFlowInstanceThreat both export as `threats[]`. Populate `components_affected` with the symbolic_names of the owning component/flow. `inherent_severity` is **not exported** — TM-Library has no per-threat severity concept.
+- **Control re-merging:** Multiple countermeasure instances sharing the same `format_metadata.tm_library.symbolic_name` export as a single `controls[]` entry with all referenced threats in `threats[]`. Use the first instance's status/priority (warn if they diverged).
 - **Risk export depends on scoring method:**
   - If `risk_scoring_method == "tm_library"`: read `likelihood` and `impact` from `scoring_metadata` directly — they're already in TM-Library enum format. Export `inherent_score` as `score` and `inherent_level` as `level`.
   - If a different scoring method (FAIR, OWASP RR, etc.): `scoring_metadata` won't have `likelihood`/`impact`. Export the risk with `score` and `level` only (from `inherent_score`/`inherent_level`). Omit `likelihood` and `impact` fields. Add a warning to the export summary.
@@ -262,7 +266,7 @@ backend/apps/threat_models/adapters/
 
 **SymbolicNameResolver:** During import, builds a `dict[str, Model]` as entities are created, so later entities (threats, controls, risks) can resolve FKs by symbolic_name. During export, builds the reverse map.
 
-**TmLibraryAdapter.import_data(json_data, organization, created_by):**
+**TmLibraryAdapter.import_data(json_data, organization, created_by):** Auto-assigns to `created_by`'s default team.
 1. Validate JSON structure (required top-level keys, array types)
 2. Create ThreatModel
 3. Process entities in dependency order: trust_zones → trust_boundaries → actors/components/data_stores → data_sets → data_flows → threat_personas → threats → controls → risks
@@ -369,7 +373,7 @@ The TM-Library schema (`docs/TM-FORMATS/Project-TM-Library/threat-model.schema.j
 | `trust-boundary` | `label`, `description` | Only zone_a/zone_b + auth properties. Export: label/description lost. Import: TrustBoundary created with empty label/description. |
 | `control` | `control_type`, `effectiveness`, `evidence_url` | No preventive/detective/corrective distinction. Export: omit. Import: defaults. |
 | `risk` | `residual_score`, `residual_level` | Only inherent scoring. Export: omit residual. Import: residual computed by `recalculate_risk()` from countermeasure effectiveness. |
-| `threat` | Data flow association | `components_affected` references symbolic-names titled "Components" — ambiguous whether data flows can be referenced. Export: data flow threats exported with flow source/dest as `components_affected`. Import: all threats routed to ComponentInstanceThreat (no way to distinguish flow threats). |
+| `threat` | Data flow association | `components_affected` references symbolic-names titled "Components" — ambiguous whether data flows can be referenced. Export: data flow threats exported with flow symbolic_name as `components_affected`. Import: resolve symbolic_names against all entity types — route to `DataFlowInstanceThreat` when a data flow matches, `ComponentInstanceThreat` otherwise. |
 
 ### Schema vs. real-world implementation discrepancy
 
@@ -392,6 +396,10 @@ These Precogly features have no representation in TM-Library and are silently om
 - Component `category`, `component_type`, `provider` (structural in TM-Library via separate entity types)
 - Data flow `data_classification` tags
 - Countermeasure inheritance (zone-based)
+
+### CAPEC/CWE taxonomy visibility gap (accepted)
+
+TM-Library threats carry inline `attack_mechanisms` (CAPEC) and `weaknesses` (CWE). In Precogly, taxonomy entries are linked to **library-level threats** (`ThreatLibrary` → `ThreatLibraryTaxonomyEntry` → `TaxonomyEntry`), not to instances. Since imported threats have `threat_library = null` (no pack linkage), their CAPEC/CWE data is stored in `format_metadata` but won't appear in taxonomy UI. This is acceptable — the data is preserved for round-trip export, and users can manually link a library threat later if taxonomy visibility is needed.
 
 ---
 

@@ -153,6 +153,9 @@ export interface ComponentThreat {
   threatName?: string
   threatDescription?: string
   taxonomyEntries?: TaxonomyEntry[]
+  // Severity scoring metadata
+  inherentSeverity?: string
+  severityScoringMetadata?: Record<string, unknown>
   // Backend IDs for API operations
   backendThreatId?: number
   backendComponentId?: number

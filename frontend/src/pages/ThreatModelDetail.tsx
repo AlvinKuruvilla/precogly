@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText, Share2, Plus } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText, Share2, Plus, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -37,7 +37,7 @@ import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat
 import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threat-analysis/AddCustomComponentDialog'
 import { ReviewZoneProtectionsDialog } from '@/features/dfd-editor/components/threat-analysis/ReviewZoneProtectionsDialog'
 import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
-import { useAnalysisComponents } from '@/api/components'
+import { useAnalysisComponents, useTrustZones } from '@/api/components'
 import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
 import type { ThreatModelStatus } from '@/types/domain'
 import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
@@ -53,6 +53,7 @@ import {
   useRemoveThreatModelSystem,
   useAddReferencedModel,
   useRemoveReferencedModel,
+  exportTmLibrary,
 } from '@/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
 import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/api/reference-images'
@@ -191,6 +192,8 @@ export function ThreatModelDetail() {
   // Fetch analysis-only components (linked directly to threat model, not via DFD canvas)
   const { data: analysisComponents = [] } = useAnalysisComponents(id ?? null)
 
+  // Fetch trust zones for this threat model (used for models without DFD canvas)
+  const { data: backendTrustZones = [] } = useTrustZones(id)
 
   // Create diagram mutation
   const createDiagramMutation = useMutation({
@@ -279,13 +282,36 @@ export function ThreatModelDetail() {
     return [...canvasComponents, ...analysisOnlyNodes]
   }, [aggregatedCanvasData.nodes, analysisComponents, selectedDiagramId])
 
-  const trustZones = useMemo(() => {
-    return aggregatedCanvasData.nodes.filter((node) => node.type === 'trustZone')
-  }, [aggregatedCanvasData.nodes])
+  const trustZones = useMemo((): DiagramNode[] => {
+    const canvasZones = aggregatedCanvasData.nodes.filter((node) => node.type === 'trustZone')
+    if (canvasZones.length > 0) return canvasZones
+
+    // For models without DFD canvas (e.g., imported TM-Library), derive zones from backend
+    return backendTrustZones.map((zone) => ({
+      id: `analysis-zone-${zone.id}`,
+      type: 'trustZone',
+      position: { x: 0, y: 0 },
+      data: { label: zone.name },
+    }))
+  }, [aggregatedCanvasData.nodes, backendTrustZones])
 
   const dataFlows = useMemo(() => {
-    return aggregatedCanvasData.edges
-  }, [aggregatedCanvasData.edges])
+    if (aggregatedCanvasData.edges.length > 0) return aggregatedCanvasData.edges
+
+    // For models without DFD canvas, derive flows from the edge_dataflow_map
+    const edgeMap = threatData?.edgeDataflowMap || {}
+    const syntheticEdges: DataFlowEdge[] = Object.entries(edgeMap).map(([edgeId, entry]) => ({
+      id: edgeId,
+      source: entry.sourceComponentName || '',
+      target: entry.destComponentName || '',
+      type: 'dataFlow' as const,
+      data: {
+        label: entry.label || 'Data Flow',
+        dataflowId: entry.dataflowId,
+      },
+    }))
+    return syntheticEdges
+  }, [aggregatedCanvasData.edges, threatData?.edgeDataflowMap])
 
   // Get selected component threat
   const selectedComponentThreat = useMemo(() => {
@@ -351,9 +377,10 @@ export function ThreatModelDetail() {
     if (!selectedComponentThreat.backendThreatId) return null
 
     // Parse threatLibraryId from threatId (format: "lib-{id}")
-    const threatLibraryId = selectedComponentThreat.threatId.startsWith('lib-')
+    const parsedId = selectedComponentThreat.threatId.startsWith('lib-')
       ? parseInt(selectedComponentThreat.threatId.slice(4), 10)
       : null
+    const threatLibraryId = parsedId != null && !Number.isNaN(parsedId) ? parsedId : null
 
     return {
       backendId: selectedComponentThreat.backendThreatId,
@@ -534,6 +561,28 @@ export function ThreatModelDetail() {
               <Share2 className="h-3 w-3" />
               <span className="hidden sm:inline">Share</span>
             </Button>
+
+            {/* Export button */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                >
+                  <Download className="h-3 w-3" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => id && exportTmLibrary(id)}
+                  className="text-xs"
+                >
+                  TM-Library (JSON)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* System Context button */}
             <Button
@@ -781,6 +830,7 @@ export function ThreatModelDetail() {
               <div className="flex-1 min-h-0">
                 {viewMode === 'component' ? (
                   <ComponentView
+                    threatModelId={id!}
                     canvasData={aggregatedCanvasData}
                     analyzableComponents={analyzableComponents}
                     trustZones={trustZones}

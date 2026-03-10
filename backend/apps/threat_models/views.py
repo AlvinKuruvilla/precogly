@@ -2,11 +2,15 @@
 Views for threat_models app.
 """
 
+import json
+
 from django.db import transaction
 from django.db.models import Q
+from django.http import JsonResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -492,6 +496,28 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             }
             component_ids.append(comp.id)
 
+        # Also include data flows connected to analysis-only components
+        # (these won't have DFD canvas edges but still need threat retrieval)
+        analysis_flows = DataFlow.objects.filter(
+            Q(source_component_id__in=component_ids)
+            | Q(dest_component_id__in=component_ids)
+        ).exclude(
+            id__in=dataflow_ids
+        ).select_related("source_component", "dest_component").distinct()
+
+        for flow in analysis_flows:
+            synthetic_edge_id = f"analysis-flow-{flow.id}"
+            edge_dataflow_map[synthetic_edge_id] = {
+                "dataflow_id": flow.id,
+                "dfd_id": None,
+                "dfd_name": None,
+                "is_analysis_only": True,
+                "label": flow.label,
+                "source_component_name": flow.source_component.name if flow.source_component else "",
+                "dest_component_name": flow.dest_component.name if flow.dest_component else "",
+            }
+            dataflow_ids.append(flow.id)
+
         # Fetch all component threats
         component_threats = ComponentInstanceThreat.objects.filter(
             component_id__in=component_ids
@@ -542,7 +568,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
-                "justification": threat.justification,
+                "severity_scoring_metadata": threat.severity_scoring_metadata,
                 "is_dismissed": threat.is_dismissed,
                 "dismissal_reason": threat.dismissal_reason,
                 "countermeasures": [
@@ -595,7 +621,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
-                "justification": "",
+                "severity_scoring_metadata": threat.severity_scoring_metadata,
                 "is_dismissed": threat.is_dismissed,
                 "dismissal_reason": threat.dismissal_reason,
                 "countermeasures": [
@@ -649,6 +675,79 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         items = request.data.get("items", [])
         result = apply_zone_protections(items)
         return Response(result)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import/tm-library",
+        parser_classes=[MultiPartParser, JSONParser],
+    )
+    def import_tm_library(self, request):
+        """Import a TM-Library format JSON file as a new threat model."""
+        from .adapters import TmLibraryAdapter
+
+        # Get organization from user's membership
+        first_membership = request.user.organization_memberships.first()
+        if not first_membership:
+            return Response(
+                {"detail": "User has no organization membership."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        organization = first_membership.organization
+
+        # Accept either file upload or JSON body
+        if "file" in request.FILES:
+            uploaded_file = request.FILES["file"]
+            try:
+                json_data = json.loads(uploaded_file.read().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                return Response(
+                    {"detail": f"Invalid JSON file: {e}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        elif request.content_type and "json" in request.content_type:
+            json_data = request.data
+        else:
+            return Response(
+                {"detail": "Provide a JSON file upload (field: 'file') or a JSON body."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        adapter = TmLibraryAdapter()
+        try:
+            threat_model, summary = adapter.import_data(
+                json_data, organization, request.user
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "threat_model": {
+                    "id": str(threat_model.id),
+                    "name": threat_model.name,
+                },
+                "summary": summary,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["get"], url_path="export/tm-library")
+    def export_tm_library(self, request, pk=None):
+        """Export a threat model as TM-Library format JSON."""
+        from .adapters import TmLibraryAdapter
+
+        threat_model = self.get_object()
+        adapter = TmLibraryAdapter()
+        export_data = adapter.export_data(threat_model)
+
+        response = JsonResponse(export_data, json_dumps_params={"indent": 2})
+        filename = f"{threat_model.name.replace(' ', '-').lower()}-threat-model.json"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):

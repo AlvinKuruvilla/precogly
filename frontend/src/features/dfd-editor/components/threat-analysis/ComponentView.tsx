@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { useTeamMembers, useOrganizationMembers } from '@/api/organizations'
@@ -42,7 +43,7 @@ import { useComponentDataAssets } from '@/api/component-data-assets'
 import { useDataFlowAssets } from '@/api/data-flow-assets'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
-import { parseCountermeasureId } from '@/api/threats'
+import { parseCountermeasureId, useUpdateThreat, useUpdateFlowThreat } from '@/api/threats'
 import {
   buildComponentTree,
   buildNodesMap,
@@ -57,6 +58,151 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   medium: { label: 'Medium', color: 'bg-yellow-100 text-yellow-700' },
   high: { label: 'High', color: 'bg-orange-100 text-orange-700' },
   critical: { label: 'Critical', color: 'bg-red-100 text-red-700' },
+}
+
+// Severity assessment constants
+const LIKELIHOOD_OPTIONS = [
+  { value: 'rare', label: 'Rare' },
+  { value: 'unlikely', label: 'Unlikely' },
+  { value: 'possible', label: 'Possible' },
+  { value: 'likely', label: 'Likely' },
+  { value: 'certain', label: 'Certain' },
+] as const
+
+const IMPACT_OPTIONS = [
+  { value: 'negligible', label: 'Negligible' },
+  { value: 'minor', label: 'Minor' },
+  { value: 'moderate', label: 'Moderate' },
+  { value: 'major', label: 'Major' },
+  { value: 'severe', label: 'Severe' },
+] as const
+
+const LIKELIHOOD_VALUES: Record<string, number> = { rare: 1, unlikely: 2, possible: 3, likely: 4, certain: 5 }
+const IMPACT_VALUES: Record<string, number> = { negligible: 1, minor: 2, moderate: 3, major: 4, severe: 5 }
+
+function computeSeverity(likelihood: string, impact: string): string {
+  const likelihoodVal = LIKELIHOOD_VALUES[likelihood]
+  const impactVal = IMPACT_VALUES[impact]
+  if (!likelihoodVal || !impactVal) return 'medium'
+  const normalized = Math.round((likelihoodVal * impactVal) / 25 * 100)
+  if (normalized <= 25) return 'low'
+  if (normalized <= 50) return 'medium'
+  if (normalized <= 75) return 'high'
+  return 'critical'
+}
+
+const SEVERITY_COLORS: Record<string, string> = {
+  low: 'bg-green-100 text-green-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  high: 'bg-orange-100 text-orange-700',
+  critical: 'bg-red-100 text-red-700',
+}
+
+function SeverityAssessmentPanel({
+  threat,
+  onSave,
+}: {
+  threat: ComponentThreat
+  onSave: (data: { severityScoringMetadata: Record<string, unknown>; inherentSeverity: string }) => void
+}) {
+  const metadata = (threat.severityScoringMetadata || {}) as Record<string, unknown>
+  const [likelihood, setLikelihood] = useState<string>((metadata.likelihood as string) || '')
+  const [impact, setImpact] = useState<string>((metadata.impact as string) || '')
+  const [rationale, setRationale] = useState<string>((metadata.rationale as string) || '')
+  const [severityOverride, setSeverityOverride] = useState<string>('')
+
+  const computedSeverity = likelihood && impact ? computeSeverity(likelihood, impact) : null
+  const effectiveSeverity = severityOverride || computedSeverity || threat.inherentSeverity || 'medium'
+
+  const hasChanges = useMemo(() => {
+    const currentLikelihood = (metadata.likelihood as string) || ''
+    const currentImpact = (metadata.impact as string) || ''
+    const currentRationale = (metadata.rationale as string) || ''
+    return likelihood !== currentLikelihood || impact !== currentImpact || rationale !== currentRationale || !!severityOverride
+  }, [likelihood, impact, rationale, severityOverride, metadata])
+
+  const handleSave = () => {
+    const newMetadata: Record<string, unknown> = { ...metadata, likelihood, impact, rationale }
+    if (severityOverride) {
+      newMetadata.severity_override = severityOverride
+    }
+    onSave({ severityScoringMetadata: newMetadata, inherentSeverity: effectiveSeverity })
+    setSeverityOverride('')
+  }
+
+  return (
+    <div className="mt-2 ml-4 p-2 rounded-md bg-slate-50 border border-slate-200 space-y-2" onClick={(e) => e.stopPropagation()}>
+      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Severity Assessment</div>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="text-[10px] text-muted-foreground">Likelihood</label>
+          <Select value={likelihood} onValueChange={setLikelihood}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {LIKELIHOOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex-1">
+          <label className="text-[10px] text-muted-foreground">Impact</label>
+          <Select value={impact} onValueChange={setImpact}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {IMPACT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {computedSeverity && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">Computed:</span>
+          <Badge variant="outline" className={cn('text-[10px]', SEVERITY_COLORS[computedSeverity])}>
+            {computedSeverity}
+          </Badge>
+          {computedSeverity !== threat.inherentSeverity && !severityOverride && (
+            <span className="text-[10px] text-muted-foreground">(current: {threat.inherentSeverity})</span>
+          )}
+        </div>
+      )}
+      {computedSeverity && (
+        <div>
+          <label className="text-[10px] text-muted-foreground">Override severity</label>
+          <Select value={severityOverride} onValueChange={setSeverityOverride}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue placeholder="Use computed value" />
+            </SelectTrigger>
+            <SelectContent>
+              {['low', 'medium', 'high', 'critical'].map((s) => (
+                <SelectItem key={s} value={s} className="text-xs">{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <div>
+        <label className="text-[10px] text-muted-foreground">Rationale</label>
+        <Textarea
+          value={rationale}
+          onChange={(e) => setRationale(e.target.value)}
+          placeholder="Optional rationale for severity assessment..."
+          className="h-14 text-xs resize-none"
+        />
+      </div>
+      {hasChanges && (
+        <Button size="sm" className="h-6 text-xs w-full" onClick={handleSave}>
+          Save Assessment
+        </Button>
+      )}
+    </div>
+  )
 }
 
 /** Assignee type for the combobox — individuals only */
@@ -930,6 +1076,22 @@ export function ComponentView({
     mappings: ComplianceStandardMapping[]
   } | null>(null)
 
+  // Severity assessment mutations
+  const updateThreatMutation = useUpdateThreat()
+  const updateFlowThreatMutation = useUpdateFlowThreat()
+
+  const handleSeverityAssessment = useCallback((
+    threat: ComponentThreat,
+    data: { severityScoringMetadata: Record<string, unknown>; inherentSeverity: string }
+  ) => {
+    if (!threat.backendThreatId) return
+    if (threat.threatType === 'dataflow') {
+      updateFlowThreatMutation.mutate({ threatId: threat.backendThreatId, data })
+    } else {
+      updateThreatMutation.mutate({ threatId: threat.backendThreatId, data })
+    }
+  }, [updateThreatMutation, updateFlowThreatMutation])
+
   const toggleComplianceExpanded = (cmId: string) => {
     setExpandedComplianceFor(prev => {
       const next = new Set(prev)
@@ -1056,9 +1218,11 @@ export function ComponentView({
   ).length || 0
 
   return (
-    <div className="flex h-full">
+    <div className="min-h-0 flex-1 overflow-hidden h-full">
+      <ResizablePanelGroup orientation="horizontal">
       {/* Column 1: Components */}
-      <div className="w-64 border-r flex flex-col">
+      <ResizablePanel defaultSize="20%" minSize="12%" maxSize="35%">
+      <div className="h-full flex flex-col">
         {/* Components list header */}
         <div className="px-3 py-2 border-b">
           <div className="flex items-center justify-between">
@@ -1353,9 +1517,13 @@ export function ComponentView({
           </div>
         </ScrollArea>
       </div>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
 
       {/* Column 2: Threats */}
-      <div className="w-96 border-r flex flex-col">
+      <ResizablePanel defaultSize="35%" minSize="20%" maxSize="55%">
+      <div className="h-full flex flex-col">
         <div className="px-3 py-2 border-b">
           <div className="flex items-center justify-between">
             <div className="font-medium">Threats</div>
@@ -1469,60 +1637,73 @@ export function ComponentView({
                     <div
                       key={ct.id}
                       className={cn(
-                        'group flex items-center gap-1 p-2 rounded-md transition-colors',
+                        'group p-2 rounded-md transition-colors',
                         isSelected
                           ? 'bg-slate-100 border border-slate-300'
                           : 'hover:bg-slate-50'
                       )}
                     >
-                      <button
-                        onClick={() => onSelectThreat(ct.id)}
-                        className="flex-1 text-left min-w-0 overflow-hidden"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
-                          />
-                          <span className="font-medium text-sm truncate">
-                            {ct.threatName}
-                          </span>
+                      <div className="flex items-center gap-1">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onSelectThreat(ct.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectThreat(ct.id) }}
+                          className="flex-1 text-left min-w-0 overflow-hidden cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
+                            />
+                            <span className="font-medium text-sm truncate">
+                              {ct.threatName}
+                            </span>
+                          </div>
+                          {isSelected ? (
+                            <div className="mt-1 ml-4">
+                              <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
+                            </div>
+                          ) : (
+                            <div className="mt-1 ml-4">
+                              {(() => {
+                                const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
+                                if (!strideEntry) return null
+                                const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
+                                return strideConfig ? (
+                                  <span
+                                    className="text-[10px] font-medium"
+                                    style={{ color: strideConfig.color }}
+                                  >
+                                    {strideConfig.label}
+                                  </span>
+                                ) : null
+                              })()}
+                            </div>
+                          )}
                         </div>
-                        {isSelected ? (
-                          <div className="mt-1 ml-4">
-                            <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
-                          </div>
-                        ) : (
-                          <div className="mt-1 ml-4">
-                            {(() => {
-                              const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
-                              if (!strideEntry) return null
-                              const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
-                              return strideConfig ? (
-                                <span
-                                  className="text-[10px] font-medium"
-                                  style={{ color: strideConfig.color }}
-                                >
-                                  {strideConfig.label}
-                                </span>
-                              ) : null
-                            })()}
-                          </div>
-                        )}
-                      </button>
-                      <ThreatStatusBadge status={status} />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 text-muted-foreground hover:text-destructive flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDismissThreat(ct.id)
-                        }}
-                        title="Dismiss threat"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                        <ThreatStatusBadge status={status} />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-destructive flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDismissThreat(ct.id)
+                          }}
+                          title="Dismiss threat"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {isSelected && (
+                        <div className="mt-1 ml-4">
+                          <SeverityAssessmentPanel
+                            threat={ct}
+                            onSave={(data) => handleSeverityAssessment(ct, data)}
+                          />
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -1610,9 +1791,13 @@ export function ComponentView({
           </div>
         </ScrollArea>
       </div>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
 
       {/* Column 3: Countermeasures */}
-      <div className="flex-1 flex flex-col">
+      <ResizablePanel defaultSize="45%" minSize="20%">
+      <div className="h-full flex flex-col">
         <div className="px-4 py-2 border-b flex items-center justify-between">
           <div>
             <div className="font-medium">Countermeasures</div>
@@ -1955,6 +2140,8 @@ export function ComponentView({
           </div>
         )}
       </div>
+      </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Edit Compliance Mappings Dialog */}
       {editingComplianceFor && (

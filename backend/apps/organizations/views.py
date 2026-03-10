@@ -743,7 +743,7 @@ class MagicLinkAccessView(APIView):
                     "inherent_severity": threat.inherent_severity,
                     "residual_severity": threat.residual_severity,
                     "status": threat.status,
-                    "justification": threat.justification,
+                    "severity_scoring_metadata": threat.severity_scoring_metadata,
                     "is_dismissed": threat.is_dismissed,
                     "format_metadata": threat.format_metadata,
                     "countermeasures": [

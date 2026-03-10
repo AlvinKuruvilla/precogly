@@ -157,10 +157,11 @@ export const api = {
   uploadFile: async <T>(
     endpoint: string,
     file: File,
-    additionalData?: Record<string, string>
+    additionalData?: Record<string, string>,
+    fieldName: string = 'image'
   ): Promise<T> => {
     const formData = new FormData()
-    formData.append('image', file)
+    formData.append(fieldName, file)
     formData.append('filename', file.name)
 
     if (additionalData) {

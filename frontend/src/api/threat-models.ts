@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import type { ThreatModel, DashboardStats, Framework, System, CreateThreatModelInput, CreateSystemInput } from '@/types'
-import { api } from '@/lib/api'
+import { api, apiFetch, getAccessToken } from '@/lib/api'
 
 // Query Hooks
 export function useDashboardStats() {
@@ -260,4 +261,66 @@ export function useRemoveReferencedModel() {
       queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
     },
   })
+}
+
+// TM-Library Import/Export
+
+export interface ImportTmLibraryResponse {
+  threatModel: { id: string; name: string }
+  summary: {
+    trustZones: number
+    trustBoundaries: number
+    actors: number
+    components: number
+    dataStores: number
+    dataAssets: number
+    dataFlows: number
+    threats: number
+    controls: number
+    risks: number
+    warnings: string[]
+  }
+}
+
+export function useImportTmLibrary() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (file: File) =>
+      api.uploadFile<ImportTmLibraryResponse>(
+        '/threat-models/import/tm-library/',
+        file,
+        undefined,
+        'file'
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+    },
+  })
+}
+
+export async function exportTmLibrary(threatModelId: string): Promise<void> {
+  const token = getAccessToken()
+  const response = await fetch(`/api/threat-models/${threatModelId}/export/tm-library/`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const contentDisposition = response.headers.get('Content-Disposition')
+  const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+  const filename = filenameMatch?.[1] || 'threat-model-export.json'
+
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
 }

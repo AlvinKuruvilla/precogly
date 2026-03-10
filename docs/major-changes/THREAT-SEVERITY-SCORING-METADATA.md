@@ -103,11 +103,59 @@ Recommend option 2 (drop). The severity scoring metadata will get its own UI tre
 
 ---
 
+## Severity Assessment UI
+
+The Threat Analysis workspace currently has no severity scoring UI (threats only show status badges). Add a "Severity Assessment" section to each threat card, similar to the demo viewer (`demo/tmbom-viewer/` — reference for layout).
+
+### Decision: Auto-compute with override
+
+Likelihood × Impact auto-computes `inherent_severity`. User can override.
+
+```
+SEVERITY ASSESSMENT
+
+Likelihood  [Likely     v]
+Impact      [Major      v]
+
+Severity: High (auto-computed)
+            [Override v]
+
+Rationale   [________________________]
+            (optional free text)
+```
+
+### Computation
+
+Reuse the existing `TmLibraryScoringEngine` mapping (likelihood 1-5 × impact 1-5 → 0-100 normalized score → level). Map level to `inherent_severity`:
+
+| Score range | Level | inherent_severity |
+|---|---|---|
+| 0–25 | low | low |
+| 26–50 | medium | medium |
+| 51–75 | high | high |
+| 76–100 | critical | critical |
+
+### Behavior
+
+- When user selects both Likelihood and Impact → auto-set `inherent_severity`, store `{likelihood, impact}` in `severity_scoring_metadata`
+- When user overrides severity manually → store `{likelihood, impact, override: true, rationale: "..."}` in `severity_scoring_metadata`, set `inherent_severity` to the override value
+- When only one of Likelihood/Impact is set → no auto-compute, severity remains unchanged
+- Rationale is always optional, stored as `severity_scoring_metadata.rationale`
+- Both ComponentInstanceThreat and DataFlowInstanceThreat get this UI
+
+### Location
+
+Threat Analysis workspace → middle column (threat list) → expanded threat card, below the threat description and taxonomy tags. Same position as in the demo viewer.
+
+---
+
 ## Task Breakdown
 
 1. Backend: update models + create migration
 2. Backend: update serializers (both threat instance serializers)
 3. Backend: update custom view responses (`threat_models/views.py`, `organizations/views.py`)
-4. Frontend: update type definitions (`api/threats.ts`, `types/organization.ts`)
-5. Frontend: update transform function (drop `notes` mapping)
-6. Docs: update `DATABASE.md`
+4. Backend: add severity auto-compute logic (can reuse `TmLibraryScoringEngine` or inline the mapping)
+5. Frontend: update type definitions (`api/threats.ts`, `types/organization.ts`)
+6. Frontend: update transform function (drop `notes` mapping)
+7. Frontend: build Severity Assessment UI on threat cards (Likelihood/Impact dropdowns, auto-computed severity with override, rationale text field)
+8. Docs: update `DATABASE.md`
