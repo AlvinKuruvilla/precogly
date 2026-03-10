@@ -237,11 +237,11 @@ export function ThreatCard({
         </div>
       )}
 
-      {/* Risk Assessment */}
+      {/* Severity Assessment */}
       {!threat.dismissed && (
         <div className="mt-3 border-t pt-3">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Risk Assessment
+            Severity Assessment
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export function ThreatCard({
             </div>
           ) : (
             <p className="mt-2 text-[10px] text-muted-foreground italic">
-              Set likelihood and impact to calculate risk
+              Set likelihood and impact to calculate severity
             </p>
           )}
         </div>
