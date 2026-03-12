@@ -374,7 +374,7 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
     This mirrors the frontend useWorkspaceThreatAnalysis hook.
     """
     # Get all DFDs for this threat model
-    dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+    dfds = threat_model.dfds.all()
 
     # Component counts
     processes = 0
@@ -387,8 +387,7 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
     all_threats: Set[str] = set()
     total_countermeasures = 0
 
-    for assoc in dfd_associations:
-        dfd = assoc.dfd
+    for dfd in dfds:
         canvas_data = dfd.canvas_data or {}
         nodes = canvas_data.get("nodes", [])
         edges = canvas_data.get("edges", [])
@@ -471,8 +470,8 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
 
     # Determine if there are data flows
     has_data_flows = any(
-        len((assoc.dfd.canvas_data or {}).get("edges", [])) > 0
-        for assoc in dfd_associations
+        len((dfd.canvas_data or {}).get("edges", [])) > 0
+        for dfd in dfds
     )
 
     # Total threat count

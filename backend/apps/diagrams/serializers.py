@@ -4,7 +4,7 @@ Serializers for diagrams app.
 
 from rest_framework import serializers
 
-from .models import DFD, DFDTemplatesLibrary, ThreatModelDFD
+from .models import DFD, DFDTemplatesLibrary
 
 
 class DFDSerializer(serializers.ModelSerializer):
@@ -18,6 +18,7 @@ class DFDSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "diagram_type",
+            "threat_model",
             "canvas_data",
             "threat_analysis_data",
             "template_library",
@@ -26,7 +27,7 @@ class DFDSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "updated_by_email"]
+        read_only_fields = ["id", "threat_model", "created_at", "updated_at", "updated_by_email"]
 
 
 class DFDListSerializer(serializers.ModelSerializer):
@@ -59,11 +60,3 @@ class DFDTemplatesLibrarySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
-
-
-class ThreatModelDFDSerializer(serializers.ModelSerializer):
-    """Serializer for ThreatModel-DFD association."""
-
-    class Meta:
-        model = ThreatModelDFD
-        fields = ["id", "threat_model", "dfd"]

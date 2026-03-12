@@ -87,7 +87,6 @@ function convertSharedThreatToComponentThreat(sharedThreat: SharedThreat): Compo
       countermeasureId: cm.countermeasureLibraryId?.toString() || 'custom',
       componentThreatId: `shared-threat-${sharedThreat.id}`,
       status: cm.status,
-      dismissed: false,
       createdAt: timestamp,
       updatedAt: timestamp,
       countermeasureName: cm.countermeasureName || 'Unknown Countermeasure',
@@ -131,7 +130,7 @@ function ThreatCard({ threat, componentName }: ThreatCardProps) {
 
   // Calculate threat status based on countermeasures
   const stats = useMemo(() => {
-    const activeCountermeasures = threat.countermeasures.filter((cm) => !cm.dismissed)
+    const activeCountermeasures = threat.countermeasures
     const total = activeCountermeasures.length
     const platform = activeCountermeasures.filter((cm) => cm.status === 'platform').length
     const gaps = activeCountermeasures.filter((cm) => cm.status === 'gap').length
@@ -210,11 +209,10 @@ function ThreatCard({ threat, componentName }: ThreatCardProps) {
           {threat.countermeasures.length > 0 ? (
             <div className="space-y-2">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Countermeasures ({threat.countermeasures.filter((cm) => !cm.dismissed).length})
+                Countermeasures ({threat.countermeasures.length})
               </h4>
               <div className="space-y-1">
                 {threat.countermeasures
-                  .filter((cm) => !cm.dismissed)
                   .map((cm) => (
                     <CountermeasureRow key={cm.id} cm={cm} />
                   ))}
@@ -312,7 +310,7 @@ export function ReadOnlyThreatAnalysisView({
     let mitigated = 0
 
     filteredThreats.forEach((threat) => {
-      const activeCountermeasures = threat.countermeasures.filter((cm) => !cm.dismissed)
+      const activeCountermeasures = threat.countermeasures
       const gaps = activeCountermeasures.filter((cm) => cm.status === 'gap').length
       const planned = activeCountermeasures.filter((cm) => cm.status === 'planned').length
       const waived = activeCountermeasures.filter((cm) => cm.status === 'waived').length
@@ -434,7 +432,7 @@ export function ReadOnlyThreatAnalysisView({
             <TableBody>
               {filteredThreats.map((threat) => {
                 // Use threat metadata from ComponentThreat
-                const activeCountermeasures = threat.countermeasures.filter((cm) => !cm.dismissed)
+                const activeCountermeasures = threat.countermeasures
                 const gaps = activeCountermeasures.filter((cm) => cm.status === 'gap').length
                 const planned = activeCountermeasures.filter((cm) => cm.status === 'planned').length
                 const platform = activeCountermeasures.filter((cm) => cm.status === 'platform').length

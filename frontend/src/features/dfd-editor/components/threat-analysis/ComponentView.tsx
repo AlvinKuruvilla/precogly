@@ -652,8 +652,6 @@ interface ComponentViewProps {
   onDismissThreat: (componentThreatId: string) => void
   onRestoreThreat: (componentThreatId: string) => void
   onAddCustomCountermeasure: () => void
-  onRemoveCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
-  onRestoreCountermeasure: (componentThreatId: string, countermeasureInstanceId: string) => void
   onCountermeasurePriorityChange: (
     componentThreatId: string,
     countermeasureInstanceId: string,
@@ -1049,14 +1047,11 @@ export function ComponentView({
   onDismissThreat,
   onRestoreThreat,
   onAddCustomCountermeasure,
-  onRemoveCountermeasure,
-  onRestoreCountermeasure,
   onCountermeasurePriorityChange,
   onRevertCountermeasure,
   isSecurityTeam,
 }: ComponentViewProps) {
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
-  const [showDismissedCountermeasures, setShowDismissedCountermeasures] = useState(false)
   // Track which countermeasure is being assigned an owner (by countermeasure instance id)
   const [assigningOwnerFor, setAssigningOwnerFor] = useState<string | null>(null)
   // Track if we should set status to "planned" after owner assignment
@@ -1853,9 +1848,8 @@ export function ComponentView({
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
-            {/* Active countermeasures */}
+            {/* Countermeasures */}
             {selectedComponentThreat?.countermeasures
-              .filter((cm) => !cm.dismissed)
               .map((cm) => {
                 const cmName = cm.countermeasureName || cm.countermeasureId
                 const cmDescription = cm.countermeasureDescription
@@ -1881,14 +1875,6 @@ export function ComponentView({
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => onRemoveCountermeasure(selectedComponentThreat.id, cm.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
                     </div>
 
                     {/* Compliance mappings - expandable detail */}
@@ -2075,60 +2061,6 @@ export function ComponentView({
               })}
 
 
-            {/* Dismissed countermeasures section */}
-            {selectedComponentThreat && (() => {
-              const dismissedCms = selectedComponentThreat.countermeasures.filter((cm) => cm.dismissed)
-              if (dismissedCms.length === 0) return null
-              return (
-                <div className="mt-4 pt-3 border-t">
-                  <button
-                    className="w-full flex items-center justify-between px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowDismissedCountermeasures(!showDismissedCountermeasures)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Dismissed</span>
-                      <Badge variant="outline" className="text-xs bg-slate-100">
-                        {dismissedCms.length}
-                      </Badge>
-                    </div>
-                    {showDismissedCountermeasures ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </button>
-
-                  {showDismissedCountermeasures && (
-                    <div className="mt-2 space-y-2">
-                      {dismissedCms.map((cm) => {
-                        const cmName = cm.countermeasureName || cm.countermeasureId
-
-                        return (
-                          <div
-                            key={cm.id}
-                            className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-slate-50 border"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm text-muted-foreground line-through truncate block">
-                                {cmName}
-                              </span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              onClick={() => onRestoreCountermeasure(selectedComponentThreat.id, cm.id)}
-                            >
-                              Restore
-                            </Button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
           </div>
         </ScrollArea>
 

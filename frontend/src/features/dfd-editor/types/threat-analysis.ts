@@ -102,8 +102,6 @@ export interface ComponentThreatCountermeasure {
   notes?: string
   // If this countermeasure is provided by a trust boundary (for data flows)
   providedByBoundaryId?: string
-  // Whether this countermeasure has been dismissed/removed
-  dismissed?: boolean
   // Timestamps
   createdAt: string
   updatedAt: string

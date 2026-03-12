@@ -28,6 +28,7 @@ import {
   RiskAnalysisTab,
 } from '@/components/workspace'
 import { MagicLinkDialog } from '@/components/sharing/MagicLinkDialog'
+import { ReportView } from '@/features/reports/ReportView'
 import { useWorkspaceThreatAnalysis } from '@/components/workspace/useWorkspaceThreatAnalysis'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/ComponentView'
@@ -183,8 +184,6 @@ export function ThreatModelDetail() {
     dismissThreat,
     restoreThreat,
     addCountermeasure,
-    removeCountermeasure,
-    restoreCountermeasure,
     toggleChecklistItem,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
 
@@ -849,8 +848,6 @@ export function ThreatModelDetail() {
                     onDismissThreat={dismissThreat}
                     onRestoreThreat={restoreThreat}
                     onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
-                    onRemoveCountermeasure={removeCountermeasure}
-                    onRestoreCountermeasure={restoreCountermeasure}
                     onCountermeasurePriorityChange={updateCountermeasurePriority}
                     onRevertCountermeasure={revertInheritedCountermeasure}
                     isSecurityTeam={isSecurityTeam}
@@ -883,12 +880,8 @@ export function ThreatModelDetail() {
         </TabsContent>
 
         {/* Reports Tab */}
-        <TabsContent value="reports" className="flex-1 flex items-center justify-center m-0">
-          <div className="text-center">
-            <FileText className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Reports</h2>
-            <p className="text-muted-foreground">Coming Soon</p>
-          </div>
+        <TabsContent value="reports" className="flex-1 flex flex-col m-0 overflow-hidden">
+          <ReportView threatModelId={id!} />
         </TabsContent>
       </Tabs>
 

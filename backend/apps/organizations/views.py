@@ -544,7 +544,7 @@ class MagicLinkAccessView(APIView):
         gaps_count = sum(1 for cm in all_countermeasures if cm.get("status") == "gap")
 
         # Count components from DFD canvas nodes
-        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+        dfds = threat_model.dfds.all()
         processes = 0
         datastores = 0
         human_actors = 0
@@ -552,8 +552,8 @@ class MagicLinkAccessView(APIView):
         boundaries = 0
         has_data_flows = False
 
-        for assoc in dfd_associations:
-            canvas_data = assoc.dfd.canvas_data or {}
+        for dfd in dfds:
+            canvas_data = dfd.canvas_data or {}
             for node in canvas_data.get("nodes", []):
                 node_type = node.get("type", "")
                 if node_type == "process":
@@ -643,8 +643,7 @@ class MagicLinkAccessView(APIView):
         )
 
         # Get all DFDs for this threat model
-        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
-        dfds = [assoc.dfd for assoc in dfd_associations]
+        dfds = threat_model.dfds.all()
 
         # Build node_id -> component_id mapping and edge_id -> flow_id mapping from all DFDs
         node_component_map = {}

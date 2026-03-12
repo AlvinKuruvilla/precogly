@@ -84,6 +84,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "previous_version",
             "modeling_mode",
             "workspace_data",
+            "assumptions",
             "format_metadata",
             "scope_locked",
             "scope_locked_at",
@@ -98,12 +99,29 @@ class ThreatModelSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at", "created_by_email", "owner", "owning_team_name"]
 
+    def validate_assumptions(self, value):
+        """Validate assumptions list structure."""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Assumptions must be a list.")
+        valid_validity = {"unconfirmed", "confirmed", "rejected"}
+        for idx, entry in enumerate(value):
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError(f"Assumption [{idx}] must be an object.")
+            if not entry.get("description", "").strip():
+                raise serializers.ValidationError(f"Assumption [{idx}] must have a non-empty description.")
+            if entry.get("validity", "unconfirmed") not in valid_validity:
+                raise serializers.ValidationError(
+                    f"Assumption [{idx}] validity must be one of: {', '.join(valid_validity)}."
+                )
+            if "topics" not in entry:
+                entry["topics"] = []
+        return value
+
     def get_dfds(self, obj):
         """Get associated DFDs with canvas_data for threat analysis."""
         from apps.diagrams.serializers import DFDSerializer
 
-        dfd_associations = obj.dfd_associations.select_related("dfd").all()
-        return DFDSerializer([assoc.dfd for assoc in dfd_associations], many=True).data
+        return DFDSerializer(obj.dfds.all(), many=True).data
 
     def get_owner(self, obj):
         """Get owner name from created_by user."""
@@ -139,15 +157,15 @@ class ThreatModelSerializer(serializers.ModelSerializer):
         )
 
         # Extract component_ids and dataflow_ids from DFD canvas data
-        dfd_associations = instance.dfd_associations.select_related("dfd").all()
+        dfds = instance.dfds.all()
         component_ids = set()
         dataflow_ids = set()
         has_process_or_datastore = False
         has_trust_zone = False
         has_edges = False
 
-        for assoc in dfd_associations:
-            canvas_data = assoc.dfd.canvas_data or {}
+        for dfd in dfds:
+            canvas_data = dfd.canvas_data or {}
             for node in canvas_data.get("nodes", []):
                 node_type = node.get("type", "")
                 if node_type in ("process", "datastore"):

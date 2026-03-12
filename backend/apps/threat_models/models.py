@@ -106,6 +106,7 @@ class ThreatModel(TimestampedModel):
     format_metadata = models.JSONField(default=dict, blank=True)
     # Store system context, progress, etc.
     workspace_data = models.JSONField(default=dict, blank=True)
+    assumptions = models.JSONField(default=list, blank=True)
     scope_locked = models.BooleanField(default=False)
     scope_locked_at = models.DateTimeField(null=True, blank=True)
 

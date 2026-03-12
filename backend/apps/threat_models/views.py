@@ -85,52 +85,17 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         """
-        Smart cascade delete: Delete the threat model, orphaned DFDs, and their components.
-
-        A DFD is considered orphaned if it's not associated with any other threat model
-        after this threat model is deleted. Components from orphaned DFDs are also deleted,
-        which cascades to delete their threats and countermeasures.
+        Delete the threat model. DFDs cascade-delete via FK.
+        Also clean up components linked to this threat model.
         """
-        from apps.diagrams.models import DFD, ThreatModelDFD
         from apps.systems.models import OrgsystemComponent
 
-        # Get all DFDs associated with this threat model
-        dfd_associations = instance.dfd_associations.select_related("dfd").all()
-        dfds_to_check = [assoc.dfd for assoc in dfd_associations]
-
-        # Find DFDs that would become orphaned (only linked to this threat model)
-        orphaned_dfds = []
-        for dfd in dfds_to_check:
-            # Count how many OTHER threat models this DFD is linked to
-            other_associations_count = ThreatModelDFD.objects.filter(
-                dfd=dfd
-            ).exclude(
-                threat_model=instance
-            ).count()
-
-            if other_associations_count == 0:
-                orphaned_dfds.append(dfd)
-
-        # Collect component IDs from orphaned DFDs
-        component_ids_to_delete = set()
-        for dfd in orphaned_dfds:
-            canvas_data = dfd.canvas_data or {}
-            for node in canvas_data.get("nodes", []):
-                component_id = node.get("data", {}).get("component_id")
-                if component_id:
-                    component_ids_to_delete.add(component_id)
-
         with transaction.atomic():
-            # Delete components first (cascades to threats and countermeasures)
-            if component_ids_to_delete:
-                OrgsystemComponent.objects.filter(id__in=component_ids_to_delete).delete()
+            # Delete components linked to this threat model (cascades to threats/CMs)
+            OrgsystemComponent.objects.filter(threat_model=instance).delete()
 
-            # Delete the threat model (cascades to ThreatModelDFD associations)
+            # Delete the threat model (DFDs cascade via FK)
             instance.delete()
-
-            # Delete orphaned DFDs
-            for dfd in orphaned_dfds:
-                dfd.delete()
 
     @action(detail=True, methods=["get"])
     def delete_preview(self, request, pk=None):
@@ -140,7 +105,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         Returns information about DFDs, components, threats, and countermeasures
         that will be deleted.
         """
-        from apps.diagrams.models import ThreatModelDFD
         from apps.systems.models import DataFlow, OrgsystemComponent
         from apps.threats.models import (
             ComponentInstanceCountermeasure,
@@ -151,47 +115,33 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
         threat_model = self.get_object()
 
-        # Get all DFDs associated with this threat model
-        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
-
+        # Get all DFDs for this threat model (direct FK)
+        dfds = threat_model.dfds.all()
         dfds_to_delete = []
-        dfds_to_preserve = []
         component_ids_to_delete = set()
 
-        for assoc in dfd_associations:
-            dfd = assoc.dfd
+        for dfd in dfds:
             canvas_data = dfd.canvas_data or {}
             node_count = len(canvas_data.get("nodes", []))
 
-            # Count how many OTHER threat models this DFD is linked to
-            other_associations = ThreatModelDFD.objects.filter(
-                dfd=dfd
-            ).exclude(
-                threat_model=threat_model
-            ).select_related("threat_model")
-
-            dfd_info = {
+            dfds_to_delete.append({
                 "id": str(dfd.id),
                 "name": dfd.name,
                 "node_count": node_count,
-            }
+            })
 
-            if other_associations.count() == 0:
-                dfds_to_delete.append(dfd_info)
-                # Collect component IDs from orphaned DFDs
-                for node in canvas_data.get("nodes", []):
-                    component_id = node.get("data", {}).get("component_id")
-                    if component_id:
-                        component_ids_to_delete.add(component_id)
-            else:
-                # Include names of other threat models that share this DFD
-                dfd_info["shared_with"] = [
-                    {"id": str(a.threat_model.id), "name": a.threat_model.name}
-                    for a in other_associations
-                ]
-                dfds_to_preserve.append(dfd_info)
+            for node in canvas_data.get("nodes", []):
+                component_id = node.get("data", {}).get("component_id")
+                if component_id:
+                    component_ids_to_delete.add(component_id)
 
-        # Count data flows that will be deleted (those connected to components being deleted)
+        # Also include analysis-only components
+        analysis_component_ids = OrgsystemComponent.objects.filter(
+            threat_model=threat_model
+        ).values_list("id", flat=True)
+        component_ids_to_delete.update(analysis_component_ids)
+
+        # Count data flows that will be deleted
         dataflow_count = DataFlow.objects.filter(
             Q(source_component_id__in=component_ids_to_delete) |
             Q(dest_component_id__in=component_ids_to_delete)
@@ -221,63 +171,12 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "name": threat_model.name,
             },
             "dfds_to_delete": dfds_to_delete,
-            "dfds_to_preserve": dfds_to_preserve,
-            "total_dfds": len(dfd_associations),
+            "total_dfds": len(dfds_to_delete),
             "components_to_delete": len(component_ids_to_delete),
             "dataflows_to_delete": dataflow_count,
             "threats_to_delete": component_threat_count + flow_threat_count,
             "countermeasures_to_delete": component_countermeasure_count + flow_countermeasure_count,
         })
-
-    @action(detail=True, methods=["post"])
-    def add_dfd(self, request, pk=None):
-        """Add a DFD to this threat model."""
-        from apps.diagrams.models import DFD, ThreatModelDFD
-
-        threat_model = self.get_object()
-        dfd_id = request.data.get("dfd_id")
-
-        if not dfd_id:
-            return Response(
-                {"error": "dfd_id is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            dfd = DFD.objects.get(id=dfd_id)
-        except DFD.DoesNotExist:
-            return Response(
-                {"error": "DFD not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        ThreatModelDFD.objects.get_or_create(threat_model=threat_model, dfd=dfd)
-        return Response({"status": "DFD added"}, status=status.HTTP_200_OK)
-
-    @action(detail=True, methods=["post"])
-    def remove_dfd(self, request, pk=None):
-        """Remove a DFD from this threat model."""
-        from apps.diagrams.models import ThreatModelDFD
-
-        threat_model = self.get_object()
-        dfd_id = request.data.get("dfd_id")
-
-        if not dfd_id:
-            return Response(
-                {"error": "dfd_id is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        deleted, _ = ThreatModelDFD.objects.filter(
-            threat_model=threat_model, dfd_id=dfd_id
-        ).delete()
-
-        if deleted:
-            return Response({"status": "DFD removed"}, status=status.HTTP_200_OK)
-        return Response(
-            {"error": "DFD not associated with this threat model"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
 
     @action(detail=True, methods=["post"])
     def add_system(self, request, pk=None):
@@ -445,9 +344,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
         threat_model = self.get_object()
 
-        # Get all DFDs for this threat model
-        dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
-        dfds = [assoc.dfd for assoc in dfd_associations]
+        # Get all DFDs for this threat model (direct FK)
+        dfds = threat_model.dfds.all()
 
         # Build node_id -> component_id mapping and edge_id -> dataflow_id mapping from all DFDs
         node_component_map = {}
@@ -497,7 +395,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             component_ids.append(comp.id)
 
         # Also include data flows connected to analysis-only components
-        # (these won't have DFD canvas edges but still need threat retrieval)
         analysis_flows = DataFlow.objects.filter(
             Q(source_component_id__in=component_ids)
             | Q(dest_component_id__in=component_ids)
@@ -561,7 +458,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "dfd_id": node_info["dfd_id"] if node_info else None,
                 "dfd_name": node_info["dfd_name"] if node_info else None,
                 "threat_library_id": threat.threat_library_id,
-                # Use library fields if available, fall back to copied fields for orphaned instances
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
                 "taxonomy_entries": self._serialize_taxonomy_entries(threat.threat_library),
@@ -575,7 +471,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                     {
                         "id": cm.id,
                         "countermeasure_library_id": cm.countermeasure_library_id,
-                        # Use library fields if available, fall back to copied fields for orphaned instances
                         "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
                         "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
                         "status": cm.status,
@@ -595,7 +490,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
         # Add data flow threats to the response
         for threat in flow_threats:
-            # Find which edge this dataflow corresponds to
             edge_info = None
             for edge_id, info in edge_dataflow_map.items():
                 if info["dataflow_id"] == threat.data_flow_id:
@@ -608,13 +502,12 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "dataflow_id": threat.data_flow_id,
                 "dataflow_label": threat.data_flow.label if threat.data_flow else None,
                 "edge_id": edge_info["edge_id"] if edge_info else None,
-                "node_id": edge_info["edge_id"] if edge_info else None,  # Use edge_id as node_id for compatibility
-                "component_id": threat.data_flow_id,  # Use dataflow_id as component_id for compatibility
+                "node_id": edge_info["edge_id"] if edge_info else None,
+                "component_id": threat.data_flow_id,
                 "component_name": threat.data_flow.label if threat.data_flow else None,
                 "dfd_id": edge_info["dfd_id"] if edge_info else None,
                 "dfd_name": edge_info["dfd_name"] if edge_info else None,
                 "threat_library_id": threat.threat_library_id,
-                # Use library fields if available, fall back to copied fields for orphaned instances
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
                 "taxonomy_entries": self._serialize_taxonomy_entries(threat.threat_library),
@@ -628,7 +521,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                     {
                         "id": cm.id,
                         "countermeasure_library_id": cm.countermeasure_library_id,
-                        # Use library fields if available, fall back to copied fields for orphaned instances
                         "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
                         "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
                         "status": cm.status,
@@ -653,6 +545,15 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             "node_component_map": node_component_map,
             "edge_dataflow_map": edge_dataflow_map,
         })
+
+    @action(detail=True, methods=["get"])
+    def report(self, request, pk=None):
+        """Get complete report data for this threat model."""
+        from .report_service import build_report_data
+
+        threat_model = self.get_object()
+        data = build_report_data(threat_model)
+        return Response(data)
 
     @action(detail=True, methods=["get"])
     def zone_protections(self, request, pk=None):

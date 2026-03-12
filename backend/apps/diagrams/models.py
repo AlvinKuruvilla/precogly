@@ -6,7 +6,6 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import TimestampedModel
-from apps.systems.models import Orgsystem
 
 
 class DFDTemplatesLibrary(TimestampedModel):
@@ -123,6 +122,14 @@ class DFD(TimestampedModel):
         blank=True,
         related_name="instantiated_dfds",
     )
+    # Direct FK to ThreatModel (one DFD per threat model)
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="dfds",
+    )
     # Store the ReactFlow JSON structure (nodes, edges)
     canvas_data = models.JSONField(default=dict, blank=True)
     # Store threat analysis data
@@ -135,45 +142,3 @@ class DFD(TimestampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.diagram_type})"
-
-
-class ThreatModelDFD(models.Model):
-    """Association between threat model and DFD."""
-
-    threat_model = models.ForeignKey(
-        "threat_models.ThreatModel",
-        on_delete=models.CASCADE,
-        related_name="dfd_associations",
-    )
-    dfd = models.ForeignKey(
-        DFD,
-        on_delete=models.CASCADE,
-        related_name="threat_model_associations",
-    )
-
-    class Meta:
-        unique_together = ["threat_model", "dfd"]
-
-    def __str__(self):
-        return f"{self.threat_model} - {self.dfd}"
-
-
-class DFDOrgsystem(models.Model):
-    """Association between DFD and orgsystem."""
-
-    dfd = models.ForeignKey(
-        DFD,
-        on_delete=models.CASCADE,
-        related_name="orgsystem_associations",
-    )
-    orgsystem = models.ForeignKey(
-        Orgsystem,
-        on_delete=models.CASCADE,
-        related_name="dfd_associations",
-    )
-
-    class Meta:
-        unique_together = ["dfd", "orgsystem"]
-
-    def __str__(self):
-        return f"{self.dfd} - {self.orgsystem}"

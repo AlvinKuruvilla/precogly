@@ -442,12 +442,7 @@ def _generate_threats_for_component(component):
 
 def get_threat_model_for_dfd(dfd):
     """Get the ThreatModel associated with a DFD."""
-    from .models import ThreatModelDFD
-
-    association = ThreatModelDFD.objects.filter(dfd=dfd).select_related("threat_model").first()
-    if association:
-        return association.threat_model
-    return None
+    return dfd.threat_model
 
 
 def _sync_edges_to_dataflows(dfd, edges, node_component_map):

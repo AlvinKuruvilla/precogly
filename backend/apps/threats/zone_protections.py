@@ -49,10 +49,10 @@ def analyze_zone_protections(threat_model):
     from apps.systems.models import OrgsystemComponent
 
     # Replicate component scoping from ThreatModelViewSet.threats
-    dfd_associations = threat_model.dfd_associations.select_related("dfd").all()
+    dfds = threat_model.dfds.all()
     component_ids = set()
-    for assoc in dfd_associations:
-        canvas_data = assoc.dfd.canvas_data or {}
+    for dfd in dfds:
+        canvas_data = dfd.canvas_data or {}
         for node in canvas_data.get("nodes", []):
             component_id = node.get("data", {}).get("component_id")
             if component_id:

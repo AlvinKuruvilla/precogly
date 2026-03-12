@@ -48,6 +48,13 @@ export interface ReferenceImage {
   createdAt: string
 }
 
+export interface Assumption {
+  id: string
+  description: string
+  validity: 'unconfirmed' | 'confirmed' | 'rejected'
+  topics: string[]
+}
+
 export interface ThreatModel {
   id: string
   name: string
@@ -64,6 +71,7 @@ export interface ThreatModel {
   riskScoringMethod?: ScoringMethodKey
   referenceImages?: ReferenceImage[]
   formatMetadata?: Record<string, unknown>
+  assumptions?: Assumption[]
   scopeLocked?: boolean
   scopeLockedAt?: string
   createdAt?: string

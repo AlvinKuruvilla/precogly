@@ -430,48 +430,6 @@ export function useWorkspaceThreatAnalysis(
     []
   )
 
-  // Dismiss countermeasure
-  const removeCountermeasure = useCallback(
-    (componentThreatId: string, countermeasureInstanceId: string) => {
-      setState((prev) => ({
-        ...prev,
-        componentThreats: prev.componentThreats.map((ct) => {
-          if (ct.id !== componentThreatId) return ct
-          return {
-            ...ct,
-            updatedAt: new Date().toISOString(),
-            countermeasures: ct.countermeasures.map((cm) => {
-              if (cm.id !== countermeasureInstanceId) return cm
-              return { ...cm, dismissed: true, updatedAt: new Date().toISOString() }
-            }),
-          }
-        }),
-      }))
-    },
-    []
-  )
-
-  // Restore dismissed countermeasure
-  const restoreCountermeasure = useCallback(
-    (componentThreatId: string, countermeasureInstanceId: string) => {
-      setState((prev) => ({
-        ...prev,
-        componentThreats: prev.componentThreats.map((ct) => {
-          if (ct.id !== componentThreatId) return ct
-          return {
-            ...ct,
-            updatedAt: new Date().toISOString(),
-            countermeasures: ct.countermeasures.map((cm) => {
-              if (cm.id !== countermeasureInstanceId) return cm
-              return { ...cm, dismissed: false, updatedAt: new Date().toISOString() }
-            }),
-          }
-        }),
-      }))
-    },
-    []
-  )
-
   // Toggle checklist item — no-op since all items are now auto-computed by the backend
   const toggleChecklistItem = useCallback((_itemId: string, _checked: boolean) => {
     // All checklist items are auto-computed by the backend; no local state to update
@@ -560,8 +518,6 @@ export function useWorkspaceThreatAnalysis(
     dismissThreat,
     restoreThreat,
     addCountermeasure,
-    removeCountermeasure,
-    restoreCountermeasure,
     toggleChecklistItem,
   }
 }

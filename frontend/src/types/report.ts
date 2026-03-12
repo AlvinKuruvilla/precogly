@@ -1,0 +1,251 @@
+export type ReportType = 'executive' | 'technical' | 'compliance' | 'full'
+
+export interface ReportMetadata {
+  name: string
+  description: string
+  status: string
+  criticality: string
+  version: string
+  modelingMode: string
+  riskScoringMethod: string
+  trigger: string
+  owningTeam: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  frameworks: Array<{
+    name: string
+    slug: string
+    version: string
+  }>
+}
+
+export interface ReportScope {
+  description: string
+  scopeLocked: boolean
+  assumptions: Array<{
+    id: string
+    description: string
+    validity: 'unconfirmed' | 'confirmed' | 'rejected'
+    topics: string[]
+  }>
+  outOfScopeItems: Array<{
+    id: number
+    name: string
+    reason: string
+  }>
+  referencedModels: Array<{
+    id: string
+    name: string
+    relationType: string
+  }>
+}
+
+export interface ReportArchitecture {
+  dfds: Array<{
+    id: string
+    name: string
+    diagramType: string
+    nodeCount: number
+    edgeCount: number
+  }>
+  referenceImages: Array<{
+    id: number
+    filename: string
+    description: string
+  }>
+  trustZones: Array<{
+    id: number
+    name: string
+    trustLevel: number
+    description: string
+  }>
+  trustBoundaries: Array<{
+    id: number
+    label: string
+    zoneA: string
+    zoneB: string
+    description: string
+  }>
+}
+
+export interface ReportDataAsset {
+  id: number
+  name: string
+  description: string
+  classification: string
+  confidentiality: string
+  integrity: string
+  availability: string
+  placements: Array<{
+    componentName: string
+    dataState: string
+    volume: string
+    encrypted: boolean
+  }>
+  inTransit: Array<{
+    dataFlowLabel: string
+    protectionMethod: string
+    encryptionType: string
+  }>
+}
+
+export interface ReportComponent {
+  id: number
+  name: string
+  category: string
+  componentType: string
+  provider: string
+  trustZone: string | null
+  description: string
+}
+
+export interface ReportComponents {
+  processes: ReportComponent[]
+  dataStores: ReportComponent[]
+  humanActors: ReportComponent[]
+  systemActors: ReportComponent[]
+}
+
+export interface ReportDataFlow {
+  id: number
+  label: string
+  source: string | null
+  destination: string | null
+  protocol: string
+  encrypted: boolean
+  authenticated: boolean
+  crossesTrustZone: boolean
+  hasSensitiveData: boolean
+}
+
+export interface ReportCountermeasure {
+  id: number
+  countermeasureName: string
+  controlType: string
+  status: string
+  priority: string
+  assignedOwnerEmail: string | null
+  verifiedByEmail: string | null
+  evidenceUrl: string
+  isInherited: boolean
+  inheritedFromComponentName: string | null
+  inheritedFromZoneName: string | null
+}
+
+export interface ReportThreat {
+  id: number
+  threatName: string
+  threatDescription: string
+  strideCategory: string | null
+  inherentSeverity: string
+  residualSeverity: string
+  status: string
+  countermeasures: ReportCountermeasure[]
+}
+
+export interface ReportDismissedThreat {
+  id: number
+  type: 'component' | 'dataflow'
+  threatName: string
+  componentName?: string
+  flowLabel?: string
+  dismissalReason: string
+}
+
+export interface ReportThreatAnalysis {
+  strideSummary: Record<string, number>
+  componentThreats: Record<string, ReportThreat[]>
+  dataFlowThreats: Record<string, ReportThreat[]>
+  dismissedThreats: ReportDismissedThreat[]
+}
+
+export interface ReportGap {
+  id: number
+  countermeasureName: string
+  componentName?: string
+  flowLabel?: string
+  priority: string
+  assignedOwnerEmail: string | null
+}
+
+export interface ReportCountermeasureSummary {
+  statusBreakdown: Record<string, number>
+  gaps: ReportGap[]
+  waived: Array<{
+    id: number
+    countermeasureName: string
+    componentName?: string
+    flowLabel?: string
+  }>
+  inherited: Array<{
+    id: number
+    countermeasureName: string
+    componentName: string
+    inheritedFromComponentName: string
+    inheritedFromZoneName: string
+  }>
+}
+
+export interface ReportRisk {
+  id: number
+  name: string
+  description: string
+  inherentScore: number
+  inherentLevel: string
+  residualScore: number
+  residualLevel: string
+  ownerEmail: string | null
+  contributingThreats: Array<{
+    type: 'component' | 'dataflow'
+    threatName: string
+    status: string
+  }>
+}
+
+export interface ReportComplianceFramework {
+  name: string
+  slug: string
+  totalRequirements: number
+  coveredRequirements: number
+  coveragePercentage: number
+}
+
+export interface ReportCompliance {
+  frameworks: ReportComplianceFramework[]
+}
+
+export interface ReportSummaryMetrics {
+  totalActiveThreats: number
+  totalDismissedThreats: number
+  threatsByStatus: Record<string, number>
+  totalCountermeasures: number
+  countermeasuresByStatus: Record<string, number>
+  totalGaps: number
+  totalWaived: number
+  totalInherited: number
+  totalRisks: number
+  risksByLevel: Record<string, number>
+}
+
+export interface ReportProgressItem {
+  id: string
+  label: string
+  checked: boolean
+  autoComputed: boolean
+}
+
+export interface ReportData {
+  metadata: ReportMetadata
+  scope: ReportScope
+  architecture: ReportArchitecture
+  dataAssets: ReportDataAsset[]
+  components: ReportComponents
+  dataFlows: ReportDataFlow[]
+  threatAnalysis: ReportThreatAnalysis
+  countermeasureSummary: ReportCountermeasureSummary
+  risks: ReportRisk[]
+  compliance: ReportCompliance
+  summaryMetrics: ReportSummaryMetrics
+  progressChecklist: ReportProgressItem[]
+}

@@ -5,6 +5,9 @@ import {
   Unlock,
   ShieldX,
   Package,
+  ClipboardList,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,15 +18,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useThreatModel, useUpdateThreatModel } from '@/api/threat-models'
 import { useDataAssets } from '@/api/data-assets'
 import { useOutOfScopeItems } from '@/api/out-of-scope-items'
 import { AssetsModal } from './AssetsModal'
 import { OutOfScopeModal } from './OutOfScopeModal'
-import type { ThreatModel } from '@/types'
+import type { ThreatModel, Assumption } from '@/types'
 
-type ActiveView = 'assets' | 'out-of-scope' | 'describe'
+type ActiveView = 'assets' | 'out-of-scope' | 'describe' | 'assumptions'
 
 interface SystemContextModalProps {
   open: boolean
@@ -44,6 +56,7 @@ export function SystemContextModal({
   const [description, setDescription] = useState('')
   const [scopeLocked, setScopeLocked] = useState(false)
   const [activeView, setActiveView] = useState<ActiveView>('describe')
+  const [assumptions, setAssumptions] = useState<Assumption[]>([])
 
   // Sub-modal states
   const [assetsModalOpen, setAssetsModalOpen] = useState(false)
@@ -54,6 +67,7 @@ export function SystemContextModal({
     if (threatModel) {
       setDescription(threatModel.description || '')
       setScopeLocked(threatModel.scopeLocked ?? false)
+      setAssumptions(threatModel.assumptions ?? [])
     }
   }, [threatModel])
 
@@ -64,6 +78,7 @@ export function SystemContextModal({
         description,
         scopeLocked,
         scopeLockedAt: scopeLocked ? new Date().toISOString() : null,
+        assumptions,
       } as Partial<ThreatModel>,
     })
     onOpenChange(false)
@@ -91,6 +106,34 @@ export function SystemContextModal({
     setActiveView('describe')
   }
 
+  const handleAssumptionsClick = () => {
+    setActiveView('assumptions')
+  }
+
+  const handleAddAssumption = () => {
+    const newAssumption: Assumption = {
+      id: `assumption-${Date.now()}`,
+      description: '',
+      validity: 'unconfirmed',
+      topics: [],
+    }
+    setAssumptions([...assumptions, newAssumption])
+  }
+
+  const handleUpdateAssumption = (index: number, updates: Partial<Assumption>) => {
+    setAssumptions(assumptions.map((a, i) => (i === index ? { ...a, ...updates } : a)))
+  }
+
+  const handleDeleteAssumption = (index: number) => {
+    setAssumptions(assumptions.filter((_, i) => i !== index))
+  }
+
+  const validityConfig = {
+    unconfirmed: { label: 'Unconfirmed', className: 'bg-yellow-100 text-yellow-800' },
+    confirmed: { label: 'Confirmed', className: 'bg-green-100 text-green-800' },
+    rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800' },
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,7 +147,7 @@ export function SystemContextModal({
 
           <div className="space-y-6 py-4">
             {/* Context buttons */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <ContextButton
                 icon={Package}
                 label="Define Assets"
@@ -127,6 +170,14 @@ export function SystemContextModal({
                 onClick={handleDescribeClick}
                 disabled={scopeLocked}
                 active={activeView === 'describe'}
+              />
+              <ContextButton
+                icon={ClipboardList}
+                label="Assumptions"
+                count={assumptions.length}
+                onClick={handleAssumptionsClick}
+                disabled={scopeLocked}
+                active={activeView === 'assumptions'}
               />
             </div>
 
@@ -173,6 +224,97 @@ export function SystemContextModal({
                     </>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Assumptions editor - inline */}
+            {activeView === 'assumptions' && (
+              <div className="space-y-3">
+                {assumptions.length === 0 ? (
+                  <div className="border rounded-md p-4 bg-muted/30 text-sm text-muted-foreground">
+                    No assumptions defined. Add assumptions about the system that your threat model relies on.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {assumptions.map((assumption, index) => (
+                      <div key={assumption.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Textarea
+                            placeholder="Describe the assumption..."
+                            value={assumption.description}
+                            onChange={(e) => handleUpdateAssumption(index, { description: e.target.value })}
+                            rows={2}
+                            className="flex-1 text-sm"
+                            disabled={scopeLocked}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+                            onClick={() => handleDeleteAssumption(index)}
+                            disabled={scopeLocked}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Validity:</span>
+                            <Select
+                              value={assumption.validity}
+                              onValueChange={(value) => handleUpdateAssumption(index, { validity: value as Assumption['validity'] })}
+                              disabled={scopeLocked}
+                            >
+                              <SelectTrigger className="h-7 w-[130px] text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unconfirmed">Unconfirmed</SelectItem>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
+                                <SelectItem value="rejected">Rejected</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-xs text-muted-foreground">Topics:</span>
+                            <Input
+                              placeholder="e.g. auth, network (comma-separated)"
+                              value={assumption.topics.join(', ')}
+                              onChange={(e) => {
+                                const topicsList = e.target.value
+                                  .split(',')
+                                  .map((t) => t.trim())
+                                  .filter(Boolean)
+                                handleUpdateAssumption(index, { topics: topicsList })
+                              }}
+                              className="h-7 text-xs flex-1"
+                              disabled={scopeLocked}
+                            />
+                          </div>
+                        </div>
+                        {assumption.topics.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {assumption.topics.map((topic) => (
+                              <Badge key={topic} variant="secondary" className="text-xs">
+                                {topic}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={handleAddAssumption}
+                  disabled={scopeLocked}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Assumption
+                </Button>
               </div>
             )}
 

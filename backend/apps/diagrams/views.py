@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from apps.core.permissions import CanWrite
 from apps.threat_models.models import ThreatModel
 
-from .models import DFD, DFDTemplatesLibrary, ThreatModelDFD
+from .models import DFD, DFDTemplatesLibrary
 from .serializers import (
     DFDListSerializer,
     DFDSerializer,
@@ -38,16 +38,9 @@ class DFDViewSet(viewsets.ModelViewSet):
         # Get organizations the user belongs to
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
 
-        # Get DFDs associated with threat models in user's organizations
-        threat_model_ids = ThreatModel.objects.filter(
-            organization_id__in=org_ids
-        ).values_list("id", flat=True)
-
-        dfd_ids = ThreatModelDFD.objects.filter(
-            threat_model_id__in=threat_model_ids
-        ).values_list("dfd_id", flat=True)
-
-        return DFD.objects.filter(id__in=dfd_ids).select_related("updated_by")
+        return DFD.objects.filter(
+            threat_model__organization_id__in=org_ids
+        ).select_related("updated_by", "threat_model")
 
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
@@ -77,13 +70,10 @@ class DFDViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Create the DFD
+        # Create the DFD with direct FK
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        dfd = serializer.save(updated_by=request.user)
-
-        # Associate with threat model atomically
-        ThreatModelDFD.objects.create(threat_model=threat_model, dfd=dfd)
+        dfd = serializer.save(updated_by=request.user, threat_model=threat_model)
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -115,9 +105,8 @@ class DFDViewSet(viewsets.ModelViewSet):
         Preview what will be deleted when this DFD is deleted.
 
         Returns information about:
-        - Threat models that will lose this DFD
+        - Threat model that owns this DFD
         - Node and component counts
-        - Warning if shared with multiple threat models
         - Orphaned components that could be deleted
         """
         from apps.systems.models import OrgsystemComponent
@@ -126,18 +115,12 @@ class DFDViewSet(viewsets.ModelViewSet):
         canvas_data = dfd.canvas_data or {}
         nodes = canvas_data.get("nodes", [])
 
-        # Get threat model associations
-        threat_model_associations = ThreatModelDFD.objects.filter(
-            dfd=dfd
-        ).select_related("threat_model")
-
-        affected_threat_models = [
-            {
-                "id": str(assoc.threat_model.id),
-                "name": assoc.threat_model.name,
-            }
-            for assoc in threat_model_associations
-        ]
+        affected_threat_models = []
+        if dfd.threat_model:
+            affected_threat_models.append({
+                "id": str(dfd.threat_model.id),
+                "name": dfd.threat_model.name,
+            })
 
         # Extract component IDs from nodes
         component_ids = []
@@ -147,13 +130,10 @@ class DFDViewSet(viewsets.ModelViewSet):
                 component_ids.append(comp_id)
 
         # Find orphaned components (components only referenced by this DFD)
-        # A component is orphaned if it's not referenced by any other DFD's nodes
         orphaned_components = []
         if component_ids:
-            # Get all other DFDs
             other_dfds = DFD.objects.exclude(id=dfd.id)
 
-            # Collect component IDs referenced by other DFDs
             other_dfd_component_ids = set()
             for other_dfd in other_dfds:
                 other_canvas = other_dfd.canvas_data or {}
@@ -162,7 +142,6 @@ class DFDViewSet(viewsets.ModelViewSet):
                     if other_comp_id:
                         other_dfd_component_ids.add(other_comp_id)
 
-            # Find components only in this DFD
             orphaned_component_ids = set(component_ids) - other_dfd_component_ids
 
             if orphaned_component_ids:
@@ -185,7 +164,6 @@ class DFDViewSet(viewsets.ModelViewSet):
                 "component_count": len(component_ids),
             },
             "affected_threat_models": affected_threat_models,
-            "is_shared": len(affected_threat_models) > 1,
             "orphaned_components": orphaned_components,
             "orphaned_component_count": len(orphaned_components),
         })
@@ -206,7 +184,6 @@ class DFDViewSet(viewsets.ModelViewSet):
         orphaned_deleted_count = 0
 
         if delete_orphaned:
-            # Find and delete orphaned components
             canvas_data = dfd.canvas_data or {}
             nodes = canvas_data.get("nodes", [])
 
@@ -217,7 +194,6 @@ class DFDViewSet(viewsets.ModelViewSet):
                     component_ids.append(comp_id)
 
             if component_ids:
-                # Get component IDs referenced by other DFDs
                 other_dfds = DFD.objects.exclude(id=dfd.id)
                 other_dfd_component_ids = set()
                 for other_dfd in other_dfds:
@@ -227,14 +203,13 @@ class DFDViewSet(viewsets.ModelViewSet):
                         if other_comp_id:
                             other_dfd_component_ids.add(other_comp_id)
 
-                # Delete orphaned components
                 orphaned_component_ids = set(component_ids) - other_dfd_component_ids
                 if orphaned_component_ids:
                     orphaned_deleted_count, _ = OrgsystemComponent.objects.filter(
                         id__in=orphaned_component_ids
                     ).delete()
 
-        # Delete the DFD (cascades to ThreatModelDFD, DFDOrgsystem)
+        # Delete the DFD (cascades via FK)
         dfd.delete()
 
         return Response({
@@ -269,16 +244,13 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
         template = self.get_object()
         canvas_data = template.canvas_data or {}
 
-        # Get the source pack for reference resolution
         source_pack = template.source_pack
 
-        # Clone the canvas_data to avoid mutating the original
         resolved_data = {
             "nodes": [],
             "edges": canvas_data.get("edges", []),
         }
 
-        # Track resolution results
         resolution_results = []
 
         for node in canvas_data.get("nodes", []):
@@ -287,24 +259,20 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
             component_ref = node_data.get("component_ref")
 
             if component_ref:
-                # Resolve the component_ref to a component_library_id
                 component_library = None
 
                 if source_pack:
-                    # Try to resolve within the source pack first
                     qualified_slug = f"{source_pack.slug}/{component_ref}"
                     component_library = ComponentLibrary.objects.filter(
                         qualified_slug=qualified_slug,
                     ).first()
 
                 if not component_library and "/" in component_ref:
-                    # Cross-pack reference
                     component_library = ComponentLibrary.objects.filter(
                         qualified_slug=component_ref,
                     ).first()
 
                 if component_library:
-                    # Add component_library_id to the node data
                     resolved_node["data"] = {
                         **node_data,
                         "component_library_id": component_library.id,

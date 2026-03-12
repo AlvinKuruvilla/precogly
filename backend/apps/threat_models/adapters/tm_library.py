@@ -178,6 +178,13 @@ class TmLibraryAdapter(BaseAdapter):
                         f"{endpoint_key} must be an object."
                     )
 
+        # Assumptions must be objects with description
+        for idx, assumption in enumerate(json_data.get("assumptions", [])):
+            if not isinstance(assumption, dict):
+                errors.append(f"assumptions[{idx}]: must be an object.")
+            elif not assumption.get("description", "").strip():
+                warnings.append(f"assumptions[{idx}]: empty description.")
+
         # Trust boundaries must be objects
         for idx, tb in enumerate(json_data.get("trust_boundaries", [])):
             if not isinstance(tb, dict):
@@ -557,7 +564,24 @@ class TmLibraryAdapter(BaseAdapter):
                 fm.setdefault("tm_library", {})["threat_personas"] = threat_personas
                 threat_model.save(update_fields=["format_metadata"])
 
-            # 10. Threats
+            # 10. Assumptions
+            raw_assumptions = json_data.get("assumptions", [])
+            if raw_assumptions:
+                assumptions = []
+                for idx, assumption in enumerate(raw_assumptions):
+                    if not isinstance(assumption, dict):
+                        summary["warnings"].append(f"assumptions[{idx}]: not an object, skipped.")
+                        continue
+                    assumptions.append({
+                        "id": assumption.get("id", f"assumption-{idx}"),
+                        "description": assumption.get("description", ""),
+                        "validity": assumption.get("validity", "unconfirmed"),
+                        "topics": assumption.get("topics", []),
+                    })
+                threat_model.assumptions = assumptions
+                threat_model.save(update_fields=["assumptions"])
+
+            # 11. Threats
             threat_component_map = {}  # symbolic_name → list of threat instances
             system_component = None  # Lazy-created for threats without components_affected
             for threat_data in json_data.get("threats", []):
@@ -845,6 +869,10 @@ class TmLibraryAdapter(BaseAdapter):
             result["release_docs_link"] = tm_lib_meta["release_docs_link"]
         if tm_lib_meta.get("repo_link"):
             result["repo_link"] = tm_lib_meta["repo_link"]
+
+        # Assumptions
+        if threat_model.assumptions:
+            result["assumptions"] = threat_model.assumptions
 
         # Collect all components for this threat model
         components = OrgsystemComponent.objects.filter(threat_model=threat_model)
