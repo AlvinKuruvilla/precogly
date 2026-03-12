@@ -1,3 +1,5 @@
+# STATUS: COMPLETE
+
 # Assumptions Feature
 
 ## Summary
@@ -34,11 +36,11 @@ Each entry in the array:
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `description` | string | Yes | The assumption statement |
-| `topics` | string[] | No | References to components, flows, or other entities by name (human-readable, not DB IDs — keeps it lightweight and compatible with TM-Library format) |
-| `validity` | enum | Yes | `unconfirmed` / `confirmed` / `rejected` |
+| Field         | Type     | Required | Description                                                                                                                                          |
+| ------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | string   | Yes      | The assumption statement                                                                                                                             |
+| `topics`      | string[] | No       | References to components, flows, or other entities by name (human-readable, not DB IDs — keeps it lightweight and compatible with TM-Library format) |
+| `validity`    | enum     | Yes      | `unconfirmed` / `confirmed` / `rejected`                                                                                                             |
 
 ### Why JSONField, Not a Separate Table
 
@@ -55,6 +57,7 @@ Each entry in the array:
 Add `assumptions` to `ThreatModelSerializer` fields list. The JSONField serializes directly — no nested serializer needed.
 
 Validation in the serializer (or a dedicated validator):
+
 - Each entry must have `description` (non-empty string) and `validity` (one of the three enum values)
 - `topics` is optional, defaults to `[]`
 - Reject duplicate descriptions within the same threat model
@@ -152,7 +155,7 @@ for idx, assumption in enumerate(json_data.get("assumptions", [])):
 interface Assumption {
   description: string;
   topics: string[];
-  validity: 'unconfirmed' | 'confirmed' | 'rejected';
+  validity: "unconfirmed" | "confirmed" | "rejected";
 }
 
 // Add to ThreatModel type
@@ -167,6 +170,7 @@ interface ThreatModel {
 **4th tab in the "View / Manage System Context" modal**, alongside the existing Define Assets, Out of Scope, and Describe System tabs.
 
 Rationale:
+
 - Assumptions are not known at creation time — they emerge during the modeling process as the team draws components, identifies trust boundaries, and reasons about threats
 - The System Context modal already houses the other "what do we believe about this system?" inputs. Out of Scope ("we're not analyzing this") and Assumptions ("we believe this is true") are two sides of the same coin
 - Adding a tab has zero navigation footprint — users who don't use it never see it, same as Out of Scope today
@@ -202,6 +206,7 @@ Rationale:
 ```
 
 Each row:
+
 - Description (text input) — the assumption statement
 - Validity (dropdown: unconfirmed / confirmed / rejected) — with color coding: confirmed = green, unconfirmed = yellow, rejected = red
 - Topics (tag/chip input — freeform text, not linked to DB entities)
