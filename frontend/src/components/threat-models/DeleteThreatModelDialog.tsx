@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, Trash2, Shield } from 'lucide-react'
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,8 +33,7 @@ export function DeleteThreatModelDialog({
 
   if (!threatModel) return null
 
-  const hasOrphanedDFDs = (preview?.dfdsToDelete.length ?? 0) > 0
-  const hasSharedDFDs = (preview?.dfdsToPreserve.length ?? 0) > 0
+  const hasDFDs = (preview?.dfdsToDelete?.length ?? 0) > 0
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -58,7 +57,7 @@ export function DeleteThreatModelDialog({
           ) : preview ? (
             <div className="mt-3 space-y-3">
               {/* DFDs to be deleted */}
-              {hasOrphanedDFDs && (
+              {hasDFDs && (
                 <div className="rounded-md bg-red-50 border border-red-200 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-red-800 mb-2">
                     <Trash2 className="h-4 w-4" />
@@ -76,33 +75,8 @@ export function DeleteThreatModelDialog({
                 </div>
               )}
 
-              {/* DFDs to be preserved */}
-              {hasSharedDFDs && (
-                <div className="rounded-md bg-green-50 border border-green-200 p-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-green-800 mb-2">
-                    <Shield className="h-4 w-4" />
-                    DFDs that will be preserved ({preview.dfdsToPreserve.length})
-                  </div>
-                  <ul className="space-y-1">
-                    {preview.dfdsToPreserve.map((dfd) => (
-                      <li key={dfd.id} className="text-sm text-green-700">
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                          {dfd.name}
-                        </div>
-                        {dfd.sharedWith && dfd.sharedWith.length > 0 && (
-                          <div className="ml-4 text-xs text-green-600">
-                            Shared with: {dfd.sharedWith.map(tm => tm.name).join(', ')}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
               {/* No DFDs */}
-              {!hasOrphanedDFDs && !hasSharedDFDs && (
+              {!hasDFDs && (
                 <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-sm text-gray-600">
                   This threat model has no associated DFDs.
                 </div>
@@ -112,9 +86,20 @@ export function DeleteThreatModelDialog({
               <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
                 <p className="font-medium mb-1">Also deleted:</p>
                 <ul className="list-disc list-inside space-y-0.5 text-amber-700 text-xs">
+                  {preview.componentsToDelete > 0 && (
+                    <li>{preview.componentsToDelete} component{preview.componentsToDelete !== 1 ? 's' : ''}</li>
+                  )}
+                  {preview.dataflowsToDelete > 0 && (
+                    <li>{preview.dataflowsToDelete} data flow{preview.dataflowsToDelete !== 1 ? 's' : ''}</li>
+                  )}
+                  {preview.threatsToDelete > 0 && (
+                    <li>{preview.threatsToDelete} threat{preview.threatsToDelete !== 1 ? 's' : ''}</li>
+                  )}
+                  {preview.countermeasuresToDelete > 0 && (
+                    <li>{preview.countermeasuresToDelete} countermeasure{preview.countermeasuresToDelete !== 1 ? 's' : ''}</li>
+                  )}
                   <li>System connections</li>
                   <li>Threat model relationships</li>
-                  <li>Pentest findings linked to this model</li>
                 </ul>
               </div>
             </div>

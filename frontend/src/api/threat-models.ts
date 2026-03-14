@@ -110,14 +110,16 @@ export interface DeletePreviewDFD {
   id: string
   name: string
   nodeCount: number
-  sharedWith?: Array<{ id: string; name: string }>
 }
 
 export interface DeletePreviewResponse {
   threatModel: { id: string; name: string }
   dfdsToDelete: DeletePreviewDFD[]
-  dfdsToPreserve: DeletePreviewDFD[]
   totalDfds: number
+  componentsToDelete: number
+  dataflowsToDelete: number
+  threatsToDelete: number
+  countermeasuresToDelete: number
 }
 
 export function useDeletePreview(id: string | null) {
