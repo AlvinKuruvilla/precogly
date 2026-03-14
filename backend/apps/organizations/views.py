@@ -197,9 +197,15 @@ class TeamViewSet(viewsets.ModelViewSet):
         ).select_related("organization", "business_unit")
 
         # Optional filter: only teams user is a member of
+        # Security team members bypass this filter (they manage all teams)
         my_teams_only = self.request.query_params.get("my_teams", "false")
         if my_teams_only.lower() == "true":
-            queryset = queryset.filter(memberships__user=user)
+            is_security_team = user.organization_memberships.filter(
+                organization_id__in=org_ids,
+                role=OrganizationMember.Role.SECURITY_TEAM,
+            ).exists()
+            if not is_security_team:
+                queryset = queryset.filter(memberships__user=user)
 
         return queryset
 

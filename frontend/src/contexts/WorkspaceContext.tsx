@@ -9,6 +9,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react'
 import { useOrganizations, useTeams } from '@/api/organizations'
@@ -87,10 +88,14 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     }
   }, [organizations, teams, currentOrganization, currentTeam])
 
-  // Clear team when org changes
+  // Clear team when user explicitly switches orgs (not on initial load)
+  const hasInitializedOrg = useRef(false)
   useEffect(() => {
     if (currentOrganization) {
-      // Reset team selection when org changes
+      if (!hasInitializedOrg.current) {
+        hasInitializedOrg.current = true
+        return
+      }
       setCurrentTeamState(null)
     }
   }, [currentOrganization?.id])
