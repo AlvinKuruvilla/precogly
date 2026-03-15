@@ -356,7 +356,7 @@ export function useWorkspaceThreatAnalysis(
   const summaries = useMemo(() => {
     const activeThreats = state.componentThreats.filter((ct) => !ct.dismissed)
 
-    const allNodes = diagrams.flatMap((d) => d.canvasData?.nodes || [])
+    const allNodes = diagrams.filter((d) => d.isPrimary).flatMap((d) => d.canvasData?.nodes || [])
 
     // Get IDs of components already on canvas to avoid double-counting
     const canvasComponentIds = new Set(

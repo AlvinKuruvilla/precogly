@@ -1,4 +1,8 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ReadOnlyDFDViewer } from '@/components/shared/ReadOnlyDFDViewer'
 import type { ReportArchitecture } from '@/types/report'
 import { ReportSection } from '../ReportSection'
 
@@ -7,6 +11,9 @@ interface ArchitectureSectionProps {
 }
 
 export function ArchitectureSection({ architecture }: ArchitectureSectionProps) {
+  const primaryDfdId = architecture.dfds.find((dfd) => dfd.isPrimary)?.id ?? null
+  const [expandedDFDId, setExpandedDFDId] = useState<string | null>(primaryDfdId)
+
   return (
     <ReportSection title="Architecture">
       <div className="space-y-4">
@@ -14,26 +21,66 @@ export function ArchitectureSection({ architecture }: ArchitectureSectionProps) 
         {architecture.dfds.length > 0 && (
           <div>
             <h4 className="font-medium mb-2">Data Flow Diagrams</h4>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Nodes</TableHead>
-                  <TableHead className="text-right">Edges</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {architecture.dfds.map((dfd) => (
-                  <TableRow key={dfd.id}>
-                    <TableCell className="font-medium">{dfd.name}</TableCell>
-                    <TableCell>{dfd.diagramType}</TableCell>
-                    <TableCell className="text-right">{dfd.nodeCount}</TableCell>
-                    <TableCell className="text-right">{dfd.edgeCount}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-3">
+              {architecture.dfds.map((dfd) => {
+                const isExpanded = expandedDFDId === dfd.id
+
+                return (
+                  <div key={dfd.id} className="border rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setExpandedDFDId(isExpanded ? null : dfd.id)}
+                      className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                    >
+                      <div>
+                        <h4 className="font-medium">
+                          {dfd.name}
+                          {dfd.isPrimary ? (
+                            <span className="ml-2 text-xs text-green-600 font-medium">(Primary)</span>
+                          ) : (
+                            <span className="ml-2 text-xs text-muted-foreground">(Reference)</span>
+                          )}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {dfd.nodeCount} components, {dfd.edgeCount} data flows
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {isExpanded ? 'Hide diagram' : 'View diagram'}
+                        </span>
+                        {isExpanded ? (
+                          <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </button>
+
+                    {isExpanded && dfd.canvasData && (
+                      <div className="border-t">
+                        <div className="p-2 bg-muted/20 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Pan and zoom to explore the diagram
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedDFDId(null)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Close
+                          </Button>
+                        </div>
+                        <ReadOnlyDFDViewer
+                          canvasData={dfd.canvasData as { nodes?: unknown[]; edges?: unknown[] }}
+                          className="h-[500px] w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 

@@ -124,8 +124,10 @@ def _build_architecture(threat_model, component_ids):
             "id": str(dfd.id),
             "name": dfd.name,
             "diagram_type": dfd.diagram_type,
+            "is_primary": dfd.is_primary,
             "node_count": len(canvas_data.get("nodes", [])),
             "edge_count": len(canvas_data.get("edges", [])),
+            "canvas_data": canvas_data,
         })
 
     reference_images = []

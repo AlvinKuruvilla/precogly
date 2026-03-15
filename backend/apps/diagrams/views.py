@@ -89,17 +89,11 @@ class DFDViewSet(viewsets.ModelViewSet):
 
         # Only the primary DFD syncs nodes to OrgsystemComponent records
         if dfd.is_primary and dfd.threat_model:
-            sync_result = sync_dfd_nodes_to_components(dfd, dfd.threat_model)
-            self._sync_result = sync_result
+            sync_dfd_nodes_to_components(dfd, dfd.threat_model)
 
     @action(detail=False, methods=["post"])
     def create_for_threat_model(self, request):
-        """
-        Create a DFD and associate it with a threat model.
-
-        DEPRECATED: Use POST /diagrams/ with threat_model_id instead.
-        Kept for backwards compatibility.
-        """
+        """Create a DFD and associate it with a threat model. Delegates to create()."""
         return self.create(request)
 
     @action(detail=True, methods=["get"])

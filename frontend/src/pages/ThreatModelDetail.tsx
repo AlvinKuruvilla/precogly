@@ -210,7 +210,7 @@ export function ThreatModelDetail() {
   const aggregatedCanvasData = useMemo((): CanvasData => {
     const diagramsToUse = selectedDiagramId
       ? diagrams.filter((d) => d.id === selectedDiagramId)
-      : diagrams
+      : diagrams.filter((d) => d.isPrimary)
 
     const nodes: DiagramNode[] = []
     const edges: DataFlowEdge[] = []
