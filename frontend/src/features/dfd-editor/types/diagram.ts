@@ -3,16 +3,15 @@ import type { Node, Edge } from '@xyflow/react'
 // Re-export domain types for convenience
 export {
   type DiagramNodeType,
-  type TrustZoneType,
   type TrustZonePresetName,
-  type TrustZoneConfig,
   type DataClassification,
   type Protocol,
   type DataSensitivity,
   type TemplateCategory,
   type DiagramTypeValue,
   type ThreatFramework,
-  TRUST_ZONE_TYPE_CONFIG,
+  ZONE_COLOR_OPTIONS,
+  getZoneColorConfig,
   TRUST_ZONE_PRESET_NAMES,
   DATA_CLASSIFICATIONS,
   PROTOCOLS,
@@ -22,7 +21,6 @@ export {
 
 import type {
   DiagramNodeType,
-  TrustZoneType,
   DataClassification,
   Protocol,
   DataSensitivity,
@@ -64,8 +62,10 @@ export interface SystemActorNodeData extends BaseNodeData {
 }
 
 export interface TrustZoneNodeData extends BaseNodeData {
-  // Zone type for the trust zone
-  zoneType?: TrustZoneType
+  // Trust level 0-100 (0 = untrusted/internet, 100 = restricted)
+  trustLevel?: number
+  // User-chosen zone color (borderColor hex, e.g., '#22c55e')
+  zoneColor?: string
   // Technology implementing this zone (e.g., AWS VPC, Azure VNet)
   technology?: string
   // Written back by backend sync (trust_zone_id → trustZoneId)
@@ -102,7 +102,8 @@ export interface DataFlowEdgeData {
   // Trust zone crossing
   crossesZoneId?: string           // ID of the zone this flow crosses
   crossesZoneLabel?: string        // Label of the zone (for display)
-  crossesZoneType?: TrustZoneType  // Type of the zone
+  crossesZoneTrustLevel?: number   // Trust level of the zone
+  crossesZoneColor?: string        // Color of the zone (borderColor hex)
   crossesZoneIds?: string[]        // For flows crossing multiple zones
   [key: string]: unknown  // Required for React Flow's Edge<T> constraint
 }

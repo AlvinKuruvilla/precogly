@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Slider } from '@/components/ui/slider'
 import {
   Select,
   SelectContent,
@@ -28,12 +29,12 @@ import {
 import type {
   DiagramNode,
   DiagramNodeType,
-  TrustZoneType,
   DataSensitivity,
 } from '../../types'
 import {
   DATA_SENSITIVITY_CONFIG,
-  TRUST_ZONE_TYPE_CONFIG,
+  ZONE_COLOR_OPTIONS,
+  getZoneColorConfig,
   MAX_PROCESS_HIERARCHY_DEPTH,
   getProcessAncestorDepth,
   getProcessDescendantDepth,
@@ -587,39 +588,56 @@ export const NodeEditPanel = memo(function NodeEditPanel({
 
         {node.type === 'trustZone' && (
           <>
+            <div className="space-y-3">
+              <Label>Trust Level</Label>
+              <Slider
+                value={[(node.data as { trustLevel?: number }).trustLevel ?? 75]}
+                onValueChange={([value]) => updateNodeData({ trustLevel: value })}
+                min={0}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>0 — untrusted</span>
+                <span className="font-medium text-foreground">
+                  {(node.data as { trustLevel?: number }).trustLevel ?? 75}
+                </span>
+                <span>100 — restricted</span>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="node-zoneType">Zone Type</Label>
+              <Label>Zone Color</Label>
               <Select
-                value={(node.data as { zoneType?: TrustZoneType }).zoneType || ''}
-                onValueChange={(value) =>
-                  updateNodeData({ zoneType: value as TrustZoneType })
-                }
+                value={(node.data as { zoneColor?: string }).zoneColor || '#22c55e'}
+                onValueChange={(value) => updateNodeData({ zoneColor: value })}
               >
-                <SelectTrigger id="node-zoneType">
-                  <SelectValue placeholder="Select zone type..." />
+                <SelectTrigger className="h-9">
+                  <SelectValue>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full border"
+                        style={{ backgroundColor: getZoneColorConfig((node.data as { zoneColor?: string }).zoneColor).borderColor }}
+                      />
+                      {ZONE_COLOR_OPTIONS.find(o => o.borderColor === ((node.data as { zoneColor?: string }).zoneColor || '#22c55e'))?.label || 'Green'}
+                    </div>
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(TRUST_ZONE_TYPE_CONFIG) as TrustZoneType[]).map((type) => {
-                    const config = TRUST_ZONE_TYPE_CONFIG[type]
-                    return (
-                      <SelectItem key={type} value={type}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: config.borderColor }}
-                          />
-                          {config.label}
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
+                  {ZONE_COLOR_OPTIONS.map((option) => (
+                    <SelectItem key={option.borderColor} value={option.borderColor}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full border"
+                          style={{ backgroundColor: option.borderColor }}
+                        />
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {(node.data as { zoneType?: TrustZoneType }).zoneType && (
-                <p className="text-xs text-muted-foreground">
-                  {TRUST_ZONE_TYPE_CONFIG[(node.data as { zoneType: TrustZoneType }).zoneType]?.description}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">

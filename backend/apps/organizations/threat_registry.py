@@ -336,17 +336,12 @@ def compute_threats_for_node(
     return THREATS_BY_CATEGORY.get(category, [])
 
 
-def compute_threats_for_trust_zone(zone_type: Optional[str]) -> List[str]:
+def compute_threats_for_trust_zone() -> List[str]:
     """
     Get applicable threats for a trust zone node.
+    Any trust zone always gets lateral movement threats.
     """
-    if not zone_type:
-        return []
-
-    # Zone-type nodes have lateral movement threats
-    if zone_type.startswith("zone"):
-        return TRUST_ZONE_THREATS
-    return []
+    return TRUST_ZONE_THREATS
 
 
 def compute_threats_for_data_flow(
@@ -430,8 +425,7 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
 
             elif node_type == "trustZone":
                 boundaries += 1
-                zone_type = node_data.get("zoneType")
-                threats = compute_threats_for_trust_zone(zone_type)
+                threats = compute_threats_for_trust_zone()
                 for threat_id in threats:
                     unique_threat_key = f"{node.get('id')}-{threat_id}"
                     if unique_threat_key not in all_threats:

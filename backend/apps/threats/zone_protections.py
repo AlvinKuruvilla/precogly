@@ -7,7 +7,7 @@ from outer (lower trust_level) zones to inner (higher trust_level) zones.
 
 from django.db.models import Q
 
-from apps.systems.models import TrustBoundary, TrustZone
+from apps.systems.models import TrustBoundary
 from apps.threats.models import ComponentInstanceCountermeasure
 from apps.threats.services import recalculate_threat_status
 

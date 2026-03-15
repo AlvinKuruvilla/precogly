@@ -12,6 +12,10 @@ import {
   useThreatModelThreats,
   useUpdateCountermeasure,
   useUpdateFlowCountermeasure,
+  useDismissThreat,
+  useRestoreThreat,
+  useDismissFlowThreat,
+  useRestoreFlowThreat,
   parseCountermeasureId,
 } from '@/api/threats'
 import { api } from '@/lib/api'
@@ -54,6 +58,10 @@ export function useWorkspaceThreatAnalysis(
   // Backend API mutations
   const updateCountermeasureMutation = useUpdateCountermeasure()
   const updateFlowCountermeasureMutation = useUpdateFlowCountermeasure()
+  const dismissThreatMutation = useDismissThreat()
+  const restoreThreatMutation = useRestoreThreat()
+  const dismissFlowThreatMutation = useDismissFlowThreat()
+  const restoreFlowThreatMutation = useRestoreFlowThreat()
 
   // Use backend threats directly - no local threat generation
   useEffect(() => {
@@ -295,6 +303,14 @@ export function useWorkspaceThreatAnalysis(
 
   // Dismiss threat
   const dismissThreat = useCallback((componentThreatId: string) => {
+    const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+    if (threat?.backendThreatId) {
+      if (threat.threatType === 'dataflow') {
+        dismissFlowThreatMutation.mutate({ threatId: threat.backendThreatId, reason: '' })
+      } else {
+        dismissThreatMutation.mutate({ threatId: threat.backendThreatId, reason: '' })
+      }
+    }
     setState((prev) => ({
       ...prev,
       componentThreats: prev.componentThreats.map((ct) => {
@@ -302,10 +318,18 @@ export function useWorkspaceThreatAnalysis(
         return { ...ct, dismissed: true, updatedAt: new Date().toISOString() }
       }),
     }))
-  }, [])
+  }, [state.componentThreats, dismissThreatMutation, dismissFlowThreatMutation])
 
   // Restore dismissed threat
   const restoreThreat = useCallback((componentThreatId: string) => {
+    const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+    if (threat?.backendThreatId) {
+      if (threat.threatType === 'dataflow') {
+        restoreFlowThreatMutation.mutate(threat.backendThreatId)
+      } else {
+        restoreThreatMutation.mutate(threat.backendThreatId)
+      }
+    }
     setState((prev) => ({
       ...prev,
       componentThreats: prev.componentThreats.map((ct) => {
@@ -313,7 +337,7 @@ export function useWorkspaceThreatAnalysis(
         return { ...ct, dismissed: false, updatedAt: new Date().toISOString() }
       }),
     }))
-  }, [])
+  }, [state.componentThreats, restoreThreatMutation, restoreFlowThreatMutation])
 
   // Add custom countermeasure
   const addCountermeasure = useCallback(

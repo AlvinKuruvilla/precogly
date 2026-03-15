@@ -169,46 +169,29 @@ export type Criticality = 'low' | 'medium' | 'high' | 'critical'
 // System types
 export type SystemType = 'system' | 'process'
 
-// Trust Zone Types
-export type TrustZoneType = 'zoneInternet' | 'zoneDmz' | 'zoneInternal' | 'zoneRestricted'
+// Zone color options for the color picker
+export const ZONE_COLOR_OPTIONS = [
+  { label: 'Red', borderColor: '#ef4444', color: 'rgba(239, 68, 68, 0.1)' },
+  { label: 'Orange', borderColor: '#f97316', color: 'rgba(249, 115, 22, 0.1)' },
+  { label: 'Amber', borderColor: '#f59e0b', color: 'rgba(245, 158, 11, 0.1)' },
+  { label: 'Green', borderColor: '#22c55e', color: 'rgba(34, 197, 94, 0.1)' },
+  { label: 'Teal', borderColor: '#14b8a6', color: 'rgba(20, 184, 166, 0.1)' },
+  { label: 'Blue', borderColor: '#3b82f6', color: 'rgba(59, 130, 246, 0.1)' },
+  { label: 'Purple', borderColor: '#8b5cf6', color: 'rgba(139, 92, 246, 0.1)' },
+  { label: 'Pink', borderColor: '#ec4899', color: 'rgba(236, 72, 153, 0.1)' },
+] as const
 
-export interface TrustZoneConfig {
-  label: string
-  icon: string
-  color: string
-  borderColor: string
-  description: string
-}
-
-export const TRUST_ZONE_TYPE_CONFIG: Record<TrustZoneType, TrustZoneConfig> = {
-  zoneInternet: {
-    label: 'Internet/Public Zone',
-    icon: 'globe',
-    color: 'rgba(239, 68, 68, 0.1)',
-    borderColor: '#ef4444',
-    description: 'Untrusted external network',
-  },
-  zoneDmz: {
-    label: 'DMZ',
-    icon: 'shield-half',
-    color: 'rgba(249, 115, 22, 0.1)',
-    borderColor: '#f97316',
-    description: 'Demilitarized zone between external and internal networks',
-  },
-  zoneInternal: {
-    label: 'Internal Network',
-    icon: 'building',
-    color: 'rgba(34, 197, 94, 0.1)',
-    borderColor: '#22c55e',
-    description: 'Trusted internal network',
-  },
-  zoneRestricted: {
-    label: 'Restricted Zone',
-    icon: 'lock',
-    color: 'rgba(139, 92, 246, 0.1)',
-    borderColor: '#8b5cf6',
-    description: 'Highly restricted, sensitive systems',
-  },
+/**
+ * Get the background + border color config for a zone, given its stored borderColor.
+ * Falls back to green if the color is not in the predefined options.
+ */
+export function getZoneColorConfig(zoneColor?: string): { color: string; borderColor: string } {
+  if (zoneColor) {
+    const option = ZONE_COLOR_OPTIONS.find(o => o.borderColor === zoneColor)
+    if (option) return { color: option.color, borderColor: option.borderColor }
+  }
+  // Default: green
+  return { color: 'rgba(34, 197, 94, 0.1)', borderColor: '#22c55e' }
 }
 
 // Trust Zone Preset Names - Conceptual zone names for the Name dropdown

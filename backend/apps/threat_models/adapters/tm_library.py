@@ -646,36 +646,50 @@ class TmLibraryAdapter(BaseAdapter):
                             or resolver.resolve("data_store", comp_ref)
                         )
                         if comp:
-                            instance = ComponentInstanceThreat.objects.create(
+                            instance, created = ComponentInstanceThreat.objects.get_or_create(
                                 component=comp,
-                                threat_library=threat_lib,
                                 threat_name=title,
-                                threat_description=description,
-                                inherent_severity="medium",
-                                status="exposed",
-                                severity_scoring_metadata=severity_metadata,
-                                format_metadata=format_meta,
+                                defaults={
+                                    "threat_library": threat_lib,
+                                    "threat_description": description,
+                                    "inherent_severity": "medium",
+                                    "status": "exposed",
+                                    "severity_scoring_metadata": severity_metadata,
+                                    "format_metadata": format_meta,
+                                },
                             )
+                            if not created and not instance.threat_library:
+                                instance.threat_library = threat_lib
+                                instance.format_metadata = format_meta
+                                instance.save(update_fields=["threat_library", "format_metadata"])
                             instances.append(("component", instance))
-                            summary["threats"] += 1
+                            if created:
+                                summary["threats"] += 1
 
                 # Create DataFlowInstanceThreat for each flow affected
                 if data_flows_affected:
                     for flow_ref in data_flows_affected:
                         flow = resolver.resolve("data_flow", flow_ref)
                         if flow:
-                            instance = DataFlowInstanceThreat.objects.create(
+                            instance, created = DataFlowInstanceThreat.objects.get_or_create(
                                 data_flow=flow,
-                                threat_library=threat_lib,
                                 threat_name=title,
-                                threat_description=description,
-                                inherent_severity="medium",
-                                status="exposed",
-                                severity_scoring_metadata=severity_metadata,
-                                format_metadata=format_meta,
+                                defaults={
+                                    "threat_library": threat_lib,
+                                    "threat_description": description,
+                                    "inherent_severity": "medium",
+                                    "status": "exposed",
+                                    "severity_scoring_metadata": severity_metadata,
+                                    "format_metadata": format_meta,
+                                },
                             )
+                            if not created and not instance.threat_library:
+                                instance.threat_library = threat_lib
+                                instance.format_metadata = format_meta
+                                instance.save(update_fields=["threat_library", "format_metadata"])
                             instances.append(("flow", instance))
-                            summary["threats"] += 1
+                            if created:
+                                summary["threats"] += 1
 
                 # If neither components nor flows affected, create system-level
                 if not components_affected and not data_flows_affected:
@@ -686,18 +700,25 @@ class TmLibraryAdapter(BaseAdapter):
                             threat_model=threat_model,
                             format_metadata={"tm_library": {"synthetic": True}},
                         )
-                    instance = ComponentInstanceThreat.objects.create(
+                    instance, created = ComponentInstanceThreat.objects.get_or_create(
                         component=system_component,
-                        threat_library=threat_lib,
                         threat_name=title,
-                        threat_description=description,
-                        inherent_severity="medium",
-                        status="exposed",
-                        severity_scoring_metadata=severity_metadata,
-                        format_metadata=format_meta,
+                        defaults={
+                            "threat_library": threat_lib,
+                            "threat_description": description,
+                            "inherent_severity": "medium",
+                            "status": "exposed",
+                            "severity_scoring_metadata": severity_metadata,
+                            "format_metadata": format_meta,
+                        },
                     )
+                    if not created and not instance.threat_library:
+                        instance.threat_library = threat_lib
+                        instance.format_metadata = format_meta
+                        instance.save(update_fields=["threat_library", "format_metadata"])
                     instances.append(("component", instance))
-                    summary["threats"] += 1
+                    if created:
+                        summary["threats"] += 1
 
                 threat_component_map[symbolic_name] = instances
                 resolver.register("threat", symbolic_name, threat_lib)
@@ -722,37 +743,44 @@ class TmLibraryAdapter(BaseAdapter):
                 for threat_ref in referenced_threats:
                     instances = threat_component_map.get(threat_ref, [])
                     for threat_type, threat_instance in instances:
+                        format_meta_cm = {
+                            "tm_library": {
+                                "symbolic_name": symbolic_name,
+                                "original_status": original_status,
+                            }
+                        }
                         if threat_type == "component":
-                            ComponentInstanceCountermeasure.objects.create(
+                            cm_instance, cm_created = ComponentInstanceCountermeasure.objects.get_or_create(
                                 instance_threat=threat_instance,
-                                countermeasure_library=cm_lib,
                                 countermeasure_name=title,
-                                countermeasure_description=description,
-                                status=mapped_status,
-                                priority=priority,
-                                format_metadata={
-                                    "tm_library": {
-                                        "symbolic_name": symbolic_name,
-                                        "original_status": original_status,
-                                    }
+                                defaults={
+                                    "countermeasure_library": cm_lib,
+                                    "countermeasure_description": description,
+                                    "status": mapped_status,
+                                    "priority": priority,
+                                    "format_metadata": format_meta_cm,
                                 },
                             )
+                            if not cm_created and not cm_instance.countermeasure_library:
+                                cm_instance.countermeasure_library = cm_lib
+                                cm_instance.save(update_fields=["countermeasure_library"])
                         elif threat_type == "flow":
-                            FlowInstanceCountermeasure.objects.create(
+                            cm_instance, cm_created = FlowInstanceCountermeasure.objects.get_or_create(
                                 flow_threat=threat_instance,
-                                countermeasure_library=cm_lib,
                                 countermeasure_name=title,
-                                countermeasure_description=description,
-                                status=mapped_status,
-                                priority=priority,
-                                format_metadata={
-                                    "tm_library": {
-                                        "symbolic_name": symbolic_name,
-                                        "original_status": original_status,
-                                    }
+                                defaults={
+                                    "countermeasure_library": cm_lib,
+                                    "countermeasure_description": description,
+                                    "status": mapped_status,
+                                    "priority": priority,
+                                    "format_metadata": format_meta_cm,
                                 },
                             )
-                        summary["controls"] += 1
+                            if not cm_created and not cm_instance.countermeasure_library:
+                                cm_instance.countermeasure_library = cm_lib
+                                cm_instance.save(update_fields=["countermeasure_library"])
+                        if cm_created:
+                            summary["controls"] += 1
 
                 resolver.register("control", symbolic_name, cm_lib)
 

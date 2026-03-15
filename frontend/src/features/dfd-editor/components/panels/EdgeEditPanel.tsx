@@ -29,7 +29,7 @@ import type {
   DiagramNode,
   TrustZoneNodeData,
 } from '../../types'
-import { PROTOCOLS, TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { PROTOCOLS, getZoneColorConfig } from '../../types'
 import { DATA_SENSITIVITY_TAG_CONFIG } from '@/types/domain'
 
 const PROTECTION_METHODS = [
@@ -442,7 +442,8 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
                     updateEdgeData({
                       crossesZoneId: undefined,
                       crossesZoneLabel: undefined,
-                      crossesZoneType: undefined,
+                      crossesZoneTrustLevel: undefined,
+                      crossesZoneColor: undefined,
                     })
                   } else {
                     const selectedZoneNode = trustZones.find((b) => b.id === value)
@@ -450,7 +451,8 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
                     updateEdgeData({
                       crossesZoneId: value,
                       crossesZoneLabel: selectedData?.label ? String(selectedData.label) : undefined,
-                      crossesZoneType: selectedData?.zoneType,
+                      crossesZoneTrustLevel: selectedData?.trustLevel,
+                      crossesZoneColor: selectedData?.zoneColor,
                     })
                   }
                 }}
@@ -464,24 +466,18 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
                   </SelectItem>
                   {trustZones.map((boundary) => {
                     const data = boundary.data as TrustZoneNodeData
-                    const config = data.zoneType
-                      ? TRUST_ZONE_TYPE_CONFIG[data.zoneType]
-                      : null
+                    const config = getZoneColorConfig(data.zoneColor)
                     return (
                       <SelectItem key={boundary.id} value={boundary.id}>
                         <div className="flex items-center gap-2">
-                          {config && (
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: config.borderColor }}
-                            />
-                          )}
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: config.borderColor }}
+                          />
                           <span>{String(boundary.data.label)}</span>
-                          {config && (
-                            <span className="text-xs text-muted-foreground">
-                              ({config.label})
-                            </span>
-                          )}
+                          <span className="text-xs text-muted-foreground">
+                            (TL: {data.trustLevel ?? 75})
+                          </span>
                         </div>
                       </SelectItem>
                     )

@@ -1,24 +1,11 @@
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, type Node, type NodeProps } from '@xyflow/react'
-import {
-  Shield,
-  Globe,
-  Building,
-  Lock,
-} from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TrustZoneNodeData } from '../../types'
-import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { getZoneColorConfig } from '../../types'
 
 type TrustZoneNodeType = Node<TrustZoneNodeData, 'trustZone'>
-
-// Icon mapping for zone types
-const ZONE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  globe: Globe,
-  'shield-half': Shield,
-  building: Building,
-  lock: Lock,
-}
 
 export const TrustZoneNode = memo(function TrustZoneNode({
   data,
@@ -27,15 +14,8 @@ export const TrustZoneNode = memo(function TrustZoneNode({
   const isNewlyInserted = data.isNewlyInserted
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 
-  // Get config from zoneType, defaulting to zoneInternal
-  const zoneConfig = TRUST_ZONE_TYPE_CONFIG[data.zoneType || 'zoneInternal']
-
-  const displayColor = zoneConfig.color
-  const displayBorderColor = zoneConfig.borderColor
-  const displayLabel = zoneConfig.label
-
-  // Get the icon component
-  const IconComponent = ZONE_ICONS[zoneConfig.icon] || Shield
+  const trustLevel = data.trustLevel ?? 75
+  const { color: displayColor, borderColor: displayBorderColor } = getZoneColorConfig(data.zoneColor)
 
   // Trigger lock animation when receiveChildAnimationKey changes (new timestamp = new animation)
   useEffect(() => {
@@ -85,11 +65,11 @@ export const TrustZoneNode = memo(function TrustZoneNode({
             color: 'white',
           }}
         >
-          <IconComponent className="h-3 w-3" />
+          <Shield className="h-3 w-3" />
           {data.label}
         </div>
 
-        {/* Zone type indicator */}
+        {/* Trust level indicator */}
         <div
           className="absolute -top-3 right-3 px-2 py-0.5 rounded text-xs"
           style={{
@@ -98,7 +78,7 @@ export const TrustZoneNode = memo(function TrustZoneNode({
             border: `1px solid ${displayBorderColor}`,
           }}
         >
-          {displayLabel}
+          TL: {trustLevel}
         </div>
       </div>
     </>

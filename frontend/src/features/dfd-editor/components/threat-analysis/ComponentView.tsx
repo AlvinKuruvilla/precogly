@@ -26,7 +26,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { useTeamMembers, useOrganizationMembers } from '@/api/organizations'
 import type { TeamMembership, OrganizationMembership } from '@/types/organization'
 import type { DiagramNode, DataFlowEdge, CanvasData, TrustZoneNodeData } from '../../types'
-import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { getZoneColorConfig } from '../../types'
 import type {
   ComponentThreat,
   CountermeasureStatus,
@@ -1372,9 +1372,7 @@ export function ComponentView({
                   const summary = getComponentThreatSummary(node.id, componentThreats)
                   const isSelected = node.id === selectedComponentId
                   const zoneData = node.data as TrustZoneNodeData
-                  const zoneConfig = zoneData.zoneType
-                    ? TRUST_ZONE_TYPE_CONFIG[zoneData.zoneType]
-                    : null
+                  const zoneConfig = getZoneColorConfig(zoneData.zoneColor)
 
                   return (
                     <button
@@ -1391,17 +1389,15 @@ export function ComponentView({
                         <div className="flex items-center gap-2 min-w-0">
                           <Shield
                             className="h-4 w-4 flex-shrink-0"
-                            style={{ color: zoneConfig?.borderColor || '#64748b' }}
+                            style={{ color: zoneConfig.borderColor }}
                           />
                           <div className="min-w-0">
                             <div className="font-medium text-sm truncate">
                               {String(node.data.label)}
                             </div>
-                            {zoneConfig && (
-                              <div className="text-xs text-muted-foreground truncate">
-                                {zoneConfig.label}
-                              </div>
-                            )}
+                            <div className="text-xs text-muted-foreground truncate">
+                              TL: {zoneData.trustLevel ?? 75}
+                            </div>
                           </div>
                         </div>
                         {summary.exposed > 0 ? (

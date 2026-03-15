@@ -10,7 +10,7 @@ import { Lock, Unlock, ShieldCheck, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DATA_SENSITIVITY_TAG_CONFIG, type DataSensitivityTag } from '@/types/domain'
 import type { DataFlowEdgeData } from '../../types'
-import { TRUST_ZONE_TYPE_CONFIG } from '../../types'
+import { getZoneColorConfig } from '../../types'
 
 type DataFlowEdgeType = Edge<DataFlowEdgeData, 'dataFlow'>
 
@@ -131,15 +131,15 @@ export const DataFlowEdge = memo(function DataFlowEdge({
           )}
 
           {/* Zone crossing indicator */}
-          {data?.crossesZoneId && data?.crossesZoneType && (
+          {data?.crossesZoneId && (
             <div
               className="px-2 py-0.5 rounded text-xs flex items-center gap-1 whitespace-nowrap border"
               style={{
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderColor: TRUST_ZONE_TYPE_CONFIG[data.crossesZoneType]?.borderColor || '#64748b',
-                color: TRUST_ZONE_TYPE_CONFIG[data.crossesZoneType]?.borderColor || '#64748b',
+                borderColor: getZoneColorConfig(data.crossesZoneColor).borderColor,
+                color: getZoneColorConfig(data.crossesZoneColor).borderColor,
               }}
-              title={`Crosses ${data.crossesZoneLabel || 'zone'} (${TRUST_ZONE_TYPE_CONFIG[data.crossesZoneType]?.label || 'Unknown'})`}
+              title={`Crosses ${data.crossesZoneLabel || 'zone'} (TL: ${data.crossesZoneTrustLevel ?? 75})`}
             >
               <Shield className="h-3 w-3" />
               <span className="font-medium">{data.crossesZoneLabel || 'Zone'}</span>
