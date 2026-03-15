@@ -438,7 +438,14 @@ export function SharedThreatModelView() {
                             className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
                           >
                             <div>
-                              <h4 className="font-medium">{dfd.name}</h4>
+                              <h4 className="font-medium">
+                                {dfd.name}
+                                {dfd.isPrimary ? (
+                                  <span className="ml-2 text-xs text-green-600 font-medium">(Primary)</span>
+                                ) : (
+                                  <span className="ml-2 text-xs text-muted-foreground">(Reference)</span>
+                                )}
+                              </h4>
                               <p className="text-sm text-muted-foreground mt-1">
                                 {nodeCount} components, {edgeCount} data flows
                               </p>

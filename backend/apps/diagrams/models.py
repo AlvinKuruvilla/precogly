@@ -130,15 +130,24 @@ class DFD(TimestampedModel):
         blank=True,
         related_name="dfds",
     )
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Only the primary DFD syncs nodes to components/threats.",
+    )
     # Store the ReactFlow JSON structure (nodes, edges)
     canvas_data = models.JSONField(default=dict, blank=True)
-    # Store threat analysis data
-    threat_analysis_data = models.JSONField(default=dict, blank=True)
 
     class Meta:
         verbose_name = "DFD"
         verbose_name_plural = "DFDs"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["threat_model"],
+                condition=models.Q(is_primary=True),
+                name="unique_primary_dfd_per_threat_model",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.diagram_type})"

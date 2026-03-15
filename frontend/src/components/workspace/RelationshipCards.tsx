@@ -154,6 +154,9 @@ export function RelationshipCards({
               dfds.slice(0, 4).map((dfd) => (
                 <div key={dfd.id} className="text-sm truncate">
                   {dfd.name}
+                  {dfd.isPrimary && (
+                    <span className="ml-1 text-[10px] text-green-600 font-medium">(Primary)</span>
+                  )}
                 </div>
               ))
             ) : (

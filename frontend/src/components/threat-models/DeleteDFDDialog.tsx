@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Loader2, Trash2, FileWarning, Box } from 'lucide-react'
+import { AlertTriangle, Loader2, Trash2, Box, Info } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +17,8 @@ import { useDFDDeletePreview } from '@/api/threat-models'
 interface DeleteDFDDialogProps {
   dfdId: string | null
   dfdName: string
+  isPrimary?: boolean
+  remainingDfdCount?: number
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: (deleteOrphanedComponents: boolean) => void
@@ -26,6 +28,8 @@ interface DeleteDFDDialogProps {
 export function DeleteDFDDialog({
   dfdId,
   dfdName,
+  isPrimary = false,
+  remainingDfdCount = 0,
   open,
   onOpenChange,
   onConfirm,
@@ -47,7 +51,6 @@ export function DeleteDFDDialog({
 
   if (!dfdId) return null
 
-  const isShared = preview?.isShared ?? false
   const affectedThreatModels = preview?.affectedThreatModels ?? []
   const orphanedComponents = preview?.orphanedComponents ?? []
   const hasOrphanedComponents = orphanedComponents.length > 0
@@ -87,29 +90,18 @@ export function DeleteDFDDialog({
                 </div>
               </div>
 
-              {/* Shared warning */}
-              {isShared && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-amber-800 mb-2">
-                    <FileWarning className="h-4 w-4" />
-                    Warning: This DFD is shared
+              {/* Primary DFD promotion notice */}
+              {isPrimary && remainingDfdCount > 0 && (
+                <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+                  <div className="flex items-center gap-2 text-sm text-blue-700">
+                    <Info className="h-4 w-4 flex-shrink-0" />
+                    This is the primary DFD. Another DFD will be automatically promoted to primary.
                   </div>
-                  <p className="text-sm text-amber-700 mb-2">
-                    This DFD is used by multiple threat models. Deleting it will affect:
-                  </p>
-                  <ul className="space-y-1">
-                    {affectedThreatModels.map((tm) => (
-                      <li key={tm.id} className="text-sm text-amber-700 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        {tm.name}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               )}
 
-              {/* Non-shared - just show affected threat model */}
-              {!isShared && affectedThreatModels.length > 0 && (
+              {/* Affected threat model */}
+              {affectedThreatModels.length > 0 && (
                 <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
                   <p className="text-sm text-blue-700">
                     This DFD will be removed from: <strong>{affectedThreatModels[0].name}</strong>
@@ -169,7 +161,7 @@ export function DeleteDFDDialog({
                 </div>
                 <ul className="list-disc list-inside space-y-0.5 text-red-700 text-xs">
                   <li>The DFD diagram and all its nodes/edges</li>
-                  <li>Associations with threat models</li>
+                  <li>Association with the threat model</li>
                   {deleteOrphanedComponents && hasOrphanedComponents && (
                     <li className="font-medium">
                       {orphanedComponents.length} orphaned component(s) and their threats

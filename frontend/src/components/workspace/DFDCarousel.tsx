@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LayoutGrid, Plus } from 'lucide-react'
+import { LayoutGrid, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Diagram } from '@/types'
@@ -28,16 +28,6 @@ export function DFDCarousel({
     <div className="flex items-center justify-between gap-4 py-3 px-4 bg-muted/30 rounded-lg">
       {/* Left side: Carousel */}
       <div className="flex items-center gap-2 flex-1 overflow-hidden">
-        {/* Scroll left button - for future implementation */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 flex-shrink-0"
-          disabled
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
         {/* All DFDs option */}
         <button
           onClick={() => onSelectDiagram(null)}
@@ -88,6 +78,11 @@ export function DFDCarousel({
                       : 'bg-background border-border'
                   )}
                 >
+                  {diagram.isPrimary && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-green-500 text-white text-[8px] font-bold px-1 rounded">
+                      P
+                    </span>
+                  )}
                   <div className="text-center">
                     <div className="font-medium">{nodeCount}</div>
                     <div className="text-[10px] opacity-70">
@@ -98,20 +93,13 @@ export function DFDCarousel({
                 <span className="text-xs font-medium truncate max-w-[90px]">
                   {diagram.name}
                 </span>
+                {!diagram.isPrimary && diagrams.length > 1 && (
+                  <span className="text-[10px] text-muted-foreground">Reference</span>
+                )}
               </button>
             )
           })}
         </div>
-
-        {/* Scroll right button - for future implementation */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 flex-shrink-0"
-          disabled
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Right side: New DFD button */}

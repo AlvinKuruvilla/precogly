@@ -19,7 +19,7 @@ from .serializers import (
     DFDSerializer,
     DFDTemplatesLibrarySerializer,
 )
-from .services import get_threat_model_for_dfd, sync_dfd_nodes_to_components
+from .services import sync_dfd_nodes_to_components
 
 
 class DFDViewSet(viewsets.ModelViewSet):
@@ -70,23 +70,26 @@ class DFDViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Create the DFD with direct FK
+        # Create the DFD with direct FK — first DFD is auto-primary
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        dfd = serializer.save(updated_by=request.user, threat_model=threat_model)
+        is_first_dfd = not threat_model.dfds.exists()
+        dfd = serializer.save(
+            updated_by=request.user,
+            threat_model=threat_model,
+            is_primary=is_first_dfd,
+        )
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_update(self, serializer):
-        """Set updated_by to current user and sync nodes to components."""
+        """Set updated_by to current user and sync nodes to components (primary only)."""
         dfd = serializer.save(updated_by=self.request.user)
 
-        # Sync DFD nodes to OrgsystemComponent records
-        threat_model = get_threat_model_for_dfd(dfd)
-        if threat_model:
-            sync_result = sync_dfd_nodes_to_components(dfd, threat_model)
-            # Store sync result in response headers for debugging
+        # Only the primary DFD syncs nodes to OrgsystemComponent records
+        if dfd.is_primary and dfd.threat_model:
+            sync_result = sync_dfd_nodes_to_components(dfd, dfd.threat_model)
             self._sync_result = sync_result
 
     @action(detail=False, methods=["post"])
@@ -129,20 +132,20 @@ class DFDViewSet(viewsets.ModelViewSet):
             if comp_id:
                 component_ids.append(comp_id)
 
-        # Find orphaned components (components only referenced by this DFD)
+        # Find orphaned components (components only referenced by this DFD within the same threat model)
         orphaned_components = []
-        if component_ids:
-            other_dfds = DFD.objects.exclude(id=dfd.id)
+        if component_ids and dfd.threat_model:
+            sibling_dfds = dfd.threat_model.dfds.exclude(id=dfd.id)
 
-            other_dfd_component_ids = set()
-            for other_dfd in other_dfds:
-                other_canvas = other_dfd.canvas_data or {}
-                for node in other_canvas.get("nodes", []):
-                    other_comp_id = node.get("data", {}).get("component_id")
-                    if other_comp_id:
-                        other_dfd_component_ids.add(other_comp_id)
+            sibling_component_ids = set()
+            for sibling_dfd in sibling_dfds:
+                sibling_canvas = sibling_dfd.canvas_data or {}
+                for node in sibling_canvas.get("nodes", []):
+                    comp_id = node.get("data", {}).get("component_id")
+                    if comp_id:
+                        sibling_component_ids.add(comp_id)
 
-            orphaned_component_ids = set(component_ids) - other_dfd_component_ids
+            orphaned_component_ids = set(component_ids) - sibling_component_ids
 
             if orphaned_component_ids:
                 orphaned_comps = OrgsystemComponent.objects.filter(
@@ -181,6 +184,10 @@ class DFDViewSet(viewsets.ModelViewSet):
         dfd = self.get_object()
         delete_orphaned = request.query_params.get("delete_orphaned_components", "").lower() == "true"
 
+        # Capture primary state before deletion for auto-promotion
+        was_primary = dfd.is_primary
+        threat_model_for_promotion = dfd.threat_model
+
         orphaned_deleted_count = 0
 
         if delete_orphaned:
@@ -193,17 +200,17 @@ class DFDViewSet(viewsets.ModelViewSet):
                 if comp_id:
                     component_ids.append(comp_id)
 
-            if component_ids:
-                other_dfds = DFD.objects.exclude(id=dfd.id)
-                other_dfd_component_ids = set()
-                for other_dfd in other_dfds:
-                    other_canvas = other_dfd.canvas_data or {}
-                    for node in other_canvas.get("nodes", []):
-                        other_comp_id = node.get("data", {}).get("component_id")
-                        if other_comp_id:
-                            other_dfd_component_ids.add(other_comp_id)
+            if component_ids and dfd.threat_model:
+                sibling_dfds = dfd.threat_model.dfds.exclude(id=dfd.id)
+                sibling_component_ids = set()
+                for sibling_dfd in sibling_dfds:
+                    sibling_canvas = sibling_dfd.canvas_data or {}
+                    for node in sibling_canvas.get("nodes", []):
+                        comp_id = node.get("data", {}).get("component_id")
+                        if comp_id:
+                            sibling_component_ids.add(comp_id)
 
-                orphaned_component_ids = set(component_ids) - other_dfd_component_ids
+                orphaned_component_ids = set(component_ids) - sibling_component_ids
                 if orphaned_component_ids:
                     orphaned_deleted_count, _ = OrgsystemComponent.objects.filter(
                         id__in=orphaned_component_ids
@@ -211,6 +218,13 @@ class DFDViewSet(viewsets.ModelViewSet):
 
         # Delete the DFD (cascades via FK)
         dfd.delete()
+
+        # Auto-promote next DFD to primary if the deleted one was primary
+        if was_primary and threat_model_for_promotion:
+            next_dfd = threat_model_for_promotion.dfds.order_by("created_at").first()
+            if next_dfd:
+                next_dfd.is_primary = True
+                next_dfd.save(update_fields=["is_primary"])
 
         return Response({
             "status": "deleted",

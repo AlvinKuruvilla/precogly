@@ -846,6 +846,8 @@ export function ThreatModelDetail() {
       <DeleteDFDDialog
         dfdId={dfdToDelete?.id ?? null}
         dfdName={dfdToDelete?.name ?? ''}
+        isPrimary={diagrams.find(d => String(d.id) === dfdToDelete?.id)?.isPrimary ?? false}
+        remainingDfdCount={diagrams.length - 1}
         open={deleteDFDDialogOpen}
         onOpenChange={(open: boolean) => {
           setDeleteDFDDialogOpen(open)

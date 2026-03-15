@@ -440,11 +440,6 @@ def _generate_threats_for_component(component):
     return created_count
 
 
-def get_threat_model_for_dfd(dfd):
-    """Get the ThreatModel associated with a DFD."""
-    return dfd.threat_model
-
-
 def _sync_edges_to_dataflows(dfd, edges, node_component_map):
     """
     Sync DFD edges to DataFlow records and generate threats.

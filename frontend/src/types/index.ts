@@ -78,7 +78,7 @@ export interface ThreatModel {
   createdBy?: string
   createdByEmail?: string
   workspaceData?: Record<string, unknown>
-  dfds?: Array<{ id: string; name: string; diagramType?: string; updatedAt?: string }>
+  dfds?: Array<{ id: string; name: string; diagramType?: string; isPrimary?: boolean; updatedAt?: string }>
 }
 
 export interface CreateThreatModelInput {

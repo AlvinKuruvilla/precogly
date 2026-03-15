@@ -166,8 +166,9 @@ export interface Diagram {
   id: string
   name: string
   diagramType?: DiagramTypeValue
+  isPrimary?: boolean
+  threatModel?: number
   canvasData?: CanvasData
-  threatAnalysisData?: Record<string, unknown>
   updatedBy?: string
   updatedByEmail?: string
   createdAt?: string

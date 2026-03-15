@@ -19,8 +19,8 @@ class DFDSerializer(serializers.ModelSerializer):
             "name",
             "diagram_type",
             "threat_model",
+            "is_primary",
             "canvas_data",
-            "threat_analysis_data",
             "template_library",
             "updated_by",
             "updated_by_email",
@@ -35,7 +35,7 @@ class DFDListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DFD
-        fields = ["id", "name", "diagram_type", "updated_at"]
+        fields = ["id", "name", "diagram_type", "is_primary", "updated_at"]
 
 
 class DFDTemplatesLibrarySerializer(serializers.ModelSerializer):

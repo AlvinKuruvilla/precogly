@@ -146,7 +146,6 @@ export interface DFDDeletePreviewResponse {
     componentCount: number
   }
   affectedThreatModels: Array<{ id: string; name: string }>
-  isShared: boolean
   orphanedComponents: DFDDeletePreviewOrphanedComponent[]
   orphanedComponentCount: number
 }

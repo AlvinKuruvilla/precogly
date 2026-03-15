@@ -374,7 +374,7 @@ def compute_threat_model_stats_from_canvas(threat_model) -> dict:
     This mirrors the frontend useWorkspaceThreatAnalysis hook.
     """
     # Get all DFDs for this threat model
-    dfds = threat_model.dfds.all()
+    dfds = threat_model.dfds.filter(is_primary=True)
 
     # Component counts
     processes = 0

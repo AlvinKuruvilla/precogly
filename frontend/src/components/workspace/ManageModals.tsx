@@ -602,8 +602,20 @@ export function ManageDFDsModal({
                     className="flex items-center justify-between p-3 hover:bg-muted rounded"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
+                      <div className="text-sm font-medium truncate flex items-center gap-2">
                         {dfd.name}
+                        {dfd.isPrimary ? (
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            Primary
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500 ring-1 ring-inset ring-gray-500/10"
+                            title="Components not synced to threat analysis"
+                          >
+                            Reference
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {dfd.canvasData?.nodes?.length || 0} nodes &bull;{' '}
