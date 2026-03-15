@@ -336,12 +336,6 @@ class SharedWithMeSerializer(serializers.ModelSerializer):
     threat_model_description = serializers.CharField(
         source="threat_model.description", read_only=True
     )
-    threat_model_status = serializers.CharField(
-        source="threat_model.status", read_only=True
-    )
-    threat_model_version = serializers.CharField(
-        source="threat_model.version", read_only=True
-    )
     organization_name = serializers.CharField(
         source="threat_model.organization.name", read_only=True
     )
@@ -355,8 +349,6 @@ class SharedWithMeSerializer(serializers.ModelSerializer):
             "threat_model_id",
             "threat_model_name",
             "threat_model_description",
-            "threat_model_status",
-            "threat_model_version",
             "organization_name",
             "shared_by",
             "share_url",

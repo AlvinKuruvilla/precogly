@@ -3,12 +3,9 @@ export type ReportType = 'executive' | 'technical' | 'compliance' | 'full'
 export interface ReportMetadata {
   name: string
   description: string
-  status: string
   criticality: string
-  version: string
   modelingMode: string
   riskScoringMethod: string
-  trigger: string
   owningTeam: string | null
   createdBy: string | null
   createdAt: string | null

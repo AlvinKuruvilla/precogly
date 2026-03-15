@@ -81,12 +81,9 @@ def _build_metadata(threat_model):
     return {
         "name": threat_model.name,
         "description": threat_model.description,
-        "status": threat_model.status,
         "criticality": threat_model.criticality,
-        "version": threat_model.version,
         "modeling_mode": threat_model.modeling_mode,
         "risk_scoring_method": threat_model.risk_scoring_method,
-        "trigger": threat_model.trigger,
         "owning_team": threat_model.owning_team.name if threat_model.owning_team else None,
         "created_by": threat_model.created_by.email if threat_model.created_by else None,
         "created_at": threat_model.created_at.isoformat() if threat_model.created_at else None,

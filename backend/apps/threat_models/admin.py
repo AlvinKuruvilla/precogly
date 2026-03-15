@@ -10,8 +10,8 @@ from .models import (
 
 @admin.register(ThreatModel)
 class ThreatModelAdmin(admin.ModelAdmin):
-    list_display = ["name", "version", "status", "organization", "created_by", "updated_at"]
-    list_filter = ["status", "trigger", "organization"]
+    list_display = ["name", "organization", "created_by", "updated_at"]
+    list_filter = ["organization"]
     search_fields = ["name", "description"]
     readonly_fields = ["created_at", "updated_at"]
 

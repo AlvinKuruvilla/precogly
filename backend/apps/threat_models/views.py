@@ -32,9 +32,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["status", "trigger", "organization"]
+    filterset_fields = ["organization"]
     search_fields = ["name", "description"]
-    ordering_fields = ["name", "created_at", "updated_at", "status"]
+    ordering_fields = ["name", "created_at", "updated_at"]
     ordering = ["-updated_at"]
 
     def get_queryset(self):

@@ -185,8 +185,6 @@ export function SharedThreatModelView() {
           <div className="mb-6">
             <h1 className="text-3xl font-bold">{tm.name}</h1>
             <div className="flex items-center gap-2 mt-2">
-              <Badge variant="outline">v{tm.version}</Badge>
-              <Badge>{tm.status}</Badge>
               <Badge variant="secondary">{tm.criticality}</Badge>
             </div>
             {tm.description && (

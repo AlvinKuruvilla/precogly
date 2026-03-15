@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Loader2, BarChart3, Code, Shield, FileText } from 'lucide-react'
 import { useReport } from '@/api/reports'
 import type { ReportType, ReportData } from '@/types/report'
@@ -158,8 +157,6 @@ export function ReportView({ threatModelId }: ReportViewProps) {
               <div>
                 <h2 className="text-lg font-semibold">{data.metadata.name}</h2>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline">{data.metadata.status}</Badge>
-                  <Badge variant="outline">v{data.metadata.version}</Badge>
                   <span className="text-sm text-muted-foreground">
                     {REPORT_TYPES.find((rt) => rt.type === reportType)?.label} Report
                   </span>

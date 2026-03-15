@@ -226,8 +226,6 @@ export function ThreatModels() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium truncate">{shared.threatModelName}</h4>
-                      <Badge variant="outline" className="text-xs">v{shared.threatModelVersion}</Badge>
-                      <Badge variant="secondary" className="text-xs">{shared.threatModelStatus}</Badge>
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                       <span>{shared.organizationName}</span>

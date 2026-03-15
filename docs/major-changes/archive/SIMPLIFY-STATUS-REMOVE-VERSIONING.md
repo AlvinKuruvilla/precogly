@@ -1,3 +1,5 @@
+# STATUS - COMPLETED
+
 # Remove Status Dropdown, Versioning & Submit for Review
 
 ## Summary
@@ -56,12 +58,12 @@ A manual status dropdown next to a data-driven checklist is redundant at best, m
 
 ### How Teams Actually Work
 
-| What happens | How the tool helps |
-|---|---|
-| Analyst builds the threat model | Checklist shows what's done and what's left |
-| Team agrees the analysis is complete | All checklist items are green — the work speaks for itself |
-| System changes 6 months later | Analyst exports (point-in-time snapshot), then continues editing |
-| Auditor needs version history | Compares exported PDFs/JSON in SharePoint/Confluence |
+| What happens                         | How the tool helps                                               |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| Analyst builds the threat model      | Checklist shows what's done and what's left                      |
+| Team agrees the analysis is complete | All checklist items are green — the work speaks for itself       |
+| System changes 6 months later        | Analyst exports (point-in-time snapshot), then continues editing |
+| Auditor needs version history        | Compares exported PDFs/JSON in SharePoint/Confluence             |
 
 The Export feature already produces a point-in-time artifact. That **is** the version.
 
@@ -116,14 +118,43 @@ return self.name
 
 ### `threat_models/serializers.py`
 
-- Remove `version`, `status`, `trigger`, `previous_version` from serializer field lists (lines 74-84)
-- Remove `version`, `status`, `trigger`, `previous_version` from list serializer fields (line 273)
+- Remove `version`, `status`, `trigger`, `previous_version` from `ThreatModelSerializer` field list
+- Remove `status` from `ThreatModelListSerializer` field list (note: `version`, `trigger`, `previous_version` are already absent from list serializer)
 - Remove status-related logic in `_build_progress_checklist()` if any
 
 ### `threat_models/views.py`
 
 - Remove `status` and `trigger` from `filterset_fields`
+- Remove `status` from `ordering_fields`
 - No write-protection logic needed — threat models are always editable
+
+### `threat_models/admin.py`
+
+- Remove `version` and `status` from `list_display`
+- Remove `status` and `trigger` from `list_filter`
+
+### `threat_models/report_service.py`
+
+- Remove `status`, `version`, and `trigger` from the `_build_metadata()` return dict (lines 84, 86, 89)
+
+### `threat_models/adapters/tm_library.py`
+
+**Import (create):**
+
+- Remove `status="draft"` from `ThreatModel.objects.create()` call (line 361) — the field no longer exists
+
+**Export:**
+
+- Remove `threat_model.version` reference (line 866-867) — the field no longer exists
+- Remove hardcoded `"version": "1.0"` fallback (line 829)
+
+### `organizations/serializers.py`
+
+**`SharedWithMeListSerializer`:**
+
+- Remove `threat_model_status` field (`source="threat_model.status"`)
+- Remove `threat_model_version` field (`source="threat_model.version"`)
+- Remove both from the `Meta.fields` list
 
 ### Migration
 
@@ -144,6 +175,14 @@ No data mapping needed — these fields are simply dropped.
 - `THREAT_MODEL_STATUSES` array
 
 Remove `status` from the `ThreatModel` interface if present.
+
+### `types/report.ts`
+
+**`ReportMetadata` interface:**
+
+- Remove `status` field
+- Remove `version` field
+- Remove `trigger` field
 
 ### `features/dfd-editor/types/threat-analysis.ts`
 
@@ -179,22 +218,64 @@ Remove `status` from the `ThreatModel` interface if present.
 
 **No replacements added.** The header bar simply has fewer controls.
 
+### `pages/SharedThreatModelView.tsx`
+
+- Remove `<Badge variant="outline">v{tm.version}</Badge>` (line 188)
+- Remove `<Badge>{tm.status}</Badge>` (line 189)
+
+### `pages/ThreatModels.tsx`
+
+If the shared models section renders `threatModelVersion` or `threatModelStatus` badges, remove them. These fields will no longer be returned by the API after the `SharedWithMeListSerializer` changes.
+
+### `components/dashboard/ThreatModelsTable.tsx`
+
+- Remove the `Status` column header from the table
+- Remove the status `<TableCell>` and its `statusConfig` / `defaultStatus` constants
+- The `statusConfig` already had a latent bug (snake_case keys vs camelCase API values) — removing the column entirely resolves this
+
+### `features/reports/ReportView.tsx`
+
+- Remove `<Badge variant="outline">{data.metadata.status}</Badge>` (line 161)
+- Remove `<Badge variant="outline">v{data.metadata.version}</Badge>` (line 162)
+
+### `features/reports/sections/ExecutiveSummary.tsx`
+
+- Remove `<Badge variant="outline">{metadata.status}</Badge>` (line 31)
+- Remove `<Badge variant="outline">v{metadata.version}</Badge>` (line 35)
+
 ### `api/threat-models.ts`
 
 No structural changes needed. The `useUpdateThreatModel()` mutation still works for other fields — it just won't be called for status changes anymore.
 
+## Dead Code Cleanup (Opportunistic)
+
+The following are not caused by this change but should be cleaned up while touching these files:
+
+### Delete `components/workspace/WorkspaceHeader.tsx`
+
+This component is exported in `components/workspace/index.ts` but **never imported or used** anywhere in the application. It duplicates the version/status/submit-for-review UI from `ThreatModelDetail.tsx`. Remove the file and its re-export from `index.ts`.
+
+### `ThreatModelsTable.tsx` — pre-existing `statusConfig` bug
+
+The `statusConfig` record uses snake_case keys (`in_progress`, `pending_review`) but the API returns camelCase values (`inProgress`, `pendingReview`) after `djangorestframework-camel-case` conversion. This means **every threat model currently shows "Unknown" status** in the list table. The column removal above resolves this entirely.
+
 ## Reporting Impact
 
-None. Reports read component/threat/countermeasure data, not status or version metadata.
+Reports **do** reference status and version metadata. The changes above cover this:
+
+- `report_service.py` `_build_metadata()` — remove `status`, `version`, `trigger` from returned dict
+- `ReportMetadata` TypeScript interface — remove `status`, `version`, `trigger` fields
+- `ReportView.tsx` and `ExecutiveSummary.tsx` — remove status/version badge rendering
+
+Threat-level status (`exposed`/`addressable`/`mitigated`) and countermeasure status (`verified`/`platform`/`planned`/`gap`/`waived`) are **unrelated** to ThreatModel status and are **not affected** by this change.
 
 ## Threat Model List Page
 
 Update the threat model list/card view:
 
-- Remove version display (if shown)
-- Remove trigger display (if shown)
-- Remove status badges
-- Remove status filter options
+- Remove status column and badges from `ThreatModelsTable.tsx`
+- Remove status/version badges from shared models section in `ThreatModels.tsx`
+- No status filter options to remove (filtering was API-side via `filterset_fields`, handled above)
 
 ## What We're NOT Building
 
@@ -205,3 +286,17 @@ Update the threat model list/card view:
 - No version history navigation
 - No diff between versions
 - No "Mark as Complete" button — the checklist is the completion indicator
+
+## Q&A
+
+**Q: How does an enterprise security team know a threat model is complete?**
+
+The Completion Status checklist — when all 8 items are green, the work is done. It's data-driven (can't be faked) and shows _what's_ complete, not just that someone clicked "Approved." For formal sign-off, export a report as a point-in-time artifact and track approval through existing tools (Jira, Confluence). Devs can also export and commit the TM to Git for version history and audit trail.
+
+**Q: How does this align with continuous threat modeling (Autodesk CTM)?**
+
+Perfectly. CTM treats threat modeling as a living, continuous activity — not a gated workflow. There's no "done" in CTM; the model evolves with the system. Removing the status/versioning formalism makes the tool _more_ suited to this: the checklist shows what's covered, the model is always editable, exports capture snapshots when needed. A formal Draft → Approved pipeline implies threat modeling is a one-time gate. CTM says it's not.
+
+**Q: How does this affect AI-agent-driven threat modeling (auto-generate TM per feature)?**
+
+The right pattern is one long-lived TM per system, updated by the AI agent as features change — not a new TM per feature. Threats are cumulative; a new feature adds to the attack surface, it doesn't replace it. The workflow: (1) agent exports current TM as snapshot, (2) agent updates the TM with new components/flows/threats, (3) checklist auto-recomputes, (4) human reviews the delta. Removing status simplifies the agent workflow — no state machine to manage. The `trigger` field ("Feature Addition") is conceptually useful here, but that metadata belongs in the commit/PR/ticket that triggered the agent, not in the TM itself. Consider building a lightweight change log / activity feed on TMs later as a separate feature.

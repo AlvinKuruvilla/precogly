@@ -32,7 +32,7 @@ export type {
 export * from '@/features/dfd-editor/types'
 
 // Import types from domain for use in this file
-import type { ThreatModelStatus, Criticality, SystemType, ModelingMode } from './domain'
+import type { Criticality, SystemType, ModelingMode } from './domain'
 import type { ScoringMethodKey } from './risk'
 
 export interface ReferenceImage {
@@ -60,7 +60,6 @@ export interface ThreatModel {
   name: string
   description: string
   criticality?: Criticality
-  status: ThreatModelStatus
   modelingMode?: ModelingMode
   frameworks?: string[]
   owner?: string
@@ -105,9 +104,6 @@ export interface DashboardRiskStats {
 
 export interface DashboardStats {
   total: number
-  inProgress: number
-  pendingReview: number
-  approved: number
   risks?: DashboardRiskStats
 }
 

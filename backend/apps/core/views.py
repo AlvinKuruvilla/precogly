@@ -38,12 +38,7 @@ class DashboardStatsView(APIView):
         )
 
         # Calculate threat model stats
-        stats = threat_models.aggregate(
-            total=Count("id"),
-            in_progress=Count("id", filter=Q(status__in=["draft", "in_progress"])),
-            pending_review=Count("id", filter=Q(status="pending_review")),
-            approved=Count("id", filter=Q(status="approved")),
-        )
+        total_count = threat_models.count()
 
         # Calculate risk stats
         risks = Risk.objects.filter(
@@ -69,10 +64,7 @@ class DashboardStatsView(APIView):
 
         return Response(
             {
-                "total": stats["total"] or 0,
-                "inProgress": stats["in_progress"] or 0,
-                "pendingReview": stats["pending_review"] or 0,
-                "approved": stats["approved"] or 0,
+                "total": total_count,
                 "risks": {
                     "total": risks.count(),
                     "critical": level_map.get("critical", 0),

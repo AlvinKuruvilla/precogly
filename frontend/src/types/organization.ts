@@ -278,8 +278,6 @@ export interface SharedWithMe {
   threatModelId: number
   threatModelName: string
   threatModelDescription: string
-  threatModelStatus: string
-  threatModelVersion: string
   organizationName: string
   sharedBy: {
     email: string

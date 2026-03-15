@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery, skipToken } from '@tanstack/react-query'
 import type { Diagram, ThreatModel } from '@/types'
 import type {
   ComponentThreat,
   ComponentThreatCountermeasure,
   CountermeasureStatus,
-  ThreatModelVersion,
   ProgressChecklistItem,
 } from '@/features/dfd-editor/types/threat-analysis'
 import { deriveThreatStatus } from '@/features/dfd-editor/types/threat-analysis'
@@ -15,49 +14,17 @@ import {
   useUpdateFlowCountermeasure,
   parseCountermeasureId,
 } from '@/api/threats'
-import { useUpdateThreatModel } from '@/api/threat-models'
 import { api } from '@/lib/api'
 
 interface WorkspaceThreatAnalysisState {
   threatModelId: string
   componentThreats: ComponentThreat[]
-  currentVersion: ThreatModelVersion
-  previousVersions: ThreatModelVersion[]
-}
-
-interface WorkspaceData {
-  currentVersion?: ThreatModelVersion
-  previousVersions?: ThreatModelVersion[]
 }
 
 function getDefaultState(threatModelId: string | undefined): WorkspaceThreatAnalysisState {
   return {
     threatModelId: threatModelId || '',
     componentThreats: [],
-    currentVersion: {
-      version: 1,
-      trigger: 'initial',
-      createdAt: new Date().toISOString(),
-    },
-    previousVersions: [],
-  }
-}
-
-/**
- * Extract workspace state from backend workspace_data
- */
-function extractWorkspaceState(
-  workspaceData: WorkspaceData | undefined
-): Partial<WorkspaceThreatAnalysisState> {
-  if (!workspaceData) return {}
-
-  return {
-    currentVersion: workspaceData.currentVersion || {
-      version: 1,
-      trigger: 'initial',
-      createdAt: new Date().toISOString(),
-    },
-    previousVersions: workspaceData.previousVersions || [],
   }
 }
 
@@ -69,9 +36,6 @@ export function useWorkspaceThreatAnalysis(
   diagrams: Diagram[],
   analysisComponents: { id: number; category: string }[] = []
 ) {
-  // Track if we've initialized from backend to avoid overwriting with defaults
-  const hasInitializedFromBackend = useRef(false)
-
   const [state, setState] = useState<WorkspaceThreatAnalysisState>(() =>
     getDefaultState(threatModelId)
   )
@@ -90,53 +54,6 @@ export function useWorkspaceThreatAnalysis(
   // Backend API mutations
   const updateCountermeasureMutation = useUpdateCountermeasure()
   const updateFlowCountermeasureMutation = useUpdateFlowCountermeasure()
-  const updateThreatModelMutation = useUpdateThreatModel()
-
-  // Initialize state from backend workspaceData when threat model loads
-  useEffect(() => {
-    if (threatModel?.workspaceData && !hasInitializedFromBackend.current) {
-      hasInitializedFromBackend.current = true
-      const backendState = extractWorkspaceState(threatModel.workspaceData as WorkspaceData)
-      setState((prev) => ({
-        ...prev,
-        ...backendState,
-      }))
-    }
-  }, [threatModel])
-
-  // Debounced save to backend — only currentVersion, previousVersions
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    // Don't save until we've loaded from backend
-    if (!hasInitializedFromBackend.current) return
-
-    // Clear previous timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-
-    // Debounce saves to backend (500ms delay)
-    saveTimeoutRef.current = setTimeout(() => {
-      if (!threatModelId) return
-
-      const workspaceData = {
-        currentVersion: state.currentVersion,
-        previousVersions: state.previousVersions,
-      }
-
-      updateThreatModelMutation.mutate({
-        id: threatModelId,
-        data: { workspace_data: workspaceData } as Partial<ThreatModel>,
-      })
-    }, 500)
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [state.currentVersion, state.previousVersions, threatModelId])
 
   // Use backend threats directly - no local threat generation
   useEffect(() => {
@@ -498,15 +415,14 @@ export function useWorkspaceThreatAnalysis(
 
   // Progress checklist is computed by the backend and returned in workspace_data
   const progressChecklist: ProgressChecklistItem[] = useMemo(() => {
-    const backendChecklist = (threatModel?.workspaceData as WorkspaceData & { progressChecklist?: ProgressChecklistItem[] })?.progressChecklist
+    const workspaceData = threatModel?.workspaceData as Record<string, unknown> | undefined
+    const backendChecklist = workspaceData?.progressChecklist as ProgressChecklistItem[] | undefined
     if (backendChecklist?.length) return backendChecklist
     return []
   }, [threatModel?.workspaceData])
 
   return {
     componentThreats: state.componentThreats,
-    currentVersion: state.currentVersion,
-    previousVersions: state.previousVersions,
     progressChecklist,
     summaries,
     isLoading: isLoadingThreats || isLoadingThreatModel,

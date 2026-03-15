@@ -31,7 +31,7 @@ export function Dashboard() {
 
       {/* Stats Cards */}
       <StatsCards
-        stats={stats ?? { total: 0, inProgress: 0, pendingReview: 0, approved: 0 }}
+        stats={stats ?? { total: 0 }}
         isLoading={statsLoading}
       />
 

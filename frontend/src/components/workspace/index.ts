@@ -1,4 +1,3 @@
-export { WorkspaceHeader } from './WorkspaceHeader'
 export { ProgressChecklist } from './ProgressChecklist'
 export { RelationshipCards } from './RelationshipCards'
 export { DFDCarousel } from './DFDCarousel'

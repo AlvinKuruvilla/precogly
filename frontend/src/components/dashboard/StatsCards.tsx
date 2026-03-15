@@ -1,4 +1,4 @@
-import { FileText, Clock, Eye, CheckCircle, BarChart3 } from 'lucide-react'
+import { FileText, BarChart3 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DashboardStats } from '@/types'
 
@@ -14,24 +14,6 @@ const statItems = [
     icon: FileText,
     className: 'text-blue-600',
   },
-  {
-    key: 'inProgress' as const,
-    title: 'In Progress',
-    icon: Clock,
-    className: 'text-yellow-600',
-  },
-  {
-    key: 'pendingReview' as const,
-    title: 'Pending Review',
-    icon: Eye,
-    className: 'text-orange-600',
-  },
-  {
-    key: 'approved' as const,
-    title: 'Approved',
-    icon: CheckCircle,
-    className: 'text-green-600',
-  },
 ]
 
 const riskLevelColors = {
@@ -43,7 +25,7 @@ const riskLevelColors = {
 
 export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 md:grid-cols-2">
       {statItems.map((item) => (
         <Card key={item.key}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

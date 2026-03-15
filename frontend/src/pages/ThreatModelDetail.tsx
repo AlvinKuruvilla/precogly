@@ -1,9 +1,8 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, ChevronDown, Settings, Send, Trash2, BarChart3, FileText, Share2, Plus, Download } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, Settings, Trash2, BarChart3, FileText, Share2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   DropdownMenu,
@@ -40,9 +39,6 @@ import { ReviewZoneProtectionsDialog } from '@/features/dfd-editor/components/th
 import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
 import { useAnalysisComponents, useTrustZones } from '@/api/components'
 import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
-import type { ThreatModelStatus } from '@/types/domain'
-import { WORKSPACE_STATUS_CONFIG, VERSION_TRIGGER_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
-import type { WorkspaceStatus } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
@@ -172,8 +168,6 @@ export function ThreatModelDetail() {
   // Workspace threat analysis state
   const {
     componentThreats,
-    currentVersion,
-    previousVersions,
     progressChecklist,
     summaries,
     isLoadingThreats,
@@ -186,9 +180,6 @@ export function ThreatModelDetail() {
     addCountermeasure,
     toggleChecklistItem,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
-
-  // Status is read directly from the threat model
-  const status = (threatModel?.status ?? 'draft') as WorkspaceStatus
 
   // Fetch threat model threats data (for nodeComponentMap)
   const { data: threatData, refetch: refetchThreats } = useThreatModelThreats(id)
@@ -390,18 +381,6 @@ export function ThreatModelDetail() {
   }, [selectedComponentThreat])
 
   // Handlers
-  const handleStatusChange = (newStatus: WorkspaceStatus) => {
-    if (id) {
-      updateThreatModelMutation.mutate({ id, data: { status: newStatus as ThreatModelStatus } as Partial<ThreatModel> })
-    }
-  }
-
-  const handleSubmitForReview = () => {
-    if (id) {
-      updateThreatModelMutation.mutate({ id, data: { status: 'pendingReview' as ThreatModelStatus } as Partial<ThreatModel> })
-    }
-  }
-
   const handleCreateDFD = () => {
     const title = `Data Flow Diagram ${(diagrams?.length || 0) + 1}`
     createDiagramMutation.mutate(title)
@@ -468,9 +447,6 @@ export function ThreatModelDetail() {
     )
   }
 
-  const statusConfig = WORKSPACE_STATUS_CONFIG[status]
-  const triggerConfig = VERSION_TRIGGER_CONFIG[currentVersion.trigger]
-
   return (
     <div className="flex flex-col h-[calc(100vh-44px)]">
       {/* Compact Header */}
@@ -491,65 +467,8 @@ export function ThreatModelDetail() {
             <span className="text-sm text-muted-foreground">Workspace</span>
           </div>
 
-          {/* Right: Status + Version + Actions */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-3">
-            {/* Version dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
-                  v{currentVersion.version}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled className="text-xs">
-                  {triggerConfig.label} trigger
-                </DropdownMenuItem>
-                {previousVersions.length > 0 && (
-                  <>
-                    <DropdownMenuItem disabled className="text-xs font-medium mt-1">
-                      Previous
-                    </DropdownMenuItem>
-                    {previousVersions.map((v) => (
-                      <DropdownMenuItem key={v.version} className="text-xs">
-                        v{v.version} - {VERSION_TRIGGER_CONFIG[v.trigger].label}
-                      </DropdownMenuItem>
-                    ))}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Status dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className={cn('cursor-pointer text-xs', statusConfig.bgColor)}
-                >
-                  {statusConfig.label}
-                  <ChevronDown className="h-3 w-3 ml-1" />
-                </Badge>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {(Object.keys(WORKSPACE_STATUS_CONFIG) as WorkspaceStatus[]).map((s) => (
-                  <DropdownMenuItem
-                    key={s}
-                    onClick={() => handleStatusChange(s)}
-                    className="text-xs"
-                  >
-                    <Badge
-                      variant="outline"
-                      className={cn('text-xs', WORKSPACE_STATUS_CONFIG[s].bgColor)}
-                    >
-                      {WORKSPACE_STATUS_CONFIG[s].label}
-                    </Badge>
-                    {s === status && <span className="ml-2 text-muted-foreground">✓</span>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {/* Share button */}
             <Button
               variant="outline"
@@ -605,17 +524,6 @@ export function ThreatModelDetail() {
               <span className="hidden sm:inline">Delete</span>
             </Button>
 
-            {/* Submit button */}
-            {status === 'draft' && (
-              <Button
-                size="sm"
-                className="h-7 px-3 text-xs gap-1 bg-amber-500 hover:bg-amber-600"
-                onClick={handleSubmitForReview}
-              >
-                <Send className="h-3 w-3" />
-                <span className="hidden sm:inline">Submit for Review</span>
-              </Button>
-            )}
           </div>
         </div>
       </div>

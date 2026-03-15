@@ -139,17 +139,6 @@ export function getTaxonomyEntryBgClass(entry: TaxonomyEntry): string | null {
   return `${config.bg} ${config.text} ${config.border}`
 }
 
-// Threat Model Status - matches backend ThreatModel.Status
-export type ThreatModelStatus = 'draft' | 'inProgress' | 'pendingReview' | 'approved' | 'archived'
-
-export const THREAT_MODEL_STATUSES: { value: ThreatModelStatus; label: string }[] = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'inProgress', label: 'In Progress' },
-  { value: 'pendingReview', label: 'Pending Review' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'archived', label: 'Archived' },
-]
-
 // Modeling Mode - matches backend ThreatModel.ModelingMode
 export type ModelingMode = 'dfdBased' | 'manual' | 'hybrid'
 

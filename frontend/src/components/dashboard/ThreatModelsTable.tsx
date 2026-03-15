@@ -28,14 +28,6 @@ interface ThreatModelsTableProps {
   isLoading?: boolean
 }
 
-const statusConfig: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' }> = {
-  in_progress: { label: 'In Progress', variant: 'outline' },
-  pending_review: { label: 'Pending Review', variant: 'secondary' },
-  approved: { label: 'Approved', variant: 'default' },
-}
-
-const defaultStatus = { label: 'Unknown', variant: 'outline' as const }
-
 const criticalityConfig: Record<string, { label: string; className: string }> = {
   low: { label: 'Low', className: 'bg-gray-100 text-gray-800 hover:bg-gray-100' },
   medium: { label: 'Medium', className: 'bg-blue-100 text-blue-800 hover:bg-blue-100' },
@@ -82,7 +74,6 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
-          <TableHead>Status</TableHead>
           <TableHead>Criticality</TableHead>
           <TableHead>Frameworks</TableHead>
           <TableHead>Owner</TableHead>
@@ -98,16 +89,6 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
             onClick={() => navigate(`/threat-models/${model.id}`)}
           >
             <TableCell className="font-medium">{model.name}</TableCell>
-            <TableCell>
-              {(() => {
-                const config = model.status ? statusConfig[model.status] : defaultStatus
-                return (
-                  <Badge variant={config?.variant || defaultStatus.variant}>
-                    {config?.label || defaultStatus.label}
-                  </Badge>
-                )
-              })()}
-            </TableCell>
             <TableCell>
               {(() => {
                 const config = model.criticality ? criticalityConfig[model.criticality] : defaultCriticality

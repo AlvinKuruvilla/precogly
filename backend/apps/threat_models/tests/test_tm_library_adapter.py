@@ -62,7 +62,6 @@ class TestImportHuskyAi(TmLibraryAdapterTestMixin, TestCase):
         self.assertIsInstance(threat_model, ThreatModel)
         self.assertEqual(threat_model.name, "Husky AI")
         self.assertEqual(threat_model.risk_scoring_method, "tm_library")
-        self.assertEqual(threat_model.status, "draft")
         self.assertEqual(threat_model.modeling_mode, "manual")
         self.assertEqual(threat_model.owning_team, self.team)
 

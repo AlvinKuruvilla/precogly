@@ -16,20 +16,6 @@ from apps.compliance.models import StandardFramework
 class ThreatModel(TimestampedModel):
     """Threat model."""
 
-    class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        IN_PROGRESS = "inProgress", "In Progress"
-        PENDING_REVIEW = "pendingReview", "Pending Review"
-        APPROVED = "approved", "Approved"
-        ARCHIVED = "archived", "Archived"
-
-    class Trigger(models.TextChoices):
-        NEW = "new", "New System"
-        INCIDENT = "incident", "Security Incident"
-        PENTEST = "pentest", "Penetration Test"
-        DRIFT = "drift", "Architecture Drift"
-        FEATURE_ADDITION = "feature_addition", "Feature Addition"
-
     class Criticality(models.TextChoices):
         LOW = "low", "Low"
         MEDIUM = "medium", "Medium"
@@ -62,28 +48,10 @@ class ThreatModel(TimestampedModel):
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    version = models.CharField(max_length=50, default="1.0")
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.DRAFT,
-    )
-    trigger = models.CharField(
-        max_length=20,
-        choices=Trigger.choices,
-        default=Trigger.NEW,
-    )
     criticality = models.CharField(
         max_length=20,
         choices=Criticality.choices,
         default=Criticality.MEDIUM,
-    )
-    previous_version = models.ForeignKey(
-        "self",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="next_versions",
     )
     modeling_mode = models.CharField(
         max_length=20,
@@ -114,7 +82,7 @@ class ThreatModel(TimestampedModel):
         ordering = ["-updated_at"]
 
     def __str__(self):
-        return f"{self.name} (v{self.version})"
+        return self.name
 
 
 class ThreatModelOrgsystem(models.Model):

@@ -28,11 +28,9 @@ export function ExecutiveSummary({ data }: ExecutiveSummaryProps) {
       <div className="space-y-6">
         {/* Model info */}
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{metadata.status}</Badge>
           <Badge className={SEVERITY_COLORS[metadata.criticality] || ''}>
             {metadata.criticality} criticality
           </Badge>
-          <Badge variant="outline">v{metadata.version}</Badge>
           {metadata.frameworks.map((fw) => (
             <Badge key={fw.slug} variant="secondary">{fw.name}</Badge>
           ))}

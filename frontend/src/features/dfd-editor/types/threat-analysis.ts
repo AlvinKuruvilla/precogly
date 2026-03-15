@@ -284,55 +284,6 @@ export interface ExpandedCountermeasure {
 // ============================================
 
 /**
- * Workspace status for threat model review workflow
- */
-export type WorkspaceStatus = 'draft' | 'inProgress' | 'pendingReview' | 'approved' | 'archived'
-
-export const WORKSPACE_STATUS_CONFIG: Record<
-  WorkspaceStatus,
-  { label: string; color: string; bgColor: string }
-> = {
-  draft: { label: 'Draft', color: '#6b7280', bgColor: 'bg-gray-100 text-gray-700' },
-  inProgress: { label: 'In Progress', color: '#3b82f6', bgColor: 'bg-blue-100 text-blue-700' },
-  pendingReview: { label: 'Pending Review', color: '#f59e0b', bgColor: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Approved', color: '#22c55e', bgColor: 'bg-green-100 text-green-700' },
-  archived: { label: 'Archived', color: '#6b7280', bgColor: 'bg-gray-100 text-gray-500' },
-}
-
-/**
- * Version trigger types
- */
-export type VersionTrigger =
-  | 'initial'
-  | 'incident'
-  | 'new_feature'
-  | 'architecture_change'
-  | 'compliance_review'
-  | 'periodic_review'
-  | 'other'
-
-export const VERSION_TRIGGER_CONFIG: Record<VersionTrigger, { label: string }> = {
-  initial: { label: 'Initial' },
-  incident: { label: 'Incident' },
-  new_feature: { label: 'New Feature' },
-  architecture_change: { label: 'Architecture Change' },
-  compliance_review: { label: 'Compliance Review' },
-  periodic_review: { label: 'Periodic Review' },
-  other: { label: 'Other' },
-}
-
-/**
- * Version info for threat model
- */
-export interface ThreatModelVersion {
-  version: number
-  trigger: VersionTrigger
-  notes?: string
-  createdAt: string
-  createdBy?: string
-}
-
-/**
  * Asset classification types
  */
 export type AssetClassification =
@@ -427,9 +378,6 @@ export const DEFAULT_PROGRESS_CHECKLIST: Omit<ProgressChecklistItem, 'checked'>[
 export interface WorkspaceThreatAnalysis {
   threatModelId: string
   componentThreats: ComponentThreat[]
-  status: WorkspaceStatus
-  currentVersion: ThreatModelVersion
-  previousVersions?: ThreatModelVersion[]
   systemContext: SystemContext
   progressChecklist: ProgressChecklistItem[]
   createdAt: string
