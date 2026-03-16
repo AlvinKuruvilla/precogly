@@ -29,7 +29,6 @@ import {
   useCreateFlowInstanceMapping,
   useUpdateInstanceMapping,
   useDeleteInstanceMapping,
-  type InstanceCountermeasureStandard,
 } from '@/api/compliance'
 import type { ComplianceStandardMapping } from '../../types/threat-analysis'
 
@@ -127,29 +126,23 @@ export function EditComplianceMappingsDialog({
   const handleAddMapping = () => {
     if (!selectedRequirementId) return
 
-    const createMutation =
-      countermeasureType === 'component' ? createComponentMapping : createFlowMapping
+    const onMutationSuccess = () => {
+      setSelectedRequirementId(null)
+      setSelectedSufficiency('partial')
+      onSuccess?.()
+    }
 
-    const data =
-      countermeasureType === 'component'
-        ? {
-            componentCountermeasure: countermeasureId,
-            requirement: selectedRequirementId,
-            sufficiency: selectedSufficiency,
-          }
-        : {
-            flowCountermeasure: countermeasureId,
-            requirement: selectedRequirementId,
-            sufficiency: selectedSufficiency,
-          }
-
-    createMutation.mutate(data as Parameters<typeof createMutation.mutate>[0], {
-      onSuccess: () => {
-        setSelectedRequirementId(null)
-        setSelectedSufficiency('partial')
-        onSuccess?.()
-      },
-    })
+    if (countermeasureType === 'component') {
+      createComponentMapping.mutate(
+        { componentCountermeasure: countermeasureId, requirement: selectedRequirementId, sufficiency: selectedSufficiency },
+        { onSuccess: onMutationSuccess }
+      )
+    } else {
+      createFlowMapping.mutate(
+        { flowCountermeasure: countermeasureId, requirement: selectedRequirementId, sufficiency: selectedSufficiency },
+        { onSuccess: onMutationSuccess }
+      )
+    }
   }
 
   const handleUpdateSufficiency = (mappingId: number, newSufficiency: 'full' | 'partial') => {
@@ -334,7 +327,7 @@ export function EditComplianceMappingsDialog({
                               {selectedRequirementId === r.id && (
                                 <Check className="h-4 w-4 text-primary shrink-0" />
                               )}
-                              <span className="font-medium">{r.code}</span>
+                              <span className="font-medium">{r.sectionCode}</span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                               {r.description}

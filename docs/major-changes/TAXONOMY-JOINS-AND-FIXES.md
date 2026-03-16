@@ -1,7 +1,9 @@
+# STATUS - COMPLETE
+
 # Taxonomy Join Migration & Related Fixes
 
 **Date:** 2026-03-15
-**Status:** Proposed
+**Status:** Complete (2026-03-16)
 
 ---
 
@@ -27,7 +29,7 @@ Threat-to-taxonomy mappings are embedded inline in `threats.yaml`:
 # aws-mini/threats.yaml (current)
 - id: apigw-injection
   name: API Gateway Input Injection
-  taxonomy_references:       # <-- inline
+  taxonomy_references: # <-- inline
     stride: [tampering]
     capec: ["66"]
     cwe: [CWE-20]
@@ -36,12 +38,12 @@ Threat-to-taxonomy mappings are embedded inline in `threats.yaml`:
 
 Every other cross-entity relationship uses join files:
 
-| Relationship | Mechanism | File |
-|---|---|---|
-| Components -> Threats | join | `joins/components-threats.yaml` |
-| Threats -> Countermeasures | join | `joins/threats-countermeasures.yaml` |
-| Countermeasures -> Compliance | join | `joins/countermeasures-{framework}.yaml` |
-| **Threats -> Taxonomies** | **inline** | **`threats.yaml`** |
+| Relationship                  | Mechanism  | File                                     |
+| ----------------------------- | ---------- | ---------------------------------------- |
+| Components -> Threats         | join       | `joins/components-threats.yaml`          |
+| Threats -> Countermeasures    | join       | `joins/threats-countermeasures.yaml`     |
+| Countermeasures -> Compliance | join       | `joins/countermeasures-{framework}.yaml` |
+| **Threats -> Taxonomies**     | **inline** | **`threats.yaml`**                       |
 
 This inconsistency means adding a new taxonomy (e.g., LINDDUN) requires editing every threat pack's `threats.yaml`. With joins, a new pack can ship its own mappings independently.
 
@@ -274,38 +276,51 @@ Replace **both** STRIDE-only displays with `TaxonomyBadges` using `maxVisible={1
 
 ```tsx
 // BEFORE:
-{(() => {
-  const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
-  if (!strideEntry) return null
-  const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
-  return strideConfig ? (
-    <span className="text-[10px] font-medium" style={{ color: strideConfig.color }}>
-      {strideConfig.label}
-    </span>
-  ) : null
-})()}
+{
+  (() => {
+    const strideEntry = ct.taxonomyEntries?.find(
+      (e) => e.taxonomySlug === "stride",
+    );
+    if (!strideEntry) return null;
+    const strideConfig =
+      STRIDE_CONFIG[strideEntry.externalId as STRIDECategory];
+    return strideConfig ? (
+      <span
+        className="text-[10px] font-medium"
+        style={{ color: strideConfig.color }}
+      >
+        {strideConfig.label}
+      </span>
+    ) : null;
+  })();
+}
 
 // AFTER:
-<TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
+<TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />;
 ```
 
 **Dismissed threats — lines 1758-1769:**
 
 ```tsx
 // BEFORE:
-{(() => {
-  const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
-  if (!strideEntry) return null
-  const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
-  return strideConfig ? (
-    <span className="text-[10px] text-muted-foreground">
-      {strideConfig.label}
-    </span>
-  ) : null
-})()}
+{
+  (() => {
+    const strideEntry = ct.taxonomyEntries?.find(
+      (e) => e.taxonomySlug === "stride",
+    );
+    if (!strideEntry) return null;
+    const strideConfig =
+      STRIDE_CONFIG[strideEntry.externalId as STRIDECategory];
+    return strideConfig ? (
+      <span className="text-[10px] text-muted-foreground">
+        {strideConfig.label}
+      </span>
+    ) : null;
+  })();
+}
 
 // AFTER:
-<TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
+<TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />;
 ```
 
 This shows the first taxonomy badge (typically STRIDE) plus a "+N" indicator with tooltip for the rest. The `TaxonomyBadges` component already supports `maxVisible` with overflow tooltip — no new component logic needed.
@@ -325,9 +340,9 @@ This shows the first taxonomy badge (typically STRIDE) plus a "+N" indicator wit
 ```typescript
 // CODING_STANDARDS.md (WRONG)
 export type STRIDECategory =
-  | 'informationDisclosure'
-  | 'denialOfService'
-  | 'elevationOfPrivilege'
+  | "informationDisclosure"
+  | "denialOfService"
+  | "elevationOfPrivilege";
 ```
 
 Actual code in `domain.ts:7-13`, database `TaxonomyEntry.external_id` values, and pack YAML files all use kebab-case:
@@ -335,9 +350,9 @@ Actual code in `domain.ts:7-13`, database `TaxonomyEntry.external_id` values, an
 ```typescript
 // domain.ts (CORRECT)
 export type STRIDECategory =
-  | 'information-disclosure'
-  | 'denial-of-service'
-  | 'elevation-of-privilege'
+  | "information-disclosure"
+  | "denial-of-service"
+  | "elevation-of-privilege";
 ```
 
 ### Why This Happened
@@ -350,12 +365,12 @@ Update `CODING_STANDARDS.md` lines 103-109 to use kebab-case, matching actual co
 
 ```typescript
 export type STRIDECategory =
-  | 'spoofing'
-  | 'tampering'
-  | 'repudiation'
-  | 'information-disclosure'
-  | 'denial-of-service'
-  | 'elevation-of-privilege'
+  | "spoofing"
+  | "tampering"
+  | "repudiation"
+  | "information-disclosure"
+  | "denial-of-service"
+  | "elevation-of-privilege";
 ```
 
 ### Files Changed
@@ -370,12 +385,12 @@ export type STRIDECategory =
 
 Taxonomy badges (CAPEC-66, CWE-20, T1190) are display-only. A developer reviewing a threat has no quick way to learn what "CWE-20" means without manually searching. These taxonomies all have stable, well-known reference URLs:
 
-| Taxonomy | URL Pattern | Example |
-|---|---|---|
-| CWE | `https://cwe.mitre.org/data/definitions/{id}.html` | [CWE-20](https://cwe.mitre.org/data/definitions/20.html) |
-| CAPEC | `https://capec.mitre.org/data/definitions/{id}.html` | [CAPEC-66](https://capec.mitre.org/data/definitions/66.html) |
-| ATT&CK | `https://attack.mitre.org/techniques/{id}/` | [T1190](https://attack.mitre.org/techniques/T1190/) |
-| STRIDE | *(none — classification model, not a database)* | — |
+| Taxonomy | URL Pattern                                          | Example                                                      |
+| -------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| CWE      | `https://cwe.mitre.org/data/definitions/{id}.html`   | [CWE-20](https://cwe.mitre.org/data/definitions/20.html)     |
+| CAPEC    | `https://capec.mitre.org/data/definitions/{id}.html` | [CAPEC-66](https://capec.mitre.org/data/definitions/66.html) |
+| ATT&CK   | `https://attack.mitre.org/techniques/{id}/`          | [T1190](https://attack.mitre.org/techniques/T1190/)          |
+| STRIDE   | _(none — classification model, not a database)_      | —                                                            |
 
 ### Solution
 
@@ -419,10 +434,10 @@ taxonomies:
     entries:
       - external_id: CWE-20
         title: Improper Input Validation
-        reference_url: "https://cwe.mitre.org/data/definitions/20.html"  # NEW
+        reference_url: "https://cwe.mitre.org/data/definitions/20.html" # NEW
       - external_id: CWE-79
         title: Improper Neutralization of Input During Web Page Generation (XSS)
-        reference_url: "https://cwe.mitre.org/data/definitions/79.html"  # NEW
+        reference_url: "https://cwe.mitre.org/data/definitions/79.html" # NEW
 ```
 
 ```yaml
@@ -430,7 +445,7 @@ taxonomies:
 entries:
   - external_id: "66"
     title: SQL Injection
-    reference_url: "https://capec.mitre.org/data/definitions/66.html"  # NEW
+    reference_url: "https://capec.mitre.org/data/definitions/66.html" # NEW
 ```
 
 ```yaml
@@ -438,7 +453,7 @@ entries:
 entries:
   - external_id: T1190
     title: Exploit Public-Facing Application
-    reference_url: "https://attack.mitre.org/techniques/T1190/"  # NEW
+    reference_url: "https://attack.mitre.org/techniques/T1190/" # NEW
 ```
 
 STRIDE entries get no `reference_url` (no external database to link to).
@@ -450,12 +465,12 @@ Update `_load_taxonomy()` in `packs/services.py` to read and store the field dur
 ```typescript
 // types/domain.ts
 export interface TaxonomyEntry {
-  id: number
-  taxonomySlug: string
-  taxonomyName: string
-  externalId: string
-  title: string
-  referenceUrl?: string  // NEW (optional — STRIDE entries won't have one)
+  id: number;
+  taxonomySlug: string;
+  taxonomyName: string;
+  externalId: string;
+  title: string;
+  referenceUrl?: string; // NEW (optional — STRIDE entries won't have one)
 }
 ```
 
@@ -481,7 +496,7 @@ if (entry.referenceUrl) {
         {label}
       </Badge>
     </a>
-  )
+  );
 }
 // Otherwise render non-clickable badge (existing code for STRIDE)
 ```
@@ -505,66 +520,66 @@ Clicking a CWE/CAPEC/ATT&CK badge opens the reference page in a new tab. STRIDE 
 
 ### Unintended Consequences
 
-| Change | Risk | Mitigation |
-|---|---|---|
-| Join migration | Existing `taxonomy_references` in threats.yaml silently ignored if both old and new code paths exist during transition | Delete `_link_taxonomy_references()` and remove field from threats.yaml atomically. Pre-release + test data = safe. |
-| Join migration | Import order dependency — taxonomy packs must be installed before threat packs referencing them | Already enforced by `depends_on` in pack.yaml. aws-mini already declares `depends_on: [stride-taxonomy, mini-capec, mini-cwe, mini-attack]`. |
-| Join migration | Pack preview (`_extract_pack_preview()`) reads `taxonomy_references` from threats.yaml — previews break if field removed without updating preview logic | Update `_extract_pack_preview()` to also scan join files (see Backend Change 5). |
-| Join migration | base-stride pack reimport would lose all taxonomy links after `_link_taxonomy_references()` is deleted | Migrate base-stride in the same pass — create `joins/threats-stride.yaml`, remove inline refs. |
-| Remove customCategory | Custom threats still have no taxonomy associations after creation | This is existing behavior (the field was never wired). Future work: add taxonomy association UI for custom threats. |
-| Collapsed view change | Slightly wider collapsed threat cards due to badge rendering vs plain text | `maxVisible={1}` keeps it compact. Badge + "+N" takes roughly the same space as the current STRIDE text label. |
-| Reference URLs | External URLs could become stale or change | CWE/CAPEC/ATT&CK URLs have been stable for years. URLs are stored per-entry so they can be updated individually during pack reimport. |
-| Reference URLs | Clicking a badge navigates away from the app | Opens in a new tab (`target="_blank"`). No loss of context. |
-| Join migration | Stale M2M records persist on reimport. Both `_link_taxonomy_references()` and proposed `_load_threat_taxonomy_joins()` use `get_or_create` — they only add, never delete. If a taxonomy mapping is removed from a join file and the pack is reimported, the old `ThreatLibraryTaxonomyEntry` record remains in the database. This is a pre-existing systemic issue (also affects framework overlays) but the migration is a good time to address it. | Consider adding a cleanup step: delete existing M2M entries for the pack's threats before re-creating them, to ensure idempotent reimports. |
-| Join migration | Decoupled refs are easier to forget. With inline `taxonomy_references`, editing a threat naturally surfaces its taxonomy associations. With separate join files, someone could modify `threats.yaml` (add/rename/remove a threat) and forget to update the corresponding join files. | No automated validation exists to catch orphaned refs in join files. Consider a management command or import-time warning for join file refs that don't resolve to any threat. |
+| Change                | Risk                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Mitigation                                                                                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Join migration        | Existing `taxonomy_references` in threats.yaml silently ignored if both old and new code paths exist during transition                                                                                                                                                                                                                                                                                                                               | Delete `_link_taxonomy_references()` and remove field from threats.yaml atomically. Pre-release + test data = safe.                                                            |
+| Join migration        | Import order dependency — taxonomy packs must be installed before threat packs referencing them                                                                                                                                                                                                                                                                                                                                                      | Already enforced by `depends_on` in pack.yaml. aws-mini already declares `depends_on: [stride-taxonomy, mini-capec, mini-cwe, mini-attack]`.                                   |
+| Join migration        | Pack preview (`_extract_pack_preview()`) reads `taxonomy_references` from threats.yaml — previews break if field removed without updating preview logic                                                                                                                                                                                                                                                                                              | Update `_extract_pack_preview()` to also scan join files (see Backend Change 5).                                                                                               |
+| Join migration        | base-stride pack reimport would lose all taxonomy links after `_link_taxonomy_references()` is deleted                                                                                                                                                                                                                                                                                                                                               | Migrate base-stride in the same pass — create `joins/threats-stride.yaml`, remove inline refs.                                                                                 |
+| Remove customCategory | Custom threats still have no taxonomy associations after creation                                                                                                                                                                                                                                                                                                                                                                                    | This is existing behavior (the field was never wired). Future work: add taxonomy association UI for custom threats.                                                            |
+| Collapsed view change | Slightly wider collapsed threat cards due to badge rendering vs plain text                                                                                                                                                                                                                                                                                                                                                                           | `maxVisible={1}` keeps it compact. Badge + "+N" takes roughly the same space as the current STRIDE text label.                                                                 |
+| Reference URLs        | External URLs could become stale or change                                                                                                                                                                                                                                                                                                                                                                                                           | CWE/CAPEC/ATT&CK URLs have been stable for years. URLs are stored per-entry so they can be updated individually during pack reimport.                                          |
+| Reference URLs        | Clicking a badge navigates away from the app                                                                                                                                                                                                                                                                                                                                                                                                         | Opens in a new tab (`target="_blank"`). No loss of context.                                                                                                                    |
+| Join migration        | Stale M2M records persist on reimport. Both `_link_taxonomy_references()` and proposed `_load_threat_taxonomy_joins()` use `get_or_create` — they only add, never delete. If a taxonomy mapping is removed from a join file and the pack is reimported, the old `ThreatLibraryTaxonomyEntry` record remains in the database. This is a pre-existing systemic issue (also affects framework overlays) but the migration is a good time to address it. | Consider adding a cleanup step: delete existing M2M entries for the pack's threats before re-creating them, to ensure idempotent reimports.                                    |
+| Join migration        | Decoupled refs are easier to forget. With inline `taxonomy_references`, editing a threat naturally surfaces its taxonomy associations. With separate join files, someone could modify `threats.yaml` (add/rename/remove a threat) and forget to update the corresponding join files.                                                                                                                                                                 | No automated validation exists to catch orphaned refs in join files. Consider a management command or import-time warning for join file refs that don't resolve to any threat. |
 
 ### Potential Regression Errors
 
-| Area | What Could Break | How to Verify |
-|---|---|---|
-| Pack import | New join files not detected during import | Test: reimport aws-mini and base-stride, verify `ThreatLibraryTaxonomyEntry` count matches expected. |
-| Pack import | `threats-countermeasures.yaml` accidentally processed as taxonomy join | The glob `threats-*.yaml` matches it — must explicitly skip `threats-countermeasures.yaml` in the loop. Any future file matching `threats-*.yaml` (e.g., `threats-countermeasures-nist.yaml`) would also be incorrectly processed as a taxonomy join. Consider using a more specific glob or a naming convention like `taxonomy-threats-*.yaml`. |
-| Threat API responses | `taxonomyEntries` field empty after migration | Verify serializer still works — it reads from the same M2M table, unaffected by data ingestion changes. |
-| Report generation | `_get_stride_category()` in `report_service.py:288-296` depends on STRIDE taxonomy entries existing | Unchanged — STRIDE entries are still created via the new join file. |
-| Report generation | `_get_stride_category()` uses `"stride" in entry.taxonomy.slug.lower()` — a substring match. A future taxonomy slug like `"linddun-stride-extended"` would accidentally match. | Not a regression from this change, but worth hardening to `entry.taxonomy.slug == "stride"` while touching related code. |
-| Pack import | Data flow threats (dataflow-mitm, dataflow-eavesdropping, dataflow-replay-attack, dataflow-injection) exist in aws-mini/threats.yaml | Verify these are included in the new join files. The examples in this doc only show S3/APIGW threats. |
-| LINDDUN doc | Proposed doc shows inline `taxonomy_references` | Update the proposal to use join file format. |
-| Pack preview | `_extract_pack_preview()` shows zero taxonomy entries for uninstalled packs | Verify "Browse Packs" dialog still shows taxonomy badges after migration. |
-| Dismissed threats | Dismissed threats view still uses STRIDE-only code | Replace with `TaxonomyBadges` alongside active collapsed threats (see Change 3). |
+| Area                 | What Could Break                                                                                                                                                               | How to Verify                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pack import          | New join files not detected during import                                                                                                                                      | Test: reimport aws-mini and base-stride, verify `ThreatLibraryTaxonomyEntry` count matches expected.                                                                                                                                                                                                                                             |
+| Pack import          | `threats-countermeasures.yaml` accidentally processed as taxonomy join                                                                                                         | The glob `threats-*.yaml` matches it — must explicitly skip `threats-countermeasures.yaml` in the loop. Any future file matching `threats-*.yaml` (e.g., `threats-countermeasures-nist.yaml`) would also be incorrectly processed as a taxonomy join. Consider using a more specific glob or a naming convention like `taxonomy-threats-*.yaml`. |
+| Threat API responses | `taxonomyEntries` field empty after migration                                                                                                                                  | Verify serializer still works — it reads from the same M2M table, unaffected by data ingestion changes.                                                                                                                                                                                                                                          |
+| Report generation    | `_get_stride_category()` in `report_service.py:288-296` depends on STRIDE taxonomy entries existing                                                                            | Unchanged — STRIDE entries are still created via the new join file.                                                                                                                                                                                                                                                                              |
+| Report generation    | `_get_stride_category()` uses `"stride" in entry.taxonomy.slug.lower()` — a substring match. A future taxonomy slug like `"linddun-stride-extended"` would accidentally match. | Not a regression from this change, but worth hardening to `entry.taxonomy.slug == "stride"` while touching related code.                                                                                                                                                                                                                         |
+| Pack import          | Data flow threats (dataflow-mitm, dataflow-eavesdropping, dataflow-replay-attack, dataflow-injection) exist in aws-mini/threats.yaml                                           | Verify these are included in the new join files. The examples in this doc only show S3/APIGW threats.                                                                                                                                                                                                                                            |
+| LINDDUN doc          | Proposed doc shows inline `taxonomy_references`                                                                                                                                | Update the proposal to use join file format.                                                                                                                                                                                                                                                                                                     |
+| Pack preview         | `_extract_pack_preview()` shows zero taxonomy entries for uninstalled packs                                                                                                    | Verify "Browse Packs" dialog still shows taxonomy badges after migration.                                                                                                                                                                                                                                                                        |
+| Dismissed threats    | Dismissed threats view still uses STRIDE-only code                                                                                                                             | Replace with `TaxonomyBadges` alongside active collapsed threats (see Change 3).                                                                                                                                                                                                                                                                 |
 
 ### Inconsistencies (Pre-Existing)
 
-| Issue | Location | Severity |
-|---|---|---|
-| `base-stride` pack threats have no CWE/CAPEC/ATT&CK references | `libraries/packs/base-stride/threats.yaml` | Low — pack not actively used, STRIDE-only is expected. Included in join migration scope to prevent broken reimport. |
-| 5 aws-mini threats are STRIDE-only (no CWE/CAPEC/ATT&CK) | `lambda-dos`, `apigw-rate-limit-bypass`, `apigw-logging-gap`, `dynamodb-capacity-exhaustion`, `sqs-queue-flooding` | Medium — these could be enriched when creating the new join files. |
-| AddThreatDialog library tab shows taxonomy as comma-separated titles, not badges | `AddThreatDialog.tsx:199-203` | Low — cosmetic. |
+| Issue                                                                            | Location                                                                                                           | Severity                                                                                                            |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `base-stride` pack threats have no CWE/CAPEC/ATT&CK references                   | `libraries/packs/base-stride/threats.yaml`                                                                         | Low — pack not actively used, STRIDE-only is expected. Included in join migration scope to prevent broken reimport. |
+| 5 aws-mini threats are STRIDE-only (no CWE/CAPEC/ATT&CK)                         | `lambda-dos`, `apigw-rate-limit-bypass`, `apigw-logging-gap`, `dynamodb-capacity-exhaustion`, `sqs-queue-flooding` | Medium — these could be enriched when creating the new join files.                                                  |
+| AddThreatDialog library tab shows taxonomy as comma-separated titles, not badges | `AddThreatDialog.tsx:199-203`                                                                                      | Low — cosmetic.                                                                                                     |
 
 ### Gaps
 
-| Gap | Impact |
-|---|---|
-| No write API for `ThreatLibraryTaxonomyEntry` | Users cannot manually associate taxonomy entries with threats via UI. Only pack import creates these. |
-| No `selected_overlays` support for taxonomy joins | Unlike compliance overlays, taxonomy joins cannot be selectively imported/skipped. Could be added later. |
-| Custom threats have zero taxonomy associations and no way to add them | 127 custom threats in test DB have no taxonomy badges. |
-| No idempotent M2M cleanup on reimport | Both current and proposed code only use `get_or_create` for taxonomy M2M entries — removed mappings in YAML are never deleted from the database. Systemic issue across all join types. |
-| `_load_taxonomy()` update not fully specified | The doc says to update `_load_taxonomy()` to read `reference_url`, but doesn't show the specific code change. The `defaults` dict in `TaxonomyEntry.objects.update_or_create()` (services.py line ~1160) needs `"reference_url": entry_data.get("reference_url", "")` added. |
+| Gap                                                                   | Impact                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No write API for `ThreatLibraryTaxonomyEntry`                         | Users cannot manually associate taxonomy entries with threats via UI. Only pack import creates these.                                                                                                                                                                        |
+| No `selected_overlays` support for taxonomy joins                     | Unlike compliance overlays, taxonomy joins cannot be selectively imported/skipped. Could be added later.                                                                                                                                                                     |
+| Custom threats have zero taxonomy associations and no way to add them | 127 custom threats in test DB have no taxonomy badges.                                                                                                                                                                                                                       |
+| No idempotent M2M cleanup on reimport                                 | Both current and proposed code only use `get_or_create` for taxonomy M2M entries — removed mappings in YAML are never deleted from the database. Systemic issue across all join types.                                                                                       |
+| `_load_taxonomy()` update not fully specified                         | The doc says to update `_load_taxonomy()` to read `reference_url`, but doesn't show the specific code change. The `defaults` dict in `TaxonomyEntry.objects.update_or_create()` (services.py line ~1160) needs `"reference_url": entry_data.get("reference_url", "")` added. |
 
 ### Incidental Findings
 
-| Finding | Location | Type |
-|---|---|---|
-| `customCategory` state declared, rendered, but never sent to API | `AddThreatDialog.tsx:69` | Dead code (addressed in Change 2) |
-| Dismissed threats view duplicates STRIDE-only rendering pattern | `ComponentView.tsx:1758-1769` | Inconsistency with expanded view (addressed in Change 3) |
-| `ExternalTaxonomyViewSet` and `TaxonomyEntryViewSet` are read-only | `threats/views.py:496-512` | Design limitation — no write endpoints |
-| `ThreatLibraryTaxonomyEntryAdmin` registered but taxonomy editing only possible via Django Admin | `threats/admin.py:84-87` | Limited access path |
-| 127 orphaned custom threats with `source_pack=NULL` | Database | Test data artifacts — includes items like "dinki chika threat" |
-| 6 CWE, 7 ATT&CK, 9 CAPEC taxonomy entries exist in DB but are never referenced by any threat | Database | Unused taxonomy entries — could be mapped when enriching the 5 STRIDE-only aws-mini threats |
-| `_get_stride_category()` in report_service.py hardcodes STRIDE lookup for report generation | `report_service.py:288-296` | Not a bug, but reports currently only summarize STRIDE distribution — no CWE/ATT&CK/CAPEC report sections exist |
-| `_get_stride_category()` uses substring match (`"stride" in slug.lower()`) instead of exact match | `report_service.py:293` | Could match unintended taxonomy slugs in the future (e.g., `"linddun-stride-extended"`) |
-| 4 serializers duplicate identical `get_taxonomy_entries()` method | `ThreatLibrarySerializer`, `ThreatLibraryListSerializer`, `ComponentInstanceThreatSerializer`, `DataFlowInstanceThreatSerializer` | Maintenance smell — adding `reference_url` to `TaxonomyEntryNestedSerializer` propagates automatically, but the duplicated method logic could drift |
-| N+1 query potential in taxonomy serializers | All 4 `get_taxonomy_entries()` methods call `obj.threat_library.taxonomy_entries.select_related(...)` per-object in list views | Consider `prefetch_related("taxonomy_entries__taxonomy_entry__taxonomy")` on list querysets |
-| `toggleChecklistItem` in `useWorkspaceThreatAnalysis.ts` is a no-op | `useWorkspaceThreatAnalysis.ts:375-377` | Empty function body — planned but not implemented |
+| Finding                                                                                           | Location                                                                                                                          | Type                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `customCategory` state declared, rendered, but never sent to API                                  | `AddThreatDialog.tsx:69`                                                                                                          | Dead code (addressed in Change 2)                                                                                                                   |
+| Dismissed threats view duplicates STRIDE-only rendering pattern                                   | `ComponentView.tsx:1758-1769`                                                                                                     | Inconsistency with expanded view (addressed in Change 3)                                                                                            |
+| `ExternalTaxonomyViewSet` and `TaxonomyEntryViewSet` are read-only                                | `threats/views.py:496-512`                                                                                                        | Design limitation — no write endpoints                                                                                                              |
+| `ThreatLibraryTaxonomyEntryAdmin` registered but taxonomy editing only possible via Django Admin  | `threats/admin.py:84-87`                                                                                                          | Limited access path                                                                                                                                 |
+| 127 orphaned custom threats with `source_pack=NULL`                                               | Database                                                                                                                          | Test data artifacts — includes items like "dinki chika threat"                                                                                      |
+| 6 CWE, 7 ATT&CK, 9 CAPEC taxonomy entries exist in DB but are never referenced by any threat      | Database                                                                                                                          | Unused taxonomy entries — could be mapped when enriching the 5 STRIDE-only aws-mini threats                                                         |
+| `_get_stride_category()` in report_service.py hardcodes STRIDE lookup for report generation       | `report_service.py:288-296`                                                                                                       | Not a bug, but reports currently only summarize STRIDE distribution — no CWE/ATT&CK/CAPEC report sections exist                                     |
+| `_get_stride_category()` uses substring match (`"stride" in slug.lower()`) instead of exact match | `report_service.py:293`                                                                                                           | Could match unintended taxonomy slugs in the future (e.g., `"linddun-stride-extended"`)                                                             |
+| 4 serializers duplicate identical `get_taxonomy_entries()` method                                 | `ThreatLibrarySerializer`, `ThreatLibraryListSerializer`, `ComponentInstanceThreatSerializer`, `DataFlowInstanceThreatSerializer` | Maintenance smell — adding `reference_url` to `TaxonomyEntryNestedSerializer` propagates automatically, but the duplicated method logic could drift |
+| N+1 query potential in taxonomy serializers                                                       | All 4 `get_taxonomy_entries()` methods call `obj.threat_library.taxonomy_entries.select_related(...)` per-object in list views    | Consider `prefetch_related("taxonomy_entries__taxonomy_entry__taxonomy")` on list querysets                                                         |
+| `toggleChecklistItem` in `useWorkspaceThreatAnalysis.ts` is a no-op                               | `useWorkspaceThreatAnalysis.ts:375-377`                                                                                           | Empty function body — planned but not implemented                                                                                                   |
 
 ---
 

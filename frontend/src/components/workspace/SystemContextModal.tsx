@@ -128,12 +128,6 @@ export function SystemContextModal({
     setAssumptions(assumptions.filter((_, i) => i !== index))
   }
 
-  const validityConfig = {
-    unconfirmed: { label: 'Unconfirmed', className: 'bg-yellow-100 text-yellow-800' },
-    confirmed: { label: 'Confirmed', className: 'bg-green-100 text-green-800' },
-    rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800' },
-  }
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>

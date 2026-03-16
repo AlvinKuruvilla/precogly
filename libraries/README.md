@@ -30,6 +30,10 @@ aws-mini/
 ├── joins/
 │   ├── components-threats.yaml            # Which threats apply to which components
 │   ├── threats-countermeasures.yaml        # Which countermeasures mitigate which threats
+│   ├── threats-stride.yaml               # Threat → STRIDE taxonomy mappings
+│   ├── threats-cwe.yaml                  # Threat → CWE taxonomy mappings
+│   ├── threats-capec.yaml                # Threat → CAPEC taxonomy mappings
+│   ├── threats-mitre-attack.yaml         # Threat → ATT&CK taxonomy mappings
 │   ├── countermeasures-nist-csf.yaml      # Compliance mapping to NIST CSF
 │   ├── countermeasures-owasp.yaml         # Compliance mapping to OWASP
 │   └── countermeasures-soc2.yaml          # Compliance mapping to SOC 2
@@ -153,7 +157,7 @@ components:
 
 ## threats.yaml
 
-Defines threats. Can be component-specific or general-purpose.
+Defines threats. Can be component-specific or general-purpose. STRIDE and other taxonomy mappings are defined in join files (see `threats-{taxonomy}.yaml` below).
 
 ```yaml
 threats:
@@ -162,38 +166,20 @@ threats:
     description: |
       S3 bucket is publicly accessible, exposing sensitive data
       to unauthorized users.
-    stride_category: information_disclosure
-    source: custom
 
   - id: lambda-injection
     name: Lambda Code Injection
     description: |
       Malicious input exploits Lambda function leading to code execution.
-    stride_category: tampering
-    source: custom
 ```
 
 ### Field Reference
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | yes | Unique within pack. |
+| `id` | yes | Unique within pack. Lowercase + hyphens. |
 | `name` | yes | Display name. |
 | `description` | yes | What the threat is and how it occurs. |
-| `stride_category` | yes | One of the STRIDE categories (see below). |
-| `source` | no | `custom` (default). |
-| `severity` | no | `critical`, `high`, `medium`, `low` |
-
-### STRIDE Categories
-
-| Value | Category |
-|---|---|
-| `spoofing` | Pretending to be something or someone else |
-| `tampering` | Modifying data or code |
-| `repudiation` | Denying having performed an action |
-| `information_disclosure` | Exposing information to unauthorized parties |
-| `denial_of_service` | Denying or degrading service to users |
-| `elevation_of_privilege` | Gaining capabilities beyond what is authorized |
 
 ---
 
@@ -286,6 +272,38 @@ mappings:
       - lambda-code-signing
 ```
 
+### threats-{taxonomy}.yaml
+
+Maps threats to taxonomy entries (STRIDE, CWE, CAPEC, ATT&CK, etc.). File naming convention: `threats-{taxonomy-slug}.yaml`.
+
+```yaml
+# joins/threats-stride.yaml
+taxonomy: stride
+
+mappings:
+  - threat: s3-public-exposure
+    entries: [information-disclosure]
+  - threat: lambda-injection
+    entries: [tampering]
+```
+
+```yaml
+# joins/threats-cwe.yaml
+taxonomy: cwe
+
+mappings:
+  - threat: s3-public-exposure
+    entries: [CWE-862, CWE-200]
+  - threat: lambda-injection
+    entries: [CWE-78]
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `taxonomy` | yes | Slug of the taxonomy (must be loaded from a taxonomy pack). |
+| `threat` | yes | ID of a threat in this pack (or qualified slug for cross-pack). |
+| `entries` | yes | List of `external_id` values from the taxonomy. |
+
 ### Compliance Overlay Files
 
 Map countermeasures to compliance framework requirements. File naming convention: `countermeasures-{framework-slug}.yaml`.
@@ -312,6 +330,42 @@ mappings:
 | `countermeasure` | yes | ID of a countermeasure in this pack. |
 | `requirements` | yes | List of `section_code` values from the framework. |
 | `sufficiency` | yes | `full` (fully satisfies) or `partial` (partially satisfies). |
+
+---
+
+## taxonomy.yaml
+
+Defines external threat classification taxonomies and their entries. Taxonomy packs provide the reference data that other packs map their threats to via join files.
+
+```yaml
+taxonomies:
+  - slug: cwe
+    name: CWE Software Weaknesses
+    description: "Common Weakness Enumeration"
+    source_url: "https://cwe.mitre.org/"
+    entries:
+      - external_id: CWE-79
+        title: Improper Neutralization of Input During Web Page Generation (XSS)
+        description: "The application does not properly neutralize user-controllable input."
+        reference_url: "https://cwe.mitre.org/data/definitions/79.html"
+      - external_id: CWE-89
+        title: SQL Injection
+        description: "The application constructs SQL commands using externally-influenced input."
+        reference_url: "https://cwe.mitre.org/data/definitions/89.html"
+```
+
+### Field Reference
+
+| Field | Required | Description |
+|---|---|---|
+| `slug` | yes | Unique taxonomy identifier. |
+| `name` | yes | Display name. |
+| `description` | no | What the taxonomy is. |
+| `source_url` | no | URL to the taxonomy's official home. |
+| `entries[].external_id` | yes | Unique entry ID within the taxonomy (e.g., `CWE-79`, `T1190`, `spoofing`). |
+| `entries[].title` | yes | Display name for the entry. |
+| `entries[].description` | no | What the entry represents. |
+| `entries[].reference_url` | no | Direct link to the entry's official page. |
 
 ---
 
@@ -523,10 +577,10 @@ Before submitting a pack, verify:
 - [ ] `pack.yaml` has all required fields (`slug`, `name`, `version`, `pack_type`, `description`)
 - [ ] All `id` / `slug` values are unique within their file
 - [ ] All `id` values are lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`)
-- [ ] All `stride_category` values are valid STRIDE categories
 - [ ] All `control_type` values are `preventive`, `detective`, or `corrective`
 - [ ] All `cost` values are `low`, `medium`, or `high`
 - [ ] All references in join files point to ids that exist in the pack (or in declared dependencies)
+- [ ] All threat refs in `threats-{taxonomy}.yaml` join files resolve to valid threat IDs
 - [ ] All `framework` slugs in compliance overlays match a published compliance pack
 - [ ] All `section_code` values match requirements in the referenced framework
 - [ ] DFD template `component_ref` values match ids in `components.yaml`

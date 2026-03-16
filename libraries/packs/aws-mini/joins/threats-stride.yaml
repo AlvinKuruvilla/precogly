@@ -1,0 +1,45 @@
+taxonomy: stride
+
+mappings:
+  - threat: s3-public-exposure
+    entries: [information-disclosure]
+  - threat: s3-data-tampering
+    entries: [tampering]
+  - threat: s3-deletion
+    entries: [denial-of-service]
+  - threat: lambda-injection
+    entries: [tampering]
+  - threat: lambda-privilege-escalation
+    entries: [elevation-of-privilege]
+  - threat: lambda-secret-exposure
+    entries: [information-disclosure]
+  - threat: lambda-dos
+    entries: [denial-of-service]
+  - threat: apigw-unauthorized-access
+    entries: [spoofing]
+  - threat: apigw-injection
+    entries: [tampering]
+  - threat: apigw-rate-limit-bypass
+    entries: [denial-of-service]
+  - threat: apigw-logging-gap
+    entries: [repudiation]
+  - threat: dynamodb-unauthorized-access
+    entries: [information-disclosure]
+  - threat: dynamodb-injection
+    entries: [tampering]
+  - threat: dynamodb-capacity-exhaustion
+    entries: [denial-of-service]
+  - threat: sqs-message-tampering
+    entries: [tampering]
+  - threat: sqs-message-injection
+    entries: [spoofing]
+  - threat: sqs-queue-flooding
+    entries: [denial-of-service]
+  - threat: dataflow-mitm
+    entries: [tampering]
+  - threat: dataflow-eavesdropping
+    entries: [information-disclosure]
+  - threat: dataflow-replay-attack
+    entries: [spoofing]
+  - threat: dataflow-injection
+    entries: [tampering]

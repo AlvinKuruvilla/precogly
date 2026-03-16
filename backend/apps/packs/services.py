@@ -353,26 +353,41 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
             with open(threats_file) as f:
                 threat_data = yaml.safe_load(f) or {}
             for threat in threat_data.get("threats", []):
-                # Build taxonomy_entries from taxonomy_references
-                taxonomy_refs = threat.get("taxonomy_references", {})
-                taxonomy_entries = []
-                for taxonomy_slug, entry_ids in taxonomy_refs.items():
-                    for entry_id in entry_ids:
-                        title = entry_id.replace("-", " ").title()
-                        taxonomy_entries.append({
-                            "taxonomy_slug": taxonomy_slug,
-                            "external_id": entry_id,
-                            "title": title,
-                        })
                 threats.append({
                     "slug": threat.get("slug", threat.get("id", "")),
                     "name": threat.get("name", ""),
-                    "taxonomy_entries": taxonomy_entries,
+                    "taxonomy_entries": [],
                     "severity": threat.get("severity", ""),
                     "description": threat.get("description", ""),
                 })
         except Exception as e:
             logger.error(f"Error reading threats.yaml in {pack_dir}: {e}")
+
+    # Build taxonomy entries from join files
+    joins_dir = pack_dir / "joins"
+    if joins_dir.exists():
+        threat_slug_to_idx = {t["slug"]: i for i, t in enumerate(threats)}
+        for join_file in joins_dir.glob("threats-*.yaml"):
+            if join_file.name == "threats-countermeasures.yaml":
+                continue
+            try:
+                with open(join_file) as f:
+                    join_data = yaml.safe_load(f) or {}
+                taxonomy_slug = join_data.get("taxonomy", "")
+                for mapping in join_data.get("mappings", []):
+                    threat_ref = mapping.get("threat", "")
+                    idx = threat_slug_to_idx.get(threat_ref)
+                    if idx is None:
+                        continue
+                    for entry_id in mapping.get("entries", []):
+                        title = str(entry_id).replace("-", " ").title()
+                        threats[idx]["taxonomy_entries"].append({
+                            "taxonomy_slug": taxonomy_slug,
+                            "external_id": str(entry_id),
+                            "title": title,
+                        })
+            except Exception as e:
+                logger.error(f"Error reading join file {join_file}: {e}")
 
     # Load countermeasures from countermeasures.yaml
     countermeasures = []
@@ -907,6 +922,12 @@ def _import_pack(
                 _load_component_threat_joins(library_pack, joins_dir / "components-threats.yaml")
                 _load_threat_countermeasure_joins(library_pack, joins_dir / "threats-countermeasures.yaml")
 
+                # Load threat-taxonomy joins
+                for join_file in joins_dir.glob("threats-*.yaml"):
+                    if join_file.name == "threats-countermeasures.yaml":
+                        continue
+                    _load_threat_taxonomy_joins(library_pack, join_file)
+
                 # Phase 3: Load framework overlays
                 for join_file in joins_dir.glob("countermeasures-*.yaml"):
                     # Skip the threat-countermeasure join file
@@ -1097,15 +1118,35 @@ def _resolve_threat_reference(library_pack: LibraryPack, threat_ref: str) -> Opt
 # =============================================================================
 
 
-def _link_taxonomy_references(threat_obj, threat_data):
-    """Create M2M links from taxonomy_references."""
-    taxonomy_refs = threat_data.get("taxonomy_references")
+def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> int:
+    """Load threat-taxonomy mappings from joins/threats-{taxonomy}.yaml."""
+    if not file_path.exists():
+        return 0
 
-    if not taxonomy_refs:
-        return
+    try:
+        with open(file_path) as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.error(f"Error loading threat taxonomy join {file_path}: {e}")
+        return 0
 
-    for taxonomy_slug, entry_ids in taxonomy_refs.items():
-        for external_id in entry_ids:
+    taxonomy_slug = data.get("taxonomy", "")
+    if not taxonomy_slug:
+        logger.warning(f"No taxonomy specified in {file_path}")
+        return 0
+
+    count = 0
+    for mapping in data.get("mappings", []):
+        threat_ref = mapping.get("threat", "")
+        if not threat_ref:
+            continue
+
+        threat_obj = _resolve_threat_reference(library_pack, threat_ref)
+        if not threat_obj:
+            logger.warning(f"Threat not found: {threat_ref}")
+            continue
+
+        for external_id in mapping.get("entries", []):
             try:
                 taxonomy_entry = TaxonomyEntry.objects.get(
                     taxonomy__slug=taxonomy_slug,
@@ -1115,11 +1156,14 @@ def _link_taxonomy_references(threat_obj, threat_data):
                     threat_library=threat_obj,
                     taxonomy_entry=taxonomy_entry,
                 )
+                count += 1
             except TaxonomyEntry.DoesNotExist:
                 logger.warning(
                     f"Taxonomy entry {taxonomy_slug}:{external_id} not found — "
                     f"import the taxonomy pack first"
                 )
+
+    return count
 
 
 def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
@@ -1162,6 +1206,7 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
                 defaults={
                     "title": entry_data.get("title", external_id),
                     "description": entry_data.get("description", ""),
+                    "reference_url": entry_data.get("reference_url", ""),
                 },
             )
 
@@ -1292,8 +1337,6 @@ def _load_threats(library_pack: LibraryPack, file_path: Path) -> int:
                 "customization_status": "original",
             },
         )
-
-        _link_taxonomy_references(threat_obj, threat)
 
         count += 1
 

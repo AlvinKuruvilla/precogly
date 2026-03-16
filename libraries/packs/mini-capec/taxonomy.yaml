@@ -7,45 +7,60 @@ taxonomies:
       - external_id: "66"
         title: SQL Injection
         description: "An attacker exploits a weakness in input validation to inject SQL commands into an application's database queries."
+        reference_url: "https://capec.mitre.org/data/definitions/66.html"
       - external_id: "63"
         title: Cross-Site Scripting (XSS)
         description: "An attacker injects malicious scripts into web content viewed by other users."
+        reference_url: "https://capec.mitre.org/data/definitions/63.html"
       - external_id: "88"
         title: OS Command Injection
         description: "An attacker injects operating system commands through an application's input to execute on the host."
+        reference_url: "https://capec.mitre.org/data/definitions/88.html"
       - external_id: "100"
         title: Overflow Buffers
         description: "An attacker provides input that exceeds a buffer's allocated size, potentially overwriting adjacent memory."
+        reference_url: "https://capec.mitre.org/data/definitions/100.html"
       - external_id: "62"
         title: Cross-Site Request Forgery
         description: "An attacker tricks an authenticated user's browser into making unintended requests to a web application."
+        reference_url: "https://capec.mitre.org/data/definitions/62.html"
       - external_id: "60"
         title: Reusing Session IDs (Session Replay)
         description: "An attacker captures and reuses a valid session ID to impersonate an authenticated user."
+        reference_url: "https://capec.mitre.org/data/definitions/60.html"
       - external_id: "126"
         title: Path Traversal
         description: "An attacker manipulates file path references to access files outside the intended directory."
+        reference_url: "https://capec.mitre.org/data/definitions/126.html"
       - external_id: "136"
         title: LDAP Injection
         description: "An attacker injects LDAP statements through manipulated input to modify or query LDAP directory services."
+        reference_url: "https://capec.mitre.org/data/definitions/136.html"
       - external_id: "49"
         title: Password Brute Forcing
         description: "An attacker systematically tries all possible passwords until the correct one is found."
+        reference_url: "https://capec.mitre.org/data/definitions/49.html"
       - external_id: "98"
         title: Phishing
         description: "An attacker uses deceptive communications to trick victims into revealing sensitive information or credentials."
+        reference_url: "https://capec.mitre.org/data/definitions/98.html"
       - external_id: "94"
         title: Adversary in the Middle (AiTM)
         description: "An attacker positions themselves between two communicating parties to intercept or alter data in transit."
+        reference_url: "https://capec.mitre.org/data/definitions/94.html"
       - external_id: "600"
         title: Credential Stuffing
         description: "An attacker uses stolen username-password pairs from previous breaches to gain unauthorized access to other accounts."
+        reference_url: "https://capec.mitre.org/data/definitions/600.html"
       - external_id: "586"
         title: Object Injection
         description: "An attacker exploits insecure deserialization to inject malicious objects into an application."
+        reference_url: "https://capec.mitre.org/data/definitions/586.html"
       - external_id: "664"
         title: Server Side Request Forgery
         description: "An attacker induces the server to make requests to unintended internal or external resources."
+        reference_url: "https://capec.mitre.org/data/definitions/664.html"
       - external_id: "122"
         title: Privilege Abuse
         description: "An attacker misuses legitimate privileges granted to them to perform unauthorized actions."
+        reference_url: "https://capec.mitre.org/data/definitions/122.html"

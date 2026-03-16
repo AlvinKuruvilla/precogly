@@ -1,0 +1,43 @@
+taxonomy: mitre-attack
+
+mappings:
+  - threat: s3-public-exposure
+    entries: [T1190]
+  - threat: s3-data-tampering
+    entries: [T1078]
+  - threat: s3-deletion
+    entries: [T1486]
+  - threat: lambda-injection
+    entries: [T1059, T1190]
+  - threat: lambda-privilege-escalation
+    entries: [T1068, T1548]
+  - threat: lambda-secret-exposure
+    entries: [T1078]
+  - threat: apigw-unauthorized-access
+    entries: [T1078, T1110]
+  - threat: apigw-injection
+    entries: [T1190]
+  - threat: dynamodb-unauthorized-access
+    entries: [T1078]
+  - threat: dynamodb-injection
+    entries: [T1190]
+  - threat: sqs-message-tampering
+    entries: [T1071]
+  - threat: sqs-message-injection
+    entries: [T1071]
+  - threat: dataflow-mitm
+    entries: [T1071]
+  - threat: dataflow-eavesdropping
+    entries: [T1071]
+  - threat: dataflow-replay-attack
+    entries: [T1078]
+  - threat: dataflow-injection
+    entries: [T1071]
+  - threat: lambda-dos
+    entries: [T1190]
+  - threat: apigw-rate-limit-bypass
+    entries: [T1190, T1110]
+  - threat: dynamodb-capacity-exhaustion
+    entries: [T1190]
+  - threat: sqs-queue-flooding
+    entries: [T1190]

@@ -48,7 +48,7 @@ class TaxonomyEntryNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaxonomyEntry
-        fields = ["id", "taxonomy_slug", "taxonomy_name", "external_id", "title"]
+        fields = ["id", "taxonomy_slug", "taxonomy_name", "external_id", "title", "reference_url"]
 
 
 class ThreatLibrarySerializer(serializers.ModelSerializer):

@@ -307,6 +307,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "taxonomy_name": entry.taxonomy.name,
                 "external_id": entry.external_id,
                 "title": entry.title,
+                "reference_url": entry.reference_url,
             })
         return entries
 

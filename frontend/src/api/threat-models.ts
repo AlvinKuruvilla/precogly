@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import type { ThreatModel, DashboardStats, Framework, System, CreateThreatModelInput, CreateSystemInput } from '@/types'
-import { api, apiFetch, getAccessToken } from '@/lib/api'
+import { api, getAccessToken } from '@/lib/api'
 
 // Query Hooks
 export function useDashboardStats() {

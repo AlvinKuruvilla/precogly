@@ -84,44 +84,53 @@ export function AddCountermeasureDialog({
   const handleAddFromLibrary = () => {
     if (!selectedCountermeasureId) return
 
-    const mutation = threatType === 'component' ? createComponentCountermeasure : createFlowCountermeasure
     const countermeasureDefaultStatus = selectedCountermeasure?.defaultStatus ?? 'gap'
-    const data = threatType === 'component'
-      ? { instanceThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus }
-      : { flowThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus }
+    const onMutationSuccess = () => {
+      onOpenChange(false)
+      resetForm()
+      onSuccess?.()
+    }
 
-    mutation.mutate(data, {
-      onSuccess: () => {
-        onOpenChange(false)
-        resetForm()
-        onSuccess?.()
-      },
-    })
+    if (threatType === 'component') {
+      createComponentCountermeasure.mutate(
+        { instanceThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus },
+        { onSuccess: onMutationSuccess }
+      )
+    } else {
+      createFlowCountermeasure.mutate(
+        { flowThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus },
+        { onSuccess: onMutationSuccess }
+      )
+    }
   }
 
   const handleAddCustom = () => {
     if (!customName.trim()) return
 
-    const mutation = threatType === 'component' ? createComponentCountermeasure : createFlowCountermeasure
     const baseData = {
-      countermeasureLibrary: null,
+      countermeasureLibrary: null as null,
       countermeasureName: customName,
       countermeasureDescription: customDescription,
       controlType: customControlType || undefined,
       status: 'gap',
     }
+    const onMutationSuccess = () => {
+      onOpenChange(false)
+      resetForm()
+      onSuccess?.()
+    }
 
-    const data = threatType === 'component'
-      ? { instanceThreat: threatId, ...baseData }
-      : { flowThreat: threatId, ...baseData }
-
-    mutation.mutate(data, {
-      onSuccess: () => {
-        onOpenChange(false)
-        resetForm()
-        onSuccess?.()
-      },
-    })
+    if (threatType === 'component') {
+      createComponentCountermeasure.mutate(
+        { instanceThreat: threatId, ...baseData },
+        { onSuccess: onMutationSuccess }
+      )
+    } else {
+      createFlowCountermeasure.mutate(
+        { flowThreat: threatId, ...baseData },
+        { onSuccess: onMutationSuccess }
+      )
+    }
   }
 
   const resetForm = () => {

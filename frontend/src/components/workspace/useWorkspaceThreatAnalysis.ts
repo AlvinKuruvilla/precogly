@@ -214,7 +214,7 @@ export function useWorkspaceThreatAnalysis(
       if (countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
-        const data: { assignedOwner: number; status?: string } = { assignedOwner: assignee.userId }
+        const data: { assignedOwner: number; status?: CountermeasureStatus } = { assignedOwner: assignee.userId }
         if (newStatus) {
           data.status = newStatus
         }
@@ -258,7 +258,7 @@ export function useWorkspaceThreatAnalysis(
 
   // Update countermeasure priority
   const updateCountermeasurePriority = useCallback(
-    (componentThreatId: string, countermeasureInstanceId: string, priority: string) => {
+    (componentThreatId: string, countermeasureInstanceId: string, priority: ComponentThreatCountermeasure['priority']) => {
       const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
       const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
 

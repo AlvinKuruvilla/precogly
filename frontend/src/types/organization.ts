@@ -51,6 +51,7 @@ export interface Team {
 export interface TeamListItem {
   id: number
   name: string
+  description?: string
   code: string
   businessUnitName: string | null
   memberCount: number
@@ -258,6 +259,7 @@ export interface MagicLinkAccessResponse {
     dfds?: Array<{
       id: number
       name: string
+      isPrimary?: boolean
       canvasData?: {
         nodes?: unknown[]
         edges?: unknown[]

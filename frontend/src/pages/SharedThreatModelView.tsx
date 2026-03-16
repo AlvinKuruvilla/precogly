@@ -34,15 +34,6 @@ import {
   LayoutDashboard,
 } from 'lucide-react'
 
-// Using flexible types for API response - actual node/edge data comes from backend
-interface DFD {
-  id: number
-  name: string
-  canvasData?: {
-    nodes?: unknown[]
-    edges?: unknown[]
-  }
-}
 
 // Progress checklist items with labels
 // Note: Backend returns snake_case but DRF converts to camelCase at API boundary

@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import type { ReportData } from '@/types/report'
 import type { SectionDepth } from '../reportConfig'
@@ -10,7 +9,7 @@ interface FindingsSectionProps {
 }
 
 export function FindingsSection({ data, depth }: FindingsSectionProps) {
-  const { summaryMetrics, countermeasureSummary, threatAnalysis } = data
+  const { summaryMetrics, countermeasureSummary } = data
 
   // Derive findings
   const findings: Array<{

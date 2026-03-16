@@ -69,7 +69,6 @@ export function buildComponentTree(
   allNodes: DiagramNode[]
 ): { treeRoots: ComponentTreeNode[]; flatNonProcess: DiagramNode[] } {
   const nodesMap = new Map(allNodes.map((n) => [n.id, n]))
-  const analyzableIds = new Set(analyzableComponents.map((n) => n.id))
 
   // Separate process nodes from non-process nodes
   const processNodes = analyzableComponents.filter((n) => n.type === 'process')

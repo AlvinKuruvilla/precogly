@@ -23,17 +23,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useThreatLibrary, useCreateComponentThreat, useCreateFlowThreat } from '@/api/threats'
-import type { STRIDECategory } from '@/types/domain'
-
-const STRIDE_CATEGORIES: { value: STRIDECategory; label: string }[] = [
-  { value: 'spoofing', label: 'Spoofing' },
-  { value: 'tampering', label: 'Tampering' },
-  { value: 'repudiation', label: 'Repudiation' },
-  { value: 'information-disclosure', label: 'Information Disclosure' },
-  { value: 'denial-of-service', label: 'Denial of Service' },
-  { value: 'elevation-of-privilege', label: 'Elevation of Privilege' },
-]
-
 const SEVERITY_OPTIONS = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
@@ -66,7 +55,6 @@ export function AddThreatDialog({
   // Custom threat fields
   const [customName, setCustomName] = useState('')
   const [customDescription, setCustomDescription] = useState('')
-  const [customCategory, setCustomCategory] = useState<STRIDECategory | ''>('')
   const [customSeverity, setCustomSeverity] = useState('medium')
 
   const { data: threatLibrary, isLoading } = useThreatLibrary()
@@ -90,43 +78,52 @@ export function AddThreatDialog({
   const handleAddFromLibrary = () => {
     if (!selectedThreatId) return
 
-    const mutation = targetType === 'component' ? createComponentThreat : createFlowThreat
-    const data = targetType === 'component'
-      ? { component: targetId, threatLibrary: selectedThreatId, inherentSeverity: selectedSeverity }
-      : { dataFlow: targetId, threatLibrary: selectedThreatId, inherentSeverity: selectedSeverity }
+    const onMutationSuccess = () => {
+      onOpenChange(false)
+      resetForm()
+      onSuccess?.()
+    }
 
-    mutation.mutate(data, {
-      onSuccess: () => {
-        onOpenChange(false)
-        resetForm()
-        onSuccess?.()
-      },
-    })
+    if (targetType === 'component') {
+      createComponentThreat.mutate(
+        { component: targetId, threatLibrary: selectedThreatId, inherentSeverity: selectedSeverity },
+        { onSuccess: onMutationSuccess }
+      )
+    } else {
+      createFlowThreat.mutate(
+        { dataFlow: targetId, threatLibrary: selectedThreatId, inherentSeverity: selectedSeverity },
+        { onSuccess: onMutationSuccess }
+      )
+    }
   }
 
   const handleAddCustom = () => {
     if (!customName.trim()) return
 
-    const mutation = targetType === 'component' ? createComponentThreat : createFlowThreat
     const baseData = {
-      threatLibrary: null,
+      threatLibrary: null as null,
       threatName: customName,
       threatDescription: customDescription,
       inherentSeverity: customSeverity,
       status: 'exposed',
     }
+    const onMutationSuccess = () => {
+      onOpenChange(false)
+      resetForm()
+      onSuccess?.()
+    }
 
-    const data = targetType === 'component'
-      ? { component: targetId, ...baseData }
-      : { dataFlow: targetId, ...baseData }
-
-    mutation.mutate(data, {
-      onSuccess: () => {
-        onOpenChange(false)
-        resetForm()
-        onSuccess?.()
-      },
-    })
+    if (targetType === 'component') {
+      createComponentThreat.mutate(
+        { component: targetId, ...baseData },
+        { onSuccess: onMutationSuccess }
+      )
+    } else {
+      createFlowThreat.mutate(
+        { dataFlow: targetId, ...baseData },
+        { onSuccess: onMutationSuccess }
+      )
+    }
   }
 
   const resetForm = () => {
@@ -135,7 +132,6 @@ export function AddThreatDialog({
     setSelectedSeverity('medium')
     setCustomName('')
     setCustomDescription('')
-    setCustomCategory('')
     setCustomSeverity('medium')
     setActiveTab('library')
   }
@@ -257,38 +253,20 @@ export function AddThreatDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-category">STRIDE Category</Label>
-                <Select value={customCategory} onValueChange={(v) => setCustomCategory(v as STRIDECategory)}>
-                  <SelectTrigger id="custom-category">
-                    <SelectValue placeholder="Select category..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STRIDE_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-severity">Severity *</Label>
-                <Select value={customSeverity} onValueChange={setCustomSeverity}>
-                  <SelectTrigger id="custom-severity">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SEVERITY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom-severity">Severity *</Label>
+              <Select value={customSeverity} onValueChange={setCustomSeverity}>
+                <SelectTrigger id="custom-severity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEVERITY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">

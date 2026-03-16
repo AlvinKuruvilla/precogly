@@ -1,0 +1,70 @@
+taxonomy: stride
+
+mappings:
+  # SPOOFING
+  - threat: credential-theft
+    entries: [spoofing]
+  - threat: session-hijacking
+    entries: [spoofing]
+  - threat: api-key-compromise
+    entries: [spoofing]
+  - threat: man-in-the-middle
+    entries: [spoofing]
+  - threat: service-impersonation
+    entries: [spoofing]
+
+  # TAMPERING
+  - threat: data-tampering
+    entries: [tampering]
+  - threat: code-injection
+    entries: [tampering]
+  - threat: configuration-tampering
+    entries: [tampering]
+  - threat: message-tampering
+    entries: [tampering]
+  - threat: binary-tampering
+    entries: [tampering]
+
+  # REPUDIATION
+  - threat: action-repudiation
+    entries: [repudiation]
+  - threat: transaction-repudiation
+    entries: [repudiation]
+  - threat: log-deletion
+    entries: [repudiation]
+
+  # INFORMATION DISCLOSURE
+  - threat: data-breach
+    entries: [information-disclosure]
+  - threat: sensitive-data-exposure
+    entries: [information-disclosure]
+  - threat: unauthorized-access
+    entries: [information-disclosure]
+  - threat: metadata-leakage
+    entries: [information-disclosure]
+  - threat: side-channel-attack
+    entries: [information-disclosure]
+
+  # DENIAL OF SERVICE
+  - threat: volumetric-dos
+    entries: [denial-of-service]
+  - threat: application-dos
+    entries: [denial-of-service]
+  - threat: resource-exhaustion
+    entries: [denial-of-service]
+  - threat: dependency-failure
+    entries: [denial-of-service]
+
+  # ELEVATION OF PRIVILEGE
+  - threat: privilege-escalation
+    entries: [elevation-of-privilege]
+  - threat: insecure-deserialization
+    entries: [elevation-of-privilege]
+  - threat: container-escape
+    entries: [elevation-of-privilege]
+  - threat: iam-misconfiguration
+    entries: [elevation-of-privilege]
+  - threat: insider-threat
+    entries: [elevation-of-privilege]
+  - threat: ssrf
+    entries: [elevation-of-privilege]

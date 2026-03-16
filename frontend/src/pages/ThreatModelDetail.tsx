@@ -36,7 +36,7 @@ import { AddThreatDialog } from '@/features/dfd-editor/components/threat-analysi
 import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat-analysis/AddCountermeasureDialog'
 import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threat-analysis/AddCustomComponentDialog'
 import { ReviewZoneProtectionsDialog } from '@/features/dfd-editor/components/threat-analysis/ReviewZoneProtectionsDialog'
-import { useThreatModelThreats, parseCountermeasureId } from '@/api/threats'
+import { useThreatModelThreats } from '@/api/threats'
 import { useAnalysisComponents, useTrustZones } from '@/api/components'
 import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
@@ -177,7 +177,6 @@ export function ThreatModelDetail() {
     assignOwner,
     dismissThreat,
     restoreThreat,
-    addCountermeasure,
     toggleChecklistItem,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
 

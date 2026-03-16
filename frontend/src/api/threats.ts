@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/reac
 import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure, CountermeasureStatus } from '@/features/dfd-editor/types/threat-analysis'
 import type { TaxonomyEntry } from '@/types/domain'
-import { getStrideFromTaxonomy } from '@/types/domain'
 
 // Backend countermeasure status (aligned with frontend CountermeasureStatus)
 type BackendCountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
@@ -36,6 +35,7 @@ export interface CountermeasureLibraryItem {
   description?: string
   controlType: string
   cost: string
+  defaultStatus?: string
   sourcePackName: string | null
   sourcePackSlug: string | null
 }
@@ -667,7 +667,7 @@ export function transformBackendThreatsToComponentThreats(
       countermeasureId: `lib-${cm.countermeasureLibraryId}`,
       componentThreatId,
       status: cm.status as CountermeasureStatus,
-      priority: cm.priority || 'none',
+      priority: (cm.priority || 'none') as ComponentThreatCountermeasure['priority'],
       owner: cm.assignedOwnerEmail || undefined,
       notes: cm.evidenceUrl || undefined,
       createdAt: now,

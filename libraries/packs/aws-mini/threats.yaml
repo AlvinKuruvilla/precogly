@@ -7,30 +7,18 @@ threats:
     description: |
       S3 bucket is publicly accessible, exposing sensitive data to unauthorized users.
       This can occur through misconfigured bucket policies, ACLs, or disabled Block Public Access.
-    taxonomy_references:
-      stride: [information-disclosure]
-      cwe: [CWE-862, CWE-200]
-      mitre-attack: [T1190]
 
   - id: s3-data-tampering
     name: S3 Object Tampering
     description: |
       Unauthorized modification of S3 objects due to misconfigured permissions.
       Attackers may alter data, inject malicious content, or corrupt backups.
-    taxonomy_references:
-      stride: [tampering]
-      cwe: [CWE-862]
-      mitre-attack: [T1078]
 
   - id: s3-deletion
     name: S3 Data Deletion
     description: |
       Malicious or accidental deletion of S3 objects without proper versioning or MFA delete.
       Can lead to permanent data loss and service disruption.
-    taxonomy_references:
-      stride: [denial-of-service]
-      cwe: [CWE-862]
-      mitre-attack: [T1486]
 
   # ============================================================================
   # Lambda Threats
@@ -40,40 +28,24 @@ threats:
     description: |
       Malicious input exploits Lambda function leading to code execution.
       Includes SQL injection, command injection, or template injection attacks.
-    taxonomy_references:
-      stride: [tampering]
-      capec: ["88"]
-      cwe: [CWE-78]
-      mitre-attack: [T1059, T1190]
 
   - id: lambda-privilege-escalation
     name: Lambda Role Over-Privileged
     description: |
       Lambda execution role has excessive permissions enabling privilege escalation.
       Compromised function could access resources beyond its intended scope.
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-      capec: ["122"]
-      cwe: [CWE-862]
-      mitre-attack: [T1068, T1548]
 
   - id: lambda-secret-exposure
     name: Lambda Environment Variable Exposure
     description: |
       Sensitive data (API keys, credentials) stored in Lambda environment variables
       may be exposed through logs, error messages, or function enumeration.
-    taxonomy_references:
-      stride: [information-disclosure]
-      cwe: [CWE-798, CWE-200]
-      mitre-attack: [T1078]
 
   - id: lambda-dos
     name: Lambda Resource Exhaustion
     description: |
       Attacker triggers excessive Lambda invocations causing throttling, high costs,
       or denial of service to legitimate users.
-    taxonomy_references:
-      stride: [denial-of-service]
 
   # ============================================================================
   # API Gateway Threats
@@ -83,37 +55,24 @@ threats:
     description: |
       API endpoints accessible without proper authentication, allowing unauthorized
       access to backend services and data.
-    taxonomy_references:
-      stride: [spoofing]
-      cwe: [CWE-287, CWE-306]
-      mitre-attack: [T1078, T1110]
 
   - id: apigw-injection
     name: API Gateway Input Injection
     description: |
       Malicious payloads passed through API Gateway to backend services,
       exploiting insufficient input validation.
-    taxonomy_references:
-      stride: [tampering]
-      capec: ["66"]
-      cwe: [CWE-20]
-      mitre-attack: [T1190]
 
   - id: apigw-rate-limit-bypass
     name: API Gateway Rate Limit Bypass
     description: |
       Attacker bypasses API throttling through distributed requests or
       exploiting misconfigured rate limiting, causing backend overload.
-    taxonomy_references:
-      stride: [denial-of-service]
 
   - id: apigw-logging-gap
     name: API Gateway Insufficient Logging
     description: |
       Lack of comprehensive API logging prevents detection of attacks,
       unauthorized access attempts, and security incident investigation.
-    taxonomy_references:
-      stride: [repudiation]
 
   # ============================================================================
   # DynamoDB Threats
@@ -123,30 +82,18 @@ threats:
     description: |
       IAM policies allow broader access to DynamoDB tables than required,
       enabling unauthorized data reads or modifications.
-    taxonomy_references:
-      stride: [information-disclosure]
-      capec: ["122"]
-      cwe: [CWE-862, CWE-200]
-      mitre-attack: [T1078]
 
   - id: dynamodb-injection
     name: DynamoDB Query Injection
     description: |
       Malicious input manipulates DynamoDB queries through improperly
       constructed filter expressions or condition expressions.
-    taxonomy_references:
-      stride: [tampering]
-      capec: ["66"]
-      cwe: [CWE-89]
-      mitre-attack: [T1190]
 
   - id: dynamodb-capacity-exhaustion
     name: DynamoDB Capacity Exhaustion
     description: |
       Attacker consumes provisioned throughput capacity through excessive
       requests, causing throttling for legitimate users.
-    taxonomy_references:
-      stride: [denial-of-service]
 
   # ============================================================================
   # SQS Threats
@@ -156,29 +103,18 @@ threats:
     description: |
       Unauthorized modification of messages in transit or at rest,
       potentially altering application behavior or injecting malicious payloads.
-    taxonomy_references:
-      stride: [tampering]
-      cwe: [CWE-20]
-      mitre-attack: [T1071]
 
   - id: sqs-message-injection
     name: SQS Malicious Message Injection
     description: |
       Attacker injects unauthorized messages into the queue, potentially
       triggering unintended actions in consuming applications.
-    taxonomy_references:
-      stride: [spoofing]
-      capec: ["586"]
-      cwe: [CWE-502]
-      mitre-attack: [T1071]
 
   - id: sqs-queue-flooding
     name: SQS Queue Flooding
     description: |
       Excessive messages sent to queue causing processing delays, increased
       costs, and potential denial of service to consumers.
-    taxonomy_references:
-      stride: [denial-of-service]
 
   # ============================================================================
   # Data Flow Threats (apply to connections between components)
@@ -188,38 +124,21 @@ threats:
     description: |
       Attacker intercepts and potentially modifies data in transit between
       components. Can lead to data theft, tampering, or credential capture.
-    taxonomy_references:
-      stride: [tampering]
-      capec: ["94"]
-      mitre-attack: [T1071]
 
   - id: dataflow-eavesdropping
     name: Data Eavesdropping
     description: |
       Unauthorized interception and reading of data transmitted between
       components, exposing sensitive information to attackers.
-    taxonomy_references:
-      stride: [information-disclosure]
-      capec: ["94"]
-      cwe: [CWE-200]
-      mitre-attack: [T1071]
 
   - id: dataflow-replay-attack
     name: Replay Attack
     description: |
       Attacker captures legitimate requests and re-transmits them to perform
       unauthorized actions or duplicate transactions.
-    taxonomy_references:
-      stride: [spoofing]
-      capec: ["60"]
-      mitre-attack: [T1078]
 
   - id: dataflow-injection
     name: Data Injection in Transit
     description: |
       Malicious data injected into the communication channel between components,
       potentially exploiting downstream systems or corrupting data.
-    taxonomy_references:
-      stride: [tampering]
-      cwe: [CWE-20]
-      mitre-attack: [T1071]

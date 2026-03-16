@@ -104,7 +104,7 @@ export const SystemScopeNode = memo(function SystemScopeNode({
         </div>
 
         {/* Delete button (only visible when selected) */}
-        {selected && (
+        {!!selected && (
           <Button
             variant="destructive"
             size="icon"

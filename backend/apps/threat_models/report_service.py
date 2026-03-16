@@ -291,7 +291,7 @@ def _get_stride_category(threat_library):
         return "unknown"
     for join in threat_library.taxonomy_entries.all():
         entry = join.taxonomy_entry
-        if entry.taxonomy and "stride" in entry.taxonomy.slug.lower():
+        if entry.taxonomy and entry.taxonomy.slug == "stride":
             return entry.external_id
     return "unknown"
 

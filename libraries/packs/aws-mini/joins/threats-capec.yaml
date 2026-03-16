@@ -1,0 +1,21 @@
+taxonomy: capec
+
+mappings:
+  - threat: lambda-injection
+    entries: ["88"]
+  - threat: lambda-privilege-escalation
+    entries: ["122"]
+  - threat: apigw-injection
+    entries: ["66"]
+  - threat: dynamodb-unauthorized-access
+    entries: ["122"]
+  - threat: dynamodb-injection
+    entries: ["66"]
+  - threat: sqs-message-injection
+    entries: ["586"]
+  - threat: dataflow-mitm
+    entries: ["94"]
+  - threat: dataflow-eavesdropping
+    entries: ["94"]
+  - threat: dataflow-replay-attack
+    entries: ["60"]

@@ -24,7 +24,6 @@ import type {
   DataClassification,
   Protocol,
   DataSensitivity,
-  TemplateCategory,
   DiagramTypeValue,
   ThreatFramework,
 } from '@/types/domain'
@@ -74,6 +73,7 @@ export interface TrustZoneNodeData extends BaseNodeData {
 
 export interface SystemScopeNodeData extends BaseNodeData {
   owner?: string
+  classification?: string
   technology?: string
   orgsystemId?: number
 }

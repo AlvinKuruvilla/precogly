@@ -29,6 +29,7 @@ import type { DiagramNode, DataFlowEdge, CanvasData, TrustZoneNodeData } from '.
 import { getZoneColorConfig } from '../../types'
 import type {
   ComponentThreat,
+  ComponentThreatCountermeasure,
   CountermeasureStatus,
   ThreatStatus,
   ComplianceStandardMapping,
@@ -38,7 +39,6 @@ import {
   COUNTERMEASURE_STATUS_CONFIG,
   THREAT_STATUS_CONFIG,
 } from '../../types/threat-analysis'
-import { STRIDE_CONFIG, type STRIDECategory } from '@/types/domain'
 import { useComponentDataAssets } from '@/api/component-data-assets'
 import { useDataFlowAssets } from '@/api/data-flow-assets'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
@@ -655,7 +655,7 @@ interface ComponentViewProps {
   onCountermeasurePriorityChange: (
     componentThreatId: string,
     countermeasureInstanceId: string,
-    priority: string
+    priority: ComponentThreatCountermeasure['priority']
   ) => void
   onRevertCountermeasure?: (componentThreatId: string, countermeasureInstanceId: string) => void
   isSecurityTeam?: boolean
@@ -1028,13 +1028,13 @@ function CountermeasureStatusButtons({
 }
 
 export function ComponentView({
-  threatModelId,
+  threatModelId: _threatModelId,
   canvasData,
   analyzableComponents,
   trustZones,
   dataFlows,
   componentThreats,
-  selectedFrameworks,
+  selectedFrameworks: _selectedFrameworks,
   selectedComponentId,
   selectedThreatId,
   selectedComponentThreat,
@@ -1651,25 +1651,9 @@ export function ComponentView({
                               {ct.threatName}
                             </span>
                           </div>
-                          {isSelected ? (
+                          {!isSelected && (
                             <div className="mt-1 ml-4">
-                              <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
-                            </div>
-                          ) : (
-                            <div className="mt-1 ml-4">
-                              {(() => {
-                                const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
-                                if (!strideEntry) return null
-                                const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
-                                return strideConfig ? (
-                                  <span
-                                    className="text-[10px] font-medium"
-                                    style={{ color: strideConfig.color }}
-                                  >
-                                    {strideConfig.label}
-                                  </span>
-                                ) : null
-                              })()}
+                              <TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
                             </div>
                           )}
                         </div>
@@ -1687,6 +1671,11 @@ export function ComponentView({
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
+                      {isSelected && (
+                        <div className="mt-1 ml-4">
+                          <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
+                        </div>
+                      )}
                       {isSelected && (
                         <div className="mt-1 ml-4">
                           <SeverityAssessmentPanel
@@ -1751,18 +1740,7 @@ export function ComponentView({
                             <span className="text-sm text-muted-foreground line-through truncate block">
                               {ct.threatName}
                             </span>
-                            {(() => {
-                              const strideEntry = ct.taxonomyEntries?.find((e) => e.taxonomySlug === 'stride')
-                              if (!strideEntry) return null
-                              const strideConfig = STRIDE_CONFIG[strideEntry.externalId as STRIDECategory]
-                              return strideConfig ? (
-                                <span
-                                  className="text-[10px] text-muted-foreground"
-                                >
-                                  {strideConfig.label}
-                                </span>
-                              ) : null
-                            })()}
+                            <TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
                           </div>
                           <Button
                             variant="ghost"
@@ -1881,7 +1859,7 @@ export function ComponentView({
                         onToggle={() => toggleComplianceExpanded(cm.id)}
                         onEdit={() => {
                           const parsed = parseCountermeasureId(cm.id)
-                          if (parsed) {
+                          if (parsed.id !== null && parsed.type !== 'local') {
                             setEditingComplianceFor({
                               id: cm.id,
                               backendId: parsed.id,
@@ -1897,7 +1875,7 @@ export function ComponentView({
                         className="mt-2 text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
                         onClick={() => {
                           const parsed = parseCountermeasureId(cm.id)
-                          if (parsed) {
+                          if (parsed.id !== null && parsed.type !== 'local') {
                             setEditingComplianceFor({
                               id: cm.id,
                               backendId: parsed.id,
@@ -1922,7 +1900,7 @@ export function ComponentView({
                           onCountermeasurePriorityChange(
                             selectedComponentThreat.id,
                             cm.id,
-                            value
+                            value as ComponentThreatCountermeasure['priority']
                           )
                         }}
                       >

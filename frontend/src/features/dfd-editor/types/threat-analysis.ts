@@ -94,8 +94,6 @@ export interface ComponentThreatCountermeasure {
   componentThreatId: string
   // Current status
   status: CountermeasureStatus
-  // Priority (none, low, medium, high, critical)
-  priority?: string
   // Owner (email or username)
   owner?: string
   // Notes or justification (especially for waived)

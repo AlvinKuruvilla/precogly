@@ -50,6 +50,8 @@ libraries/packs/linddun-privacy/
 ├── joins/
 │   ├── components-threats.yaml              # Maps threats → aws-mini components
 │   ├── threats-countermeasures.yaml          # Maps threats → countermeasures
+│   ├── threats-linddun.yaml                 # Threat → LINDDUN taxonomy mappings
+│   ├── threats-stride.yaml                  # Threat → STRIDE taxonomy mappings
 │   └── countermeasures-gdpr.yaml            # Maps countermeasures → GDPR articles
 ```
 
@@ -75,13 +77,23 @@ libraries/packs/linddun-privacy/
 - Personal data transmitted without minimization (Data Disclosure)
 - Metadata leakage enabling user activity correlation (Linking, Detecting)
 
-Each threat references both LINDDUN and STRIDE taxonomy entries where applicable:
+Each threat maps to both LINDDUN and STRIDE taxonomy entries via join files:
 ```yaml
-- id: s3-pii-exposure
-  name: PII Stored Without Pseudonymization
-  taxonomy_references:
-    linddun: [data-disclosure, unawareness]
-    stride: [information-disclosure]
+# joins/threats-linddun.yaml
+taxonomy: linddun
+
+mappings:
+  - threat: s3-pii-exposure
+    entries: [data-disclosure, unawareness]
+```
+
+```yaml
+# joins/threats-stride.yaml
+taxonomy: stride
+
+mappings:
+  - threat: s3-pii-exposure
+    entries: [information-disclosure]
 ```
 
 ### Countermeasures

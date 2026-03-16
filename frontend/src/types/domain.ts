@@ -71,6 +71,12 @@ export interface TaxonomyEntry {
   taxonomyName: string
   externalId: string
   title: string
+  referenceUrl?: string
+}
+
+// Lightweight subset used by TaxonomyBadges and helper functions (e.g. pack previews)
+export type TaxonomyBadgeEntry = Pick<TaxonomyEntry, 'taxonomySlug' | 'externalId' | 'title'> & {
+  referenceUrl?: string
 }
 
 /**
@@ -100,7 +106,7 @@ const TAXONOMY_COLOR_FALLBACK = { bg: 'bg-slate-50', text: 'text-slate-600', bor
  * - ATT&CK → externalId as-is (e.g., "T1190")
  * - Unknown → externalId or title
  */
-export function formatTaxonomyEntryLabel(entry: TaxonomyEntry): string {
+export function formatTaxonomyEntryLabel(entry: TaxonomyBadgeEntry): string {
   if (entry.taxonomySlug === 'stride') {
     const strideConfig = STRIDE_CONFIG[entry.externalId as STRIDECategory]
     return strideConfig?.label ?? entry.externalId
@@ -119,7 +125,7 @@ export function formatTaxonomyEntryLabel(entry: TaxonomyEntry): string {
  * Returns the hex color string for a taxonomy entry.
  * STRIDE entries use per-category colors; others return a neutral gray.
  */
-export function getTaxonomyEntryColor(entry: TaxonomyEntry): string {
+export function getTaxonomyEntryColor(entry: TaxonomyBadgeEntry): string {
   if (entry.taxonomySlug === 'stride') {
     const strideConfig = STRIDE_CONFIG[entry.externalId as STRIDECategory]
     return strideConfig?.color ?? '#64748b'
@@ -131,7 +137,7 @@ export function getTaxonomyEntryColor(entry: TaxonomyEntry): string {
  * Returns the Tailwind background class string for a taxonomy entry.
  * Returns null for STRIDE (uses inline style instead).
  */
-export function getTaxonomyEntryBgClass(entry: TaxonomyEntry): string | null {
+export function getTaxonomyEntryBgClass(entry: TaxonomyBadgeEntry): string | null {
   if (entry.taxonomySlug === 'stride') {
     return null
   }

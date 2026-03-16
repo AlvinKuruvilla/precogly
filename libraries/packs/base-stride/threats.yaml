@@ -4,200 +4,116 @@ threats:
   - slug: credential-theft
     name: "Credential Theft"
     description: "Attacker steals user credentials through phishing, keylogging, or credential harvesting to impersonate legitimate users"
-    taxonomy_references:
-      stride: [spoofing]
-    severity: high
 
   - slug: session-hijacking
     name: "Session Hijacking"
     description: "Attacker steals or predicts session tokens to take over authenticated user sessions"
-    taxonomy_references:
-      stride: [spoofing]
-    severity: high
 
   - slug: api-key-compromise
     name: "API Key Compromise"
     description: "Attacker obtains API keys through code repositories, logs, or network interception"
-    taxonomy_references:
-      stride: [spoofing]
-    severity: high
 
   - slug: man-in-the-middle
     name: "Man-in-the-Middle Attack"
     description: "Attacker intercepts communication between parties to eavesdrop or modify data"
-    taxonomy_references:
-      stride: [spoofing]
-    severity: critical
 
   - slug: service-impersonation
     name: "Service Impersonation"
     description: "Attacker deploys a rogue service that impersonates a legitimate service"
-    taxonomy_references:
-      stride: [spoofing]
-    severity: high
 
   # TAMPERING
   - slug: data-tampering
     name: "Data Tampering"
     description: "Attacker modifies data in transit or at rest without authorization"
-    taxonomy_references:
-      stride: [tampering]
-    severity: high
 
   - slug: code-injection
     name: "Code Injection"
     description: "Attacker injects malicious code (SQL, XSS, command injection) into application"
-    taxonomy_references:
-      stride: [tampering]
-    severity: critical
 
   - slug: configuration-tampering
     name: "Configuration Tampering"
     description: "Attacker modifies application or infrastructure configuration to weaken security"
-    taxonomy_references:
-      stride: [tampering]
-    severity: high
 
   - slug: message-tampering
     name: "Message Tampering"
     description: "Attacker modifies messages in transit between services"
-    taxonomy_references:
-      stride: [tampering]
-    severity: high
 
   - slug: binary-tampering
     name: "Binary/Container Tampering"
     description: "Attacker modifies application binaries or container images"
-    taxonomy_references:
-      stride: [tampering]
-    severity: critical
 
   # REPUDIATION
   - slug: action-repudiation
     name: "Action Repudiation"
     description: "User or attacker denies performing an action due to insufficient logging"
-    taxonomy_references:
-      stride: [repudiation]
-    severity: medium
 
   - slug: transaction-repudiation
     name: "Transaction Repudiation"
     description: "User denies initiating a financial or critical transaction"
-    taxonomy_references:
-      stride: [repudiation]
-    severity: high
 
   - slug: log-deletion
     name: "Log Deletion or Modification"
     description: "Attacker deletes or modifies logs to hide malicious activity"
-    taxonomy_references:
-      stride: [repudiation]
-    severity: high
 
   # INFORMATION DISCLOSURE
   - slug: data-breach
     name: "Data Breach"
     description: "Unauthorized access to sensitive data through application or infrastructure vulnerabilities"
-    taxonomy_references:
-      stride: [information-disclosure]
-    severity: critical
 
   - slug: sensitive-data-exposure
     name: "Sensitive Data Exposure in Logs/Errors"
     description: "Sensitive data leaked through error messages, logs, or debug output"
-    taxonomy_references:
-      stride: [information-disclosure]
-    severity: medium
 
   - slug: unauthorized-access
     name: "Unauthorized Data Access"
     description: "User accesses data they are not authorized to view (broken access control)"
-    taxonomy_references:
-      stride: [information-disclosure]
-    severity: high
 
   - slug: metadata-leakage
     name: "Metadata Leakage"
     description: "System metadata reveals sensitive information about infrastructure or users"
-    taxonomy_references:
-      stride: [information-disclosure]
-    severity: medium
 
   - slug: side-channel-attack
     name: "Side-Channel Information Leakage"
     description: "Attacker extracts information through timing, power, or other side channels"
-    taxonomy_references:
-      stride: [information-disclosure]
-    severity: medium
 
   # DENIAL OF SERVICE
   - slug: volumetric-dos
     name: "Volumetric DDoS Attack"
     description: "Attacker floods the system with traffic to exhaust bandwidth or resources"
-    taxonomy_references:
-      stride: [denial-of-service]
-    severity: high
 
   - slug: application-dos
     name: "Application-Layer DoS"
     description: "Attacker exploits application logic to consume excessive resources"
-    taxonomy_references:
-      stride: [denial-of-service]
-    severity: high
 
   - slug: resource-exhaustion
     name: "Resource Exhaustion"
     description: "Attacker exhausts system resources (CPU, memory, disk, connections)"
-    taxonomy_references:
-      stride: [denial-of-service]
-    severity: high
 
   - slug: dependency-failure
     name: "Dependency Failure"
     description: "Critical dependency becomes unavailable, causing service outage"
-    taxonomy_references:
-      stride: [denial-of-service]
-    severity: medium
 
   # ELEVATION OF PRIVILEGE
   - slug: privilege-escalation
     name: "Privilege Escalation"
     description: "Attacker gains higher privileges than authorized through vulnerabilities"
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-    severity: critical
 
   - slug: insecure-deserialization
     name: "Insecure Deserialization"
     description: "Attacker exploits deserialization to execute arbitrary code"
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-    severity: critical
 
   - slug: container-escape
     name: "Container Escape"
     description: "Attacker breaks out of container isolation to access host system"
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-    severity: critical
 
   - slug: iam-misconfiguration
     name: "IAM Misconfiguration"
     description: "Overly permissive IAM policies allow unauthorized actions"
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-    severity: high
 
   - slug: insider-threat
     name: "Insider Threat"
     description: "Malicious or negligent insider abuses authorized access"
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-    severity: high
 
   - slug: ssrf
     name: "Server-Side Request Forgery (SSRF)"
     description: "Attacker tricks server into making requests to internal resources"
-    taxonomy_references:
-      stride: [elevation-of-privilege]
-    severity: high

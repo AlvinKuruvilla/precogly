@@ -104,9 +104,9 @@ export type STRIDECategory =
   | 'spoofing'
   | 'tampering'
   | 'repudiation'
-  | 'informationDisclosure'
-  | 'denialOfService'
-  | 'elevationOfPrivilege'
+  | 'information-disclosure'
+  | 'denial-of-service'
+  | 'elevation-of-privilege'
 
 export type ThreatModelStatus = 'draft' | 'inProgress' | 'pendingReview' | 'approved'
 export type TrustLevel = 'internet' | 'trustedPartner' | 'privateSecured' | 'internal'

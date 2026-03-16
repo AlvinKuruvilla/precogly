@@ -7,45 +7,60 @@ taxonomies:
       - external_id: T1190
         title: Exploit Public-Facing Application
         description: "An adversary exploits a vulnerability in an Internet-facing application to gain initial access."
+        reference_url: "https://attack.mitre.org/techniques/T1190/"
       - external_id: T1566
         title: Phishing
         description: "An adversary sends targeted messages to gain access to victim systems through malicious attachments or links."
+        reference_url: "https://attack.mitre.org/techniques/T1566/"
       - external_id: T1078
         title: Valid Accounts
         description: "An adversary uses compromised credentials of existing accounts to gain initial access or maintain persistence."
+        reference_url: "https://attack.mitre.org/techniques/T1078/"
       - external_id: T1133
         title: External Remote Services
         description: "An adversary leverages external-facing remote services such as VPNs or RDP to gain initial access."
+        reference_url: "https://attack.mitre.org/techniques/T1133/"
       - external_id: T1059
         title: Command and Scripting Interpreter
         description: "An adversary abuses command and script interpreters to execute commands, scripts, or binaries."
+        reference_url: "https://attack.mitre.org/techniques/T1059/"
       - external_id: T1053
         title: Scheduled Task/Job
         description: "An adversary abuses task scheduling to execute malicious code at predefined times or intervals."
+        reference_url: "https://attack.mitre.org/techniques/T1053/"
       - external_id: T1068
         title: Exploitation for Privilege Escalation
         description: "An adversary exploits a software vulnerability to escalate privileges on a system."
+        reference_url: "https://attack.mitre.org/techniques/T1068/"
       - external_id: T1548
         title: Abuse Elevation Control Mechanism
         description: "An adversary circumvents mechanisms designed to control elevated privileges to gain higher-level permissions."
+        reference_url: "https://attack.mitre.org/techniques/T1548/"
       - external_id: T1098
         title: Account Manipulation
         description: "An adversary manipulates accounts to maintain or expand access to victim systems."
+        reference_url: "https://attack.mitre.org/techniques/T1098/"
       - external_id: T1556
         title: Modify Authentication Process
         description: "An adversary modifies the authentication process to access user credentials or enable unwarranted access."
+        reference_url: "https://attack.mitre.org/techniques/T1556/"
       - external_id: T1110
         title: Brute Force
         description: "An adversary systematically guesses passwords, keys, or other credentials to gain access."
+        reference_url: "https://attack.mitre.org/techniques/T1110/"
       - external_id: T1021
         title: Remote Services
         description: "An adversary uses valid accounts to interact with remote services for lateral movement."
+        reference_url: "https://attack.mitre.org/techniques/T1021/"
       - external_id: T1071
         title: Application Layer Protocol
         description: "An adversary communicates using application layer protocols to blend command-and-control traffic with normal traffic."
+        reference_url: "https://attack.mitre.org/techniques/T1071/"
       - external_id: T1027
         title: Obfuscated Files or Information
         description: "An adversary encrypts, encodes, or otherwise obfuscates content to evade security defenses."
+        reference_url: "https://attack.mitre.org/techniques/T1027/"
       - external_id: T1486
         title: Data Encrypted for Impact
         description: "An adversary encrypts data on target systems to interrupt availability and hold data for ransom."
+        reference_url: "https://attack.mitre.org/techniques/T1486/"

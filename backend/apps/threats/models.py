@@ -125,6 +125,7 @@ class TaxonomyEntry(TimestampedModel):
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    reference_url = models.URLField(blank=True)
 
     class Meta:
         unique_together = ["taxonomy", "external_id"]
