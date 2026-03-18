@@ -1,83 +1,53 @@
-# Precogly - Open Source Threat Modeling
+# Precogly
 
-## What is Precogly?
+## The open-source alternative to commercial threat modeling platforms
 
-Precogly is an open-source threat modeling platform purpose-built for compliance.
+### Quick Start
 
-It helps AppSec teams:
+```bash
+  git clone https://github.com/precogly/precogly.git
+  cd precogly
+  docker compose up --build
+```
 
-- **Model systems** by auto-ingesting architecture from GitHub, Terraform, and CSPM tools
-- **Identify threats** using STRIDE, CAPEC, and custom threat libraries
-- **Track countermeasures** with status, ownership, and evidence
-- **Demonstrate compliance** by mapping controls to frameworks like PCI-DSS, SOC 2, and ISO 27001
+Open http://localhost:5173 and log in with admin@precogly.dev / admin123.
 
-## Goals
+### Why Precogly?
 
-Precogly aims to solve three fundamental challenges in application security:
+Open-source threat modeling tools lack enterprise features. Commercial tools come with heavy price tags and vendor lock-in.
 
-### 1. Continuous Threat Modeling
+Precogly bridges this gap and democratizes threat modeling for every org in the world.
 
-- **Derive accurate, human-understandable abstractions** by automatically ingesting data from as many systems as possible (GitHub, Terraform, CSPM tools, SBOMs, etc.)
-- **Surface what matters most** - use a combination of human-written rules and AI to identify toxic combinations and surprising risks that humans might miss
-- **Stay current as systems evolve** - threat models shouldn't be static documents; Precogly tracks when assumptions you've previously made are no longer true
+### Key Features
 
-### 2. Frictionless Security Gates
+- Import and export TM-BOM style JSON files - improves interoperability with other threat modeling platforms
+- A threat modeling workspace allows for team collaboration
+- An advanced DFD editor (allows for nested components, trust zones with trust boundaries and much more)
+- Community library packs with links to taxonomies like MITRE ATT&CK, CAPEC, LINDDUN, STRIDE etc. - allows your team to quickly create high quality threat models
 
-- **Ensure baseline controls before production** - whether it's a new product, a new release, or just a new feature, verify that required security controls are in place
-- **Minimize human effort** - make it as easy as possible for teams to pass security checkpoints while maintaining confidence that critical controls are actually implemented
-- **Clear accountability** - provide a specific checklist of controls with status tracking, evidence links, and ownership so teams know exactly what's needed for sign-off
+### Who is Precogly for?
 
-### 3. Audit-Ready Compliance
+- **Security architects** looking to scale threat modeling in their orgs.
+- **Vibe coding security engineers** who need a well-architected CRUD foundation on which they can build their AI threat modeling assistants.
+- **Threat modeling consultants and trainers** looking for a platform that supports reference images, team collaboration, and structured threat modeling programs.
+- **Compliance professionals** looking to link threat modeling with security requirements coming from standards like ASVS or laws like CRA and DORA
 
-- **Map controls to frameworks automatically** - select your compliance frameworks upfront (PCI-DSS, SOC 2, ISO 27001) and countermeasures are linked to relevant controls as you go
-- **Evidence at your fingertips** - track implementation status, verification tests, and evidence URLs for every control
-- **Multi-framework support** - demonstrate coverage across multiple frameworks without duplicating work
+Precogly is designed for enterprise workflows, but smaller organizations can also find value in the DFD editor, library packs, and collaborative workspace.
 
-## Feature Comparison
+### Tech Stack
 
-| Feature                                                   | Open Source Tools | Commercial Tools | Precogly |
-| --------------------------------------------------------- | ----------------- | ---------------- | -------- |
-| Threat modeling                                           | ✅                | ✅               | ✅       |
-| Enterprise support (multi-user, integrations etc.)        | ❌                | ✅               | ✅       |
-| Compliance-aware                                          | ❌                | ✅               | ✅       |
-| Auto-ingestion (GitHub, Terraform, CSPM)                  | ❌                | ✅               | ✅       |
-| AI-assisted threat identification                         | ❌                | ✅               | ✅       |
-| Pentest finding reconciliation                            | ❌                | ✅               | ✅       |
-| Pre-built libraries (components, threats, controls, DFDs) | ❌                | ✅               | ✅       |
-| Open source                                               | ✅                | ❌               | ✅       |
+- **Frontend:** React 19, TypeScript, Tailwind CSS, shadcn/ui, React Flow
+- **Backend:** Django 5.1, Django REST Framework, PostgreSQL 16
+- **Infrastructure:** Docker, nginx (production)
 
-### What does "compliance-aware" mean?
+### Contributing
 
-Traditional threat modeling tools treat compliance as an afterthought - you model threats, then manually map them to frameworks during audit season.
+- [Open an issue](https://github.com/precogly/precogly/issues)
+- Contribute a library pack
+- Contribute to the codebase
 
-Precogly flips this: when you select your compliance frameworks (e.g., PCI-DSS, SOC 2, DORA, CRA) upfront, every countermeasure you add is automatically linked to the relevant controls. When audit time comes, you can generate evidence of which controls are implemented, verified, and by whom - without scrambling to reconstruct the mapping.
+If you find Precogly useful, give the project a star!
 
-## What is the tech stack for Precogly?
+### License
 
-- **Backend** - Django + DRF
-- **Database** - PostgreSQL
-- **Frontend** - ReactJS + Vite
-- **Canvas Editor** - React Flow
-- **State/Data Fetching** - TanStack Query
-- **Routing** - React Router
-- **UI Components** - shadcn/ui
-
-### Why did you choose Django?
-
-- Django's ORM, migrations, and admin panel lets us model complex compliance, threat, and audit workflows quickly and safely.
-- Django has strong, opinionated defaults for authentication, authorization, and auditability - critical for an enterprise-class product.
-- Python integrates easily with agentic AI and future automation pipelines.
-- Ecosystem maturity - Django is over 20 years old.
-
-### Why did you choose ReactJS?
-
-- Supports canvas-heavy UI like DFDs.
-- Best-in-class libraries for graphs, collaboration, and enterprise UI patterns.
-
-## What is the workflow of Precogly?
-
-![Precogly Workflow](precogly-workflows.png)
-
-## How do I get started?
-
-Clone the repo. Start the Django backend. Start the React frontend. Start hacking! If you run into issues, email me - vikramsnarayan@gmail.com
+Apache 2.0
