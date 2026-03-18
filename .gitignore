@@ -3,9 +3,28 @@ vikram-scratchpad.txt
 vikram-prompts.txt
 demo-script.md
 tool-details.txt
+docs/major-changes/
 
+# Environment
+.env
+.env.*
+!.env.example
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+backend/venv/
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+.coverage
 
+# Node
+node_modules/
+dist/
 
-
-
+# Django
+backend/staticfiles/
+backend/media/

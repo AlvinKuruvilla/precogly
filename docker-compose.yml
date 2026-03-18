@@ -3,32 +3,53 @@ services:
     image: postgres:16-alpine
     container_name: precogly-postgres
     environment:
-      POSTGRES_DB: precogly
-      POSTGRES_USER: precogly
-      POSTGRES_PASSWORD: precogly_dev_password
+      POSTGRES_DB: ${POSTGRES_DB:-precogly}
+      POSTGRES_USER: ${POSTGRES_USER:-precogly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-precogly_dev_password}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U precogly -d precogly"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-precogly} -d ${POSTGRES_DB:-precogly}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: precogly-redis
-    ports:
-      - "6379:6379"
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    container_name: precogly-backend
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./backend:/app
+      - ./libraries:/libraries
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-precogly}:${POSTGRES_PASSWORD:-precogly_dev_password}@db:5432/${POSTGRES_DB:-precogly}
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0,backend
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    container_name: precogly-frontend
+    volumes:
+      - ./frontend/src:/app/src
+    ports:
+      - "5173:5173"
+    environment:
+      API_URL: http://backend:8000
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
-  redis_data:
