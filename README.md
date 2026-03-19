@@ -34,6 +34,13 @@ Precogly bridges this gap and democratizes threat modeling for every org in the 
 
 Precogly is designed for enterprise workflows, but smaller organizations can also find value in the DFD editor, library packs, and collaborative workspace.
 
+### How is Precogly different?
+
+- **Compliance-aware** — Built-in traceability to DORA, CRA, ASVS, NIST CSF, SOC 2, and more. Every threat and countermeasure maps to compliance requirements.
+- **Structured library packs** — Not just brainstorming. Curated packs with components, threats, countermeasures, and taxonomy links (MITRE ATT&CK, CAPEC, CWE, STRIDE) give your team a structured starting point.
+- **AI-agent ready architecture** — A clean REST API with full OpenAPI docs, designed to be a foundation for AI-powered threat modeling assistants.
+- **Pack ecosystem** — Community and official packs for AWS, Azure, GCP, banking, and compliance frameworks. Extend or create your own.
+
 ### Tech Stack
 
 - **Frontend:** React 19, TypeScript, Tailwind CSS, shadcn/ui, React Flow
@@ -47,6 +54,10 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 - Contribute to the codebase
 
 If you find Precogly useful, give the project a star!
+
+### Special Thanks
+
+A special thanks to Jeroen Verwoest for generously sharing his knowledge about threat modeling at an enterprise-scale in a compliance-heavy environment.
 
 ### License
 
