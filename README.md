@@ -55,6 +55,12 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 
 If you find Precogly useful, give the project a star!
 
+### Need Help? Contact the Developer
+
+[LinkedIn](https://www.linkedin.com/in/vikramadityanarayan/)
+[Email](mailto:vikramsnarayan@gmail.com)
+[Book a call](https://calendly.com/vikramsnarayan/30min)
+
 ### Special Thanks
 
 A special thanks to Jeroen Verwoest for generously sharing his knowledge about threat modeling at an enterprise-scale in a compliance-heavy environment.
