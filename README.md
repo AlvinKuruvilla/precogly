@@ -12,6 +12,10 @@
 
 Open http://localhost:5173 and log in with admin@precogly.dev / admin123.
 
+### Video Walkthrough
+
+[![Precogly Walkthrough](https://img.youtube.com/vi/5sSuZOAtyn4/maxresdefault.jpg)](https://www.youtube.com/watch?v=5sSuZOAtyn4)
+
 ### Why Precogly?
 
 Open-source threat modeling tools lack enterprise features. Commercial tools come with heavy price tags and vendor lock-in.
