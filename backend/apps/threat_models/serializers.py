@@ -37,9 +37,8 @@ class ThreatModelReferenceImageSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "threat_model", "uploaded_by", "created_at"]
 
     def get_image_url(self, obj):
-        request = self.context.get("request")
-        if obj.image and request:
-            return request.build_absolute_uri(obj.image.url)
+        if obj.image:
+            return obj.image.url
         return None
 
 
