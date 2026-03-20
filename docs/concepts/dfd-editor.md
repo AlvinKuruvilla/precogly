@@ -2,8 +2,6 @@
 
 The Data Flow Diagram editor provides a visual way to model system architecture with components, data flows, trust zones, and trust boundaries.
 
-![DFD Editor](../assets/images/editor-for-dfd.png)
-
 !!! note "Coming soon"
     This page will cover:
 

@@ -2,8 +2,6 @@
 
 Library packs provide curated sets of components, threats, and countermeasures linked to industry taxonomies, giving your team a structured starting point for threat modeling.
 
-![Threat Libraries](../assets/images/threat-libraries.png)
-
 !!! note "Coming soon"
     This page will cover:
 
