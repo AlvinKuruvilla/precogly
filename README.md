@@ -12,6 +12,10 @@
 
 Open http://localhost:5173 and log in with admin@precogly.dev / admin123.
 
+### Documentation
+
+[precogly.github.io/precogly](https://precogly.github.io/precogly/)
+
 ### Video Walkthrough
 
 [![Precogly Walkthrough](https://img.youtube.com/vi/5sSuZOAtyn4/maxresdefault.jpg)](https://www.youtube.com/watch?v=5sSuZOAtyn4)
