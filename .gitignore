@@ -3,7 +3,7 @@ vikram-scratchpad.txt
 vikram-prompts.txt
 demo-script.md
 tool-details.txt
-docs/major-changes/
+major-changes/
 
 # Environment
 .env
@@ -28,3 +28,6 @@ dist/
 # Django
 backend/staticfiles/
 backend/media/
+
+# MkDocs
+site/

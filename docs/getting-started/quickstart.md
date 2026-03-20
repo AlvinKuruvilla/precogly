@@ -1,0 +1,95 @@
+# Quickstart
+
+A walkthrough of Precogly's core workflow using the sample threat model that ships with the demo data.
+
+!!! info "Prerequisites"
+    Make sure Precogly is running locally. See [Installation](installation.md) if you haven't set it up yet.
+
+## 1. Log in
+
+Open [http://localhost:5173](http://localhost:5173) and log in with `admin@precogly.dev` / `admin123`.
+
+![Login screen](../assets/images/quickstart-login.png)
+
+## 2. Explore the home screen
+
+After logging in, you'll land on the home screen showing the demo organization and its sample threat model.
+
+![Home screen](../assets/images/quickstart-home.png)
+
+## 3. Explore the Threat Libraries
+
+Next explore the library packs.
+![Threat Libraries](../assets/images/quickstart-explore-libraries.png)
+
+Library packs are community curated groupings of:
+
+- Components
+- Threats (with links to taxonomies like CAPEC, LINDDUN and STRIDE)
+- Countermeasures (with links to standards and requirements like ASVS, PCI-DSS, DORA etc.)
+
+Library packs are community created. You can import library packs into your org.
+
+## 4. Open the sample threat model
+
+Click on the sample threat model to open it.
+
+## 5. Review the overview screen
+
+The overview screen gives you a summary of the threat model and a **completion checklist** that tracks your progress. Notice that **Data Assets** is not yet checked.
+
+![Overview screen with completion checklist](../assets/images/quickstart-overview-before.png)
+
+## 6. Add a data asset
+
+Precogly allows you to add data assets to components and data flows. To add a data asset to the threat model, first click on the pencil icon in the "System Context" card, then click on the "Define Assets" button.
+
+![Add data asset via pencil icon](../assets/images/quickstart-add-data-asset.png)
+
+Then define the kind of data assets you want to add to your data model.
+
+![Define data asset types](../assets/images/quickstart-define-data-asset.png)
+
+Once saved, the **Data Assets** item in the completion checklist gets checked off automatically. In case you don't see it checked, you may need to refresh your screen.
+
+## 7. Explore the DFD editor
+
+Navigate to the DFD editor tab (scroll down on the threat model's 'Overview' tab). The sample threat model comes with a pre-built Data Flow Diagram.
+
+Click on different elements in the diagram — processes, data stores, external entities, and data flows — to view their details. Trust zones and trust boundaries are also visible on the canvas.
+
+![Selected element in DFD editor](../assets/images/quickstart-dfd-editor-side-panel.png)
+
+You can also select from the pre-built templates.
+
+![Select DFD Template](../assets/images/quickstart-dfd-editor-select-templates.png)
+
+## 8. View threat analysis workspace
+
+Navigate to the threat analysis workspace screen. This is where you review the threats identified for each component and the countermeasures to address them.
+
+The three columns map to the core threat modeling questions:
+
+- **Column 1** — "What are we working on?" (components)
+- **Column 2** — "What can go wrong?" (threats, with taxonomy links like CAPEC)
+- **Column 3** — "What can we do about it?" (countermeasures, with compliance mappings)
+
+Taxonomy mappings come with hyperlinks to their entries, and compliance mappings are viewable on each countermeasure.
+
+![Threat analysis screen](../assets/images/quickstart-threat-analysis-workspace.png)
+
+Select a countermeasure and assign it to a team member. In the demo environment, the only available user is `admin@precogly.dev`.
+
+![Countermeasure assignment](../assets/images/quickstart-assign-countermeasure.png)
+
+## 9. Check your progress
+
+Go back to the overview screen. The **Owners Assigned** item in the completion checklist is now checked, reflecting the assignment you just made. You may need to refresh the page again in case you don't see the assignment to owners.
+
+![Updated completion checklist](../assets/images/quickstart-overview-after-allocating.png)
+
+## What's next?
+
+- [Workspaces](../concepts/workspaces.md) — understand how organizations and workspaces are structured
+- [DFD Editor](../concepts/dfd-editor.md) — learn more about the diagram editor's features
+- [Library Packs](../concepts/library-packs.md) — explore the curated threat and countermeasure packs

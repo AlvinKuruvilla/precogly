@@ -1,0 +1,70 @@
+site_name: Precogly Documentation
+site_description: Documentation for Precogly — the open-source threat modeling platform
+site_url: https://precogly.github.io/precogly
+repo_url: https://github.com/precogly/precogly
+repo_name: precogly/precogly
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - Concepts:
+      - Workspaces: concepts/workspaces.md
+      - Threat Models: concepts/threat-models.md
+      - DFD Editor: concepts/dfd-editor.md
+      - Library Packs: concepts/library-packs.md
+  - Guides:
+      - Creating a Threat Model: guides/creating-threat-model.md
+      - Importing & Exporting: guides/importing-exporting.md
+      - Compliance Mapping: guides/compliance-mapping.md
+  - API:
+      - Overview: api/overview.md
+  - Contributing:
+      - Development Setup: contributing/development-setup.md
+      - Creating Library Packs: contributing/creating-library-packs.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true

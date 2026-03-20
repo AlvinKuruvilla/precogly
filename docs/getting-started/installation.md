@@ -1,0 +1,122 @@
+# Installation
+
+Precogly runs as a set of Docker containers — a React frontend, a Django backend, and a PostgreSQL database. This guide walks you through getting everything running locally.
+
+## Prerequisites
+
+You need the following installed on your machine:
+
+| Tool              | Minimum Version | Check with            |
+| ----------------- | --------------- | --------------------- |
+| **Docker**        | 20.10+          | `docker --version`    |
+| **Docker Compose** | 2.0+           | `docker compose version` |
+| **Git**           | 2.0+            | `git --version`       |
+
+!!! tip "Docker Desktop"
+    On macOS and Windows, [Docker Desktop](https://www.docker.com/products/docker-desktop/) includes both Docker and Docker Compose. On Linux, you may need to install the [Compose plugin](https://docs.docker.com/compose/install/linux/) separately.
+
+## Quick Start
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/precogly/precogly.git
+cd precogly
+```
+
+### 2. Start the application
+
+```bash
+docker compose up --build
+```
+
+This builds and starts three containers:
+
+| Container              | Port  | Description                     |
+| ---------------------- | ----- | ------------------------------- |
+| `precogly-frontend`   | 5173  | React dev server                |
+| `precogly-backend`    | 8000  | Django API server               |
+| `precogly-postgres`   | 5432  | PostgreSQL 16 database          |
+
+On first launch, the backend automatically:
+
+1. Runs database migrations
+2. Seeds demo data — a superuser, a demo organization, sample library packs, and a sample threat model
+
+### 3. Log in
+
+Open [http://localhost:5173](http://localhost:5173) and log in with the demo credentials:
+
+| Field        | Value                |
+| ------------ | -------------------- |
+| **Email**    | `admin@precogly.dev` |
+| **Password** | `admin123`           |
+
+## Environment Variables
+
+Precogly works out of the box with sensible defaults. To customize settings, copy the example environment file and edit it:
+
+```bash
+cp .env.example .env
+```
+
+### Available Variables
+
+| Variable                 | Default                        | Description                          |
+| ------------------------ | ------------------------------ | ------------------------------------ |
+| `POSTGRES_DB`            | `precogly`                     | Database name                        |
+| `POSTGRES_USER`          | `precogly`                     | Database user                        |
+| `POSTGRES_PASSWORD`      | `precogly_dev_password`        | Database password                    |
+| `SECRET_KEY`             | insecure dev key               | Django secret key                    |
+| `DEBUG`                  | `True`                         | Django debug mode                    |
+| `ALLOWED_HOSTS`          | `localhost,127.0.0.1`          | Hosts the backend will accept        |
+| `CORS_ALLOWED_ORIGINS`   | `http://localhost:5173`        | Origins allowed for CORS requests    |
+| `FRONTEND_URL`           | `http://localhost:5173`        | Frontend URL used by the backend     |
+
+!!! warning "Production"
+    Never use the default `SECRET_KEY` or `POSTGRES_PASSWORD` in production. See [Configuration](configuration.md) for production setup.
+
+## Stopping and Resetting
+
+### Stop the application
+
+```bash
+docker compose down
+```
+
+### Reset the database
+
+To start fresh and wipe all data:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+The `-v` flag removes the PostgreSQL data volume. On the next start, the database is recreated and re-seeded.
+
+## Troubleshooting
+
+### Port conflicts
+
+If port 5173, 8000, or 5432 is already in use, stop the conflicting service or change the port mapping in `docker-compose.yml`.
+
+### Container won't start
+
+Check the logs for a specific container:
+
+```bash
+docker compose logs backend
+docker compose logs frontend
+docker compose logs db
+```
+
+### Database connection errors
+
+The backend waits for PostgreSQL to be healthy before starting. If you see connection errors, ensure the `db` container is running:
+
+```bash
+docker compose ps
+```
+
+If the database container is unhealthy, try resetting it with `docker compose down -v` and restarting.
