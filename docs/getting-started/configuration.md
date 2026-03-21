@@ -1,37 +1,41 @@
 # Configuration
 
-Precogly is configured through environment variables. Copy the example file to get started:
+Precogly is configured through environment variables defined in a `.env` file at the project root. A commented example is provided at `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
+For local development, Precogly works out of the box without a `.env` file — sensible defaults are built into the Docker Compose configuration. The `.env` file is only needed when you want to override defaults or deploy to production.
+
 ## Environment Variables
+
+The values below reflect what `.env.example` provides for local development.
 
 ### Database
 
-| Variable            | Default                  | Description          |
+| Variable            | Dev Value                | Description          |
 | ------------------- | ------------------------ | -------------------- |
 | `POSTGRES_DB`       | `precogly`               | Database name        |
 | `POSTGRES_USER`     | `precogly`               | Database user        |
 | `POSTGRES_PASSWORD` | `precogly_dev_password`  | Database password    |
-| `DATABASE_URL`      | `postgres://precogly:precogly_dev_password@db:5432/precogly` | Full connection string |
+| `DATABASE_URL`      | `postgres://precogly:precogly_dev_password@db:5432/precogly` | Full connection string (uses `db` hostname inside Docker) |
 
 ### Django
 
-| Variable                  | Default                             | Description                |
+| Variable                  | Dev Value                           | Description                |
 | ------------------------- | ----------------------------------- | -------------------------- |
-| `SECRET_KEY`              | insecure dev key                    | Django secret key          |
+| `SECRET_KEY`              | `django-insecure-dev-key-change-in-production` | Django secret key |
 | `DEBUG`                   | `True`                              | Enable debug mode          |
 | `ALLOWED_HOSTS`           | `localhost,127.0.0.1`               | Accepted hostnames         |
 | `DJANGO_SETTINGS_MODULE`  | `config.settings.development`       | Settings module to use     |
 
 ### CORS & Frontend
 
-| Variable               | Default                               | Description                       |
-| ---------------------- | ------------------------------------- | --------------------------------- |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost` | Origins allowed for API requests |
-| `FRONTEND_URL`         | `http://localhost:5173`               | Used for password reset links     |
+| Variable               | Dev Value                                       | Description                       |
+| ---------------------- | ----------------------------------------------- | --------------------------------- |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost`          | Origins allowed for API requests |
+| `FRONTEND_URL`         | `http://localhost:5173`                          | Used for password reset links     |
 
 ## Settings Modules
 
@@ -52,8 +56,6 @@ Use the production Docker Compose file:
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 ```
 
-This overrides the dev config with production targets and settings.
-
 ### Required Production Variables
 
 These **must** be set in your `.env` for production:
@@ -68,18 +70,12 @@ DJANGO_SETTINGS_MODULE=config.settings.production
 ```
 
 !!! warning
-    Never use the default `SECRET_KEY` or `POSTGRES_PASSWORD` in production. Generate a random secret key with `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`.
+    Never use the default `SECRET_KEY` or `POSTGRES_PASSWORD` in production. Generate a random secret key with:
 
-### Production Security Settings
+    ```bash
+    python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+    ```
 
-The production settings module automatically enables:
+### What Production Settings Enable
 
-- HTTPS redirect (`SECURE_SSL_REDIRECT`)
-- HSTS with 1-year max age
-- Secure cookies (`SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`)
-- `X-Frame-Options: DENY`
-- Content type sniffing protection
-
-### Frontend in Production
-
-The frontend is served by nginx on port 80, built as a static bundle. The backend runs behind gunicorn with 4 workers.
+The production settings module automatically configures HTTPS redirect, HSTS, secure cookies, `X-Frame-Options: DENY`, and content type sniffing protection. The frontend is served by nginx as a static bundle.
