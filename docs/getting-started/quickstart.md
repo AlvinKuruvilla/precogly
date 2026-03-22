@@ -5,6 +5,18 @@ A walkthrough of Precogly's core workflow using the sample threat model that shi
 !!! info "Prerequisites"
     Make sure Precogly is running locally. See [Installation](installation.md) if you haven't set it up yet.
 
+## 0. Log in to Django as Super Admin
+
+When the system first gets seeded with data, it creates a superuser with which you can access the Django admin panel. To login, go to [http://localhost:8000/admin](http://localhost:8000/admin):
+
+- **Username:** `admin@precogly.dev`
+- **Password:** `admin123`
+
+![Django Admin Panel](../assets/images/django-admin.png)
+
+!!! warning
+    Make sure to change this username and password in a production environment.
+
 ## 1. Log in
 
 Open [http://localhost:5173](http://localhost:5173) and log in with `admin@precogly.dev` / `admin123`.
@@ -25,10 +37,10 @@ Next explore the library packs.
 Library packs are community curated groupings of:
 
 - Components
-- Threats (with links to taxonomies like CAPEC, LINDDUN and STRIDE)
+- Threats (with links to taxonomies like CAPEC, CWE, MITRE ATT&CK, and STRIDE)
 - Countermeasures (with links to standards and requirements like ASVS, PCI-DSS, DORA etc.)
 
-Library packs are community created. You can import library packs into your org.
+You can import library packs into your organization.
 
 ## 4. Open the sample threat model
 
@@ -78,9 +90,7 @@ Taxonomy mappings come with hyperlinks to their entries, and compliance mappings
 
 ![Threat analysis screen](../assets/images/quickstart-threat-analysis-workspace.png)
 
-Select a countermeasure and assign it to a team member. In the demo environment, the only available user is `admin@precogly.dev`.
-
-![Countermeasure assignment](../assets/images/quickstart-assign-countermeasure.png)
+Select a countermeasure and assign it to a team member. In the demo environment, the only available user is `admin@precogly.dev`. You'll see that the countermeasure color turns from red (gap) to yellow (planned). Assigning all items under a countermeasure to team members causes the threat to move from "exposed" (red) to "addressable" (yellow).
 
 ## 9. Check your progress
 
