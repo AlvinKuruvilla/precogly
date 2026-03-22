@@ -78,14 +78,14 @@ export function EditComplianceMappingsDialog({
 
   // Merge library and instance mappings
   const mergedMappings = useMemo(() => {
-    const mappingMap = new Map<number, {
+    const mappingMap = new Map<number | string, {
       id?: number
-      requirementId: number
+      requirementId: number | null
       frameworkName: string
       sectionCode: string
       requirementDescription: string
       sufficiency: 'full' | 'partial'
-      source: 'library' | 'instance'
+      source: 'library' | 'instance' | 'snapshot'
     }>()
 
     // Add library mappings first
@@ -102,15 +102,29 @@ export function EditComplianceMappingsDialog({
 
     // Override with instance mappings
     instanceMappings?.forEach((m) => {
-      mappingMap.set(m.requirement, {
-        id: m.id,
-        requirementId: m.requirement,
-        frameworkName: m.frameworkName,
-        sectionCode: m.sectionCode,
-        requirementDescription: m.requirementDescription,
-        sufficiency: m.sufficiency,
-        source: 'instance',
-      })
+      if (m.requirement != null) {
+        // Live instance mapping — overrides library mapping
+        mappingMap.set(m.requirement, {
+          id: m.id,
+          requirementId: m.requirement,
+          frameworkName: m.frameworkName,
+          sectionCode: m.sectionCode,
+          requirementDescription: m.requirementDescription,
+          sufficiency: m.sufficiency,
+          source: 'instance',
+        })
+      } else {
+        // Orphaned mapping (requirement deleted after pack unimport) — show as read-only snapshot
+        mappingMap.set(`snapshot-${m.id}`, {
+          id: m.id,
+          requirementId: null,
+          frameworkName: m.frameworkName,
+          sectionCode: m.sectionCode,
+          requirementDescription: m.requirementDescription,
+          sufficiency: m.sufficiency,
+          source: 'snapshot',
+        })
+      }
     })
 
     return Array.from(mappingMap.values())
@@ -119,7 +133,11 @@ export function EditComplianceMappingsDialog({
   // Filter requirements to exclude already mapped ones
   const availableRequirements = useMemo(() => {
     if (!requirements) return []
-    const mappedIds = new Set(mergedMappings.map((m) => m.requirementId))
+    const mappedIds = new Set(
+      mergedMappings
+        .filter((m) => m.requirementId != null)
+        .map((m) => m.requirementId as number)
+    )
     return requirements.filter((r) => !mappedIds.has(r.id))
   }, [requirements, mergedMappings])
 
@@ -188,7 +206,7 @@ export function EditComplianceMappingsDialog({
                   <div className="p-2 space-y-2">
                     {mergedMappings.map((mapping) => (
                       <div
-                        key={mapping.requirementId}
+                        key={mapping.requirementId ?? `snapshot-${mapping.id}`}
                         className="flex items-start justify-between gap-2 p-2 rounded border bg-muted/30"
                       >
                         <div className="flex-1 min-w-0">
@@ -202,6 +220,11 @@ export function EditComplianceMappingsDialog({
                             {mapping.source === 'library' && (
                               <Badge variant="secondary" className="text-xs">
                                 Library
+                              </Badge>
+                            )}
+                            {mapping.source === 'snapshot' && (
+                              <Badge variant="secondary" className="text-xs">
+                                Historical
                               </Badge>
                             )}
                           </div>

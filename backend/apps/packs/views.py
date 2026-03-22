@@ -326,8 +326,9 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         Query parameters:
             dry_run: If "true", returns what would be deleted without actually deleting
         """
+        from apps.compliance.models import StandardFramework
         from apps.systems.models import ComponentLibrary
-        from apps.threats.models import CountermeasureLibrary, ThreatLibrary
+        from apps.threats.models import CountermeasureLibrary, ExternalTaxonomy, ThreatLibrary
 
         pack = self.get_object()
         dry_run = request.query_params.get("dry_run", "false").lower() == "true"
@@ -352,6 +353,8 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         threat_count = ThreatLibrary.objects.filter(source_pack=pack).count()
         countermeasure_count = CountermeasureLibrary.objects.filter(source_pack=pack).count()
         template_count = DFDTemplatesLibrary.objects.filter(source_pack=pack).count()
+        taxonomy_count = ExternalTaxonomy.objects.filter(source_pack=pack).count()
+        framework_count = StandardFramework.objects.filter(source_pack=pack).count()
 
         summary = {
             "pack": {
@@ -365,6 +368,8 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
                 "threats": threat_count,
                 "countermeasures": countermeasure_count,
                 "templates": template_count,
+                "taxonomies": taxonomy_count,
+                "frameworks": framework_count,
             },
             "dry_run": dry_run,
         }
@@ -384,6 +389,9 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             ComponentLibrary.objects.filter(source_pack=pack).delete()
             # Delete DFD templates from this pack
             DFDTemplatesLibrary.objects.filter(source_pack=pack).delete()
+            # Delete taxonomy and compliance data from this pack
+            ExternalTaxonomy.objects.filter(source_pack=pack).delete()
+            StandardFramework.objects.filter(source_pack=pack).delete()
             # Finally delete the pack itself
             pack.delete()
 

@@ -294,30 +294,49 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    def _serialize_taxonomy_entries(self, threat_library):
-        """Serialize taxonomy entries for a threat library."""
-        if not threat_library:
-            return []
+    def _serialize_taxonomy_entries(self, threat_instance):
+        """Serialize taxonomy entries for a threat instance.
 
-        entries = []
-        for join in threat_library.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all():
-            entry = join.taxonomy_entry
-            entries.append({
-                "taxonomy_slug": entry.taxonomy.slug,
-                "taxonomy_name": entry.taxonomy.name,
-                "external_id": entry.external_id,
-                "title": entry.title,
-                "reference_url": entry.reference_url,
-            })
-        return entries
+        Uses live data from threat_library when available, falls back to
+        taxonomy_snapshot when the library link has been removed.
+        """
+        if threat_instance.threat_library:
+            entries = []
+            for join in threat_instance.threat_library.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all():
+                entry = join.taxonomy_entry
+                entries.append({
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "taxonomy_name": entry.taxonomy.name,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url,
+                })
+            return entries
+        return threat_instance.taxonomy_snapshot
 
-    def _serialize_standard_mappings(self, countermeasure_library):
-        """Serialize standard mappings for a countermeasure library."""
-        if not countermeasure_library:
-            return []
+    def _serialize_standard_mappings(self, countermeasure_instance):
+        """Serialize standard mappings for a countermeasure instance.
 
+        Uses library-level mappings when the library link exists, falls back to
+        instance-level mappings with snapshot data when it doesn't.
+        """
+        if countermeasure_instance.countermeasure_library:
+            mappings = []
+            for mapping in countermeasure_instance.countermeasure_library.standard_mappings.all():
+                if mapping.requirement and mapping.requirement.framework:
+                    mappings.append({
+                        "id": mapping.id,
+                        "framework_name": mapping.requirement.framework.name,
+                        "framework_slug": mapping.requirement.framework.slug,
+                        "section_code": mapping.requirement.section_code,
+                        "requirement_description": mapping.requirement.description,
+                        "sufficiency": mapping.sufficiency,
+                    })
+            return mappings
+
+        # Fallback: use instance-level standard mappings with snapshot data
         mappings = []
-        for mapping in countermeasure_library.standard_mappings.all():
+        for mapping in countermeasure_instance.instance_standard_mappings.all():
             if mapping.requirement and mapping.requirement.framework:
                 mappings.append({
                     "id": mapping.id,
@@ -325,6 +344,16 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                     "framework_slug": mapping.requirement.framework.slug,
                     "section_code": mapping.requirement.section_code,
                     "requirement_description": mapping.requirement.description,
+                    "sufficiency": mapping.sufficiency,
+                })
+            else:
+                # Requirement was deleted — use snapshot fields
+                mappings.append({
+                    "id": mapping.id,
+                    "framework_name": mapping.framework_name,
+                    "framework_slug": "",
+                    "section_code": mapping.section_code,
+                    "requirement_description": mapping.requirement_description,
                     "sufficiency": mapping.sufficiency,
                 })
         return mappings
@@ -422,8 +451,10 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         ).select_related(
             "component", "threat_library"
         ).prefetch_related(
+            "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "countermeasures__countermeasure_library",
             "countermeasures__countermeasure_library__standard_mappings__requirement__framework",
+            "countermeasures__instance_standard_mappings__requirement__framework",
             "countermeasures__assigned_owner",
             "countermeasures__verified_by",
         )
@@ -434,8 +465,10 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         ).select_related(
             "data_flow", "threat_library"
         ).prefetch_related(
+            "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "countermeasures__countermeasure_library",
             "countermeasures__countermeasure_library__standard_mappings__requirement__framework",
+            "countermeasures__instance_standard_mappings__requirement__framework",
             "countermeasures__assigned_owner",
             "countermeasures__verified_by",
         )
@@ -461,7 +494,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "threat_library_id": threat.threat_library_id,
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
-                "taxonomy_entries": self._serialize_taxonomy_entries(threat.threat_library),
+                "taxonomy_entries": self._serialize_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
@@ -479,7 +512,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "evidence_url": cm.evidence_url,
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
-                        "standard_mappings": self._serialize_standard_mappings(cm.countermeasure_library),
+                        "standard_mappings": self._serialize_standard_mappings(cm),
                         "is_inherited": cm.is_inherited,
                         "inherited_from_component_name": cm.inherited_from_component_name,
                         "inherited_from_zone_name": cm.inherited_from_zone_name,
@@ -511,7 +544,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "threat_library_id": threat.threat_library_id,
                 "threat_name": (threat.threat_library.name if threat.threat_library else None) or threat.threat_name,
                 "threat_description": (threat.threat_library.description if threat.threat_library else None) or threat.threat_description,
-                "taxonomy_entries": self._serialize_taxonomy_entries(threat.threat_library),
+                "taxonomy_entries": self._serialize_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
@@ -529,7 +562,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "evidence_url": cm.evidence_url,
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
-                        "standard_mappings": self._serialize_standard_mappings(cm.countermeasure_library),
+                        "standard_mappings": self._serialize_standard_mappings(cm),
                         "is_inherited": cm.is_inherited,
                         "inherited_from_component_name": cm.inherited_from_component_name,
                         "inherited_from_zone_name": cm.inherited_from_zone_name,

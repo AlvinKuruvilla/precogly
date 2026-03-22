@@ -2,6 +2,8 @@
  * Organization and Team types for user management.
  */
 
+import type { TaxonomyEntry } from './domain'
+
 // Role types
 export type OrganizationRole = 'security_team' | 'member'
 export type TeamRole = 'lead' | 'member' | 'viewer'
@@ -174,7 +176,7 @@ export interface ThreatModelStats {
 // Threat Analysis types for magic link sharing
 export interface ComplianceStandard {
   id: number
-  requirementId: number
+  requirementId: number | null
   frameworkName: string
   frameworkSlug: string
   sectionCode: string
@@ -212,7 +214,7 @@ export interface SharedThreat {
   threatLibraryId: number | null
   threatName: string | null
   threatDescription: string | null
-  taxonomyEntries?: Array<{ id: number; taxonomySlug: string; taxonomyName: string; externalId: string; title: string }>
+  taxonomyEntries?: TaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
   status: 'open' | 'mitigated' | 'accepted'

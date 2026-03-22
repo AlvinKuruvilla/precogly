@@ -715,8 +715,10 @@ function ImportedView() {
     try {
       await unimportMutation.mutateAsync({ packId: unimportDialogPack.id })
     } catch (error: unknown) {
-      // Check for dependency error
-      const errorData = (error as { response?: { data?: { error?: string; dependentPacks?: string[] } } })?.response?.data
+      // ApiError stores response body in error.data (not error.response.data)
+      const errorData = (error as { data?: { error?: string; dependentPacks?: string[] } })?.data as
+        | { error?: string; dependentPacks?: string[] }
+        | undefined
       if (errorData?.dependentPacks) {
         setUnimportError(`Cannot unimport: other packs depend on this one (${errorData.dependentPacks.join(', ')})`)
       } else if (errorData?.error) {

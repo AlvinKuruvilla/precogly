@@ -21,6 +21,7 @@ from .models import (
     TaxonomyEntry,
     ThreatLibrary,
     VerificationTest,
+    build_taxonomy_snapshot,
 )
 from .scoring.registry import get_scoring_methods
 from .services import (
@@ -211,15 +212,21 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
         return None
 
     def get_taxonomy_entries(self, obj):
-        """Return taxonomy entries from linked threat_library."""
-        if not obj.threat_library:
-            return []
-        joins = obj.threat_library.taxonomy_entries.select_related(
-            "taxonomy_entry__taxonomy"
-        ).all()
-        return TaxonomyEntryNestedSerializer(
-            [j.taxonomy_entry for j in joins], many=True
-        ).data
+        """Return taxonomy entries from linked threat_library, fallback to snapshot."""
+        if obj.threat_library:
+            joins = obj.threat_library.taxonomy_entries.select_related(
+                "taxonomy_entry__taxonomy"
+            ).all()
+            return TaxonomyEntryNestedSerializer(
+                [j.taxonomy_entry for j in joins], many=True
+            ).data
+        return obj.taxonomy_snapshot
+
+    def create(self, validated_data):
+        threat_library = validated_data.get("threat_library")
+        if threat_library and "taxonomy_snapshot" not in validated_data:
+            validated_data["taxonomy_snapshot"] = build_taxonomy_snapshot(threat_library)
+        return super().create(validated_data)
 
 
 class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
@@ -271,15 +278,21 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
         return None
 
     def get_taxonomy_entries(self, obj):
-        """Return taxonomy entries from linked threat_library."""
-        if not obj.threat_library:
-            return []
-        joins = obj.threat_library.taxonomy_entries.select_related(
-            "taxonomy_entry__taxonomy"
-        ).all()
-        return TaxonomyEntryNestedSerializer(
-            [j.taxonomy_entry for j in joins], many=True
-        ).data
+        """Return taxonomy entries from linked threat_library, fallback to snapshot."""
+        if obj.threat_library:
+            joins = obj.threat_library.taxonomy_entries.select_related(
+                "taxonomy_entry__taxonomy"
+            ).all()
+            return TaxonomyEntryNestedSerializer(
+                [j.taxonomy_entry for j in joins], many=True
+            ).data
+        return obj.taxonomy_snapshot
+
+    def create(self, validated_data):
+        threat_library = validated_data.get("threat_library")
+        if threat_library and "taxonomy_snapshot" not in validated_data:
+            validated_data["taxonomy_snapshot"] = build_taxonomy_snapshot(threat_library)
+        return super().create(validated_data)
 
 
 class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
@@ -472,18 +485,10 @@ class PentestFindingSerializer(serializers.ModelSerializer):
 class ComponentInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
     """Serializer for ComponentInstanceCountermeasureStandard (instance-level compliance mappings)."""
 
-    framework_name = serializers.CharField(
-        source="requirement.framework.name", read_only=True
-    )
-    framework_slug = serializers.CharField(
-        source="requirement.framework.slug", read_only=True
-    )
-    section_code = serializers.CharField(
-        source="requirement.section_code", read_only=True
-    )
-    requirement_description = serializers.CharField(
-        source="requirement.description", read_only=True
-    )
+    framework_name = serializers.SerializerMethodField()
+    framework_slug = serializers.SerializerMethodField()
+    section_code = serializers.SerializerMethodField()
+    requirement_description = serializers.SerializerMethodField()
 
     class Meta:
         model = ComponentInstanceCountermeasureStandard
@@ -509,22 +514,42 @@ class ComponentInstanceCountermeasureStandardSerializer(serializers.ModelSeriali
             "requirement_description",
         ]
 
+    def get_framework_name(self, obj):
+        if obj.requirement and obj.requirement.framework:
+            return obj.requirement.framework.name
+        return obj.framework_name
+
+    def get_framework_slug(self, obj):
+        if obj.requirement and obj.requirement.framework:
+            return obj.requirement.framework.slug
+        return ""
+
+    def get_section_code(self, obj):
+        if obj.requirement:
+            return obj.requirement.section_code
+        return obj.section_code
+
+    def get_requirement_description(self, obj):
+        if obj.requirement:
+            return obj.requirement.description
+        return obj.requirement_description
+
+    def create(self, validated_data):
+        requirement = validated_data.get("requirement")
+        if requirement:
+            validated_data["section_code"] = requirement.section_code
+            validated_data["framework_name"] = requirement.framework.name
+            validated_data["requirement_description"] = requirement.description
+        return super().create(validated_data)
+
 
 class FlowInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
     """Serializer for FlowInstanceCountermeasureStandard (instance-level compliance mappings)."""
 
-    framework_name = serializers.CharField(
-        source="requirement.framework.name", read_only=True
-    )
-    framework_slug = serializers.CharField(
-        source="requirement.framework.slug", read_only=True
-    )
-    section_code = serializers.CharField(
-        source="requirement.section_code", read_only=True
-    )
-    requirement_description = serializers.CharField(
-        source="requirement.description", read_only=True
-    )
+    framework_name = serializers.SerializerMethodField()
+    framework_slug = serializers.SerializerMethodField()
+    section_code = serializers.SerializerMethodField()
+    requirement_description = serializers.SerializerMethodField()
 
     class Meta:
         model = FlowInstanceCountermeasureStandard
@@ -549,6 +574,34 @@ class FlowInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
             "section_code",
             "requirement_description",
         ]
+
+    def get_framework_name(self, obj):
+        if obj.requirement and obj.requirement.framework:
+            return obj.requirement.framework.name
+        return obj.framework_name
+
+    def get_framework_slug(self, obj):
+        if obj.requirement and obj.requirement.framework:
+            return obj.requirement.framework.slug
+        return ""
+
+    def get_section_code(self, obj):
+        if obj.requirement:
+            return obj.requirement.section_code
+        return obj.section_code
+
+    def get_requirement_description(self, obj):
+        if obj.requirement:
+            return obj.requirement.description
+        return obj.requirement_description
+
+    def create(self, validated_data):
+        requirement = validated_data.get("requirement")
+        if requirement:
+            validated_data["section_code"] = requirement.section_code
+            validated_data["framework_name"] = requirement.framework.name
+            validated_data["requirement_description"] = requirement.description
+        return super().create(validated_data)
 
 
 class RiskListSerializer(serializers.ModelSerializer):

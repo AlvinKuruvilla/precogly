@@ -19,6 +19,7 @@ from apps.threats.models import (
     DataFlowInstanceThreat,
     FlowInstanceCountermeasure,
     ThreatLibrary,
+    build_taxonomy_snapshot,
 )
 
 
@@ -430,6 +431,7 @@ def _generate_threats_for_component(component):
                 # Copy metadata for self-sufficiency if library is later removed
                 "threat_name": threat_lib.name if threat_lib else "",
                 "threat_description": threat_lib.description if threat_lib else "",
+                "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
             },
         )
         if created:
@@ -630,6 +632,7 @@ def _generate_threats_for_dataflow(dataflow):
                     # Copy metadata for self-sufficiency if library is later removed
                     "threat_name": threat_lib.name if threat_lib else "",
                     "threat_description": threat_lib.description if threat_lib else "",
+                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
                 },
             )
             if created:
@@ -656,6 +659,7 @@ def _generate_threats_for_dataflow(dataflow):
                     "status": DataFlowInstanceThreat.Status.EXPOSED,
                     "threat_name": threat_lib.name if threat_lib else "",
                     "threat_description": threat_lib.description if threat_lib else "",
+                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
                 },
             )
             if created:

@@ -344,6 +344,11 @@ class ComponentInstanceThreat(TimestampedModel):
         blank=True,
         help_text="Copied from ThreatLibrary.description on creation",
     )
+    taxonomy_snapshot = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="Snapshot of taxonomy entries at creation time",
+    )
 
     class Meta:
         unique_together = ["component", "threat_library"]
@@ -415,6 +420,11 @@ class DataFlowInstanceThreat(TimestampedModel):
     threat_description = models.TextField(
         blank=True,
         help_text="Copied from ThreatLibrary.description on creation",
+    )
+    taxonomy_snapshot = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="Snapshot of taxonomy entries at creation time",
     )
 
     class Meta:
@@ -712,7 +722,9 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
     )
     requirement = models.ForeignKey(
         "compliance.StandardRequirement",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="component_instance_countermeasure_mappings",
     )
     sufficiency = models.CharField(
@@ -720,6 +732,11 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
         choices=Sufficiency.choices,
         default=Sufficiency.PARTIAL,
     )
+
+    # Snapshot fields — populated on creation, used as fallback when requirement is NULL
+    section_code = models.CharField(max_length=50, blank=True, default="")
+    framework_name = models.CharField(max_length=255, blank=True, default="")
+    requirement_description = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = ["component_countermeasure", "requirement"]
@@ -748,7 +765,9 @@ class FlowInstanceCountermeasureStandard(TimestampedModel):
     )
     requirement = models.ForeignKey(
         "compliance.StandardRequirement",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="flow_instance_countermeasure_mappings",
     )
     sufficiency = models.CharField(
@@ -757,6 +776,11 @@ class FlowInstanceCountermeasureStandard(TimestampedModel):
         default=Sufficiency.PARTIAL,
     )
 
+    # Snapshot fields — populated on creation, used as fallback when requirement is NULL
+    section_code = models.CharField(max_length=50, blank=True, default="")
+    framework_name = models.CharField(max_length=255, blank=True, default="")
+    requirement_description = models.TextField(blank=True, default="")
+
     class Meta:
         unique_together = ["flow_countermeasure", "requirement"]
         verbose_name = "Flow countermeasure compliance mapping"
@@ -764,6 +788,22 @@ class FlowInstanceCountermeasureStandard(TimestampedModel):
 
     def __str__(self):
         return f"{self.flow_countermeasure} - {self.requirement} ({self.sufficiency})"
+
+
+def build_taxonomy_snapshot(threat_library):
+    """Build a snapshot list of taxonomy entries for a threat library."""
+    if not threat_library:
+        return []
+    return [
+        {
+            "taxonomy_slug": join.taxonomy_entry.taxonomy.slug,
+            "external_id": join.taxonomy_entry.external_id,
+            "title": join.taxonomy_entry.title,
+        }
+        for join in threat_library.taxonomy_entries.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all()
+    ]
 
 
 class Risk(TimestampedModel):

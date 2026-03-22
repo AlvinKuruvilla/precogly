@@ -1,10 +1,13 @@
 import type { SecurityStandard, TaxonomyEntry } from '@/types/domain'
 
 /**
- * Compliance standard mapping from backend
+ * Compliance standard mapping from backend.
+ * requirement may be null after a compliance pack unimport — snapshot fields
+ * (frameworkName, sectionCode, requirementDescription) are preserved.
  */
 export interface ComplianceStandardMapping {
   id: number
+  requirement?: number | null
   frameworkName: string
   frameworkSlug: string
   sectionCode: string

@@ -40,13 +40,13 @@ class CountermeasureLibraryAdmin(admin.ModelAdmin):
 
 @admin.register(ComponentInstanceThreat)
 class ComponentInstanceThreatAdmin(admin.ModelAdmin):
-    list_display = ["component", "threat_library", "status", "inherent_severity", "residual_severity"]
+    list_display = ["component", "threat_name", "threat_library", "status", "inherent_severity", "residual_severity"]
     list_filter = ["status", "inherent_severity"]
 
 
 @admin.register(DataFlowInstanceThreat)
 class DataFlowInstanceThreatAdmin(admin.ModelAdmin):
-    list_display = ["data_flow", "threat_library", "status", "inherent_severity"]
+    list_display = ["data_flow", "threat_name", "threat_library", "status", "inherent_severity"]
     list_filter = ["status", "inherent_severity"]
 
 

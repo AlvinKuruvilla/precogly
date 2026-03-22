@@ -12,7 +12,7 @@ from rest_framework.response import Response
 
 from apps.core.permissions import CanWrite, IsSecurityTeam
 
-from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
+from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat, build_taxonomy_snapshot
 from apps.threats.serializers import ComponentInstanceThreatSerializer
 
 from .models import (
@@ -242,6 +242,7 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
                         # Copy metadata for self-sufficiency if library is later removed
                         "threat_name": threat_lib.name if threat_lib else "",
                         "threat_description": threat_lib.description if threat_lib else "",
+                        "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
                     },
                 )
 

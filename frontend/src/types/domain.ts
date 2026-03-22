@@ -65,10 +65,11 @@ export const STRIDE_CONFIG: Record<
 }
 
 // Taxonomy entry from the unified taxonomy system
+// id and taxonomyName are optional to support snapshot entries (after pack unimport)
 export interface TaxonomyEntry {
-  id: number
+  id?: number
   taxonomySlug: string
-  taxonomyName: string
+  taxonomyName?: string
   externalId: string
   title: string
   referenceUrl?: string

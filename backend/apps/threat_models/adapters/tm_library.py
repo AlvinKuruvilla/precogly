@@ -326,6 +326,7 @@ class TmLibraryAdapter(BaseAdapter):
             Risk,
             RiskThreat,
             ThreatLibrary,
+            build_taxonomy_snapshot,
         )
         from apps.threats.services import calculate_inherent_score, recalculate_risk
 
@@ -656,6 +657,7 @@ class TmLibraryAdapter(BaseAdapter):
                                     "status": "exposed",
                                     "severity_scoring_metadata": severity_metadata,
                                     "format_metadata": format_meta,
+                                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
                                 },
                             )
                             if not created and not instance.threat_library:
@@ -681,6 +683,7 @@ class TmLibraryAdapter(BaseAdapter):
                                     "status": "exposed",
                                     "severity_scoring_metadata": severity_metadata,
                                     "format_metadata": format_meta,
+                                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
                                 },
                             )
                             if not created and not instance.threat_library:
@@ -710,6 +713,7 @@ class TmLibraryAdapter(BaseAdapter):
                             "status": "exposed",
                             "severity_scoring_metadata": severity_metadata,
                             "format_metadata": format_meta,
+                            "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
                         },
                     )
                     if not created and not instance.threat_library:
