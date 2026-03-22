@@ -10,6 +10,7 @@ from .models import (
     TeamMembership,
     TeamInvitation,
     MagicLink,
+    SharedWithMe,
 )
 
 User = get_user_model()
@@ -110,5 +111,12 @@ class MagicLinkAdmin(admin.ModelAdmin):
     list_filter = ["is_revoked"]
     search_fields = ["threat_model__name"]
     readonly_fields = ["token", "accessed_count"]
+
+
+@admin.register(SharedWithMe)
+class SharedWithMeAdmin(admin.ModelAdmin):
+    list_display = ["user", "threat_model", "access_count", "last_accessed_at"]
+    list_filter = ["threat_model"]
+    search_fields = ["user__email", "threat_model__name"]
 
 

@@ -447,7 +447,7 @@ function ImportPackDialog({
           </div>
         ) : hasOverlays ? (
           <div className="space-y-2 py-2">
-            <p className="text-sm font-medium">Compliance mappings</p>
+            <p className="text-sm font-medium">Compliance mappings <span className="font-normal text-muted-foreground">— uncheck to unmap</span></p>
             {overlaysData?.overlays.some((o) => !o.frameworkExists) && (
               <p className="text-xs text-amber-600">
                 Some frameworks are not imported yet. Import them first to enable their mappings.

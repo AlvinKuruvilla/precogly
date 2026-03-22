@@ -426,12 +426,21 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
             with open(taxonomy_file) as f:
                 tax_data = yaml.safe_load(f) or {}
             for taxonomy in tax_data.get("taxonomies", []):
-                entry_count = len(taxonomy.get("entries", []))
+                raw_entries = taxonomy.get("entries", [])
+                entries = [
+                    {
+                        "external_id": entry.get("external_id", ""),
+                        "title": entry.get("title", ""),
+                        "description": entry.get("description", ""),
+                    }
+                    for entry in raw_entries
+                ]
                 taxonomies.append({
                     "slug": taxonomy.get("slug", ""),
                     "name": taxonomy.get("name", ""),
                     "description": taxonomy.get("description", ""),
-                    "entry_count": entry_count,
+                    "entry_count": len(raw_entries),
+                    "entries": entries,
                 })
         except Exception as e:
             logger.error(f"Error reading taxonomy.yaml in {pack_dir}: {e}")

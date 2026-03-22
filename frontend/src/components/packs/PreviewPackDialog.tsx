@@ -110,11 +110,11 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
   const threatCount = preview.threats.length
   const countermeasureCount = preview.countermeasures.length
   const requirementCount = preview.requirements?.length ?? 0
-  const taxonomyCount = preview.taxonomies?.length ?? 0
+  const taxonomyEntryCount = preview.taxonomies?.reduce((sum, t) => sum + (t.entries?.length ?? 0), 0) ?? 0
 
   // Build list of available sections with counts
   const sections = [
-    ...(taxonomyCount > 0 ? [{ value: 'taxonomies', label: 'Taxonomies', count: taxonomyCount }] : []),
+    ...(taxonomyEntryCount > 0 ? [{ value: 'taxonomies', label: 'Taxonomy Entries', count: taxonomyEntryCount }] : []),
     { value: 'components', label: 'Components', count: componentCount },
     { value: 'threats', label: 'Threats', count: threatCount },
     { value: 'countermeasures', label: 'Countermeasures', count: countermeasureCount },
@@ -141,31 +141,35 @@ function PreviewTabs({ preview }: { preview: PackPreviewResponse }) {
       </Select>
 
       <ScrollArea className="h-[350px]">
-        {activeSection === 'taxonomies' && taxonomyCount > 0 && (
+        {activeSection === 'taxonomies' && taxonomyEntryCount > 0 && (
           <div className="space-y-2 pr-4">
-            {preview.taxonomies.map((taxonomy, idx) => (
-              <div
-                key={taxonomy.slug || idx}
-                className="border rounded-lg p-3 space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{taxonomy.name}</span>
-                  <div className="flex gap-1">
-                    <Badge variant="outline" className="text-xs">
-                      {taxonomy.slug}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      {taxonomy.entryCount} entries
-                    </Badge>
+            {preview.taxonomies.flatMap((taxonomy) =>
+              taxonomy.entries.map((entry, idx) => (
+                <div
+                  key={`${taxonomy.slug}-${entry.externalId || idx}`}
+                  className="border rounded-lg p-3 space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{entry.title}</span>
+                    <div className="flex gap-1">
+                      {entry.externalId && (
+                        <Badge variant="outline" className="text-xs">
+                          {entry.externalId}
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="text-xs">
+                        {taxonomy.name}
+                      </Badge>
+                    </div>
                   </div>
+                  {entry.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {entry.description}
+                    </p>
+                  )}
                 </div>
-                {taxonomy.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {taxonomy.description}
-                  </p>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 

@@ -1,7 +1,9 @@
 from django.contrib import admin
 
 from .models import (
+    OutOfScopeItem,
     ThreatModel,
+    ThreatModelFramework,
     ThreatModelOrgsystem,
     ThreatModelReferenceImage,
     ThreatModelRelationship,
@@ -34,3 +36,16 @@ class ThreatModelReferenceImageAdmin(admin.ModelAdmin):
     list_filter = ["threat_model", "uploaded_by"]
     search_fields = ["filename", "description"]
     readonly_fields = ["created_at", "uploaded_by"]
+
+
+@admin.register(ThreatModelFramework)
+class ThreatModelFrameworkAdmin(admin.ModelAdmin):
+    list_display = ["threat_model", "framework"]
+    list_filter = ["framework"]
+
+
+@admin.register(OutOfScopeItem)
+class OutOfScopeItemAdmin(admin.ModelAdmin):
+    list_display = ["name", "threat_model", "created_at"]
+    list_filter = ["threat_model"]
+    search_fields = ["name", "reason"]

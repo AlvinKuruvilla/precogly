@@ -39,10 +39,9 @@ nav:
       - Quickstart: getting-started/quickstart.md
       - Configuration: getting-started/configuration.md
   - Concepts:
-      - Workspaces: concepts/workspaces.md
-      - Threat Models: concepts/threat-models.md
-      - DFD Editor: concepts/dfd-editor.md
       - Library Packs: concepts/library-packs.md
+      - DFD Editor: concepts/dfd-editor.md
+      - Workspaces: concepts/workspaces.md
   - Guides:
       - Creating a Threat Model: guides/creating-threat-model.md
       - Importing & Exporting: guides/importing-exporting.md

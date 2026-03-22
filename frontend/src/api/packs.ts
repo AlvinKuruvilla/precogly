@@ -110,11 +110,18 @@ export interface PackPreviewRequirement {
   frameworkName: string
 }
 
+export interface PackPreviewTaxonomyEntry {
+  externalId: string
+  title: string
+  description: string
+}
+
 export interface PackPreviewTaxonomy {
   slug: string
   name: string
   description: string
   entryCount: number
+  entries: PackPreviewTaxonomyEntry[]
 }
 
 export interface PackPreviewResponse {
