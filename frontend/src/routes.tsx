@@ -5,7 +5,6 @@ import {
   Dashboard,
   ThreatModels,
   ThreatModelDetail,
-  CreateThreatModel,
   TechComponents,
   ThreatLibraries,
   Countermeasures,
@@ -63,7 +62,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'threat-models', element: <ThreatModels /> },
-      { path: 'threat-models/new', element: <CreateThreatModel /> },
+      { path: 'threat-models/new', element: <Navigate to="/threat-models" replace /> },
       { path: 'threat-models/:id', element: <ThreatModelDetail /> },
       { path: 'threat-models/:id/diagrams/:diagramId', element: <DFDEditor /> },
       // New unified Libraries page

@@ -22,11 +22,6 @@ class ThreatModel(TimestampedModel):
         HIGH = "high", "High"
         CRITICAL = "critical", "Critical"
 
-    class ModelingMode(models.TextChoices):
-        DFD_BASED = "dfdBased", "DFD-Based"
-        MANUAL = "manual", "Manual Entry"
-        HYBRID = "hybrid", "Hybrid (Both)"
-
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -52,12 +47,6 @@ class ThreatModel(TimestampedModel):
         max_length=20,
         choices=Criticality.choices,
         default=Criticality.MEDIUM,
-    )
-    modeling_mode = models.CharField(
-        max_length=20,
-        choices=ModelingMode.choices,
-        default=ModelingMode.DFD_BASED,
-        help_text="Primary threat modeling approach for this model",
     )
     risk_scoring_method = models.CharField(
         max_length=20,

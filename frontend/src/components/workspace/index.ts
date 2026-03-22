@@ -9,6 +9,7 @@ export {
   ManageThreatModelsModal,
   ManagePeopleModal,
   ManageDFDsModal,
+  ManageFrameworksModal,
 } from './ManageModals'
 export { useWorkspaceThreatAnalysis } from './useWorkspaceThreatAnalysis'
 export { ReferenceImageGallery } from './ReferenceImageGallery'

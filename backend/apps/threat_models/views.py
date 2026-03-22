@@ -294,6 +294,61 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    @action(detail=True, methods=["post"])
+    def add_framework(self, request, pk=None):
+        """Add a compliance framework to this threat model."""
+        from apps.compliance.models import StandardFramework
+        from .models import ThreatModelFramework
+
+        threat_model = self.get_object()
+        framework_id = request.data.get("framework_id")
+
+        if not framework_id:
+            return Response(
+                {"error": "framework_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            framework = StandardFramework.objects.get(id=framework_id)
+        except StandardFramework.DoesNotExist:
+            return Response(
+                {"error": "Framework not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        ThreatModelFramework.objects.get_or_create(
+            threat_model=threat_model, framework=framework
+        )
+        serializer = ThreatModelSerializer(threat_model)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def remove_framework(self, request, pk=None):
+        """Remove a compliance framework from this threat model."""
+        from .models import ThreatModelFramework
+
+        threat_model = self.get_object()
+        framework_id = request.data.get("framework_id")
+
+        if not framework_id:
+            return Response(
+                {"error": "framework_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted, _ = ThreatModelFramework.objects.filter(
+            threat_model=threat_model, framework_id=framework_id
+        ).delete()
+
+        if deleted:
+            serializer = ThreatModelSerializer(threat_model)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {"error": "Framework not associated with this threat model"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     def _serialize_taxonomy_entries(self, threat_instance):
         """Serialize taxonomy entries for a threat instance.
 

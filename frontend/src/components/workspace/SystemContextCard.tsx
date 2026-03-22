@@ -1,4 +1,4 @@
-import { Package, ShieldX, FileText, Pencil } from 'lucide-react'
+import { Package, ShieldX, FileText, Pencil, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +25,23 @@ export function SystemContextCard({ threatModelId, onEdit }: SystemContextCardPr
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium">System Context</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-sm font-medium">System Context</CardTitle>
+            {threatModel?.criticality && (
+              <Badge
+                variant="outline"
+                className={
+                  threatModel.criticality === 'critical' ? 'border-red-300 bg-red-50 text-red-700' :
+                  threatModel.criticality === 'high' ? 'border-orange-300 bg-orange-50 text-orange-700' :
+                  threatModel.criticality === 'medium' ? 'border-yellow-300 bg-yellow-50 text-yellow-700' :
+                  'border-green-300 bg-green-50 text-green-700'
+                }
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {threatModel.criticality.charAt(0).toUpperCase() + threatModel.criticality.slice(1)} Criticality
+              </Badge>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"

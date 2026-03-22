@@ -263,6 +263,33 @@ export function useRemoveReferencedModel() {
   })
 }
 
+// Framework wiring mutations
+export function useAddFramework() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, frameworkId }: { threatModelId: string; frameworkId: number }) =>
+      api.post(`/threat-models/${threatModelId}/add_framework/`, { frameworkId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+    },
+  })
+}
+
+export function useRemoveFramework() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, frameworkId }: { threatModelId: string; frameworkId: number }) =>
+      api.post(`/threat-models/${threatModelId}/remove_framework/`, { frameworkId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+    },
+  })
+}
+
 // TM-Library Import/Export
 
 export interface ImportTmLibraryResponse {

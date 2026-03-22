@@ -4,7 +4,6 @@ export interface ReportMetadata {
   name: string
   description: string
   criticality: string
-  modelingMode: string
   riskScoringMethod: string
   owningTeam: string | null
   createdBy: string | null

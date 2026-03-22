@@ -103,8 +103,8 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
               <div className="flex flex-wrap gap-1">
                 {model.frameworks?.length ? (
                   model.frameworks.map((framework) => (
-                    <Badge key={framework} variant="outline" className="text-xs">
-                      {framework}
+                    <Badge key={framework.id} variant="outline" className="text-xs">
+                      {framework.name}
                     </Badge>
                   ))
                 ) : (

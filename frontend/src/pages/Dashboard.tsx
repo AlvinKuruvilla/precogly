@@ -1,15 +1,17 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatsCards, ThreatModelsTable } from '@/components/dashboard'
 import { useDashboardStats, useThreatModels } from '@/api/threat-models'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
+import { CreateThreatModelDialog } from '@/components/threat-models'
 
 export function Dashboard() {
   const { currentTeam } = useWorkspace()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
   const { data: threatModels, isLoading: modelsLoading } = useThreatModels(currentTeam?.id)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -21,12 +23,10 @@ export function Dashboard() {
             Monitor your threat models and compliance status.
           </p>
         </div>
-        <Link to="/threat-models/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Threat Model
-          </Button>
-        </Link>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Threat Model
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -47,6 +47,12 @@ export function Dashboard() {
           />
         </CardContent>
       </Card>
+
+      {/* Create Dialog */}
+      <CreateThreatModelDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
     </div>
   )
 }

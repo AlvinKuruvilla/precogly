@@ -146,27 +146,6 @@ export function getTaxonomyEntryBgClass(entry: TaxonomyBadgeEntry): string | nul
   return `${config.bg} ${config.text} ${config.border}`
 }
 
-// Modeling Mode - matches backend ThreatModel.ModelingMode
-export type ModelingMode = 'dfdBased' | 'manual' | 'hybrid'
-
-export const MODELING_MODES: { value: ModelingMode; label: string; description: string }[] = [
-  {
-    value: 'dfdBased',
-    label: 'DFD-Based',
-    description: 'Create data flow diagrams in our editor'
-  },
-  {
-    value: 'manual',
-    label: 'Manual Entry',
-    description: 'Add components and threats manually'
-  },
-  {
-    value: 'hybrid',
-    label: 'Hybrid (Both)',
-    description: 'Use both approaches'
-  },
-]
-
 // Installation Status - matches backend OrganizationPackInstallation.Status
 export type InstallationStatus = 'installed' | 'pendingUpdate' | 'failed'
 

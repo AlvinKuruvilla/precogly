@@ -33,9 +33,16 @@ import { useDataAssets } from '@/api/data-assets'
 import { useOutOfScopeItems } from '@/api/out-of-scope-items'
 import { AssetsModal } from './AssetsModal'
 import { OutOfScopeModal } from './OutOfScopeModal'
-import type { ThreatModel, Assumption } from '@/types'
+import type { ThreatModel, Assumption, Criticality } from '@/types'
 
 type ActiveView = 'assets' | 'out-of-scope' | 'describe' | 'assumptions'
+
+const CRITICALITY_OPTIONS: { value: Criticality; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+]
 
 interface SystemContextModalProps {
   open: boolean
@@ -54,6 +61,7 @@ export function SystemContextModal({
   const updateThreatModelMutation = useUpdateThreatModel()
 
   const [description, setDescription] = useState('')
+  const [criticality, setCriticality] = useState<Criticality>('medium')
   const [scopeLocked, setScopeLocked] = useState(false)
   const [activeView, setActiveView] = useState<ActiveView>('describe')
   const [assumptions, setAssumptions] = useState<Assumption[]>([])
@@ -66,6 +74,7 @@ export function SystemContextModal({
   useEffect(() => {
     if (threatModel) {
       setDescription(threatModel.description || '')
+      setCriticality(threatModel.criticality ?? 'medium')
       setScopeLocked(threatModel.scopeLocked ?? false)
       setAssumptions(threatModel.assumptions ?? [])
     }
@@ -76,6 +85,7 @@ export function SystemContextModal({
       id: threatModelId,
       data: {
         description,
+        criticality,
         scopeLocked,
         scopeLockedAt: scopeLocked ? new Date().toISOString() : null,
         assumptions,
@@ -140,6 +150,26 @@ export function SystemContextModal({
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Criticality */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">Criticality</span>
+              <Select
+                value={criticality}
+                onValueChange={(value) => setCriticality(value as Criticality)}
+              >
+                <SelectTrigger className="w-[140px] h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CRITICALITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Context buttons */}
             <div className="grid grid-cols-4 gap-3">
               <ContextButton

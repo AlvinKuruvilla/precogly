@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, Settings, Trash2, BarChart3, FileText, Share2, Download } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, Settings, Trash2, BarChart3, FileText, Share2, Download, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -24,6 +24,7 @@ import {
   ManageThreatModelsModal,
   ManagePeopleModal,
   ManageDFDsModal,
+  ManageFrameworksModal,
   RiskAnalysisTab,
 } from '@/components/workspace'
 import { MagicLinkDialog } from '@/components/sharing/MagicLinkDialog'
@@ -50,6 +51,9 @@ import {
   useRemoveThreatModelSystem,
   useAddReferencedModel,
   useRemoveReferencedModel,
+  useAddFramework,
+  useRemoveFramework,
+  useFrameworks,
   exportTmLibrary,
 } from '@/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/components/threat-models'
@@ -104,6 +108,7 @@ export function ThreatModelDetail() {
   const [manageThreatModelsModalOpen, setManageThreatModelsModalOpen] = useState(false)
   const [managePeopleModalOpen, setManagePeopleModalOpen] = useState(false)
   const [manageDFDsModalOpen, setManageDFDsModalOpen] = useState(false)
+  const [manageFrameworksModalOpen, setManageFrameworksModalOpen] = useState(false)
   const [shareLinkDialogOpen, setShareLinkDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteDFDDialogOpen, setDeleteDFDDialogOpen] = useState(false)
@@ -114,6 +119,11 @@ export function ThreatModelDetail() {
   const [addCountermeasureDialogOpen, setAddCountermeasureDialogOpen] = useState(false)
   const [addComponentDialogOpen, setAddComponentDialogOpen] = useState(false)
   const [zoneProtectionsDialogOpen, setZoneProtectionsDialogOpen] = useState(false)
+
+  // Inline name editing state
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   // Reference image states
   const [referenceImageViewerOpen, setReferenceImageViewerOpen] = useState(false)
@@ -127,6 +137,8 @@ export function ThreatModelDetail() {
   const removeSystemMutation = useRemoveThreatModelSystem()
   const addReferencedModelMutation = useAddReferencedModel()
   const removeReferencedModelMutation = useRemoveReferencedModel()
+  const addFrameworkMutation = useAddFramework()
+  const removeFrameworkMutation = useRemoveFramework()
 
   // Reference images
   const { data: referenceImages = [] } = useReferenceImages(id || null)
@@ -153,6 +165,8 @@ export function ThreatModelDetail() {
     queryKey: ['systems'],
     queryFn: fetchSystems,
   })
+
+  const { data: allFrameworks = [] } = useFrameworks()
 
   const { data: allThreatModels = [] } = useQuery({
     queryKey: ['threat-models'],
@@ -379,6 +393,41 @@ export function ThreatModelDetail() {
     }
   }, [selectedComponentThreat])
 
+  // Inline name editing handlers
+  const handleStartEditingName = useCallback(() => {
+    if (threatModel) {
+      setNameValue(threatModel.name)
+      setIsEditingName(true)
+    }
+  }, [threatModel])
+
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus()
+      nameInputRef.current.select()
+    }
+  }, [isEditingName])
+
+  const handleSaveName = useCallback(() => {
+    const trimmedName = nameValue.trim()
+    if (trimmedName && trimmedName !== threatModel?.name && id) {
+      updateThreatModelMutation.mutate({ id, data: { name: trimmedName } as Partial<ThreatModel> })
+    }
+    setIsEditingName(false)
+  }, [nameValue, threatModel?.name, id, updateThreatModelMutation])
+
+  const handleCancelEditName = useCallback(() => {
+    setIsEditingName(false)
+  }, [])
+
+  const handleNameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveName()
+    } else if (e.key === 'Escape') {
+      handleCancelEditName()
+    }
+  }, [handleSaveName, handleCancelEditName])
+
   // Handlers
   const handleCreateDFD = () => {
     const title = `Data Flow Diagram ${(diagrams?.length || 0) + 1}`
@@ -461,7 +510,26 @@ export function ThreatModelDetail() {
               Threat Models
             </Link>
             <span className="text-muted-foreground">/</span>
-            <h1 className="font-semibold truncate">{threatModel.name}</h1>
+            {isEditingName ? (
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={handleNameKeyDown}
+                className="font-semibold bg-transparent border-b border-primary outline-none px-0 py-0 max-w-[300px]"
+              />
+            ) : (
+              <button
+                onClick={handleStartEditingName}
+                className="font-semibold truncate hover:text-primary group flex items-center gap-1 cursor-pointer"
+                title="Click to rename"
+              >
+                {threatModel.name}
+                <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+              </button>
+            )}
             <span className="text-muted-foreground">/</span>
             <span className="text-sm text-muted-foreground">Workspace</span>
           </div>
@@ -586,10 +654,12 @@ export function ThreatModelDetail() {
               teamMemberCount={currentTeam?.memberCount ?? 0}
               teamName={currentTeam?.name}
               dfds={diagrams}
+              frameworks={threatModel.frameworks || []}
               onManageSystems={() => setManageSystemsModalOpen(true)}
               onManageThreatModels={() => setManageThreatModelsModalOpen(true)}
               onManagePeople={() => setManagePeopleModalOpen(true)}
               onManageDFDs={() => setManageDFDsModalOpen(true)}
+              onManageFrameworks={() => setManageFrameworksModalOpen(true)}
             />
           </div>
 
@@ -742,7 +812,7 @@ export function ThreatModelDetail() {
                     trustZones={trustZones}
                     dataFlows={dataFlows}
                     componentThreats={filteredComponentThreats}
-                    selectedFrameworks={threatModel.frameworks || []}
+                    selectedFrameworks={(threatModel.frameworks || []).map(f => f.name)}
                     selectedComponentId={selectedComponentId}
                     selectedThreatId={selectedThreatId}
                     selectedComponentThreat={selectedComponentThreat}
@@ -832,6 +902,15 @@ export function ThreatModelDetail() {
         dfds={diagrams}
         onCreateDFD={handleCreateDFD}
         onDeleteDFD={handleDeleteDFD}
+      />
+
+      <ManageFrameworksModal
+        open={manageFrameworksModalOpen}
+        onOpenChange={setManageFrameworksModalOpen}
+        currentFrameworks={threatModel.frameworks || []}
+        availableFrameworks={allFrameworks}
+        onAdd={(frameworkId) => addFrameworkMutation.mutate({ threatModelId: id!, frameworkId })}
+        onRemove={(frameworkId) => removeFrameworkMutation.mutate({ threatModelId: id!, frameworkId })}
       />
 
       <DeleteThreatModelDialog

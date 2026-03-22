@@ -359,7 +359,6 @@ class TmLibraryAdapter(BaseAdapter):
                 name=scope["title"],
                 description=scope.get("description", json_data.get("description", "")),
                 risk_scoring_method="tm_library",
-                modeling_mode="manual",
                 criticality=criticality,
                 format_metadata={
                     "tm_library": {

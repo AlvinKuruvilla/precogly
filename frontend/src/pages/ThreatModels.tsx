@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Share2, ExternalLink, Trash2, Upload, FileJson, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { CreateThreatModelDialog } from '@/components/threat-models'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +29,7 @@ export function ThreatModels() {
   const [importResult, setImportResult] = useState<ImportTmLibraryResponse | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const formatDate = (dateString: string) => {
@@ -98,14 +100,18 @@ export function ThreatModels() {
             <Upload className="mr-2 h-4 w-4" />
             Import
           </Button>
-          <Link to="/threat-models/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Threat Model
-            </Button>
-          </Link>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Threat Model
+          </Button>
         </div>
       </div>
+
+      {/* Create Dialog */}
+      <CreateThreatModelDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
 
       {/* Import Dialog */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>

@@ -77,7 +77,6 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "created_by",
             "created_by_email",
             "owner",
-            "modeling_mode",
             "workspace_data",
             "assumptions",
             "format_metadata",
@@ -125,9 +124,12 @@ class ThreatModelSerializer(serializers.ModelSerializer):
         return None
 
     def get_frameworks(self, obj):
-        """Get associated framework names."""
+        """Get associated frameworks with id and name."""
         associations = obj.framework_associations.select_related("framework").all()
-        return [assoc.framework.name for assoc in associations]
+        return [
+            {"id": assoc.framework.id, "name": assoc.framework.name}
+            for assoc in associations
+        ]
 
     def get_system_ids(self, obj):
         """Get associated system IDs."""
@@ -282,9 +284,12 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
         return None
 
     def get_frameworks(self, obj):
-        """Get associated framework names."""
+        """Get associated frameworks with id and name."""
         associations = obj.framework_associations.select_related("framework").all()
-        return [assoc.framework.name for assoc in associations]
+        return [
+            {"id": assoc.framework.id, "name": assoc.framework.name}
+            for assoc in associations
+        ]
 
 
 class ThreatModelCreateSerializer(serializers.ModelSerializer):
@@ -318,7 +323,6 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "organization",
             "owning_team",
             "criticality",
-            "modeling_mode",
             "framework_ids",
             "system_ids",
             "referenced_model_ids",
@@ -328,7 +332,6 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             "organization": {"required": False},
             "owning_team": {"required": False},
             "criticality": {"required": False},
-            "modeling_mode": {"required": False},
         }
 
     def create(self, validated_data):
