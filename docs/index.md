@@ -51,4 +51,4 @@ Open [http://localhost:5173](http://localhost:5173) and log in with `admin@preco
 
 - [Installation](getting-started/installation.md) — detailed setup instructions
 - [Quickstart](getting-started/quickstart.md) — create your first threat model
-- [Concepts](concepts/workspaces.md) — understand Precogly's core concepts
+- [Concepts](concepts/library-packs.md) — understand Precogly's core concepts

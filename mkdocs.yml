@@ -41,7 +41,8 @@ nav:
   - Concepts:
       - Library Packs: concepts/library-packs.md
       - DFD Editor: concepts/dfd-editor.md
-      - Workspaces: concepts/workspaces.md
+      - Threat Analysis: concepts/threat-analysis.md
+      - Collaboration: concepts/collaboration.md
   - Guides:
       - Creating a Threat Model: guides/creating-threat-model.md
       - Importing & Exporting: guides/importing-exporting.md
