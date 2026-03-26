@@ -23,7 +23,7 @@ User = get_user_model()
 SAMPLE_FILES_DIR = os.path.join(
     os.path.dirname(__file__),
     "..", "..", "..", "..",
-    "docs", "TM-FORMATS", "Project-TM-Library",
+    "docs", "import-export-formats", "Project-TM-Library",
 )
 
 

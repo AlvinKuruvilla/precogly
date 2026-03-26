@@ -42,6 +42,11 @@ nav:
       - Library Packs: concepts/library-packs.md
       - DFD Editor: concepts/dfd-editor.md
       - Threat Analysis: concepts/threat-analysis.md
+      - Threat Model as Code: concepts/threat-model-as-code.md
+      - Zone Protections: concepts/zone-protections.md
+      - Completion Status: concepts/completion-status.md
+      - Reference Images: concepts/reference-images.md
+      - Magic Links: concepts/magic-links.md
       - Collaboration: concepts/collaboration.md
   - Guides:
       - Creating a Threat Model: guides/creating-threat-model.md
