@@ -6,7 +6,7 @@ The threat analysis view is the three-panel workspace where you review component
 
 Select a component in the left panel to see its threats. Select a threat to see its countermeasures. Each threat shows a severity assessment (likelihood, impact, rationale) and a status badge — exposed, addressable, or mitigated.
 
-Threats carry taxonomy tags from your imported library packs — STRIDE categories, CAPEC attack patterns, CWE weaknesses, and MITRE ATT&CK techniques — so you can trace each threat back to established frameworks.
+Threats carry taxonomy tags from your imported [library packs](library-packs.md) — STRIDE categories, CAPEC attack patterns, CWE weaknesses, and MITRE ATT&CK techniques — so you can trace each threat back to established frameworks.
 
 ![Threats with STRIDE, CAPEC, CWE, and MITRE ATT&CK taxonomy tags](../assets/images/threat-analysis-taxonomy-links.png)
 
