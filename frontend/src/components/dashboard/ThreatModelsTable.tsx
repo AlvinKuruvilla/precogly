@@ -74,6 +74,8 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
+          <TableHead>Team</TableHead>
+          <TableHead>Business Unit</TableHead>
           <TableHead>Criticality</TableHead>
           <TableHead>Frameworks</TableHead>
           <TableHead>Owner</TableHead>
@@ -89,6 +91,8 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
             onClick={() => navigate(`/threat-models/${model.id}`)}
           >
             <TableCell className="font-medium">{model.name}</TableCell>
+            <TableCell className="text-muted-foreground">{model.owningTeamName ?? '—'}</TableCell>
+            <TableCell className="text-muted-foreground">{model.businessUnitName ?? '—'}</TableCell>
             <TableCell>
               {(() => {
                 const config = model.criticality ? criticalityConfig[model.criticality] : defaultCriticality

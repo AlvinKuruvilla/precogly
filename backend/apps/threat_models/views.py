@@ -47,7 +47,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         if user.organization_memberships.filter(role="security_team").exists():
             queryset = ThreatModel.objects.filter(
                 organization_id__in=org_ids
-            ).select_related("created_by", "organization", "owning_team")
+            ).select_related("created_by", "organization", "owning_team", "owning_team__business_unit")
         else:
             # Get teams the user belongs to
             from apps.organizations.models import TeamMembership
@@ -60,7 +60,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 organization_id__in=org_ids
             ).filter(
                 Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
-            ).select_related("created_by", "organization", "owning_team")
+            ).select_related("created_by", "organization", "owning_team", "owning_team__business_unit")
 
         # Optional further filter by specific team
         owning_team_id = self.request.query_params.get("owning_team")

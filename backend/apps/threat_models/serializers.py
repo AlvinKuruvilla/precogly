@@ -54,9 +54,13 @@ class ThreatModelSerializer(serializers.ModelSerializer):
     """Serializer for ThreatModel model."""
 
     created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
+    organization_name = serializers.CharField(
+        source="organization.name", read_only=True
+    )
     owning_team_name = serializers.CharField(
         source="owning_team.name", read_only=True, allow_null=True
     )
+    business_unit_name = serializers.SerializerMethodField()
     dfds = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
     frameworks = serializers.SerializerMethodField()
@@ -72,8 +76,10 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "description",
             "criticality",
             "organization",
+            "organization_name",
             "owning_team",
             "owning_team_name",
+            "business_unit_name",
             "created_by",
             "created_by_email",
             "owner",
@@ -91,7 +97,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by_email", "owner", "owning_team_name"]
+        read_only_fields = ["id", "created_at", "updated_at", "created_by_email", "owner", "organization_name", "owning_team_name", "business_unit_name"]
 
     def validate_assumptions(self, value):
         """Validate assumptions list structure."""
@@ -116,6 +122,13 @@ class ThreatModelSerializer(serializers.ModelSerializer):
         from apps.diagrams.serializers import DFDSerializer
 
         return DFDSerializer(obj.dfds.all(), many=True).data
+
+    def get_business_unit_name(self, obj):
+        """Get business unit name via owning team, if any."""
+        team = obj.owning_team
+        if team and team.business_unit_id:
+            return team.business_unit.name
+        return None
 
     def get_owner(self, obj):
         """Get owner name from created_by user."""
@@ -259,6 +272,7 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
     owning_team_name = serializers.CharField(
         source="owning_team.name", read_only=True, allow_null=True
     )
+    business_unit_name = serializers.SerializerMethodField()
     frameworks = serializers.SerializerMethodField()
 
     class Meta:
@@ -271,6 +285,7 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
             "owner",
             "owning_team",
             "owning_team_name",
+            "business_unit_name",
             "frameworks",
             "risk_scoring_method",
             "created_at",
@@ -281,6 +296,13 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
         """Get owner email."""
         if obj.created_by:
             return obj.created_by.email
+        return None
+
+    def get_business_unit_name(self, obj):
+        """Get business unit name via owning team, if any."""
+        team = obj.owning_team
+        if team and team.business_unit_id:
+            return team.business_unit.name
         return None
 
     def get_frameworks(self, obj):

@@ -62,8 +62,10 @@ export interface ThreatModel {
   criticality?: Criticality
   frameworks?: Array<{ id: number; name: string }>
   owner?: string
+  organizationName?: string
   owningTeam?: number | null
   owningTeamName?: string | null
+  businessUnitName?: string | null
   systemIds?: string[]
   referencedModelIds?: string[]
   riskScoringMethod?: ScoringMethodKey

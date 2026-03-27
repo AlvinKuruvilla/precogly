@@ -8,7 +8,6 @@ import { useUpdateOrganization } from '@/api/organizations'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check } from 'lucide-react'
 
@@ -18,7 +17,6 @@ export function OrganizationSettings() {
 
   const [name, setName] = useState('')
   const [domain, setDomain] = useState('')
-  const [businessUnitLabel, setBusinessUnitLabel] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
 
   // Sync form state when org loads
@@ -26,7 +24,6 @@ export function OrganizationSettings() {
     if (currentOrganization) {
       setName(currentOrganization.name)
       setDomain(currentOrganization.domain || '')
-      setBusinessUnitLabel(currentOrganization.businessUnitLabel)
     }
   }, [currentOrganization])
 
@@ -40,15 +37,14 @@ export function OrganizationSettings() {
 
   const hasChanges =
     name !== currentOrganization.name ||
-    domain !== (currentOrganization.domain || '') ||
-    businessUnitLabel !== currentOrganization.businessUnitLabel
+    domain !== (currentOrganization.domain || '')
 
   const handleSave = () => {
     setSaveSuccess(false)
     updateOrgMutation.mutate(
       {
         id: currentOrganization.id,
-        data: { name, domain, businessUnitLabel },
+        data: { name, domain },
       },
       {
         onSuccess: () => {
@@ -57,12 +53,6 @@ export function OrganizationSettings() {
         },
       }
     )
-  }
-
-  const planColors: Record<string, string> = {
-    free: 'bg-gray-100 text-gray-800',
-    pro: 'bg-blue-100 text-blue-800',
-    enterprise: 'bg-purple-100 text-purple-800',
   }
 
   return (
@@ -96,30 +86,6 @@ export function OrganizationSettings() {
               className="max-w-md"
               readOnly={!isSecurityTeam}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Plan</Label>
-            <div>
-              <Badge className={planColors[currentOrganization.plan]}>
-                {currentOrganization.plan.charAt(0).toUpperCase() +
-                  currentOrganization.plan.slice(1)}
-              </Badge>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bu-label">Business Unit Label</Label>
-            <Input
-              id="bu-label"
-              value={businessUnitLabel}
-              onChange={(e) => setBusinessUnitLabel(e.target.value)}
-              className="max-w-md"
-              readOnly={!isSecurityTeam}
-            />
-            <p className="text-xs text-muted-foreground">
-              The label used for grouping teams (e.g., "Department", "Product Area").
-            </p>
           </div>
 
           {isSecurityTeam && (

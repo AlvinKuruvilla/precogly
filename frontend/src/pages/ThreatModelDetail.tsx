@@ -507,8 +507,20 @@ export function ThreatModelDetail() {
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <ChevronLeft className="h-3 w-3" />
-              Threat Models
+              {threatModel.organizationName ?? 'Threat Models'}
             </Link>
+            {threatModel.businessUnitName && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-xs text-muted-foreground">{threatModel.businessUnitName}</span>
+              </>
+            )}
+            {threatModel.owningTeamName && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-xs text-muted-foreground">{threatModel.owningTeamName}</span>
+              </>
+            )}
             <span className="text-muted-foreground">/</span>
             {isEditingName ? (
               <input

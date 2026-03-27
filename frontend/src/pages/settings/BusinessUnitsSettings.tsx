@@ -74,8 +74,8 @@ export function BusinessUnitsSettings() {
       {
         organization: currentOrganization.id,
         name: newName,
-        code: newCode || undefined,
-        description: newDescription || undefined,
+        code: newCode,
+        description: newDescription,
         parent: newParent ? parseInt(newParent, 10) : undefined,
       },
       {

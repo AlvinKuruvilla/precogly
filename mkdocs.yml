@@ -46,8 +46,9 @@ nav:
       - Zone Protections: concepts/zone-protections.md
       - Completion Status: concepts/completion-status.md
       - Reference Images: concepts/reference-images.md
+      - Org Hierarchy: concepts/org-hierarchy.md
+      - Roles and Permissions: concepts/roles-and-permissions.md
       - Magic Links: concepts/magic-links.md
-      - Collaboration: concepts/collaboration.md
   - Guides:
       - Creating a Threat Model: guides/creating-threat-model.md
       - Importing & Exporting: guides/importing-exporting.md

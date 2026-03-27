@@ -4,13 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatsCards, ThreatModelsTable } from '@/components/dashboard'
 import { useDashboardStats, useThreatModels } from '@/api/threat-models'
-import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { CreateThreatModelDialog } from '@/components/threat-models'
 
 export function Dashboard() {
-  const { currentTeam } = useWorkspace()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
-  const { data: threatModels, isLoading: modelsLoading } = useThreatModels(currentTeam?.id)
+  const { data: threatModels, isLoading: modelsLoading } = useThreatModels()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   return (

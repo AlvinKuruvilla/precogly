@@ -83,7 +83,7 @@ class BusinessUnit(TimestampedModel):
         related_name="business_units",
     )
     name = models.CharField(max_length=255)
-    code = models.CharField(max_length=50, blank=True)
+    code = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True)
     parent = models.ForeignKey(
         "self",
@@ -94,9 +94,15 @@ class BusinessUnit(TimestampedModel):
     )
 
     class Meta:
-        unique_together = ["organization", "code"]
         verbose_name_plural = "Business units"
         ordering = ["organization", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "code"],
+                condition=~models.Q(code=""),
+                name="unique_business_unit_code_per_org",
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.organization})"

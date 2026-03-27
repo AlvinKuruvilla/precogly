@@ -15,11 +15,9 @@ import {
 import { ThreatModelsTable } from '@/components/dashboard'
 import { useThreatModels, useImportTmLibrary, type ImportTmLibraryResponse } from '@/api/threat-models'
 import { useSharedWithMe, useRemoveSharedWithMe } from '@/api/organizations'
-import { useWorkspace } from '@/contexts/WorkspaceContext'
 
 export function ThreatModels() {
-  const { currentTeam } = useWorkspace()
-  const { data: threatModels, isLoading } = useThreatModels(currentTeam?.id)
+  const { data: threatModels, isLoading } = useThreatModels()
   const { data: sharedModels, isLoading: isLoadingShared } = useSharedWithMe()
   const removeSharedMutation = useRemoveSharedWithMe()
   const importMutation = useImportTmLibrary()

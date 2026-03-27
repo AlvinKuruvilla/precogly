@@ -100,6 +100,6 @@ Go back to the overview screen. The **Owners Assigned** item in the completion c
 
 ## What's next?
 
-- [Collaboration](../concepts/collaboration.md) — understand how teams, roles, and sharing work
+- [Roles and Permissions](../concepts/roles-and-permissions.md) — understand how teams, roles, and access control work
 - [DFD Editor](../concepts/dfd-editor.md) — learn more about the diagram editor's features
 - [Library Packs](../concepts/library-packs.md) — explore the curated threat and countermeasure packs
