@@ -182,6 +182,7 @@ class TeamListSerializer(serializers.ModelSerializer):
     business_unit_name = serializers.CharField(
         source="business_unit.name", read_only=True, allow_null=True
     )
+    is_member = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
@@ -192,11 +193,19 @@ class TeamListSerializer(serializers.ModelSerializer):
             "business_unit_name",
             "member_count",
             "is_default",
+            "is_member",
         ]
 
     def get_member_count(self, obj):
         """Return the number of members in the team."""
         return obj.memberships.count()
+
+    def get_is_member(self, obj):
+        """Return whether the requesting user is a member of this team."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.memberships.filter(user=request.user).exists()
 
 
 class TeamMembershipSerializer(serializers.ModelSerializer):

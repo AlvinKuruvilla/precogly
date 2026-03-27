@@ -168,6 +168,12 @@ class IsTeamMember(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return obj.organization.members.filter(user=request.user).exists()
 
+        # Security Team gets unconditional write access
+        if obj.organization.members.filter(
+            user=request.user, role="security_team"
+        ).exists():
+            return True
+
         # Write operations require explicit team membership
         return obj.memberships.filter(
             user=request.user,

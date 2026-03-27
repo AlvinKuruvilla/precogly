@@ -58,6 +58,7 @@ export interface TeamListItem {
   businessUnitName: string | null
   memberCount: number
   isDefault: boolean
+  isMember?: boolean
 }
 
 // Memberships

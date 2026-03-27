@@ -51,20 +51,20 @@ def create_personal_workspace(sender, instance, created, **kwargs):
     # Try to add user to the primary organization
     primary_org = Organization.objects.filter(is_primary=True).first()
     if primary_org:
-        OrganizationMember.objects.create(
+        OrganizationMember.objects.get_or_create(
             organization=primary_org,
             user=instance,
-            role=OrganizationMember.Role.MEMBER,
+            defaults={"role": OrganizationMember.Role.MEMBER},
         )
         # Add to default team as member
         default_team = Team.objects.filter(
             organization=primary_org, is_default=True
         ).first()
         if default_team:
-            TeamMembership.objects.create(
+            TeamMembership.objects.get_or_create(
                 team=default_team,
                 user=instance,
-                role=TeamMembership.Role.MEMBER,
+                defaults={"role": TeamMembership.Role.MEMBER},
             )
         return
 

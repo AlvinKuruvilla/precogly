@@ -48,7 +48,7 @@ import { UserPlus, Trash2, Plus, Pencil, Loader2 } from 'lucide-react'
 import type { TeamListItem, TeamRole } from '@/types/organization'
 
 export function TeamManagement() {
-  const { currentOrganization, isLoading: workspaceLoading } = useWorkspace()
+  const { currentOrganization, isLoading: workspaceLoading, isSecurityTeam } = useWorkspace()
   const { data: teams = [], isLoading: teamsLoading } = useTeams(currentOrganization?.id)
   const { data: businessUnits = [] } = useBusinessUnits(currentOrganization?.id)
   const createTeamMutation = useCreateTeam()
@@ -171,6 +171,7 @@ export function TeamManagement() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSelectedTeam(team)}
+                          disabled={!team.isMember && !isSecurityTeam}
                         >
                           Manage
                         </Button>

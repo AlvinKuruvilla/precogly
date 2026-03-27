@@ -1,12 +1,10 @@
 /**
- * Organization member management page with invite, role change, and removal.
+ * Organization member management page with role change and removal.
  */
 
-import { useState } from 'react'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import {
   useOrganizationMembers,
-  useAddOrgMember,
   useRemoveOrgMember,
   useUpdateOrgMemberRole,
 } from '@/api/organizations'
@@ -28,9 +26,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { UserPlus, Trash2, Loader2 } from 'lucide-react'
-import type { OrganizationRole } from '@/types/organization'
+import { Trash2 } from 'lucide-react'
 
 const roleLabels: Record<string, string> = {
   security_team: 'Security Team',
@@ -47,13 +43,8 @@ export function MemberManagement() {
   const { data: members = [], isLoading: membersLoading } = useOrganizationMembers(
     currentOrganization?.id ?? 0
   )
-  const addMemberMutation = useAddOrgMember()
   const removeMemberMutation = useRemoveOrgMember()
   const updateRoleMutation = useUpdateOrgMemberRole()
-
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<OrganizationRole>('member')
-  const [inviteError, setInviteError] = useState('')
 
   if (workspaceLoading || membersLoading) {
     return <div>Loading...</div>
@@ -61,24 +52,6 @@ export function MemberManagement() {
 
   if (!currentOrganization) {
     return <div>No organization selected.</div>
-  }
-
-  const handleInvite = () => {
-    if (!inviteEmail) return
-    setInviteError('')
-
-    // The backend add-member endpoint requires a user ID.
-    // For now, show a message directing to team-level invites for new users.
-    addMemberMutation.mutate(
-      { orgId: currentOrganization.id, userId: 0, role: inviteRole },
-      {
-        onError: () => {
-          setInviteError(
-            'Could not add member. Use team invitations to invite users by email.'
-          )
-        },
-      }
-    )
   }
 
   const handleRemove = (userId: number) => {
@@ -103,57 +76,14 @@ export function MemberManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Invite Section — security team only */}
-      {isSecurityTeam && (
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite Member</CardTitle>
-          <CardDescription>
-            Add members to {currentOrganization.name}. Use team-level invitations to invite new users by email.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 max-w-lg">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              className="flex-1"
-            />
-            <Select
-              value={inviteRole}
-              onValueChange={(value) => setInviteRole(value as OrganizationRole)}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="security_team">Security Team</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleInvite} disabled={addMemberMutation.isPending || !inviteEmail}>
-              {addMemberMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-          {inviteError && (
-            <p className="text-xs text-destructive mt-2">{inviteError}</p>
-          )}
-        </CardContent>
-      </Card>
-      )}
-
       {/* Members Table */}
       <Card>
         <CardHeader>
           <CardTitle>Organization Members</CardTitle>
           <CardDescription>
             Members of {currentOrganization.name} and their roles.
+            To add organization-level members, use the Django admin panel.
+            To invite team members, go to <a href="/settings/teams" className="underline text-foreground">Settings &gt; Teams</a> and manage the team directly.
           </CardDescription>
         </CardHeader>
         <CardContent>
