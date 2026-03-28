@@ -303,6 +303,8 @@ export function ManagePeopleModal({
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<TeamRole>('member')
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
+  const [lastInviteResult, setLastInviteResult] = useState<{ status: string; inviteUrl?: string; email?: string } | null>(null)
+  const [copiedNewLink, setCopiedNewLink] = useState(false)
 
   // Only fetch when we have a valid teamId
   const hasValidTeam = teamId > 0
@@ -327,14 +329,29 @@ export function ManagePeopleModal({
 
   const handleInvite = () => {
     if (!inviteEmail.trim() || !hasValidTeam) return
+    setLastInviteResult(null)
     inviteMutation.mutate(
       { teamId, email: inviteEmail.trim(), role: inviteRole },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          const email = inviteEmail.trim()
           setInviteEmail('')
+          if (data.status === 'invited' && data.invitation) {
+            setLastInviteResult({ status: 'invited', inviteUrl: data.invitation.inviteUrl, email })
+          } else {
+            setLastInviteResult({ status: 'added', email })
+          }
         },
       }
     )
+  }
+
+  const handleCopyNewInviteLink = () => {
+    if (!lastInviteResult?.inviteUrl) return
+    const fullUrl = `${window.location.origin}${lastInviteResult.inviteUrl}`
+    navigator.clipboard.writeText(fullUrl)
+    setCopiedNewLink(true)
+    setTimeout(() => setCopiedNewLink(false), 2000)
   }
 
   const handleRemove = (userId: number) => {
@@ -427,6 +444,28 @@ export function ManagePeopleModal({
               If they already have an account, they'll be added immediately. Otherwise,
               you'll get a link to share with them.
             </p>
+            {lastInviteResult && (
+              <div className="p-3 rounded-md bg-muted text-sm">
+                {lastInviteResult.status === 'added' ? (
+                  <p className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    Member added to the team.
+                  </p>
+                ) : lastInviteResult.inviteUrl ? (
+                  <div className="space-y-2">
+                    <p>Invitation created for <span className="font-medium">{lastInviteResult.email}</span>. Share this link:</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-background p-2 rounded border truncate">
+                        {`${window.location.origin}${lastInviteResult.inviteUrl}`}
+                      </code>
+                      <Button variant="outline" size="sm" onClick={handleCopyNewInviteLink}>
+                        {copiedNewLink ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
           {/* Pending Invitations */}

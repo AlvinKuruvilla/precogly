@@ -44,8 +44,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { UserPlus, Trash2, Plus, Pencil, Loader2 } from 'lucide-react'
-import type { TeamListItem, TeamRole } from '@/types/organization'
+import { UserPlus, Trash2, Plus, Pencil, Loader2, Copy, Check } from 'lucide-react'
+import type { TeamListItem, TeamRole, InviteMemberResponse } from '@/types/organization'
 
 export function TeamManagement() {
   const { currentOrganization, isLoading: workspaceLoading, isSecurityTeam } = useWorkspace()
@@ -319,6 +319,8 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
 
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<TeamRole>('member')
+  const [inviteResult, setInviteResult] = useState<InviteMemberResponse | null>(null)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const roleColors: Record<string, string> = {
     lead: 'bg-purple-100 text-purple-800',
@@ -328,15 +330,25 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
 
   const handleInvite = () => {
     if (!inviteEmail) return
+    setInviteResult(null)
     inviteMember(
       { teamId: team.id, email: inviteEmail, role: inviteRole },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           setInviteEmail('')
           setInviteRole('member')
+          setInviteResult(data)
         },
       }
     )
+  }
+
+  const handleCopyInviteLink = () => {
+    if (!inviteResult?.invitation?.inviteUrl) return
+    const fullUrl = `${window.location.origin}${inviteResult.invitation.inviteUrl}`
+    navigator.clipboard.writeText(fullUrl)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
   }
 
   const handleRemove = (userId: number) => {
@@ -391,6 +403,28 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
             <p className="text-xs text-muted-foreground">
               If the user doesn't have an account, they'll receive an invite link.
             </p>
+            {inviteResult && (
+              <div className="p-3 rounded-md bg-muted text-sm">
+                {inviteResult.status === 'added' ? (
+                  <p className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    Member added to the team.
+                  </p>
+                ) : inviteResult.invitation ? (
+                  <div className="space-y-2">
+                    <p>Invitation created for <span className="font-medium">{inviteResult.invitation.email}</span>. Share this link with them:</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-background p-2 rounded border truncate">
+                        {`${window.location.origin}${inviteResult.invitation.inviteUrl}`}
+                      </code>
+                      <Button variant="outline" size="sm" onClick={handleCopyInviteLink}>
+                        {copiedLink ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
           {/* Members list */}
