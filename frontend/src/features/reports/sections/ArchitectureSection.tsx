@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ReadOnlyDFDViewer } from '@/components/shared/ReadOnlyDFDViewer'
-import type { ReportArchitecture } from '@/types/report'
+import type { ReportArchitecture } from '@/features/reports/types/report'
 import { ReportSection } from '../ReportSection'
 
 interface ArchitectureSectionProps {

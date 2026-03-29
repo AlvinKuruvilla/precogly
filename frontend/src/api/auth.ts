@@ -3,9 +3,7 @@
  */
 
 import { useMutation } from '@tanstack/react-query'
-import { ApiError } from '@/lib/api'
-
-const API_BASE = '/api'
+import { ApiError, API_BASE } from '@/lib/api'
 
 interface ChangePasswordInput {
   oldPassword: string

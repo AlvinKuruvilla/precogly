@@ -1,0 +1,105 @@
+import {
+  Package,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { PackContents } from './PackContents'
+
+const packTypeColors: Record<string, string> = {
+  technology: 'bg-blue-100 text-blue-800',
+  threat: 'bg-red-100 text-red-800',
+  countermeasure: 'bg-green-100 text-green-800',
+  compliance: 'bg-purple-100 text-purple-800',
+  template: 'bg-yellow-100 text-yellow-800',
+  full: 'bg-gray-100 text-gray-800',
+  taxonomy: 'bg-teal-100 text-teal-800',
+}
+
+export function ImportedPackRow({
+  pack,
+  isExpanded,
+  onToggleExpand,
+  onUnimport,
+  isUnimporting,
+  isSecurityTeam,
+}: {
+  pack: {
+    id: number
+    slug: string
+    name: string
+    version: string
+    packType: string
+    description: string
+  }
+  isExpanded: boolean
+  onToggleExpand: () => void
+  onUnimport: () => void
+  isUnimporting: boolean
+  isSecurityTeam: boolean
+}) {
+  const handleUnimportClick = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent row expansion
+    onUnimport()
+  }
+
+  return (
+    <div className="border rounded-lg">
+      {/* Header Row */}
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={onToggleExpand}
+      >
+        <div className="flex items-center gap-3">
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+          <div className="p-2 bg-muted rounded-lg">
+            <Package className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="font-semibold">{pack.name}</h3>
+            <p className="text-sm text-muted-foreground">v{pack.version}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge
+            variant="secondary"
+            className={packTypeColors[pack.packType] || 'bg-gray-100'}
+          >
+            {pack.packType}
+          </Badge>
+          {isSecurityTeam && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleUnimportClick}
+              disabled={isUnimporting}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Unimport this pack"
+            >
+              {isUnimporting ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Trash2 className="h-3 w-3 mr-1" />
+              )}
+              Unimport
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="border-t px-4 py-3 bg-muted/30">
+          <PackContents packId={pack.id} packName={pack.name} />
+        </div>
+      )}
+    </div>
+  )
+}

@@ -4,26 +4,24 @@ import {
   ReactFlow,
   Background,
   Controls,
-  Panel,
   ReactFlowProvider,
   ConnectionMode,
   useReactFlow,
   useViewport,
   type Connection,
-  type XYPosition,
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DeleteDFDDialog } from '@/components/threat-models'
+import { DeleteDFDDialog } from '@/features/threat-models/components'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useThreatModel, useDeleteDFD } from '@/api/threat-models'
+import { useThreatModel, useDeleteDFD } from '@/features/threat-models/api/threat-models'
 // DFD Editor internal imports
 import { nodeTypes, edgeTypes } from './components'
 import { DiagramToolbar } from './components/DiagramToolbar'
@@ -31,9 +29,12 @@ import { NodeEditPanel } from './components/panels/NodeEditPanel'
 import { EdgeEditPanel } from './components/panels/EdgeEditPanel'
 import { TrustBoundaryEdgeEditPanel } from './components/panels/TrustBoundaryEdgeEditPanel'
 import { TemplateBrowser } from './components/TemplateBrowser'
+import { CanvasOverlays } from './components/CanvasOverlays'
 import { useDiagramState } from './hooks/useDiagramState'
 import { useParentRelationships } from './hooks/useParentRelationships'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useConnectionMode } from './hooks/useConnectionMode'
+import { useBoundaryMode } from './hooks/useBoundaryMode'
 import type { DiagramNode, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
 
 function DFDEditorContent() {
@@ -42,17 +43,6 @@ function DFDEditorContent() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
 
   // State for UI
-  const [connectionMode, setConnectionMode] = useState(false)
-  const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null)
-  const [boundaryMode, setBoundaryMode] = useState(false)
-  const [boundarySourceId, setBoundarySourceId] = useState<string | null>(null)
-  // Refs for boundary mode — avoids stale closure issues in handleNodeClick
-  // when React Flow fires onPaneClick alongside onNodeClick for container nodes
-  const boundaryModeRef = useRef(false)
-  const boundarySourceIdRef = useRef<string | null>(null)
-  useEffect(() => { boundaryModeRef.current = boundaryMode }, [boundaryMode])
-  useEffect(() => { boundarySourceIdRef.current = boundarySourceId }, [boundarySourceId])
-  const [mousePosition, setMousePosition] = useState<XYPosition | null>(null)
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -79,7 +69,6 @@ function DFDEditorContent() {
     onEdgesChange,
     saveNow,
     updateTitle,
-    // Undo feature - remove this line to disable undo functionality
     undo,
     hasUnsavedChanges,
     lastSaved,
@@ -99,20 +88,28 @@ function DFDEditorContent() {
   // Parent relationship detection
   const { updateParentRelationships } = useParentRelationships()
 
-  // Clear connection source when connection mode is turned off
-  useEffect(() => {
-    if (!connectionMode) {
-      setConnectionSourceId(null)
-      setMousePosition(null)
-    }
-  }, [connectionMode])
+  // Connection mode hook
+  const {
+    connectionMode,
+    setConnectionMode,
+    connectionSourceId,
+    connectionSourcePosition,
+    mousePosition,
+    getAbsolutePosition,
+    handleNodeClickForConnection,
+    handleMouseMove,
+    handlePaneClickForConnection,
+  } = useConnectionMode({ nodes, edges, setEdges, screenToFlowPosition })
 
-  // Clear boundary source when boundary mode is turned off
-  useEffect(() => {
-    if (!boundaryMode) {
-      setBoundarySourceId(null)
-    }
-  }, [boundaryMode])
+  // Boundary mode hook
+  const {
+    boundaryMode,
+    setBoundaryMode,
+    boundarySourceId,
+    boundarySourceZoneInfo,
+    handleNodeClickForBoundary,
+    cancelBoundaryMode,
+  } = useBoundaryMode({ nodes, setEdges, getEdges: getEdges as () => DiagramEdge[], getAbsolutePosition })
 
   // Mutual exclusion handlers for connection and boundary modes
   const handleConnectionModeChange = useCallback(
@@ -120,217 +117,38 @@ function DFDEditorContent() {
       if (enabled) setBoundaryMode(false)
       setConnectionMode(enabled)
     },
-    []
+    [setBoundaryMode, setConnectionMode]
   )
 
   const handleBoundaryModeChange = useCallback(
     (enabled: boolean) => {
-      if (enabled) {
-        // Need at least 2 trust zones to create a boundary
-        const trustZoneCount = nodes.filter((n) => n.type === 'trustZone').length
-        if (trustZoneCount < 2) return
-        setConnectionMode(false)
-      }
+      if (enabled) setConnectionMode(false)
       setBoundaryMode(enabled)
     },
-    [nodes]
+    [setConnectionMode, setBoundaryMode]
   )
 
-  // Calculate absolute position of a node (accounting for parent offsets)
-  const getAbsolutePosition = useCallback(
-    (nodeId: string): XYPosition | null => {
-      const node = nodes.find((n) => n.id === nodeId)
-      if (!node) return null
-
-      let x = node.position.x
-      let y = node.position.y
-
-      // Traverse up the parent chain to accumulate offsets
-      let currentNode = node
-      while (currentNode.parentId) {
-        const parent = nodes.find((n) => n.id === currentNode.parentId)
-        if (!parent) break
-        x += parent.position.x
-        y += parent.position.y
-        currentNode = parent as DiagramNode
-      }
-
-      return { x, y }
-    },
-    [nodes]
-  )
-
-  // Smart handle selection based on absolute node positions
-  // Also considers existing edges to avoid overlapping reverse connections
-  const getSmartHandles = useCallback(
-    (sourceId: string, targetId: string): { sourceHandle: string; targetHandle: string } => {
-      const sourcePos = getAbsolutePosition(sourceId)
-      const targetPos = getAbsolutePosition(targetId)
-
-      if (!sourcePos || !targetPos) {
-        return { sourceHandle: 'right-source', targetHandle: 'left-target' }
-      }
-
-      const dx = targetPos.x - sourcePos.x
-      const dy = targetPos.y - sourcePos.y
-
-      // Check if an edge already exists between these nodes (in either direction)
-      const existingEdge = edges.find(
-        (e) =>
-          (e.source === sourceId && e.target === targetId) ||
-          (e.source === targetId && e.target === sourceId)
-      )
-
-      // Determine primary and secondary axis based on relative positions
-      const primaryIsHorizontal = Math.abs(dx) > Math.abs(dy)
-
-      // If no existing edge, use primary axis (most direct route)
-      if (!existingEdge) {
-        if (primaryIsHorizontal) {
-          // Horizontal: target is to the right or left
-          if (dx > 0) {
-            return { sourceHandle: 'right-source', targetHandle: 'left-target' }
-          } else {
-            return { sourceHandle: 'left-source', targetHandle: 'right-target' }
-          }
-        } else {
-          // Vertical: target is below or above
-          if (dy > 0) {
-            return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
-          } else {
-            return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
-          }
-        }
-      }
-
-      // An edge already exists - use secondary axis (perpendicular) to avoid overlap
-      if (primaryIsHorizontal) {
-        // Primary was horizontal, so use vertical for the new edge
-        if (dy >= 0) {
-          return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
-        } else {
-          return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
-        }
-      } else {
-        // Primary was vertical, so use horizontal for the new edge
-        if (dx >= 0) {
-          return { sourceHandle: 'right-source', targetHandle: 'left-target' }
-        } else {
-          return { sourceHandle: 'left-source', targetHandle: 'right-target' }
-        }
-      }
-    },
-    [getAbsolutePosition, edges]
-  )
-
-  // Get the source node's absolute position for visual feedback
-  const connectionSourcePosition = connectionSourceId
-    ? getAbsolutePosition(connectionSourceId)
-    : null
-
-  // Handle node click - supports selection, click-to-connect, and boundary mode
+  // Handle node click - delegates to mode hooks then falls through to selection
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
-      // In boundary mode, handle trust zone boundary creation
-      // Use refs to avoid stale closure issues with React Flow event ordering
-      if (boundaryModeRef.current) {
-        // Only trust zone nodes are valid targets in boundary mode
-        if (node.type !== 'trustZone') return
-
-        const currentBoundarySourceId = boundarySourceIdRef.current
-
-        if (!currentBoundarySourceId) {
-          // First click: set as source
-          setBoundarySourceId(node.id)
-        } else if (currentBoundarySourceId === node.id) {
-          // Clicked same zone: ignore
-          return
-        } else {
-          // Check for duplicate A->B boundary using getEdges for latest data
-          const currentEdges = getEdges()
-          const existingBoundary = currentEdges.find(
-            (e) =>
-              e.type === 'trustBoundary' &&
-              ((e.source === currentBoundarySourceId && e.target === node.id) ||
-                (e.source === node.id && e.target === currentBoundarySourceId))
-          )
-
-          if (existingBoundary) {
-            // Select existing boundary instead of creating duplicate
-            setSelectedEdge(existingBoundary as DiagramEdge)
-            setSelectedNode(null)
-            setBoundaryMode(false)
-            return
-          }
-
-          // Second click: create trust boundary edge
-          // Trust zone handles don't have explicit IDs (unlike process/datastore nodes),
-          // so we omit sourceHandle/targetHandle and let React Flow auto-connect
-          const newBoundaryEdge: TrustBoundaryEdge = {
-            id: `boundary-${Date.now()}`,
-            source: currentBoundarySourceId,
-            target: node.id,
-            type: 'trustBoundary',
-            data: {
-              label: '',
-            },
-          }
-
-          setEdges((eds) => [...eds, newBoundaryEdge])
-
-          // Auto-select the new boundary edge
-          setSelectedEdge(newBoundaryEdge)
+      // Try boundary mode first
+      const boundaryResult = handleNodeClickForBoundary(node)
+      if (boundaryResult.consumed) {
+        if (boundaryResult.selectedEdge) {
+          setSelectedEdge(boundaryResult.selectedEdge)
           setSelectedNode(null)
-          setBoundaryMode(false)
         }
         return
       }
 
-      // In connection mode, handle click-to-connect
-      if (connectionMode) {
-        // Only allow connecting process, datastore, humanActor, and systemActor nodes
-        const connectableTypes = ['process', 'datastore', 'humanActor', 'systemActor']
-        if (!connectableTypes.includes(node.type || '')) {
-          return
-        }
-
-        if (!connectionSourceId) {
-          // First click: set as source
-          setConnectionSourceId(node.id)
-        } else if (connectionSourceId === node.id) {
-          // Clicked same node: deselect
-          setConnectionSourceId(null)
-        } else {
-          // Second click on different node: create edge
-          const { sourceHandle, targetHandle } = getSmartHandles(connectionSourceId, node.id)
-
-          const newEdge: DataFlowEdge = {
-            id: `edge-${Date.now()}`,
-            source: connectionSourceId,
-            target: node.id,
-            sourceHandle,
-            targetHandle,
-            type: 'dataFlow',
-            animated: true,
-            data: {
-              label: '',
-              encrypted: false,
-              authenticated: false,
-            },
-          }
-
-          setEdges((eds) => addEdge(newEdge, eds) as DiagramEdge[])
-          // Clear source but stay in connection mode for chaining
-          setConnectionSourceId(null)
-        }
-        return
-      }
+      // Try connection mode
+      if (handleNodeClickForConnection(node)) return
 
       // Normal mode: select node for editing
       setSelectedNode(node)
       setSelectedEdge(null)
     },
-    [connectionMode, connectionSourceId, getEdges, getSmartHandles, setEdges]
+    [handleNodeClickForBoundary, handleNodeClickForConnection]
   )
 
   // Handle edge selection
@@ -346,35 +164,12 @@ function DFDEditorContent() {
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null)
     setSelectedEdge(null)
-    // In connection mode, clicking empty space clears source selection
-    if (connectionMode) {
-      setConnectionSourceId(null)
-    }
+    handlePaneClickForConnection()
     // Boundary source is NOT cleared here — React Flow fires onPaneClick
-    // alongside onNodeClick for container nodes (trust zones), so clearing
-    // here would race with handleNodeClick. Boundary state is managed by
-    // handleNodeClick (sets source), Escape key (cancels mode), and the
-    // cleanup effect (clears source when mode is deactivated).
-  }, [connectionMode])
-
-  // Track mouse position for connection line overlay
-  const handleMouseMove = useCallback(
-    (event: React.MouseEvent) => {
-      if (connectionMode && connectionSourceId) {
-        const position = screenToFlowPosition({
-          x: event.clientX,
-          y: event.clientY,
-        })
-        setMousePosition(position)
-      }
-    },
-    [connectionMode, connectionSourceId, screenToFlowPosition]
-  )
+    // alongside onNodeClick for container nodes (trust zones)
+  }, [handlePaneClickForConnection])
 
   // Handle node drag end - update parent relationships
-  // Use requestAnimationFrame to ensure React Flow has fully processed all
-  // internal state updates (position changes, dimension measurements) before
-  // we modify parentId and transform coordinates.
   const handleNodeDragStop = useCallback(
     () => {
       requestAnimationFrame(() => {
@@ -426,7 +221,6 @@ function DFDEditorContent() {
       })
 
       // Offset only root nodes to avoid overlap
-      // Child nodes keep their relative positions (relative to parent)
       const offset = { x: 100, y: 100 }
 
       const newNodes: DiagramNode[] = templateNodes.map((node) => {
@@ -435,7 +229,7 @@ function DFDEditorContent() {
           ...node,
           id: idMap.get(node.id)!,
           position: hasParent
-            ? node.position // Keep relative position for children
+            ? node.position
             : {
                 x: node.position.x + offset.x,
                 y: node.position.y + offset.y,
@@ -472,15 +266,13 @@ function DFDEditorContent() {
     setSelectedNode(null)
     setSelectedEdge(null)
     if (boundaryMode) {
-      setBoundarySourceId(null)
-      setBoundaryMode(false)
+      cancelBoundaryMode()
     }
-  }, [boundaryMode])
+  }, [boundaryMode, cancelBoundaryMode])
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSave: saveNow,
-    // Undo feature - remove this line to disable undo functionality
     onUndo: undo,
     onDeselect: handleDeselect,
     enabled: true,
@@ -659,7 +451,6 @@ function DFDEditorContent() {
         onBoundaryModeChange={handleBoundaryModeChange}
         onOpenTemplates={() => setShowTemplates(true)}
         onOpenThreatAnalysis={async () => {
-          // Save any unsaved changes before navigating so Threat Analysis sees latest data
           if (hasUnsavedChanges) {
             await saveNow()
           }
@@ -692,166 +483,22 @@ function DFDEditorContent() {
             snapGrid={[15, 15]}
             minZoom={0.1}
             maxZoom={4}
-            deleteKeyCode={null} // We handle delete in useKeyboardShortcuts
+            deleteKeyCode={null}
           >
-            {/* SVG Definitions for edge markers */}
-            <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-              <defs>
-                <marker
-                  id="arrow"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
-                </marker>
-                <marker
-                  id="arrow-selected"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
-                </marker>
-              </defs>
-            </svg>
-
+            <CanvasOverlays
+              viewportX={viewportX}
+              viewportY={viewportY}
+              zoom={zoom}
+              connectionMode={connectionMode}
+              connectionSourceId={connectionSourceId}
+              connectionSourcePosition={connectionSourcePosition}
+              mousePosition={mousePosition}
+              boundaryMode={boundaryMode}
+              boundarySourceId={boundarySourceId}
+              boundarySourceZoneInfo={boundarySourceZoneInfo}
+            />
             <Background gap={15} size={1} />
             <Controls />
-
-            {/* Connection mode indicator */}
-            {connectionMode && (
-              <Panel position="top-center">
-                <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                  {connectionSourceId
-                    ? 'Click another node to connect, or click empty space to cancel'
-                    : 'Click a node to start connecting'}
-                </div>
-              </Panel>
-            )}
-
-            {/* Connection line overlay - dashed line from source to cursor */}
-            {connectionMode && connectionSourcePosition && mousePosition && (
-              <svg
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  zIndex: 1000,
-                  overflow: 'visible',
-                }}
-              >
-                <g transform={`translate(${viewportX}, ${viewportY}) scale(${zoom})`}>
-                  <line
-                    x1={connectionSourcePosition.x + 75}
-                    y1={connectionSourcePosition.y + 40}
-                    x2={mousePosition.x}
-                    y2={mousePosition.y}
-                    stroke="#3b82f6"
-                    strokeWidth={2 / zoom}
-                    strokeDasharray={`${8 / zoom} ${4 / zoom}`}
-                    opacity="0.7"
-                  />
-                  <circle
-                    cx={mousePosition.x}
-                    cy={mousePosition.y}
-                    r={6 / zoom}
-                    fill="#3b82f6"
-                    opacity="0.7"
-                  />
-                </g>
-              </svg>
-            )}
-
-            {/* Boundary mode indicator */}
-            {boundaryMode && (
-              <Panel position="top-center">
-                <div className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                  {boundarySourceId
-                    ? 'Click another trust zone to create boundary'
-                    : 'Click a trust zone to start'}
-                </div>
-              </Panel>
-            )}
-
-            {/* Boundary source zone highlight overlay */}
-            {boundaryMode && boundarySourceId && (() => {
-              const sourceZone = nodes.find((n) => n.id === boundarySourceId)
-              if (!sourceZone) return null
-              const sourceZonePos = getAbsolutePosition(boundarySourceId)
-              if (!sourceZonePos) return null
-              const zoneWidth = (sourceZone.style?.width as number) || 300
-              const zoneHeight = (sourceZone.style?.height as number) || 200
-              return (
-                <svg
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    pointerEvents: 'none',
-                    zIndex: 999,
-                    overflow: 'visible',
-                  }}
-                >
-                  <g transform={`translate(${viewportX}, ${viewportY}) scale(${zoom})`}>
-                    <rect
-                      x={sourceZonePos.x - 4}
-                      y={sourceZonePos.y - 4}
-                      width={zoneWidth + 8}
-                      height={zoneHeight + 8}
-                      rx="12"
-                      fill="none"
-                      stroke="#f97316"
-                      strokeWidth={3 / zoom}
-                      opacity="0.8"
-                      style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
-                    />
-                  </g>
-                </svg>
-              )
-            })()}
-
-            {/* Source node highlight overlay */}
-            {connectionMode && connectionSourcePosition && (
-              <svg
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  zIndex: 999,
-                  overflow: 'visible',
-                }}
-              >
-                <g transform={`translate(${viewportX}, ${viewportY}) scale(${zoom})`}>
-                  <rect
-                    x={connectionSourcePosition.x - 4}
-                    y={connectionSourcePosition.y - 4}
-                    width="158"
-                    height="88"
-                    rx="12"
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth={3 / zoom}
-                    opacity="0.8"
-                    style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
-                  />
-                </g>
-              </svg>
-            )}
           </ReactFlow>
         </div>
 

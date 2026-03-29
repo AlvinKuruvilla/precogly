@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { ReportDismissedThreat } from '@/types/report'
+import type { ReportDismissedThreat } from '@/features/reports/types/report'
 import { ReportSection } from '../ReportSection'
 
 interface DismissedThreatsSectionProps {

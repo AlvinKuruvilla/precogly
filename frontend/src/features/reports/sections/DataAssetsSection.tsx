@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { ReportDataAsset } from '@/types/report'
+import type { ReportDataAsset } from '@/features/reports/types/report'
 import type { SectionDepth } from '../reportConfig'
 import { ReportSection } from '../ReportSection'
 

@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { ReportCompliance } from '@/types/report'
+import type { ReportCompliance } from '@/features/reports/types/report'
 import type { SectionDepth } from '../reportConfig'
 import { ReportSection } from '../ReportSection'
 

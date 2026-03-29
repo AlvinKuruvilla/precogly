@@ -29,7 +29,7 @@ import {
   useCreateFlowInstanceMapping,
   useUpdateInstanceMapping,
   useDeleteInstanceMapping,
-} from '@/api/compliance'
+} from '@/features/compliance/api/compliance'
 import type { ComplianceStandardMapping } from '../../types/threat-analysis'
 
 interface EditComplianceMappingsDialogProps {

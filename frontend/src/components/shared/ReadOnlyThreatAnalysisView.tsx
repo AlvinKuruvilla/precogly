@@ -30,7 +30,7 @@ import { type TaxonomyEntry } from '@/types/domain'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import type { ComponentThreat, ComponentThreatCountermeasure } from '@/features/dfd-editor/types/threat-analysis'
 import type { DiagramNode } from '@/features/dfd-editor/types'
-import type { ThreatAnalysisData, SharedThreat } from '@/types/organization'
+import type { ThreatAnalysisData, SharedThreat } from '@/features/organization/types/organization'
 import type { DataFlowEdge } from '@/features/dfd-editor/types'
 
 export interface DiagramData {

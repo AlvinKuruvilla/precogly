@@ -15,7 +15,7 @@ import {
   useZoneProtections,
   useApplyZoneProtections,
   type ZoneProtectionSuggestion,
-} from '@/api/threats'
+} from '@/features/threat-models/api/threats'
 
 interface ReviewZoneProtectionsDialogProps {
   open: boolean

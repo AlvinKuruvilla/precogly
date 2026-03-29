@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card'
-import type { ReportThreatAnalysis } from '@/types/report'
+import type { ReportThreatAnalysis } from '@/features/reports/types/report'
 import { ReportSection } from '../ReportSection'
 
 interface StrideSummaryProps {

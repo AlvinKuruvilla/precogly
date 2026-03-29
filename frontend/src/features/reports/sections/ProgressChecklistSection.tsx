@@ -1,5 +1,5 @@
 import { CheckCircle2, Circle } from 'lucide-react'
-import type { ReportProgressItem } from '@/types/report'
+import type { ReportProgressItem } from '@/features/reports/types/report'
 import { ReportSection } from '../ReportSection'
 
 interface ProgressChecklistSectionProps {

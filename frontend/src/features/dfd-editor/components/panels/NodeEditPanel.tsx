@@ -18,14 +18,14 @@ import {
 } from '@/components/ui/select'
 import { TechnologyCombobox } from '../technology-combobox'
 import { SuggestionCombobox } from '../suggestion-combobox'
-import { useThreatModelSystems, useUpdateComponentSystem } from '@/api/threat-models'
-import { useDataAssets } from '@/api/data-assets'
+import { useThreatModelSystems, useUpdateComponentSystem } from '@/features/threat-models/api/threat-models'
+import { useDataAssets } from '@/features/threat-models/api/data-assets'
 import {
   useComponentDataAssets,
   useCreateComponentDataAsset,
   useUpdateComponentDataAsset,
   useDeleteComponentDataAsset,
-} from '@/api/component-data-assets'
+} from '@/features/threat-models/api/component-data-assets'
 import type {
   DiagramNode,
   DiagramNodeType,

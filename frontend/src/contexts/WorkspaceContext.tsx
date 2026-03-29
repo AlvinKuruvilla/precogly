@@ -12,8 +12,8 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
-import { useOrganizations, useTeams } from '@/api/organizations'
-import type { Organization, TeamListItem } from '@/types/organization'
+import { useOrganizations, useTeams } from '@/features/organization/api/organizations'
+import type { Organization, TeamListItem } from '@/features/organization/types/organization'
 
 interface WorkspaceContextType {
   // Organizations

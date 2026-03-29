@@ -1,4 +1,4 @@
-import type { ReportType } from '@/types/report'
+import type { ReportType } from '@/features/reports/types/report'
 
 export type SectionDepth = 'full' | 'summary' | 'flagged' | 'top3' | 'count' | 'critical' | 'compliance'
 

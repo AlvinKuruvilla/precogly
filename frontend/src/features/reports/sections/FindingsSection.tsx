@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
-import type { ReportData } from '@/types/report'
+import type { ReportData } from '@/features/reports/types/report'
 import type { SectionDepth } from '../reportConfig'
 import { ReportSection } from '../ReportSection'
 

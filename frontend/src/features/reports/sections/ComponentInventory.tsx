@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { ReportComponent, ReportComponents, ReportDataFlow } from '@/types/report'
+import type { ReportComponent, ReportComponents, ReportDataFlow } from '@/features/reports/types/report'
 import { ReportSection } from '../ReportSection'
 
 interface ComponentInventoryProps {

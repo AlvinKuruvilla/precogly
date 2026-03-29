@@ -16,13 +16,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
-import { useDataAssets } from '@/api/data-assets'
+import { useDataAssets } from '@/features/threat-models/api/data-assets'
 import {
   useDataFlowAssets,
   useCreateDataFlowAsset,
   useUpdateDataFlowAsset,
   useDeleteDataFlowAsset,
-} from '@/api/data-flow-assets'
+} from '@/features/threat-models/api/data-flow-assets'
 import type {
   DataFlowEdge,
   Protocol,

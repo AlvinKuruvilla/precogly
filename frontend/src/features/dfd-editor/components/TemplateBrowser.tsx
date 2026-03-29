@@ -18,8 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useDFDTemplates, fetchResolvedTemplate } from '@/api/libraries'
-import type { DFDTemplate } from '@/types/libraries'
+import { useDFDTemplates, fetchResolvedTemplate } from '@/features/libraries/api/libraries'
+import type { DFDTemplate } from '@/features/libraries/types/libraries'
 import type { DiagramNode, DataFlowEdge } from '../types'
 import { formatCategoryLabel } from '../types'
 

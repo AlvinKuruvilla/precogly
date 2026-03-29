@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import type { ReportData } from '@/types/report'
+import type { ReportData } from '@/features/reports/types/report'
 import { ReportSection } from '../ReportSection'
 
 interface ExecutiveSummaryProps {

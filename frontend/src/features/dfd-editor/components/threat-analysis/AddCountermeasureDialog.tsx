@@ -26,7 +26,7 @@ import {
   useCountermeasureLibrary,
   useCreateComponentCountermeasure,
   useCreateFlowCountermeasure,
-} from '@/api/threats'
+} from '@/features/threat-models/api/threats'
 
 const CONTROL_TYPES = [
   { value: 'preventive', label: 'Preventive' },

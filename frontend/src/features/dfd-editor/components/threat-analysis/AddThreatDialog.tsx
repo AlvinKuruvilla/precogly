@@ -22,7 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { useThreatLibrary, useCreateComponentThreat, useCreateFlowThreat } from '@/api/threats'
+import { useThreatLibrary, useCreateComponentThreat, useCreateFlowThreat } from '@/features/threat-models/api/threats'
 const SEVERITY_OPTIONS = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },

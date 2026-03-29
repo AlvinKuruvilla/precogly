@@ -4,7 +4,7 @@
  * Handles JWT token management and provides typed fetch wrapper.
  */
 
-const API_BASE = '/api'
+export const API_BASE = '/api'
 
 // Token storage keys
 const TOKEN_KEY = 'precogly_access_token'
