@@ -168,6 +168,9 @@ mappings:
 
 ## How to import a library pack
 
+!!! note "Import requires Security Team role"
+    The **Import** button is only visible to users with the **Security Team** organization role. If you don't see the Import button, ask your organization admin to update your role from **Member** to **Security Team** in the organization settings.
+
 1. Navigate to the **Library Packs** section from the sidebar
 2. Browse available packs — you can filter by type, tier, or search by name
 3. Click on a pack to preview its components, threats, and countermeasures
