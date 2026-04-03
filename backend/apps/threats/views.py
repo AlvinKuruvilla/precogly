@@ -10,6 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from rest_framework.exceptions import PermissionDenied
+
 from apps.core.permissions import CanWrite, IsSecurityTeam
 from apps.threat_models.models import ThreatModel
 
@@ -31,6 +33,19 @@ from .models import (
     VerificationTest,
 )
 from .scoring.registry import get_scoring_methods_list
+
+
+def _is_security_team(user):
+    """Check if user has Security Team role in any organization."""
+    return user.organization_memberships.filter(role="security_team").exists()
+
+
+def _check_platform_status_permission(user, current_status=None, new_status=None):
+    """Raise PermissionDenied if non-Security Team user tries to set or remove platform status."""
+    if (new_status == "platform" or current_status == "platform") and not _is_security_team(user):
+        raise PermissionDenied(
+            "Only Security Team members can assign or remove platform status."
+        )
 from .serializers import (
     ComponentInstanceCountermeasureSerializer,
     ComponentInstanceCountermeasureStandardSerializer,
@@ -200,13 +215,19 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Block non-Security Team users from explicitly setting platform status.
+        # Library defaults (default_status=platform) are allowed through.
+        requested_status = request.data.get("status")
+        if requested_status == "platform":
+            _check_platform_status_permission(request.user, new_status="platform")
+
         # Create or get the instance countermeasure
-        default_status = request.data.get("status", countermeasure.default_status)
+        effective_status = requested_status or countermeasure.default_status
         instance_cm, created = ComponentInstanceCountermeasure.objects.get_or_create(
             instance_threat=instance_threat,
             countermeasure_library=countermeasure,
             defaults={
-                "status": default_status,
+                "status": effective_status,
             },
         )
 
@@ -285,12 +306,18 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        default_status = request.data.get("status", countermeasure.default_status)
+        # Block non-Security Team users from explicitly setting platform status.
+        # Library defaults (default_status=platform) are allowed through.
+        requested_status = request.data.get("status")
+        if requested_status == "platform":
+            _check_platform_status_permission(request.user, new_status="platform")
+
+        effective_status = requested_status or countermeasure.default_status
         instance_cm, created = FlowInstanceCountermeasure.objects.get_or_create(
             flow_threat=flow_threat,
             countermeasure_library=countermeasure,
             defaults={
-                "status": default_status,
+                "status": effective_status,
             },
         )
 
@@ -350,6 +377,10 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     ]
 
     def perform_update(self, serializer):
+        new_status = serializer.validated_data.get("status")
+        if new_status is not None:
+            current_status = serializer.instance.status
+            _check_platform_status_permission(self.request.user, current_status, new_status)
         instance = serializer.save()
         recalculate_risks_for_threat(instance.instance_threat, threat_type="component")
 
@@ -383,6 +414,10 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     ]
 
     def perform_update(self, serializer):
+        new_status = serializer.validated_data.get("status")
+        if new_status is not None:
+            current_status = serializer.instance.status
+            _check_platform_status_permission(self.request.user, current_status, new_status)
         instance = serializer.save()
         recalculate_risks_for_threat(instance.flow_threat, threat_type="flow")
 

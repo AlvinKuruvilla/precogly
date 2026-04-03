@@ -197,13 +197,14 @@ countermeasures:
     control_type: preventive
     cost: low
 
-  - id: s3-versioning
-    name: S3 Versioning
+  - id: apigw-waf
+    name: API Gateway WAF Integration
     description: |
-      Enable versioning to protect against accidental or malicious
-      deletions/modifications.
-    control_type: detective
-    cost: low
+      Enable AWS WAF to protect against common web exploits.
+      Block SQL injection, XSS, and known bad actors.
+    control_type: preventive
+    cost: medium
+    default_status: platform
 ```
 
 ### Field Reference
@@ -215,6 +216,7 @@ countermeasures:
 | `description` | yes | What the control does and how it helps. |
 | `control_type` | yes | `preventive`, `detective`, or `corrective` |
 | `cost` | yes | `low`, `medium`, or `high` |
+| `default_status` | no | `gap` (default) or `platform`. Platform countermeasures are treated as infrastructure-level controls managed by the security team. See [Platform Controls](../docs/concepts/platform-controls.md). |
 
 ---
 
@@ -270,7 +272,19 @@ mappings:
       - lambda-input-validation
       - lambda-vpc
       - lambda-code-signing
+
+  - threat: apigw-injection
+    countermeasures:
+      - apigw-waf
+      - apigw-request-validation
+      - lambda-input-validation       # shared with lambda-injection
 ```
+
+#### Cross-component countermeasure sharing
+
+A countermeasure can appear in multiple threat mappings across different components. In the example above, `lambda-input-validation` is assigned to both `lambda-injection` (on the Lambda) and `apigw-injection` (on the API Gateway). This models defense-in-depth: input validation matters at both the edge and the backend.
+
+This pattern is what enables [zone protections](../docs/concepts/zone-protections.md). When the API Gateway (in a DMZ) has `lambda-input-validation` set to platform, and the Lambda (in an inner zone) has it as a gap, Precogly can suggest inheriting the protection. Without the shared countermeasure, no match is found.
 
 ### threats-{taxonomy}.yaml
 
