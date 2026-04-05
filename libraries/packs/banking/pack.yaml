@@ -5,7 +5,7 @@ pack:
   description: "Banking and financial services components and DFD templates"
   version: "2.0.0"
   author: "Precogly Team"
-  pack_type: industry
+  pack_type: technology
   tier: free
   source: official
   industries:
