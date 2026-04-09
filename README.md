@@ -58,7 +58,7 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 ### Contributing
 
 - [Open an issue](https://github.com/precogly/precogly/issues)
-- Contribute a library pack
+- [Contribute a library pack](docs/contributing/creating-library-packs.md)
 - Contribute to the codebase
 
 If you find Precogly useful, give the project a star!
