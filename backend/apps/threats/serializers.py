@@ -191,6 +191,7 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "is_dismissed",
             "dismissal_reason",
             "format_metadata",
+            "display_order",
             "created_at",
             "updated_at",
         ]
@@ -257,6 +258,7 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "is_dismissed",
             "dismissal_reason",
             "format_metadata",
+            "display_order",
             "created_at",
             "updated_at",
         ]
@@ -334,6 +336,7 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "assigned_owner",
             "assigned_owner_email",
             "format_metadata",
+            "display_order",
             "is_inherited",
             "inherited_from_component_name",
             "inherited_from_zone_name",
@@ -406,6 +409,7 @@ class FlowInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "assigned_owner",
             "assigned_owner_email",
             "format_metadata",
+            "display_order",
             "is_inherited",
             "inherited_from_component_name",
             "inherited_from_zone_name",

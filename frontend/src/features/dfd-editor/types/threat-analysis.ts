@@ -115,6 +115,8 @@ export interface ComponentThreatCountermeasure {
   standardMappings?: ComplianceStandardMapping[]
   // Priority level
   priority?: 'none' | 'low' | 'medium' | 'high' | 'critical'
+  // Display order for drag-and-drop reordering
+  displayOrder?: number
   // Zone inheritance tracking
   isInherited?: boolean
   inheritedFromComponentName?: string
@@ -155,6 +157,8 @@ export interface ComponentThreat {
   // Severity scoring metadata
   inherentSeverity?: string
   severityScoringMetadata?: Record<string, unknown>
+  // Display order for drag-and-drop reordering
+  displayOrder?: number
   // Backend IDs for API operations
   backendThreatId?: number
   backendComponentId?: number

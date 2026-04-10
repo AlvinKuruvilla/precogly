@@ -333,6 +333,7 @@ class ComponentInstanceThreat(TimestampedModel):
     )
 
     format_metadata = models.JSONField(default=dict, blank=True)
+    display_order = models.PositiveIntegerField(default=0)
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     threat_name = models.CharField(
@@ -352,7 +353,7 @@ class ComponentInstanceThreat(TimestampedModel):
 
     class Meta:
         unique_together = ["component", "threat_library"]
-        ordering = ["component", "threat_library"]
+        ordering = ["component", "display_order", "created_at"]
 
     def __str__(self):
         return f"{self.component} - {self.threat_library}"
@@ -410,6 +411,7 @@ class DataFlowInstanceThreat(TimestampedModel):
     )
 
     format_metadata = models.JSONField(default=dict, blank=True)
+    display_order = models.PositiveIntegerField(default=0)
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     threat_name = models.CharField(
@@ -429,6 +431,7 @@ class DataFlowInstanceThreat(TimestampedModel):
 
     class Meta:
         unique_together = ["data_flow", "threat_library"]
+        ordering = ["data_flow", "display_order", "created_at"]
 
     def __str__(self):
         return f"{self.data_flow} - {self.threat_library}"
@@ -498,6 +501,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
     format_metadata = models.JSONField(default=dict, blank=True)
+    display_order = models.PositiveIntegerField(default=0)
 
     # Zone inheritance tracking
     is_inherited = models.BooleanField(default=False)
@@ -506,6 +510,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
 
     class Meta:
         unique_together = ["instance_threat", "countermeasure_library"]
+        ordering = ["instance_threat", "display_order", "created_at"]
 
     def __str__(self):
         return f"{self.instance_threat} - {self.countermeasure_library}"
@@ -575,6 +580,7 @@ class FlowInstanceCountermeasure(TimestampedModel):
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
     format_metadata = models.JSONField(default=dict, blank=True)
+    display_order = models.PositiveIntegerField(default=0)
 
     # Zone inheritance tracking
     is_inherited = models.BooleanField(default=False)
@@ -583,6 +589,7 @@ class FlowInstanceCountermeasure(TimestampedModel):
 
     class Meta:
         unique_together = ["flow_threat", "countermeasure_library"]
+        ordering = ["flow_threat", "display_order", "created_at"]
 
     def __str__(self):
         return f"{self.flow_threat} - {self.countermeasure_library}"

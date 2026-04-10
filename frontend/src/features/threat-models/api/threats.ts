@@ -614,6 +614,7 @@ export interface BackendThreat {
   severityScoringMetadata: Record<string, unknown>
   isDismissed: boolean
   dismissalReason: string
+  displayOrder?: number
   countermeasures: BackendCountermeasure[]
 }
 
@@ -643,6 +644,7 @@ export interface BackendCountermeasure {
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
   standardMappings: BackendStandardMapping[]
+  displayOrder?: number
   isInherited?: boolean
   inheritedFromComponentName?: string | null
   inheritedFromZoneName?: string | null
@@ -676,6 +678,7 @@ export function transformBackendThreatsToComponentThreats(
       countermeasureName: cm.countermeasureName || undefined,
       controlType: cm.controlType || undefined,
       standardMappings: cm.standardMappings || [],
+      displayOrder: cm.displayOrder ?? 0,
       isInherited: cm.isInherited || false,
       inheritedFromComponentName: cm.inheritedFromComponentName || undefined,
       inheritedFromZoneName: cm.inheritedFromZoneName || undefined,
@@ -703,6 +706,8 @@ export function transformBackendThreatsToComponentThreats(
       // Severity scoring metadata
       inherentSeverity: bt.inherentSeverity,
       severityScoringMetadata: bt.severityScoringMetadata,
+      // Display order for drag-and-drop reordering
+      displayOrder: bt.displayOrder ?? 0,
       // Backend IDs for API operations
       backendThreatId: bt.id,
       backendComponentId: bt.componentId,
@@ -767,6 +772,88 @@ export function useZoneProtections(threatModelId: string | null | undefined, ena
           `/threat-models/${threatModelId}/zone_protections/`
         )
       : skipToken,
+  })
+}
+
+/**
+ * Parse a threat ID string to determine type and numeric ID.
+ *
+ * ID formats:
+ * - "backend-123" -> component threat with ID 123
+ * - "backend-flow-456" -> flow threat with ID 456
+ */
+export function parseThreatId(idString: string): {
+  type: 'component' | 'flow' | 'unknown'
+  id: number | null
+} {
+  if (idString.startsWith('backend-flow-')) {
+    const numId = parseInt(idString.slice('backend-flow-'.length), 10)
+    return { type: 'flow', id: isNaN(numId) ? null : numId }
+  }
+  if (idString.startsWith('backend-')) {
+    const numId = parseInt(idString.slice('backend-'.length), 10)
+    return { type: 'component', id: isNaN(numId) ? null : numId }
+  }
+  return { type: 'unknown', id: null }
+}
+
+/**
+ * Reorder component threats.
+ */
+export function useReorderComponentThreats() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orderedIds: number[]) =>
+      api.post('/component-threats/reorder/', { orderedIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Reorder flow threats.
+ */
+export function useReorderFlowThreats() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orderedIds: number[]) =>
+      api.post('/flow-threats/reorder/', { orderedIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Reorder component countermeasures.
+ */
+export function useReorderComponentCountermeasures() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orderedIds: number[]) =>
+      api.post('/component-countermeasures/reorder/', { orderedIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Reorder flow countermeasures.
+ */
+export function useReorderFlowCountermeasures() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orderedIds: number[]) =>
+      api.post('/flow-countermeasures/reorder/', { orderedIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
   })
 }
 

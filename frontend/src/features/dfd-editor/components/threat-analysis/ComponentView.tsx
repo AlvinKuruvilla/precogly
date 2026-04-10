@@ -1,6 +1,6 @@
 import { Fragment, useState, useMemo, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -45,6 +45,7 @@ import { CountermeasureStatusButtons } from './CountermeasureStatusButtons'
 import { ComponentTreeItem } from './ComponentTreeItem'
 import { ComponentDataAssetsDisplay } from './ComponentDataAssetsDisplay'
 import { DataFlowAssetsDisplay } from './DataFlowAssetsDisplay'
+import { SortableList } from '@/components/shared/SortableList'
 
 /** Assignee type for the combobox — individuals only */
 export type Assignee = { type: 'member'; userId: number; email: string; name: string | null }
@@ -93,6 +94,8 @@ interface ComponentViewProps {
     priority: ComponentThreatCountermeasure['priority']
   ) => void
   onRevertCountermeasure?: (componentThreatId: string, countermeasureInstanceId: string) => void
+  onReorderThreats?: (componentId: string, reorderedThreats: ComponentThreat[]) => void
+  onReorderCountermeasures?: (componentThreatId: string, reorderedCountermeasures: ComponentThreatCountermeasure[]) => void
   isSecurityTeam?: boolean
 }
 
@@ -155,6 +158,8 @@ export function ComponentView({
   onAddCustomCountermeasure,
   onCountermeasurePriorityChange,
   onRevertCountermeasure,
+  onReorderThreats,
+  onReorderCountermeasures,
   isSecurityTeam,
 }: ComponentViewProps) {
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
@@ -279,7 +284,10 @@ export function ComponentView({
     return componentThreats.filter((ct) => ct.componentId === selectedComponentId)
   }, [componentThreats, selectedComponentId])
 
-  const activeThreats = threatsForComponent.filter((t) => !t.dismissed)
+  const activeThreats = useMemo(
+    () => threatsForComponent.filter((t) => !t.dismissed).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
+    [threatsForComponent]
+  )
   const dismissedThreats = threatsForComponent.filter((t) => t.dismissed)
 
   // Selected threat already contains metadata from backend
@@ -317,6 +325,14 @@ export function ComponentView({
   const handleCancelWaiver = () => {
     setWaivingReasonFor(null)
   }
+
+  // Sort countermeasures by displayOrder
+  const sortedCountermeasures = useMemo(
+    () => [...(selectedComponentThreat?.countermeasures || [])].sort(
+      (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)
+    ),
+    [selectedComponentThreat?.countermeasures]
+  )
 
   // Total countermeasures count
   const totalCountermeasures = selectedComponentThreat?.countermeasures.length || 0
@@ -729,81 +745,94 @@ export function ComponentView({
                   Cross out threats that are not relevant
                 </p>
 
-                {activeThreats.map((ct) => {
-                  // Use threat metadata from backend (stored in ComponentThreat)
-                  if (!ct.threatName) return null
+                <SortableList
+                  items={activeThreats}
+                  getItemId={(ct) => ct.id}
+                  onReorder={(reordered) => {
+                    if (selectedComponentId && onReorderThreats) {
+                      onReorderThreats(selectedComponentId, reordered)
+                    }
+                  }}
+                  renderItem={(ct, dragHandleRef, _isDragging) => {
+                    if (!ct.threatName) return null
 
-                  const status = deriveThreatStatus(ct.countermeasures)
-                  const isSelected = ct.id === selectedThreatId
+                    const status = deriveThreatStatus(ct.countermeasures)
+                    const isSelected = ct.id === selectedThreatId
 
-                  return (
-                    <div
-                      key={ct.id}
-                      className={cn(
-                        'group p-2 rounded-md transition-colors',
-                        isSelected
-                          ? 'bg-slate-100 border border-slate-300'
-                          : 'hover:bg-slate-50'
-                      )}
-                    >
-                      <div className="flex items-center gap-1">
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => onSelectThreat(ct.id)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectThreat(ct.id) }}
-                          className="flex-1 text-left min-w-0 overflow-hidden cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
-                            />
-                            <span className="font-medium text-sm truncate">
-                              {ct.threatName}
-                            </span>
+                    return (
+                      <div
+                        className={cn(
+                          'group p-2 rounded-md transition-colors',
+                          isSelected
+                            ? 'bg-slate-100 border border-slate-300'
+                            : 'hover:bg-slate-50'
+                        )}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div
+                            ref={dragHandleRef}
+                            className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
                           </div>
-                          {!isSelected && (
-                            <div className="mt-1 ml-4">
-                              <TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => onSelectThreat(ct.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectThreat(ct.id) }}
+                            className="flex-1 text-left min-w-0 overflow-hidden cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
+                              />
+                              <span className="font-medium text-sm truncate">
+                                {ct.threatName}
+                              </span>
                             </div>
-                          )}
+                            {!isSelected && (
+                              <div className="mt-1 ml-4">
+                                <TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
+                              </div>
+                            )}
+                          </div>
+                          <ThreatStatusBadge status={status} />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-destructive flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDismissThreat(ct.id)
+                            }}
+                            title="Dismiss threat"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
                         </div>
-                        <ThreatStatusBadge status={status} />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-muted-foreground hover:text-destructive flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDismissThreat(ct.id)
-                          }}
-                          title="Dismiss threat"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        {isSelected && (
+                          <div className="mt-1 ml-4">
+                            <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="mt-1 ml-4">
+                            <SeverityAssessmentPanel
+                              threat={ct}
+                              onSave={(data) => handleSeverityAssessment(ct, data)}
+                              isSaving={
+                                ct.threatType === 'dataflow'
+                                  ? updateFlowThreatMutation.isPending
+                                  : updateThreatMutation.isPending
+                              }
+                            />
+                          </div>
+                        )}
                       </div>
-                      {isSelected && (
-                        <div className="mt-1 ml-4">
-                          <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
-                        </div>
-                      )}
-                      {isSelected && (
-                        <div className="mt-1 ml-4">
-                          <SeverityAssessmentPanel
-                            threat={ct}
-                            onSave={(data) => handleSeverityAssessment(ct, data)}
-                            isSaving={
-                              ct.threatType === 'dataflow'
-                                ? updateFlowThreatMutation.isPending
-                                : updateThreatMutation.isPending
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                    )
+                  }}
+                />
               </div>
             )}
 
@@ -940,216 +969,232 @@ export function ComponentView({
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
             {/* Countermeasures */}
-            {selectedComponentThreat?.countermeasures
-              .map((cm) => {
-                const cmName = cm.countermeasureName || cm.countermeasureId
-                const cmDescription = cm.countermeasureDescription
+            {selectedComponentThreat && sortedCountermeasures.length > 0 && (
+              <SortableList
+                items={sortedCountermeasures}
+                getItemId={(cm) => cm.id}
+                onReorder={(reordered) => {
+                  if (selectedComponentThreat && onReorderCountermeasures) {
+                    onReorderCountermeasures(selectedComponentThreat.id, reordered)
+                  }
+                }}
+                renderItem={(cm, dragHandleRef, _isDragging) => {
+                  const cmName = cm.countermeasureName || cm.countermeasureId
+                  const cmDescription = cm.countermeasureDescription
 
-                const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
-                const isAssigning = assigningOwnerFor === cm.id
-                const isWaiving = waivingReasonFor === cm.id
+                  const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
+                  const isAssigning = assigningOwnerFor === cm.id
+                  const isWaiving = waivingReasonFor === cm.id
 
-                return (
-                  <div key={cm.id} className="border rounded-lg p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: statusConfig.color }}
-                        />
-                        <div>
-                          <div className="font-medium text-sm">{cmName}</div>
-                          {cmDescription && (
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {cmDescription}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Compliance mappings - expandable detail */}
-                    {cm.standardMappings && cm.standardMappings.length > 0 ? (
-                      <ComplianceDetailSection
-                        mappings={cm.standardMappings}
-                        isExpanded={expandedComplianceFor.has(cm.id)}
-                        onToggle={() => toggleComplianceExpanded(cm.id)}
-                        onEdit={() => {
-                          const parsed = parseCountermeasureId(cm.id)
-                          if (parsed.id !== null && parsed.type !== 'local') {
-                            setEditingComplianceFor({
-                              id: cm.id,
-                              backendId: parsed.id,
-                              type: parsed.type,
-                              name: cmName,
-                              mappings: cm.standardMappings || [],
-                            })
-                          }
-                        }}
-                      />
-                    ) : (
-                      <button
-                        className="mt-2 text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                        onClick={() => {
-                          const parsed = parseCountermeasureId(cm.id)
-                          if (parsed.id !== null && parsed.type !== 'local') {
-                            setEditingComplianceFor({
-                              id: cm.id,
-                              backendId: parsed.id,
-                              type: parsed.type,
-                              name: cmName,
-                              mappings: [],
-                            })
-                          }
-                        }}
-                      >
-                        <Shield className="h-3 w-3" />
-                        <span>Add compliance mapping</span>
-                      </button>
-                    )}
-
-                    {/* Priority */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Priority:</span>
-                      <Select
-                        value={cm.priority || 'none'}
-                        onValueChange={(value) => {
-                          onCountermeasurePriorityChange(
-                            selectedComponentThreat.id,
-                            cm.id,
-                            value as ComponentThreatCountermeasure['priority']
-                          )
-                        }}
-                      >
-                        <SelectTrigger className="h-7 w-28 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                            <SelectItem key={key} value={key}>
-                              <Badge variant="outline" className={cn('text-[10px]', config.color)}>
-                                {config.label}
-                              </Badge>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Owner display */}
-                    {cm.owner && !isAssigning && (
-                      <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span>{cm.owner}</span>
-                      </div>
-                    )}
-
-                    {/* Provided by boundary badge */}
-                    {cm.providedByBoundaryId && (
-                      <div className="mt-2 text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
-                        <Shield className="h-3 w-3" />
-                        <span>
-                          Provided by{' '}
-                          <span className="font-medium">
-                            {(() => {
-                              const boundary = canvasData.nodes.find((n) => n.id === cm.providedByBoundaryId)
-                              if (!boundary) return 'boundary'
-                              const zoneData = boundary.data as TrustZoneNodeData
-                              return String(zoneData.label || 'boundary')
-                            })()}
-                          </span>
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Inherited from zone badge */}
-                    {cm.isInherited && cm.inheritedFromZoneName && (
-                      <div className="mt-2 text-xs text-purple-600 flex items-center gap-1 bg-purple-50 px-2 py-1 rounded border border-purple-200">
-                        <Shield className="h-3 w-3" />
-                        <span className="flex-1">
-                          Inherited from{' '}
-                          <span className="font-medium">
-                            {cm.inheritedFromComponentName}
-                          </span>
-                          {' '}({cm.inheritedFromZoneName})
-                        </span>
-                        {onRevertCountermeasure && selectedComponentThreat && (
-                          <button
-                            className="text-purple-500 hover:text-purple-700 underline ml-2"
-                            onClick={() => onRevertCountermeasure(selectedComponentThreat.id, cm.id)}
+                  return (
+                    <div className="group border rounded-lg p-3 mb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div
+                            ref={dragHandleRef}
+                            className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            Revert
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Waiver reason display */}
-                    {cm.status === 'waived' && cm.notes && !isWaiving && (
-                      <div className="mt-2 text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
-                        <span className="font-medium text-blue-700">Waiver reason:</span>{' '}
-                        {cm.notes}
-                      </div>
-                    )}
-
-                    {/* Owner assignment UI */}
-                    {isAssigning ? (
-                      <div className="mt-3">
-                        <div className="text-xs font-medium text-muted-foreground mb-2">
-                          {pendingPlannedStatus === cm.countermeasureId
-                            ? 'Assign an owner to mark as Planned:'
-                            : 'Assign owner:'}
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: statusConfig.color }}
+                          />
+                          <div>
+                            <div className="font-medium text-sm">{cmName}</div>
+                            {cmDescription && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {cmDescription}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <UserSearchCombobox
-                          value={cm.owner || ''}
-                          onSelect={(user) => handleAssignOwner(cm.id, user)}
-                          onCancel={handleCancelAssignment}
-                        />
                       </div>
-                    ) : isWaiving ? (
-                      <div className="mt-3">
-                        <WaiverReasonInput
-                          onSubmit={(reason) => handleWaiverSubmit(cm.id, reason)}
-                          onCancel={handleCancelWaiver}
+
+                      {/* Compliance mappings - expandable detail */}
+                      {cm.standardMappings && cm.standardMappings.length > 0 ? (
+                        <ComplianceDetailSection
+                          mappings={cm.standardMappings}
+                          isExpanded={expandedComplianceFor.has(cm.id)}
+                          onToggle={() => toggleComplianceExpanded(cm.id)}
+                          onEdit={() => {
+                            const parsed = parseCountermeasureId(cm.id)
+                            if (parsed.id !== null && parsed.type !== 'local') {
+                              setEditingComplianceFor({
+                                id: cm.id,
+                                backendId: parsed.id,
+                                type: parsed.type,
+                                name: cmName,
+                                mappings: cm.standardMappings || [],
+                              })
+                            }
+                          }}
                         />
-                      </div>
-                    ) : (
-                      <div className="mt-2 flex items-center justify-between">
-                        <CountermeasureStatusButtons
-                          status={cm.status}
-                          isPlatformLevel={cm.status === 'platform'}
-                          isSecurityTeam={isSecurityTeam}
-                          hasOwner={!!cm.owner}
-                          onChange={(status) =>
-                            onCountermeasureStatusChange(
+                      ) : (
+                        <button
+                          className="mt-2 text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          onClick={() => {
+                            const parsed = parseCountermeasureId(cm.id)
+                            if (parsed.id !== null && parsed.type !== 'local') {
+                              setEditingComplianceFor({
+                                id: cm.id,
+                                backendId: parsed.id,
+                                type: parsed.type,
+                                name: cmName,
+                                mappings: [],
+                              })
+                            }
+                          }}
+                        >
+                          <Shield className="h-3 w-3" />
+                          <span>Add compliance mapping</span>
+                        </button>
+                      )}
+
+                      {/* Priority */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Priority:</span>
+                        <Select
+                          value={cm.priority || 'none'}
+                          onValueChange={(value) => {
+                            onCountermeasurePriorityChange(
                               selectedComponentThreat.id,
                               cm.id,
-                              status
+                              value as ComponentThreatCountermeasure['priority']
                             )
-                          }
-                          onPlannedWithoutOwner={() => {
-                            setAssigningOwnerFor(cm.id)
-                            setPendingPlannedStatus(cm.countermeasureId)
                           }}
-                          onWaivedWithoutReason={() => {
-                            setWaivingReasonFor(cm.id)
-                          }}
-                        />
-                        {!cm.owner && cm.status !== 'platform' && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 text-xs"
-                            onClick={() => setAssigningOwnerFor(cm.id)}
-                          >
-                            Assign owner
-                          </Button>
-                        )}
+                        >
+                          <SelectTrigger className="h-7 w-28 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>
+                                <Badge variant="outline" className={cn('text-[10px]', config.color)}>
+                                  {config.label}
+                                </Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    )}
-                  </div>
-                )
-              })}
+
+                      {/* Owner display */}
+                      {cm.owner && !isAssigning && (
+                        <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          <span>{cm.owner}</span>
+                        </div>
+                      )}
+
+                      {/* Provided by boundary badge */}
+                      {cm.providedByBoundaryId && (
+                        <div className="mt-2 text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
+                          <Shield className="h-3 w-3" />
+                          <span>
+                            Provided by{' '}
+                            <span className="font-medium">
+                              {(() => {
+                                const boundary = canvasData.nodes.find((n) => n.id === cm.providedByBoundaryId)
+                                if (!boundary) return 'boundary'
+                                const zoneData = boundary.data as TrustZoneNodeData
+                                return String(zoneData.label || 'boundary')
+                              })()}
+                            </span>
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Inherited from zone badge */}
+                      {cm.isInherited && cm.inheritedFromZoneName && (
+                        <div className="mt-2 text-xs text-purple-600 flex items-center gap-1 bg-purple-50 px-2 py-1 rounded border border-purple-200">
+                          <Shield className="h-3 w-3" />
+                          <span className="flex-1">
+                            Inherited from{' '}
+                            <span className="font-medium">
+                              {cm.inheritedFromComponentName}
+                            </span>
+                            {' '}({cm.inheritedFromZoneName})
+                          </span>
+                          {onRevertCountermeasure && selectedComponentThreat && (
+                            <button
+                              className="text-purple-500 hover:text-purple-700 underline ml-2"
+                              onClick={() => onRevertCountermeasure(selectedComponentThreat.id, cm.id)}
+                            >
+                              Revert
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Waiver reason display */}
+                      {cm.status === 'waived' && cm.notes && !isWaiving && (
+                        <div className="mt-2 text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
+                          <span className="font-medium text-blue-700">Waiver reason:</span>{' '}
+                          {cm.notes}
+                        </div>
+                      )}
+
+                      {/* Owner assignment UI */}
+                      {isAssigning ? (
+                        <div className="mt-3">
+                          <div className="text-xs font-medium text-muted-foreground mb-2">
+                            {pendingPlannedStatus === cm.countermeasureId
+                              ? 'Assign an owner to mark as Planned:'
+                              : 'Assign owner:'}
+                          </div>
+                          <UserSearchCombobox
+                            value={cm.owner || ''}
+                            onSelect={(user) => handleAssignOwner(cm.id, user)}
+                            onCancel={handleCancelAssignment}
+                          />
+                        </div>
+                      ) : isWaiving ? (
+                        <div className="mt-3">
+                          <WaiverReasonInput
+                            onSubmit={(reason) => handleWaiverSubmit(cm.id, reason)}
+                            onCancel={handleCancelWaiver}
+                          />
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex items-center justify-between">
+                          <CountermeasureStatusButtons
+                            status={cm.status}
+                            isPlatformLevel={cm.status === 'platform'}
+                            isSecurityTeam={isSecurityTeam}
+                            hasOwner={!!cm.owner}
+                            onChange={(status) =>
+                              onCountermeasureStatusChange(
+                                selectedComponentThreat.id,
+                                cm.id,
+                                status
+                              )
+                            }
+                            onPlannedWithoutOwner={() => {
+                              setAssigningOwnerFor(cm.id)
+                              setPendingPlannedStatus(cm.countermeasureId)
+                            }}
+                            onWaivedWithoutReason={() => {
+                              setWaivingReasonFor(cm.id)
+                            }}
+                          />
+                          {!cm.owner && cm.status !== 'platform' && (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs"
+                              onClick={() => setAssigningOwnerFor(cm.id)}
+                            >
+                              Assign owner
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }}
+              />
+            )}
 
 
           </div>

@@ -265,6 +265,28 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             "message": f"Status updated to {new_status}",
         })
 
+    @action(detail=False, methods=["post"])
+    def reorder(self, request):
+        """Bulk-update display_order for component threats."""
+        ordered_ids = request.data.get("ordered_ids", [])
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return Response(
+                {"error": "ordered_ids list is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        queryset = self.get_queryset()
+        existing_ids = set(queryset.filter(id__in=ordered_ids).values_list("id", flat=True))
+        if len(existing_ids) != len(ordered_ids):
+            return Response(
+                {"error": "Some IDs not found or not accessible"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        instances = []
+        for position, threat_id in enumerate(ordered_ids):
+            instances.append(ComponentInstanceThreat(id=threat_id, display_order=position))
+        ComponentInstanceThreat.objects.bulk_update(instances, ["display_order"])
+        return Response({"status": "ok", "updated": len(ordered_ids)})
+
 
 class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
     """ViewSet for DataFlowInstanceThreat."""
@@ -347,6 +369,28 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
             "message": f"Status updated to {new_status}",
         })
 
+    @action(detail=False, methods=["post"])
+    def reorder(self, request):
+        """Bulk-update display_order for flow threats."""
+        ordered_ids = request.data.get("ordered_ids", [])
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return Response(
+                {"error": "ordered_ids list is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        queryset = self.get_queryset()
+        existing_ids = set(queryset.filter(id__in=ordered_ids).values_list("id", flat=True))
+        if len(existing_ids) != len(ordered_ids):
+            return Response(
+                {"error": "Some IDs not found or not accessible"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        instances = []
+        for position, threat_id in enumerate(ordered_ids):
+            instances.append(DataFlowInstanceThreat(id=threat_id, display_order=position))
+        DataFlowInstanceThreat.objects.bulk_update(instances, ["display_order"])
+        return Response({"status": "ok", "updated": len(ordered_ids)})
+
 
 class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for ComponentInstanceCountermeasure."""
@@ -384,6 +428,28 @@ class ComponentInstanceCountermeasureViewSet(viewsets.ModelViewSet):
         instance = serializer.save()
         recalculate_risks_for_threat(instance.instance_threat, threat_type="component")
 
+    @action(detail=False, methods=["post"])
+    def reorder(self, request):
+        """Bulk-update display_order for component countermeasures."""
+        ordered_ids = request.data.get("ordered_ids", [])
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return Response(
+                {"error": "ordered_ids list is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        queryset = self.get_queryset()
+        existing_ids = set(queryset.filter(id__in=ordered_ids).values_list("id", flat=True))
+        if len(existing_ids) != len(ordered_ids):
+            return Response(
+                {"error": "Some IDs not found or not accessible"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        instances = []
+        for position, cm_id in enumerate(ordered_ids):
+            instances.append(ComponentInstanceCountermeasure(id=cm_id, display_order=position))
+        ComponentInstanceCountermeasure.objects.bulk_update(instances, ["display_order"])
+        return Response({"status": "ok", "updated": len(ordered_ids)})
+
 
 class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
     """ViewSet for FlowInstanceCountermeasure."""
@@ -420,6 +486,28 @@ class FlowInstanceCountermeasureViewSet(viewsets.ModelViewSet):
             _check_platform_status_permission(self.request.user, current_status, new_status)
         instance = serializer.save()
         recalculate_risks_for_threat(instance.flow_threat, threat_type="flow")
+
+    @action(detail=False, methods=["post"])
+    def reorder(self, request):
+        """Bulk-update display_order for flow countermeasures."""
+        ordered_ids = request.data.get("ordered_ids", [])
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return Response(
+                {"error": "ordered_ids list is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        queryset = self.get_queryset()
+        existing_ids = set(queryset.filter(id__in=ordered_ids).values_list("id", flat=True))
+        if len(existing_ids) != len(ordered_ids):
+            return Response(
+                {"error": "Some IDs not found or not accessible"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        instances = []
+        for position, cm_id in enumerate(ordered_ids):
+            instances.append(FlowInstanceCountermeasure(id=cm_id, display_order=position))
+        FlowInstanceCountermeasure.objects.bulk_update(instances, ["display_order"])
+        return Response({"status": "ok", "updated": len(ordered_ids)})
 
 
 class VerificationTestViewSet(viewsets.ModelViewSet):

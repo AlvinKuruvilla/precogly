@@ -186,6 +186,8 @@ export function ThreatModelDetail() {
     dismissThreat,
     restoreThreat,
     toggleChecklistItem,
+    reorderThreats,
+    reorderCountermeasures,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
 
   // Fetch threat model threats data (for nodeComponentMap)
@@ -777,6 +779,8 @@ export function ThreatModelDetail() {
                     onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
                     onCountermeasurePriorityChange={updateCountermeasurePriority}
                     onRevertCountermeasure={revertInheritedCountermeasure}
+                    onReorderThreats={reorderThreats}
+                    onReorderCountermeasures={reorderCountermeasures}
                     isSecurityTeam={isSecurityTeam}
                   />
                 ) : (

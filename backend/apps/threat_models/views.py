@@ -556,6 +556,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "severity_scoring_metadata": threat.severity_scoring_metadata,
                 "is_dismissed": threat.is_dismissed,
                 "dismissal_reason": threat.dismissal_reason,
+                "display_order": threat.display_order,
                 "countermeasures": [
                     {
                         "id": cm.id,
@@ -568,6 +569,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
                         "standard_mappings": self._serialize_standard_mappings(cm),
+                        "display_order": cm.display_order,
                         "is_inherited": cm.is_inherited,
                         "inherited_from_component_name": cm.inherited_from_component_name,
                         "inherited_from_zone_name": cm.inherited_from_zone_name,
@@ -606,6 +608,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "severity_scoring_metadata": threat.severity_scoring_metadata,
                 "is_dismissed": threat.is_dismissed,
                 "dismissal_reason": threat.dismissal_reason,
+                "display_order": threat.display_order,
                 "countermeasures": [
                     {
                         "id": cm.id,
@@ -618,6 +621,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
                         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
                         "standard_mappings": self._serialize_standard_mappings(cm),
+                        "display_order": cm.display_order,
                         "is_inherited": cm.is_inherited,
                         "inherited_from_component_name": cm.inherited_from_component_name,
                         "inherited_from_zone_name": cm.inherited_from_zone_name,

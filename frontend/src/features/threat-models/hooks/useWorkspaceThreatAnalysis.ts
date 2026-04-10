@@ -17,6 +17,11 @@ import {
   useDismissFlowThreat,
   useRestoreFlowThreat,
   parseCountermeasureId,
+  parseThreatId,
+  useReorderComponentThreats,
+  useReorderFlowThreats,
+  useReorderComponentCountermeasures,
+  useReorderFlowCountermeasures,
 } from '@/features/threat-models/api/threats'
 import { api } from '@/lib/api'
 
@@ -62,6 +67,10 @@ export function useWorkspaceThreatAnalysis(
   const restoreThreatMutation = useRestoreThreat()
   const dismissFlowThreatMutation = useDismissFlowThreat()
   const restoreFlowThreatMutation = useRestoreFlowThreat()
+  const reorderComponentThreatsMutation = useReorderComponentThreats()
+  const reorderFlowThreatsMutation = useReorderFlowThreats()
+  const reorderComponentCountermeasuresMutation = useReorderComponentCountermeasures()
+  const reorderFlowCountermeasuresMutation = useReorderFlowCountermeasures()
 
   // Use backend threats directly - no local threat generation
   useEffect(() => {
@@ -371,6 +380,80 @@ export function useWorkspaceThreatAnalysis(
     []
   )
 
+  // Reorder threats for a component
+  const reorderThreats = useCallback(
+    (_componentId: string, reorderedThreats: ComponentThreat[]) => {
+      // Update local state immediately with new displayOrder values
+      setState((prev) => {
+        const reorderedIds = new Set(reorderedThreats.map((t) => t.id))
+        const otherThreats = prev.componentThreats.filter((ct) => !reorderedIds.has(ct.id))
+        const updatedReordered = reorderedThreats.map((t, index) => ({
+          ...t,
+          displayOrder: index,
+        }))
+        return { ...prev, componentThreats: [...otherThreats, ...updatedReordered] }
+      })
+
+      // Split IDs by type and fire mutations
+      const componentThreatIds: number[] = []
+      const flowThreatIds: number[] = []
+      for (const threat of reorderedThreats) {
+        const parsed = parseThreatId(threat.id)
+        if (parsed.type === 'component' && parsed.id !== null) {
+          componentThreatIds.push(parsed.id)
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          flowThreatIds.push(parsed.id)
+        }
+      }
+      if (componentThreatIds.length > 0) {
+        reorderComponentThreatsMutation.mutate(componentThreatIds)
+      }
+      if (flowThreatIds.length > 0) {
+        reorderFlowThreatsMutation.mutate(flowThreatIds)
+      }
+    },
+    [reorderComponentThreatsMutation, reorderFlowThreatsMutation]
+  )
+
+  // Reorder countermeasures for a threat
+  const reorderCountermeasures = useCallback(
+    (componentThreatId: string, reorderedCountermeasures: ComponentThreatCountermeasure[]) => {
+      // Update local state immediately
+      setState((prev) => ({
+        ...prev,
+        componentThreats: prev.componentThreats.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            countermeasures: reorderedCountermeasures.map((cm, index) => ({
+              ...cm,
+              displayOrder: index,
+            })),
+          }
+        }),
+      }))
+
+      // Split IDs by type and fire mutations
+      const componentCmIds: number[] = []
+      const flowCmIds: number[] = []
+      for (const cm of reorderedCountermeasures) {
+        const parsed = parseCountermeasureId(cm.id)
+        if (parsed.type === 'component' && parsed.id !== null) {
+          componentCmIds.push(parsed.id)
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          flowCmIds.push(parsed.id)
+        }
+      }
+      if (componentCmIds.length > 0) {
+        reorderComponentCountermeasuresMutation.mutate(componentCmIds)
+      }
+      if (flowCmIds.length > 0) {
+        reorderFlowCountermeasuresMutation.mutate(flowCmIds)
+      }
+    },
+    [reorderComponentCountermeasuresMutation, reorderFlowCountermeasuresMutation]
+  )
+
   // Toggle checklist item — no-op since all items are now auto-computed by the backend
   const toggleChecklistItem = useCallback((_itemId: string, _checked: boolean) => {
     // All checklist items are auto-computed by the backend; no local state to update
@@ -459,5 +542,7 @@ export function useWorkspaceThreatAnalysis(
     restoreThreat,
     addCountermeasure,
     toggleChecklistItem,
+    reorderThreats,
+    reorderCountermeasures,
   }
 }
