@@ -39,7 +39,7 @@ export function useUploadReferenceImage() {
         queryKey: ['reference-images', threatModelId],
       })
       queryClient.invalidateQueries({
-        queryKey: ['threat-model', threatModelId],
+        queryKey: ['threat-models', threatModelId],
       })
     },
   })

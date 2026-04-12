@@ -29,7 +29,7 @@ class StandardFrameworkListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StandardFramework
-        fields = ["id", "name", "description", "source_pack"]
+        fields = ["id", "name", "version", "issuer", "description", "source_pack"]
 
 
 class StandardRequirementSerializer(serializers.ModelSerializer):

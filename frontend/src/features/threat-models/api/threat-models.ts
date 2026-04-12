@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ThreatModel, DashboardStats, Framework, System, CreateThreatModelInput, CreateSystemInput } from '@/types'
+import type { ThreatModel, DashboardStats, System, CreateThreatModelInput, CreateSystemInput } from '@/types'
 import { api, getAccessToken } from '@/lib/api'
 
 // Query Hooks
@@ -29,16 +29,6 @@ export function useThreatModel(id: string) {
     queryKey: ['threat-models', id],
     queryFn: () => api.get<ThreatModel>(`/threat-models/${id}/`),
     enabled: !!id,
-  })
-}
-
-export function useFrameworks() {
-  return useQuery({
-    queryKey: ['frameworks'],
-    queryFn: async () => {
-      const response = await api.get<{ results: Framework[] } | Framework[]>('/frameworks/')
-      return Array.isArray(response) ? response : response.results
-    },
   })
 }
 
@@ -186,9 +176,9 @@ export function useThreatModelSystems(threatModelId: string | undefined) {
   const { data: threatModel } = useThreatModel(threatModelId || '')
   const { data: allSystems = [] } = useSystems()
 
-  // Filter systems to only those linked to this threat model
+  // Filter systems to only those linked to this threat model (use String() for type-safe comparison)
   const linkedSystems = threatModel?.systemIds
-    ? allSystems.filter((system) => threatModel.systemIds?.includes(system.id))
+    ? allSystems.filter((system) => threatModel.systemIds?.includes(String(system.id)))
     : []
 
   return {
@@ -259,33 +249,6 @@ export function useRemoveReferencedModel() {
       api.post(`/threat-models/${threatModelId}/remove_referenced_model/`, { targetModelId }),
     onSuccess: (_, { threatModelId }) => {
       queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
-    },
-  })
-}
-
-// Framework wiring mutations
-export function useAddFramework() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ threatModelId, frameworkId }: { threatModelId: string; frameworkId: number }) =>
-      api.post(`/threat-models/${threatModelId}/add_framework/`, { frameworkId }),
-    onSuccess: (_, { threatModelId }) => {
-      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
-      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
-    },
-  })
-}
-
-export function useRemoveFramework() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ threatModelId, frameworkId }: { threatModelId: string; frameworkId: number }) =>
-      api.post(`/threat-models/${threatModelId}/remove_framework/`, { frameworkId }),
-    onSuccess: (_, { threatModelId }) => {
-      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
-      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useQuery, skipToken } from '@tanstack/react-query'
 import type { Diagram, ThreatModel } from '@/types'
 import type {
   ComponentThreat,
@@ -23,7 +22,7 @@ import {
   useReorderComponentCountermeasures,
   useReorderFlowCountermeasures,
 } from '@/features/threat-models/api/threats'
-import { api } from '@/lib/api'
+import { useThreatModel } from '@/features/threat-models/api/threat-models'
 
 interface WorkspaceThreatAnalysisState {
   threatModelId: string
@@ -50,12 +49,7 @@ export function useWorkspaceThreatAnalysis(
   )
 
   // Fetch threat model for workspace_data
-  const { data: threatModel, isLoading: isLoadingThreatModel } = useQuery({
-    queryKey: ['threat-model', threatModelId],
-    queryFn: threatModelId
-      ? () => api.get<ThreatModel>(`/threat-models/${threatModelId}/`)
-      : skipToken,
-  })
+  const { data: threatModel, isLoading: isLoadingThreatModel } = useThreatModel(threatModelId!)
 
   // Fetch threats from backend API
   const { data: backendThreats, isLoading: isLoadingThreats } = useThreatModelThreats(threatModelId)

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, Settings, Trash2, BarChart3, FileText, Share2, Download, Pencil } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, Trash2, BarChart3, FileText, Share2, Download, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -16,8 +16,7 @@ import {
   ManageSystemsModal,
   ManageThreatModelsModal,
   ManagePeopleModal,
-  ManageDFDsModal,
-  ManageFrameworksModal,
+  ViewFrameworksModal,
   RiskAnalysisTab,
 } from '@/features/threat-models/components/workspace'
 import { OverviewTab } from '@/features/threat-models/components/OverviewTab'
@@ -33,11 +32,14 @@ import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threa
 import { ReviewZoneProtectionsDialog } from '@/features/dfd-editor/components/threat-analysis/ReviewZoneProtectionsDialog'
 import { useThreatModelThreats } from '@/features/threat-models/api/threats'
 import { useAnalysisComponents, useTrustZones } from '@/features/threat-models/api/components'
-import type { ThreatModel, Diagram, System, ScoringMethodKey } from '@/types'
+import type { ThreatModel, Diagram, ScoringMethodKey } from '@/types'
 import type { DiagramNode, DataFlowEdge, CanvasData } from '@/features/dfd-editor/types'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import {
+  useThreatModel,
+  useThreatModels,
+  useSystems,
   useDeleteThreatModel,
   useDeleteDFD,
   useUpdateThreatModel,
@@ -45,37 +47,14 @@ import {
   useRemoveThreatModelSystem,
   useAddReferencedModel,
   useRemoveReferencedModel,
-  useAddFramework,
-  useRemoveFramework,
-  useFrameworks,
   exportTmLibrary,
 } from '@/features/threat-models/api/threat-models'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/features/threat-models/components'
 import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/features/threat-models/api/reference-images'
 
-async function fetchThreatModel(id: string): Promise<ThreatModel> {
-  return api.get<ThreatModel>(`/threat-models/${id}/`)
-}
-
-async function fetchDiagrams(threatModelId: string): Promise<Diagram[]> {
-  // Get diagrams associated with this threat model via the dfds field
-  const threatModel = await api.get<ThreatModel>(`/threat-models/${threatModelId}/`)
-  return (threatModel.dfds || []) as Diagram[]
-}
-
-async function fetchSystems(): Promise<System[]> {
-  const response = await api.get<{ results: System[] } | System[]>('/systems/')
-  return Array.isArray(response) ? response : response.results
-}
-
-async function fetchThreatModels(): Promise<ThreatModel[]> {
-  const response = await api.get<{ results: ThreatModel[] } | ThreatModel[]>('/threat-models/')
-  return Array.isArray(response) ? response : response.results
-}
-
 async function createDiagram(threatModelId: string, title: string): Promise<Diagram> {
   return api.post<Diagram>('/diagrams/create_for_threat_model/', {
-    threat_model_id: threatModelId,
+    threatModelId,
     name: title,
     canvas_data: { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } },
   })
@@ -101,8 +80,7 @@ export function ThreatModelDetail() {
   const [manageSystemsModalOpen, setManageSystemsModalOpen] = useState(false)
   const [manageThreatModelsModalOpen, setManageThreatModelsModalOpen] = useState(false)
   const [managePeopleModalOpen, setManagePeopleModalOpen] = useState(false)
-  const [manageDFDsModalOpen, setManageDFDsModalOpen] = useState(false)
-  const [manageFrameworksModalOpen, setManageFrameworksModalOpen] = useState(false)
+  const [viewFrameworksModalOpen, setViewFrameworksModalOpen] = useState(false)
   const [shareLinkDialogOpen, setShareLinkDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteDFDDialogOpen, setDeleteDFDDialogOpen] = useState(false)
@@ -131,8 +109,6 @@ export function ThreatModelDetail() {
   const removeSystemMutation = useRemoveThreatModelSystem()
   const addReferencedModelMutation = useAddReferencedModel()
   const removeReferencedModelMutation = useRemoveReferencedModel()
-  const addFrameworkMutation = useAddFramework()
-  const removeFrameworkMutation = useRemoveFramework()
 
   // Reference images
   const { data: referenceImages = [] } = useReferenceImages(id || null)
@@ -145,27 +121,13 @@ export function ThreatModelDetail() {
     data: threatModel,
     isLoading: isLoadingModel,
     isError: isErrorModel,
-  } = useQuery({
-    queryKey: ['threat-model', id],
-    queryFn: id ? () => fetchThreatModel(id) : skipToken,
-  })
+  } = useThreatModel(id!)
 
-  const { data: diagrams = [] } = useQuery({
-    queryKey: ['diagrams', id],
-    queryFn: id ? () => fetchDiagrams(id) : skipToken,
-  })
+  const diagrams = useMemo(() => (threatModel?.dfds || []) as Diagram[], [threatModel?.dfds])
 
-  const { data: systems = [] } = useQuery({
-    queryKey: ['systems'],
-    queryFn: fetchSystems,
-  })
+  const { data: systems = [] } = useSystems()
 
-  const { data: allFrameworks = [] } = useFrameworks()
-
-  const { data: allThreatModels = [] } = useQuery({
-    queryKey: ['threat-models'],
-    queryFn: fetchThreatModels,
-  })
+  const { data: allThreatModels = [] } = useThreatModels()
 
   // Fetch analysis-only components (linked directly to threat model, not via DFD canvas)
   const { data: analysisComponents = [] } = useAnalysisComponents(id ?? null)
@@ -198,20 +160,20 @@ export function ThreatModelDetail() {
   const createDiagramMutation = useMutation({
     mutationFn: (title: string) => createDiagram(id!, title),
     onSuccess: (newDiagram) => {
-      queryClient.invalidateQueries({ queryKey: ['diagrams', id] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models', id] })
       navigate(`/threat-models/${id}/diagrams/${newDiagram.id}`)
     },
   })
 
-  // Get linked systems
+  // Get linked systems (use String() because systemIds are strings from serializer but s.id may be number at runtime)
   const linkedSystems = useMemo(() => {
-    return systems.filter((s) => threatModel?.systemIds?.includes(s.id))
+    return systems.filter((s) => threatModel?.systemIds?.includes(String(s.id)))
   }, [systems, threatModel?.systemIds])
 
-  // Get referenced threat models
+  // Get referenced threat models (use String() because referencedModelIds are strings from serializer but m.id may be number at runtime)
   const referencedModels = useMemo(() => {
     return allThreatModels.filter((m) =>
-      threatModel?.referencedModelIds?.includes(m.id)
+      threatModel?.referencedModelIds?.includes(String(m.id))
     )
   }, [allThreatModels, threatModel?.referencedModelIds])
 
@@ -445,9 +407,8 @@ export function ThreatModelDetail() {
           onSuccess: () => {
             setDeleteDFDDialogOpen(false)
             setDfdToDelete(null)
-            // Refresh diagrams list
-            queryClient.invalidateQueries({ queryKey: ['diagrams', id] })
-            queryClient.invalidateQueries({ queryKey: ['threat-model', id] })
+            // Refresh threat model (includes diagrams via dfds field)
+            queryClient.invalidateQueries({ queryKey: ['threat-models', id] })
           },
         }
       )
@@ -576,17 +537,6 @@ export function ThreatModelDetail() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* System Context button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs gap-1"
-              onClick={() => setSystemContextModalOpen(true)}
-            >
-              <Settings className="h-3 w-3" />
-              <span className="hidden sm:inline">System Context</span>
-            </Button>
-
             {/* Delete button */}
             <Button
               variant="outline"
@@ -641,6 +591,13 @@ export function ThreatModelDetail() {
               Reports
             </TabsTrigger>
           </TabsList>
+            <button
+              onClick={() => setViewFrameworksModalOpen(true)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <Shield className="h-4 w-4" />
+              Compliance
+            </button>
           </div>
         </div>
 
@@ -680,8 +637,6 @@ export function ThreatModelDetail() {
             onManageSystems={() => setManageSystemsModalOpen(true)}
             onManageThreatModels={() => setManageThreatModelsModalOpen(true)}
             onManagePeople={() => setManagePeopleModalOpen(true)}
-            onManageDFDs={() => setManageDFDsModalOpen(true)}
-            onManageFrameworks={() => setManageFrameworksModalOpen(true)}
             onEditSystemContext={() => setSystemContextModalOpen(true)}
             onNavigateToThreats={() => setActiveTab('threats')}
           />
@@ -836,7 +791,7 @@ export function ThreatModelDetail() {
         open={manageThreatModelsModalOpen}
         onOpenChange={setManageThreatModelsModalOpen}
         connectedModels={referencedModels}
-        availableModels={allThreatModels}
+        availableModels={allThreatModels.filter((m) => String(m.id) !== id)}
         currentModelId={id!}
         onAdd={(modelId) => addReferencedModelMutation.mutate({ threatModelId: id!, targetModelId: Number(modelId) })}
         onRemove={(modelId) => removeReferencedModelMutation.mutate({ threatModelId: id!, targetModelId: Number(modelId) })}
@@ -849,22 +804,10 @@ export function ThreatModelDetail() {
         teamName={currentTeam?.name}
       />
 
-      <ManageDFDsModal
-        open={manageDFDsModalOpen}
-        onOpenChange={setManageDFDsModalOpen}
-        threatModelId={id!}
-        dfds={diagrams}
-        onCreateDFD={handleCreateDFD}
-        onDeleteDFD={handleDeleteDFD}
-      />
-
-      <ManageFrameworksModal
-        open={manageFrameworksModalOpen}
-        onOpenChange={setManageFrameworksModalOpen}
-        currentFrameworks={threatModel.frameworks || []}
-        availableFrameworks={allFrameworks}
-        onAdd={(frameworkId) => addFrameworkMutation.mutate({ threatModelId: id!, frameworkId })}
-        onRemove={(frameworkId) => removeFrameworkMutation.mutate({ threatModelId: id!, frameworkId })}
+      <ViewFrameworksModal
+        open={viewFrameworksModalOpen}
+        onOpenChange={setViewFrameworksModalOpen}
+        frameworks={threatModel.frameworks || []}
       />
 
       <DeleteThreatModelDialog

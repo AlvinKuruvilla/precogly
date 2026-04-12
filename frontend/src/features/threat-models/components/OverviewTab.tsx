@@ -60,8 +60,6 @@ interface OverviewTabProps {
   onManageSystems: () => void
   onManageThreatModels: () => void
   onManagePeople: () => void
-  onManageDFDs: () => void
-  onManageFrameworks: () => void
   onEditSystemContext: () => void
   onNavigateToThreats: () => void
 }
@@ -89,8 +87,6 @@ export function OverviewTab({
   onManageSystems,
   onManageThreatModels,
   onManagePeople,
-  onManageDFDs,
-  onManageFrameworks,
   onEditSystemContext,
   onNavigateToThreats,
 }: OverviewTabProps) {
@@ -110,13 +106,9 @@ export function OverviewTab({
           connectedThreatModels={referencedModels}
           teamMemberCount={currentTeam?.memberCount ?? 0}
           teamName={currentTeam?.name}
-          dfds={diagrams}
-          frameworks={threatModel.frameworks || []}
           onManageSystems={onManageSystems}
           onManageThreatModels={onManageThreatModels}
           onManagePeople={onManagePeople}
-          onManageDFDs={onManageDFDs}
-          onManageFrameworks={onManageFrameworks}
         />
       </div>
 

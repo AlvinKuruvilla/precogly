@@ -17,7 +17,7 @@ export {
   ManageThreatModelsModal,
   ManagePeopleModal,
   ManageDFDsModal,
-  ManageFrameworksModal,
+  ViewFrameworksModal,
   ReferenceImageGallery,
   ReferenceImageUploader,
   ReferenceImageViewer,

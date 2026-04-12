@@ -50,7 +50,121 @@ class ThreatModelReferenceImageUploadSerializer(serializers.ModelSerializer):
         fields = ["image", "filename", "description"]
 
 
-class ThreatModelSerializer(serializers.ModelSerializer):
+class ThreatModelFieldsMixin:
+    """Shared computed fields for ThreatModel serializers."""
+
+    def get_owner(self, obj):
+        """Get owner email from created_by user."""
+        if obj.created_by:
+            return obj.created_by.email
+        return None
+
+    def get_business_unit_name(self, obj):
+        """Get business unit name via owning team, if any."""
+        team = obj.owning_team
+        if team and team.business_unit_id:
+            return team.business_unit.name
+        return None
+
+    def get_frameworks(self, obj):
+        """Derive frameworks from countermeasure compliance mappings.
+
+        Traverses: threat model -> components/dataflows -> threats ->
+        countermeasures -> countermeasure_library -> standard_mappings ->
+        requirement -> framework. Returns unique frameworks.
+        """
+        from apps.compliance.models import StandardFramework
+        from apps.systems.models import OrgsystemComponent
+        from apps.threats.models import (
+            ComponentInstanceCountermeasure,
+            DataFlowInstanceThreat,
+            FlowInstanceCountermeasure,
+        )
+
+        # Gather component IDs from DFDs + analysis-only components
+        component_ids = set()
+        dataflow_ids = set()
+        for dfd in obj.dfds.all():
+            canvas_data = dfd.canvas_data or {}
+            for node in canvas_data.get("nodes", []):
+                component_id = node.get("data", {}).get("component_id")
+                if component_id:
+                    component_ids.add(component_id)
+            for edge in canvas_data.get("edges", []):
+                dataflow_id = edge.get("data", {}).get("dataflow_id")
+                if dataflow_id:
+                    dataflow_ids.add(dataflow_id)
+
+        # Analysis-only components
+        analysis_ids = OrgsystemComponent.objects.filter(
+            threat_model=obj
+        ).exclude(id__in=component_ids).values_list("id", flat=True)
+        component_ids.update(analysis_ids)
+
+        # Component path: library-level mappings
+        component_library_fw_ids = set(
+            ComponentInstanceCountermeasure.objects.filter(
+                instance_threat__component_id__in=component_ids,
+                countermeasure_library__standard_mappings__requirement__framework__isnull=False,
+            ).values_list(
+                "countermeasure_library__standard_mappings__requirement__framework_id",
+                flat=True,
+            )
+        )
+
+        # Component path: instance-level mappings
+        component_instance_fw_ids = set(
+            ComponentInstanceCountermeasure.objects.filter(
+                instance_threat__component_id__in=component_ids,
+                instance_standard_mappings__requirement__framework__isnull=False,
+            ).values_list(
+                "instance_standard_mappings__requirement__framework_id",
+                flat=True,
+            )
+        )
+
+        # Dataflow path: library-level mappings
+        flow_library_fw_ids = set(
+            FlowInstanceCountermeasure.objects.filter(
+                flow_threat__data_flow_id__in=dataflow_ids,
+                countermeasure_library__standard_mappings__requirement__framework__isnull=False,
+            ).values_list(
+                "countermeasure_library__standard_mappings__requirement__framework_id",
+                flat=True,
+            )
+        )
+
+        # Dataflow path: instance-level mappings
+        flow_instance_fw_ids = set(
+            FlowInstanceCountermeasure.objects.filter(
+                flow_threat__data_flow_id__in=dataflow_ids,
+                instance_standard_mappings__requirement__framework__isnull=False,
+            ).values_list(
+                "instance_standard_mappings__requirement__framework_id",
+                flat=True,
+            )
+        )
+
+        all_framework_ids = (
+            component_library_fw_ids
+            | component_instance_fw_ids
+            | flow_library_fw_ids
+            | flow_instance_fw_ids
+        )
+
+        if not all_framework_ids:
+            return []
+
+        frameworks = StandardFramework.objects.filter(id__in=all_framework_ids).values(
+            "id", "name", "version"
+        )
+        return [
+            {"id": fw["id"], "name": fw["name"], "version": fw["version"] or ""}
+            for fw in frameworks
+        ]
+
+
+class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer):
     """Serializer for ThreatModel model."""
 
     created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
@@ -122,27 +236,6 @@ class ThreatModelSerializer(serializers.ModelSerializer):
         from apps.diagrams.serializers import DFDSerializer
 
         return DFDSerializer(obj.dfds.all(), many=True).data
-
-    def get_business_unit_name(self, obj):
-        """Get business unit name via owning team, if any."""
-        team = obj.owning_team
-        if team and team.business_unit_id:
-            return team.business_unit.name
-        return None
-
-    def get_owner(self, obj):
-        """Get owner name from created_by user."""
-        if obj.created_by:
-            return obj.created_by.email
-        return None
-
-    def get_frameworks(self, obj):
-        """Get associated frameworks with id and name."""
-        associations = obj.framework_associations.select_related("framework").all()
-        return [
-            {"id": assoc.framework.id, "name": assoc.framework.name}
-            for assoc in associations
-        ]
 
     def get_system_ids(self, obj):
         """Get associated system IDs."""
@@ -265,7 +358,7 @@ class ThreatModelSerializer(serializers.ModelSerializer):
         return data
 
 
-class ThreatModelListSerializer(serializers.ModelSerializer):
+class ThreatModelListSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer):
     """Lightweight serializer for ThreatModel listing."""
 
     owner = serializers.SerializerMethodField()
@@ -290,27 +383,6 @@ class ThreatModelListSerializer(serializers.ModelSerializer):
             "risk_scoring_method",
             "created_at",
             "updated_at",
-        ]
-
-    def get_owner(self, obj):
-        """Get owner email."""
-        if obj.created_by:
-            return obj.created_by.email
-        return None
-
-    def get_business_unit_name(self, obj):
-        """Get business unit name via owning team, if any."""
-        team = obj.owning_team
-        if team and team.business_unit_id:
-            return team.business_unit.name
-        return None
-
-    def get_frameworks(self, obj):
-        """Get associated frameworks with id and name."""
-        associations = obj.framework_associations.select_related("framework").all()
-        return [
-            {"id": assoc.framework.id, "name": assoc.framework.name}
-            for assoc in associations
         ]
 
 

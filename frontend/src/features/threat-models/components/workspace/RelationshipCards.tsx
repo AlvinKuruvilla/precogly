@@ -1,20 +1,16 @@
-import { Server, FileText, Users, LayoutGrid, Shield } from 'lucide-react'
+import { Server, FileText, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { System, ThreatModel, Diagram } from '@/types'
+import type { System, ThreatModel } from '@/types'
 
 interface RelationshipCardsProps {
   connectedSystems: System[]
   connectedThreatModels: ThreatModel[]
   teamMemberCount?: number
   teamName?: string
-  dfds: Diagram[]
-  frameworks: Array<{ id: number; name: string }>
   onManageSystems: () => void
   onManageThreatModels: () => void
   onManagePeople: () => void
-  onManageDFDs: () => void
-  onManageFrameworks: () => void
 }
 
 export function RelationshipCards({
@@ -22,16 +18,12 @@ export function RelationshipCards({
   connectedThreatModels,
   teamMemberCount = 0,
   teamName,
-  dfds,
-  frameworks,
   onManageSystems,
   onManageThreatModels,
   onManagePeople,
-  onManageDFDs,
-  onManageFrameworks,
 }: RelationshipCardsProps) {
   return (
-    <div className="grid grid-cols-5 gap-4">
+    <div className="grid grid-cols-3 gap-4">
       {/* Connected Systems */}
       <Card className="flex flex-col">
         <CardHeader className="pb-2">
@@ -138,85 +130,6 @@ export function RelationshipCards({
             size="sm"
             className="w-full mt-3 bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-500"
             onClick={onManagePeople}
-          >
-            Manage
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* DFDs */}
-      <Card className="flex flex-col">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
-            DFDs
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col">
-          <div className="space-y-1 flex-1">
-            {dfds.length > 0 ? (
-              dfds.slice(0, 4).map((dfd) => (
-                <div key={dfd.id} className="text-sm truncate">
-                  {dfd.name}
-                  {dfd.isPrimary && (
-                    <span className="ml-1 text-[10px] text-green-600 font-medium">(Primary)</span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                No DFDs created
-              </div>
-            )}
-            {dfds.length > 4 && (
-              <div className="text-xs text-muted-foreground">
-                +{dfds.length - 4} more
-              </div>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full mt-3 bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-500"
-            onClick={onManageDFDs}
-          >
-            Manage
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Compliance Frameworks */}
-      <Card className="flex flex-col">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Shield className="h-4 w-4 text-muted-foreground" />
-            Frameworks
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col">
-          <div className="space-y-1 flex-1">
-            {frameworks.length > 0 ? (
-              frameworks.slice(0, 4).map((framework) => (
-                <div key={framework.id} className="text-sm truncate">
-                  {framework.name}
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                No frameworks added
-              </div>
-            )}
-            {frameworks.length > 4 && (
-              <div className="text-xs text-muted-foreground">
-                +{frameworks.length - 4} more
-              </div>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full mt-3 bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-500"
-            onClick={onManageFrameworks}
           >
             Manage
           </Button>

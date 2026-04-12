@@ -13,6 +13,7 @@ from apps.systems.models import (
     TrustBoundary,
     TrustZone,
 )
+from apps.threat_models.models import ThreatModelOrgsystem
 from apps.threats.models import (
     ComponentInstanceThreat,
     ComponentLibraryThreat,
@@ -858,6 +859,12 @@ def _sync_nodes_to_orgsystems(dfd, nodes, threat_model):
             synced_count += 1
 
         node_system_map[node_id] = orgsystem.id
+
+        # Auto-connect the system to the threat model
+        if threat_model:
+            ThreatModelOrgsystem.objects.get_or_create(
+                threat_model=threat_model, orgsystem=orgsystem
+            )
 
     _update_canvas_with_orgsystem_ids(dfd, node_system_map)
 

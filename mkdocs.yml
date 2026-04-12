@@ -49,6 +49,7 @@ nav:
       - Reference Images: concepts/reference-images.md
       - Org Hierarchy: concepts/org-hierarchy.md
       - Roles and Permissions: concepts/roles-and-permissions.md
+      - Connected Systems & TMs: concepts/connected-systems-tm.md
       - Magic Links: concepts/magic-links.md
   - Guides:
       - Creating a Threat Model: guides/creating-threat-model.md

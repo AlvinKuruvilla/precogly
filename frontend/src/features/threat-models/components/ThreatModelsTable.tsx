@@ -77,7 +77,6 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
           <TableHead>Team</TableHead>
           <TableHead>Business Unit</TableHead>
           <TableHead>Criticality</TableHead>
-          <TableHead>Frameworks</TableHead>
           <TableHead>Owner</TableHead>
           <TableHead>Last Updated</TableHead>
           <TableHead className="w-[50px]"></TableHead>
@@ -102,19 +101,6 @@ export function ThreatModelsTable({ threatModels, isLoading }: ThreatModelsTable
                   </Badge>
                 )
               })()}
-            </TableCell>
-            <TableCell>
-              <div className="flex flex-wrap gap-1">
-                {model.frameworks?.length ? (
-                  model.frameworks.map((framework) => (
-                    <Badge key={framework.id} variant="outline" className="text-xs">
-                      {framework.name}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-muted-foreground text-sm">—</span>
-                )}
-              </div>
             </TableCell>
             <TableCell>{model.owner || '—'}</TableCell>
             <TableCell className="text-muted-foreground">
