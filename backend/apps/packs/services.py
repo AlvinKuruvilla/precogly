@@ -222,7 +222,11 @@ def discover_packs_from_source() -> list[PackInfo]:
     pack_by_slug = {p.slug: p for p in packs}
     for pack_info in packs:
         resolved_dependencies = []
-        for dep_slug in pack_info.depends_on:
+        for dep_entry in pack_info.depends_on:
+            if isinstance(dep_entry, str):
+                dep_slug = dep_entry
+            else:
+                dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
             dep = pack_by_slug.get(dep_slug)
             resolved_dependencies.append({
                 "slug": dep_slug,
