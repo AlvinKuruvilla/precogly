@@ -481,15 +481,25 @@ class ValidationError:
 
 
 @dataclass
+class ValidationWarning:
+    """A structural validation warning that allows import with user confirmation."""
+
+    file: str
+    field: str
+    message: str
+    suggestion: str
+
+
+@dataclass
 class ValidationResult:
-    """Result of pack reference validation."""
+    """Result of pack validation."""
 
     success: bool
     pack_slug: str
     pack_name: str
     version: str
     errors: list[ValidationError] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    warnings: list[ValidationWarning] = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -507,20 +517,29 @@ class ValidationResult:
                 }
                 for e in self.errors
             ],
-            "warnings": self.warnings,
+            "warnings": [
+                {
+                    "file": w.file,
+                    "field": w.field,
+                    "message": w.message,
+                    "suggestion": w.suggestion,
+                }
+                for w in self.warnings
+            ],
             "error_count": len(self.errors),
+            "warning_count": len(self.warnings),
         }
 
 
-def validate_pack_references(pack_path: Path) -> ValidationResult:
+def validate_pack(pack_path: Path) -> ValidationResult:
     """
-    Validate all references in a pack without importing.
+    Validate a pack's structure and references without importing.
 
-    This is a dry-run validation that checks:
-    - Component references in templates
-    - Threat references in component-threat joins
-    - Countermeasure references in threat-countermeasure joins
-    - Cross-pack references are valid
+    Performs two categories of checks:
+    1. Structural checks: metadata, enum values, slug vs id key usage
+    2. Reference checks: cross-file references in joins and templates
+
+    Errors block import entirely. Warnings allow "Import Anyway".
 
     Args:
         pack_path: Path to the pack directory
@@ -570,6 +589,157 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
 
     errors = []
     warnings = []
+
+    # =========================================================================
+    # Structural checks
+    # =========================================================================
+
+    # Required metadata fields
+    required_metadata = ["slug", "name", "version", "pack_type"]
+    for required_field in required_metadata:
+        if required_field not in pack_meta:
+            errors.append(ValidationError(
+                file="pack.yaml",
+                line=None,
+                ref_type="pack",
+                reference=required_field,
+                message=f"Missing required field: {required_field}",
+            ))
+
+    # Valid pack_type enum
+    valid_pack_types = {"technology", "threat", "countermeasure", "compliance", "template", "full", "taxonomy"}
+    pack_type_value = pack_meta.get("pack_type", "")
+    if pack_type_value and pack_type_value not in valid_pack_types:
+        warnings.append(ValidationWarning(
+            file="pack.yaml",
+            field="pack_type",
+            message=f"Unknown pack_type: '{pack_type_value}'",
+            suggestion=f"Use one of: {', '.join(sorted(valid_pack_types))}",
+        ))
+
+    # Valid tier enum (if present)
+    valid_tiers = {"free", "premium", "enterprise"}
+    tier_value = pack_meta.get("tier", "")
+    if tier_value and tier_value not in valid_tiers:
+        warnings.append(ValidationWarning(
+            file="pack.yaml",
+            field="tier",
+            message=f"Unknown tier: '{tier_value}'",
+            suggestion=f"Use one of: {', '.join(sorted(valid_tiers))}",
+        ))
+
+    # Framework entries use 'slug' not 'id'
+    for framework_data in pack_data.get("frameworks", []):
+        if "id" in framework_data and "slug" not in framework_data:
+            warnings.append(ValidationWarning(
+                file="pack.yaml",
+                field="frameworks[].id",
+                message=f"Framework uses 'id' instead of 'slug' (id: '{framework_data['id']}')",
+                suggestion="Rename 'id' to 'slug'. Frameworks use 'slug' because they are shared across packs.",
+            ))
+
+    # Taxonomy entries use 'slug' not 'id'
+    taxonomy_file = pack_path / "taxonomy.yaml"
+    if taxonomy_file.exists():
+        try:
+            with open(taxonomy_file) as f:
+                tax_data = yaml.safe_load(f) or {}
+            for taxonomy_data in tax_data.get("taxonomies", []):
+                if "id" in taxonomy_data and "slug" not in taxonomy_data:
+                    warnings.append(ValidationWarning(
+                        file="taxonomy.yaml",
+                        field="taxonomies[].id",
+                        message=f"Taxonomy uses 'id' instead of 'slug' (id: '{taxonomy_data['id']}')",
+                        suggestion="Rename 'id' to 'slug'. Taxonomies use 'slug' because they are shared across packs.",
+                    ))
+        except Exception:
+            pass  # Parse errors are caught in reference checks below
+
+    # Components must have 'id'
+    components_file = pack_path / "components.yaml"
+    if components_file.exists():
+        try:
+            with open(components_file) as f:
+                comp_data = yaml.safe_load(f) or {}
+            valid_categories = {"process", "datastore", "external", "human_actor", "system_actor"}
+            for i, comp in enumerate(comp_data.get("components", [])):
+                if "id" not in comp and "slug" not in comp:
+                    errors.append(ValidationError(
+                        file="components.yaml",
+                        line=None,
+                        ref_type="component",
+                        reference=f"components[{i}]",
+                        message=f"Component at index {i} has no 'id' field",
+                    ))
+                category_value = comp.get("category", "")
+                if category_value and category_value not in valid_categories:
+                    warnings.append(ValidationWarning(
+                        file="components.yaml",
+                        field="category",
+                        message=f"Component '{comp.get('id', comp.get('slug', f'[{i}]'))}' has unknown category: '{category_value}'",
+                        suggestion=f"Use one of: {', '.join(sorted(valid_categories))}",
+                    ))
+        except Exception:
+            pass
+
+    # Threats must have 'id'
+    threats_file = pack_path / "threats.yaml"
+    if threats_file.exists():
+        try:
+            with open(threats_file) as f:
+                threat_data = yaml.safe_load(f) or {}
+            for i, threat in enumerate(threat_data.get("threats", [])):
+                if "id" not in threat and "slug" not in threat:
+                    errors.append(ValidationError(
+                        file="threats.yaml",
+                        line=None,
+                        ref_type="threat",
+                        reference=f"threats[{i}]",
+                        message=f"Threat at index {i} has no 'id' field",
+                    ))
+        except Exception:
+            pass
+
+    # Countermeasures must have 'id', and validate control_type/cost enums
+    valid_control_types = {"preventive", "detective", "corrective"}
+    valid_costs = {"low", "medium", "high"}
+    cm_file = pack_path / "countermeasures.yaml"
+    if cm_file.exists():
+        try:
+            with open(cm_file) as f:
+                cm_data_raw = yaml.safe_load(f) or {}
+            for i, cm in enumerate(cm_data_raw.get("countermeasures", [])):
+                cm_id = cm.get("id", cm.get("slug", ""))
+                if "id" not in cm and "slug" not in cm:
+                    errors.append(ValidationError(
+                        file="countermeasures.yaml",
+                        line=None,
+                        ref_type="countermeasure",
+                        reference=f"countermeasures[{i}]",
+                        message=f"Countermeasure at index {i} has no 'id' field",
+                    ))
+                control_type_value = cm.get("control_type", "")
+                if control_type_value and control_type_value not in valid_control_types:
+                    warnings.append(ValidationWarning(
+                        file="countermeasures.yaml",
+                        field="control_type",
+                        message=f"Countermeasure '{cm_id or f'[{i}]'}' has unknown control_type: '{control_type_value}'",
+                        suggestion=f"Use one of: {', '.join(sorted(valid_control_types))}",
+                    ))
+                cost_value = cm.get("cost", "")
+                if cost_value and cost_value not in valid_costs:
+                    warnings.append(ValidationWarning(
+                        file="countermeasures.yaml",
+                        field="cost",
+                        message=f"Countermeasure '{cm_id or f'[{i}]'}' has unknown cost: '{cost_value}'",
+                        suggestion=f"Use one of: {', '.join(sorted(valid_costs))}",
+                    ))
+        except Exception:
+            pass
+
+    # =========================================================================
+    # Reference checks (existing logic)
+    # =========================================================================
 
     # Collect all defined items in this pack
     pack_components = set()
@@ -653,8 +823,13 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
                             message=f"Component '{comp_ref}' not found in pack",
                         ))
 
-                    for threat_ref in mapping.get("threats", []):
-                        if "/" not in threat_ref and threat_ref not in pack_threats:
+                    for threat_entry in mapping.get("threats", []):
+                        # Threats can be plain strings or dicts with a "threat" key
+                        if isinstance(threat_entry, dict):
+                            threat_ref = threat_entry.get("threat", "")
+                        else:
+                            threat_ref = threat_entry
+                        if threat_ref and "/" not in threat_ref and threat_ref not in pack_threats:
                             # Check if it's a cross-pack reference to existing threat
                             if not _resolve_threat_reference_exists(slug, threat_ref):
                                 errors.append(ValidationError(
@@ -752,6 +927,10 @@ def validate_pack_references(pack_path: Path) -> ValidationResult:
     )
 
 
+# Backwards-compatible alias
+validate_pack_references = validate_pack
+
+
 def _resolve_component_reference_exists(pack_slug: str, ref: str) -> bool:
     """Check if a component reference exists in the database."""
     if "/" in ref:
@@ -787,6 +966,7 @@ def import_pack_from_path(
     force: bool = False,
     selected_overlays: Optional[list[str]] = None,
     dry_run: bool = False,
+    skip_validation: bool = False,
 ) -> ImportResult | ValidationResult:
     """
     Import a pack from a directory path.
@@ -797,20 +977,22 @@ def import_pack_from_path(
         selected_overlays: Optional list of framework IDs to load overlays for.
                           If None, all overlays are loaded. If empty list, no overlays.
         dry_run: If True, validate references without importing
+        skip_validation: If True, skip pre-import validation (used by batch sync)
 
     Returns:
         ImportResult with details of the import operation, or ValidationResult if dry_run
     """
     if dry_run:
-        return validate_pack_references(pack_path)
-    return _import_pack(pack_path, force, selected_overlays)
+        return validate_pack(pack_path)
+    return _import_pack(pack_path, force, selected_overlays, skip_validation)
 
 
 def _import_pack(
     pack_path: Path,
     force: bool = False,
     selected_overlays: Optional[list[str]] = None,
-) -> ImportResult:
+    skip_validation: bool = False,
+) -> ImportResult | ValidationResult:
     """
     Import a pack from a directory path.
 
@@ -827,7 +1009,14 @@ def _import_pack(
         force: If True, reinstall even if pack exists
         selected_overlays: Optional list of framework IDs to load overlays for.
                           If None, all overlays are loaded. If empty list, no overlays.
+        skip_validation: If True, skip pre-import validation
     """
+    # Run validation before import unless skipped
+    if not skip_validation:
+        validation_result = validate_pack(pack_path)
+        if not validation_result.success or validation_result.warnings:
+            return validation_result
+
     pack_yaml = pack_path / "pack.yaml"
 
     if not pack_yaml.exists():
@@ -1024,10 +1213,11 @@ def sync_all_packs_from_source(
                 )
                 continue
 
-        # Import the pack
+        # Import the pack (skip validation for batch sync — no user to prompt)
         result = import_pack_from_path(
             Path(pack_info.path),
             force=force,
+            skip_validation=True,
         )
         results.append(result)
 

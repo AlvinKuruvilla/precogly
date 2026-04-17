@@ -33,9 +33,8 @@ Your pack type determines which files you need to create.
 | `technology` | Components only | `pack.yaml`, `components.yaml` | `dfd-templates/` |
 | `threat` | Threats + countermeasures | `pack.yaml`, `threats.yaml`, `countermeasures.yaml` | `joins/threats-countermeasures.yaml`, taxonomy joins |
 | `full` | Everything | `pack.yaml`, `components.yaml`, `threats.yaml`, `countermeasures.yaml`, `joins/` | `dfd-templates/`, compliance overlays |
-| `industry` | Industry-specific components + templates | `pack.yaml`, `components.yaml` | `dfd-templates/`, `threats.yaml`, `joins/` |
-| `compliance` | Framework definitions | `pack.yaml` with `frameworks:` block | None |
-| `taxonomy` | Classification entries | `pack.yaml` with `taxonomies:` block | None |
+| `compliance` | Framework definitions | `pack.yaml` with `frameworks:` block (uses `slug`, not `id`) | None |
+| `taxonomy` | Classification entries | `pack.yaml` with `taxonomies:` block (uses `slug`, not `id`) | None |
 | `template` | DFD templates only | `pack.yaml`, `dfd-templates/` | None |
 
 Most community contributions will be `technology` packs (adding components for a new cloud provider or tool) or `full` packs (components with threats and countermeasures).
@@ -263,29 +262,54 @@ LLM-generated content needs careful human review. Check each area:
 
 ## Validating and testing locally
 
+### Automatic validation on import
+
+Validation runs automatically when you click **Import** in the UI. If your pack has structural issues (wrong key names, invalid enum values, missing fields), you will see a dialog listing each problem with a suggested fix. Both warnings and errors block import. Fix the issues in your YAML files and re-import.
+
+**Warnings** identify issues that would cause data loss (e.g., using `id` instead of `slug` for frameworks):
+
+![Validation warning dialog](../assets/images/library-packs-validation-warning.png)
+
+**Errors** identify missing required fields or structural problems:
+
+![Validation error dialog](../assets/images/library-packs-validation-error.png)
+
 ### Validate via API
 
-Precogly provides a validation endpoint that checks your pack YAML for structural errors:
+You can also validate explicitly using the API endpoint:
 
 ```
 POST /api/packs/validate/
+{"slug": "your-pack-slug"}
 ```
 
-This endpoint requires **Security Team** role. It checks that all IDs are valid, all references resolve, and all required fields are present.
+This endpoint requires **Security Team** role. It checks structural issues (metadata, enums, key names) and reference issues (broken joins, missing components).
+
+### Common validation issues
+
+| Issue | Message | Fix |
+|---|---|---|
+| Framework uses `id` instead of `slug` | "Framework uses 'id' instead of 'slug'" | Rename `id:` to `slug:` in the frameworks section of pack.yaml |
+| Taxonomy uses `id` instead of `slug` | "Taxonomy uses 'id' instead of 'slug'" | Rename `id:` to `slug:` in taxonomy.yaml |
+| Invalid `control_type` | "Unknown control_type" | Use `preventive`, `detective`, or `corrective` |
+| Invalid `cost` | "Unknown cost" | Use `low`, `medium`, or `high` |
+| Invalid `category` | "Unknown category" | Use `process`, `datastore`, `external`, `human_actor`, or `system_actor` |
+| Missing `pack_type` | "Missing required field: pack_type" | Add `pack_type` to the `pack:` section |
+| Missing component `id` | "Component at index N has no 'id' field" | Add `id:` to the component entry |
 
 ### Import and verify in the UI
 
 1. Place your pack directory under `libraries/packs/`.
 2. Start the development server (see [Development Setup](development-setup.md)).
 3. Navigate to **Library Packs** in the sidebar.
-4. Click **Sync** to pick up your new pack.
-5. Find your pack in the catalog and click to preview it.
-6. Verify:
+4. Find your pack in the catalog and click to preview it.
+5. Verify:
     - Components appear with correct names, categories, and descriptions
     - Threats show with their taxonomy tags (STRIDE, CWE, etc.)
     - Countermeasures show with correct control types and cost levels
     - Compliance mappings appear if you included them
-7. Click **Import** and verify the pack imports without errors.
+6. Click **Import**. Validation runs automatically. Fix any reported issues.
+7. Verify the pack imports successfully (success toast appears).
 8. Create a test threat model, add a component from your pack, and confirm threats and countermeasures propagate correctly.
 
 ---

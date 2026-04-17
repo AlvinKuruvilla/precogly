@@ -14,6 +14,7 @@ import {
   Check,
   Download,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,13 +25,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { PreviewPackDialog } from '@/features/libraries/components'
+import { PreviewPackDialog, ValidationWarningsDialog } from '@/features/libraries/components'
 import {
   useAvailablePacksFromSource,
   useImportSinglePack,
   usePacks,
 } from '@/features/libraries/api/packs'
-import type { PackFilters } from '@/features/libraries/types/packs'
+import type { PackFilters, ValidationResult } from '@/features/libraries/types/packs'
 
 // Unified pack type that can represent both source and database packs
 interface UnifiedPack {
@@ -61,6 +62,10 @@ export function Packs() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   // Track which pack is being imported
   const [importingSlug, setImportingSlug] = useState<string | null>(null)
+  // Validation dialog state
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false)
+  const [validationPackSlug, setValidationPackSlug] = useState<string | null>(null)
 
   // Fetch data from both sources
   const { data: dbPacks, isLoading: isLoadingDb } = usePacks(filters)
@@ -165,8 +170,19 @@ export function Packs() {
     setImportingSlug(pack.slug)
     try {
       await importMutation.mutateAsync({ slug: pack.slug, force: false })
-    } catch (error) {
-      console.error('Import failed:', error)
+      toast.success(`Successfully imported ${pack.name}`)
+    } catch (error: unknown) {
+      const errorObj = error as { status?: number; data?: unknown }
+      const errorData = errorObj?.data as Record<string, unknown> | undefined
+      // Show validation dialog for both 422 (warnings) and 400 (errors from validation)
+      if ((errorObj?.status === 422 || errorObj?.status === 400) && errorData && 'warningCount' in errorData) {
+        setValidationResult(errorData as unknown as ValidationResult)
+        setValidationPackSlug(pack.slug)
+        setValidationDialogOpen(true)
+        return
+      }
+      const message = errorData?.message as string | undefined
+      toast.error(message || 'Import failed')
     } finally {
       setImportingSlug(null)
     }
@@ -294,6 +310,19 @@ export function Packs() {
         packSlug={previewPackSlug}
         open={previewDialogOpen}
         onOpenChange={setPreviewDialogOpen}
+      />
+
+      {/* Validation Warnings Dialog */}
+      <ValidationWarningsDialog
+        validationResult={validationResult}
+        open={validationDialogOpen}
+        onOpenChange={(open) => {
+          setValidationDialogOpen(open)
+          if (!open) {
+            setValidationResult(null)
+            setValidationPackSlug(null)
+          }
+        }}
       />
     </div>
   )

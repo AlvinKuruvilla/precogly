@@ -21,6 +21,7 @@ from .serializers import (
     LibraryPackListSerializer,
 )
 from .services import (
+    ValidationResult,
     discover_packs_from_source,
     get_active_overlays_for_pack,
     get_available_overlays_for_pack,
@@ -28,7 +29,7 @@ from .services import (
     get_pack_preview_from_source,
     import_pack_from_path,
     sync_all_packs_from_source,
-    validate_pack_references,
+    validate_pack,
 )
 
 
@@ -196,6 +197,14 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             selected_overlays=selected_overlays,
         )
 
+        # Handle ValidationResult (returned when validation finds issues)
+        if isinstance(result, ValidationResult):
+            if not result.success:
+                # Errors block import entirely
+                return Response(result.to_dict(), status=status.HTTP_400_BAD_REQUEST)
+            # Warnings only: return 422 so frontend can show "Import Anyway" dialog
+            return Response(result.to_dict(), status=422)
+
         if result.success:
             return Response(result.to_dict(), status=status.HTTP_201_CREATED)
         else:
@@ -304,7 +313,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # Run validation
-        result = validate_pack_references(Path(pack_info.path))
+        result = validate_pack(Path(pack_info.path))
 
         return Response(result.to_dict())
 

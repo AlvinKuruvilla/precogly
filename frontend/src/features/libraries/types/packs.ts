@@ -86,3 +86,29 @@ export interface PackFilters {
   tag?: string
   search?: string
 }
+
+export interface ValidationWarning {
+  file: string
+  field: string
+  message: string
+  suggestion: string
+}
+
+export interface ValidationError {
+  file: string
+  line: number | null
+  refType: string
+  reference: string
+  message: string
+}
+
+export interface ValidationResult {
+  success: boolean
+  packSlug: string
+  packName: string
+  version: string
+  errors: ValidationError[]
+  warnings: ValidationWarning[]
+  errorCount: number
+  warningCount: number
+}

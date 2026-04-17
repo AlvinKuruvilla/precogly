@@ -11,8 +11,8 @@ Library packs are modular bundles of threat-modeling content (components, threat
 | `technology` | Components only | `aws`, `azure`, `gcp` |
 | `threat` | Threats + countermeasures | `base-stride` |
 | `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
-| `industry` | Industry-specific components + templates | `banking` |
 | `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
+| `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `mini-cwe` |
 | `template` | DFD templates only | — |
 
 ---
@@ -529,6 +529,20 @@ When a user creates a DFD from this template, the node will be linked to the S3 
 
 Compliance packs define frameworks and their requirements. Other packs reference these requirements in their compliance overlay join files.
 
+### Identifier keys: `id` vs `slug`
+
+Different item types use different identifier keys. Using the wrong key causes silent import failures.
+
+| Item type | Key | Why |
+|---|---|---|
+| Components | `id` | Pack-local. Scoped to the pack that defines them. |
+| Threats | `id` | Pack-local. Scoped to the pack that defines them. |
+| Countermeasures | `id` | Pack-local. Scoped to the pack that defines them. |
+| Frameworks | `slug` | Shared across packs. Multiple packs reference the same framework via overlays. |
+| Taxonomies | `slug` | Shared across packs. Multiple packs reference the same taxonomy via join files. |
+
+Validation catches this automatically on import and suggests the fix.
+
 ```yaml
 # frameworks/nist-csf/pack.yaml
 pack:
@@ -581,6 +595,35 @@ depends_on:
   - pack: base-stride
     version: "^1.0.0"
 ```
+
+---
+
+## Validation
+
+Pack validation runs automatically when you click **Import** in the UI. If issues are found, you will see a dialog listing each problem with a suggested fix. Both warnings and errors block import. Fix the issues in your YAML files and re-import.
+
+You can also run validation explicitly via the API:
+
+```
+POST /api/packs/validate/
+{"slug": "your-pack-slug"}
+```
+
+### What validation checks
+
+| Check | Severity | What it catches |
+|---|---|---|
+| Required metadata (`slug`, `name`, `version`, `pack_type`) | Error | Missing pack identity fields |
+| Valid `pack_type` enum | Warning | Typos in pack type |
+| Valid `tier` enum | Warning | Typos in tier value |
+| Framework entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
+| Taxonomy entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
+| Components/threats/countermeasures have `id` | Error | Missing identifier |
+| Valid `control_type` in countermeasures | Warning | Invalid enum value |
+| Valid `cost` in countermeasures | Warning | Invalid enum value |
+| Valid `category` in components | Warning | Invalid enum value |
+| Join file references resolve | Error | Broken cross-references |
+| Template `component_ref` values resolve | Error | Broken template links |
 
 ---
 

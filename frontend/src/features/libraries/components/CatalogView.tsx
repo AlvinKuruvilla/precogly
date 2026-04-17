@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Package, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,13 +12,14 @@ import {
 } from '@/components/ui/select'
 import { PreviewPackDialog } from './PreviewPackDialog'
 import { ImportPackDialog } from './ImportPackDialog'
+import { ValidationWarningsDialog } from './ValidationWarningsDialog'
 import { CatalogPackCard } from './CatalogPackCard'
 import {
   useAvailablePacksFromSource,
   useImportSinglePack,
   usePacks,
 } from '@/features/libraries/api/packs'
-import type { PackFilters } from '@/features/libraries/types/packs'
+import type { PackFilters, ValidationResult } from '@/features/libraries/types/packs'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import type { UnifiedPack } from './unified-pack'
 
@@ -30,6 +32,10 @@ export function CatalogView() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [importingSlug, setImportingSlug] = useState<string | null>(null)
   const [installDialogPack, setInstallDialogPack] = useState<UnifiedPack | null>(null)
+  // Validation dialog state
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false)
+  const [validationPackSlug, setValidationPackSlug] = useState<string | null>(null)
 
   const { data: dbPacks, isLoading: isLoadingDb } = usePacks(filters)
   const { data: sourcePacks, isLoading: isLoadingSource } = useAvailablePacksFromSource()
@@ -130,15 +136,25 @@ export function CatalogView() {
     setImportingSlug(pack.slug)
     setInstallDialogPack(null)
     try {
-      // Use import_single to support selective overlays
-      // Use force=true if pack is already in database to re-import with new overlay selection
       await importMutation.mutateAsync({
         slug: pack.slug,
         force: pack.isInDatabase,
         selectedOverlays,
       })
-    } catch (error) {
-      console.error('Import failed:', error)
+      toast.success(`Successfully imported ${pack.name}`)
+    } catch (error: unknown) {
+      const errorObj = error as { status?: number; data?: unknown }
+      const errorData = errorObj?.data as Record<string, unknown> | undefined
+      // Show validation dialog for both 422 (warnings) and 400 (errors from validation)
+      if ((errorObj?.status === 422 || errorObj?.status === 400) && errorData && 'warningCount' in errorData) {
+        setValidationResult(errorData as unknown as ValidationResult)
+        setValidationPackSlug(pack.slug)
+
+        setValidationDialogOpen(true)
+        return
+      }
+      const message = errorData?.message as string | undefined
+      toast.error(message || 'Import failed')
     } finally {
       setImportingSlug(null)
     }
@@ -255,6 +271,19 @@ export function CatalogView() {
         open={installDialogPack !== null}
         onOpenChange={(open) => !open && setInstallDialogPack(null)}
         onConfirm={handleImportConfirm}
+      />
+
+      <ValidationWarningsDialog
+        validationResult={validationResult}
+        open={validationDialogOpen}
+        onOpenChange={(open) => {
+          setValidationDialogOpen(open)
+          if (!open) {
+            setValidationResult(null)
+            setValidationPackSlug(null)
+
+          }
+        }}
       />
     </div>
   )

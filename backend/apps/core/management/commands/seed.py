@@ -154,6 +154,7 @@ class Command(BaseCommand):
                 pack_path=pack_path,
                 force=force,
                 selected_overlays=None,  # Load all overlays
+                skip_validation=True,  # No user to prompt during automated seed
             )
             if result.success:
                 self.stdout.write(self.style.SUCCESS(f"Imported: {pack_slug}"))
