@@ -214,7 +214,7 @@ countermeasures:
 | `id` | yes | Unique within pack. |
 | `name` | yes | Display name. |
 | `description` | yes | What the control does and how it helps. |
-| `control_type` | yes | `preventive`, `detective`, or `corrective` |
+| `control_type` | yes | `preventive`, `detective`, `corrective`, or `procedural` |
 | `cost` | yes | `low`, `medium`, or `high` |
 | `default_status` | no | `gap` (default) or `platform`. Platform countermeasures are treated as infrastructure-level controls managed by the security team. See [Platform Controls](../docs/concepts/platform-controls.md). |
 
@@ -634,7 +634,7 @@ Before submitting a pack, verify:
 - [ ] `pack.yaml` has all required fields (`slug`, `name`, `version`, `pack_type`, `description`)
 - [ ] All `id` / `slug` values are unique within their file
 - [ ] All `id` values are lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`)
-- [ ] All `control_type` values are `preventive`, `detective`, or `corrective`
+- [ ] All `control_type` values are `preventive`, `detective`, `corrective`, or `procedural`
 - [ ] All `cost` values are `low`, `medium`, or `high`
 - [ ] All references in join files point to ids that exist in the pack (or in declared dependencies)
 - [ ] All threat refs in `threats-{taxonomy}.yaml` join files resolve to valid threat IDs

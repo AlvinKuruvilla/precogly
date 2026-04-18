@@ -701,7 +701,7 @@ def validate_pack(pack_path: Path) -> ValidationResult:
             pass
 
     # Countermeasures must have 'id', and validate control_type/cost enums
-    valid_control_types = {"preventive", "detective", "corrective"}
+    valid_control_types = {"preventive", "detective", "corrective", "procedural"}
     valid_costs = {"low", "medium", "high"}
     cm_file = pack_path / "countermeasures.yaml"
     if cm_file.exists():
@@ -1184,7 +1184,7 @@ def _import_pack(
 
 def sync_all_packs_from_source(
     force: bool = False,
-) -> list[ImportResult]:
+) -> list[ImportResult | ValidationResult]:
     """
     Sync all packs from the libraries folder to the database.
 
@@ -1213,7 +1213,13 @@ def sync_all_packs_from_source(
                 )
                 continue
 
-        # Import the pack (skip validation for batch sync — no user to prompt)
+        # Validate before importing — skip packs with issues
+        validation_result = validate_pack(Path(pack_info.path))
+        if not validation_result.success or validation_result.warnings:
+            results.append(validation_result)
+            continue
+
+        # Import the pack (already validated above)
         result = import_pack_from_path(
             Path(pack_info.path),
             force=force,

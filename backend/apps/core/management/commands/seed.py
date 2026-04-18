@@ -16,7 +16,7 @@ from apps.organizations.models import Organization, OrganizationMember, Team, Te
 from apps.threat_models.models import ThreatModel
 from apps.diagrams.models import DFD, DFDTemplatesLibrary
 from apps.diagrams.services import sync_dfd_nodes_to_components
-from apps.packs.services import get_libraries_path, import_pack_from_path
+from apps.packs.services import get_libraries_path, import_pack_from_path, validate_pack
 
 User = get_user_model()
 
@@ -150,11 +150,21 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"Pack not found: {pack_slug}"))
                 continue
 
+            # Validate before importing
+            validation_result = validate_pack(pack_path)
+            if not validation_result.success or validation_result.warnings:
+                for error in validation_result.errors:
+                    self.stdout.write(self.style.ERROR(f"  Error: {error.message}"))
+                for warning in validation_result.warnings:
+                    self.stdout.write(self.style.WARNING(f"  Warning: {warning.message}"))
+                self.stdout.write(self.style.WARNING(f"Skipped: {pack_slug} — validation failed"))
+                continue
+
             result = import_pack_from_path(
                 pack_path=pack_path,
                 force=force,
                 selected_overlays=None,  # Load all overlays
-                skip_validation=True,  # No user to prompt during automated seed
+                skip_validation=True,  # Already validated above
             )
             if result.success:
                 self.stdout.write(self.style.SUCCESS(f"Imported: {pack_slug}"))

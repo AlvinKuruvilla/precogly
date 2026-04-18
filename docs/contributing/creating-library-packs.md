@@ -185,7 +185,7 @@ Use these conventions:
 - All IDs: lowercase with hyphens (e.g., "s3-public-exposure")
 - Threat descriptions: explain what the threat is and how it occurs
 - Countermeasure descriptions: explain what the control does and how it helps
-- control_type: preventive, detective, or corrective
+- control_type: preventive, detective, corrective, or procedural
 - cost: low, medium, or high
 - applies_to in component-threat joins: "component", "flow", or "both"
 
@@ -291,7 +291,7 @@ This endpoint requires **Security Team** role. It checks structural issues (meta
 |---|---|---|
 | Framework uses `id` instead of `slug` | "Framework uses 'id' instead of 'slug'" | Rename `id:` to `slug:` in the frameworks section of pack.yaml |
 | Taxonomy uses `id` instead of `slug` | "Taxonomy uses 'id' instead of 'slug'" | Rename `id:` to `slug:` in taxonomy.yaml |
-| Invalid `control_type` | "Unknown control_type" | Use `preventive`, `detective`, or `corrective` |
+| Invalid `control_type` | "Unknown control_type" | Use `preventive`, `detective`, `corrective`, or `procedural` |
 | Invalid `cost` | "Unknown cost" | Use `low`, `medium`, or `high` |
 | Invalid `category` | "Unknown category" | Use `process`, `datastore`, `external`, `human_actor`, or `system_actor` |
 | Missing `pack_type` | "Missing required field: pack_type" | Add `pack_type` to the `pack:` section |
