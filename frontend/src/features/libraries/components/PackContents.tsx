@@ -237,7 +237,7 @@ export function PackContents({
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Tags className="h-4 w-4 text-teal-600" />
-            Taxonomies ({taxonomies.length})
+            Taxonomies
           </div>
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {taxonomies.map((t) => {
