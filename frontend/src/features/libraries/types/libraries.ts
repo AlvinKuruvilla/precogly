@@ -72,3 +72,14 @@ export interface StandardRequirement {
   createdAt: string
   updatedAt: string
 }
+
+export interface ExternalTaxonomy {
+  id: number
+  slug: string
+  name: string
+  description: string
+  sourceUrl: string
+  version: string
+  sourcePack?: number
+  entryCount: number
+}

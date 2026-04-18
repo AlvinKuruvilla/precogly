@@ -622,6 +622,9 @@ class ExternalTaxonomyViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ExternalTaxonomy.objects.all()
     serializer_class = ExternalTaxonomySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["source_pack"]
 
 
 class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -630,6 +633,7 @@ class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = TaxonomyEntry.objects.select_related("taxonomy").all()
     serializer_class = TaxonomyEntryNestedSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["taxonomy__slug"]
     search_fields = ["external_id", "title"]

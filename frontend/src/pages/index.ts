@@ -7,7 +7,6 @@ export {
   ThreatLibraries,
   Countermeasures,
   DFDTemplates,
-  Packs,
   Libraries,
 } from '@/features/libraries'
 export { Login } from './Login'

@@ -9,8 +9,10 @@ import type {
   ThreatLibrary,
   CountermeasureLibrary,
   DFDTemplate,
+  ExternalTaxonomy,
   StandardRequirement,
 } from '@/features/libraries/types/libraries'
+import type { TaxonomyEntry } from '@/types/domain'
 
 // Query keys
 export const libraryKeys = {
@@ -19,6 +21,8 @@ export const libraryKeys = {
   countermeasures: ['countermeasure-libraries'] as const,
   templates: ['dfd-templates'] as const,
   requirements: ['standard-requirements'] as const,
+  taxonomies: ['taxonomies'] as const,
+  taxonomyEntries: ['taxonomy-entries'] as const,
 }
 
 /**
@@ -90,6 +94,36 @@ export function useRequirements() {
     queryFn: async () => {
       const response = await api.get<{ results: StandardRequirement[] } | StandardRequirement[]>(
         '/requirements/'
+      )
+      return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
+/**
+ * Fetch external taxonomies.
+ */
+export function useTaxonomies() {
+  return useQuery({
+    queryKey: libraryKeys.taxonomies,
+    queryFn: async () => {
+      const response = await api.get<{ results: ExternalTaxonomy[] } | ExternalTaxonomy[]>(
+        '/taxonomies/'
+      )
+      return Array.isArray(response) ? response : response.results
+    },
+  })
+}
+
+/**
+ * Fetch taxonomy entries.
+ */
+export function useTaxonomyEntries() {
+  return useQuery({
+    queryKey: libraryKeys.taxonomyEntries,
+    queryFn: async () => {
+      const response = await api.get<{ results: TaxonomyEntry[] } | TaxonomyEntry[]>(
+        '/taxonomy-entries/'
       )
       return Array.isArray(response) ? response : response.results
     },

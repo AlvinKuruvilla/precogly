@@ -5,8 +5,9 @@ import {
   Shield,
   Bug,
   ClipboardList,
+  Tags,
 } from 'lucide-react'
-import { useComponentLibraries, useThreatLibraries, useCountermeasureLibraries, useRequirements } from '@/features/libraries/api/libraries'
+import { useComponentLibraries, useThreatLibraries, useCountermeasureLibraries, useRequirements, useTaxonomies, useTaxonomyEntries } from '@/features/libraries/api/libraries'
 import { Link } from 'react-router-dom'
 
 export function PackContents({
@@ -20,8 +21,10 @@ export function PackContents({
   const { data: allThreats, isLoading: loadingThreats } = useThreatLibraries()
   const { data: allCountermeasures, isLoading: loadingCountermeasures } = useCountermeasureLibraries()
   const { data: allRequirements, isLoading: loadingRequirements } = useRequirements()
+  const { data: allTaxonomies, isLoading: loadingTaxonomies } = useTaxonomies()
+  const { data: allTaxonomyEntries, isLoading: loadingEntries } = useTaxonomyEntries()
 
-  const isLoading = loadingComponents || loadingThreats || loadingCountermeasures || loadingRequirements
+  const isLoading = loadingComponents || loadingThreats || loadingCountermeasures || loadingRequirements || loadingTaxonomies || loadingEntries
 
   // Filter by packId (sourcePack is the pack's database ID)
   const components = useMemo(
@@ -40,6 +43,27 @@ export function PackContents({
     () => allRequirements?.filter((r) => r.sourcePack === packId) ?? [],
     [allRequirements, packId]
   )
+  const taxonomies = useMemo(
+    () => allTaxonomies?.filter((t) => t.sourcePack === packId) ?? [],
+    [allTaxonomies, packId]
+  )
+
+  // Group taxonomy entries by taxonomy slug for this pack's taxonomies
+  const taxonomySlugs = useMemo(
+    () => new Set(taxonomies.map((t) => t.slug)),
+    [taxonomies]
+  )
+  const entriesByTaxonomy = useMemo(() => {
+    if (!allTaxonomyEntries || taxonomySlugs.size === 0) return new Map<string, typeof allTaxonomyEntries>()
+    const grouped = new Map<string, typeof allTaxonomyEntries>()
+    for (const entry of allTaxonomyEntries) {
+      if (!taxonomySlugs.has(entry.taxonomySlug)) continue
+      const existing = grouped.get(entry.taxonomySlug) ?? []
+      existing.push(entry)
+      grouped.set(entry.taxonomySlug, existing)
+    }
+    return grouped
+  }, [allTaxonomyEntries, taxonomySlugs])
 
   if (isLoading) {
     return (
@@ -54,8 +78,9 @@ export function PackContents({
   const hasThreats = threats.length > 0
   const hasCountermeasures = countermeasures.length > 0
   const hasRequirements = requirements.length > 0
+  const hasTaxonomies = taxonomies.length > 0
 
-  if (!hasComponents && !hasThreats && !hasCountermeasures && !hasRequirements) {
+  if (!hasComponents && !hasThreats && !hasCountermeasures && !hasRequirements && !hasTaxonomies) {
     return (
       <div className="py-4 text-center text-muted-foreground">
         No content in this pack
@@ -70,7 +95,7 @@ export function PackContents({
   const countermeasuresUrl = `/countermeasures?packId=${packId}&packName=${encodedPackName}`
 
   // Determine grid columns based on content types present
-  const contentTypeCount = [hasComponents, hasThreats, hasCountermeasures, hasRequirements].filter(Boolean).length
+  const contentTypeCount = [hasComponents, hasThreats, hasCountermeasures, hasRequirements, hasTaxonomies].filter(Boolean).length
   const gridCols = contentTypeCount === 1 ? 'grid-cols-1' : contentTypeCount === 2 ? 'md:grid-cols-2' : contentTypeCount === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'
 
   return (
@@ -203,6 +228,45 @@ export function PackContents({
                 {r.sectionCode}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Taxonomies */}
+      {hasTaxonomies && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Tags className="h-4 w-4 text-teal-600" />
+            Taxonomies ({taxonomies.length})
+          </div>
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {taxonomies.map((t) => {
+              const entries = entriesByTaxonomy.get(t.slug) ?? []
+              return (
+                <div key={t.id}>
+                  <div
+                    className="text-sm font-medium text-muted-foreground pl-6"
+                    title={t.description || t.name}
+                  >
+                    {t.name}
+                  </div>
+                  {entries.slice(0, 10).map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="text-sm text-muted-foreground truncate pl-10"
+                      title={entry.title}
+                    >
+                      {entry.externalId}: {entry.title}
+                    </div>
+                  ))}
+                  {entries.length > 10 && (
+                    <div className="text-xs text-muted-foreground pl-10">
+                      +{entries.length - 10} more entries
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

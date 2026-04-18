@@ -35,10 +35,15 @@ from .services import (
 class ExternalTaxonomySerializer(serializers.ModelSerializer):
     """Serializer for ExternalTaxonomy model."""
 
+    entry_count = serializers.SerializerMethodField()
+
     class Meta:
         model = ExternalTaxonomy
-        fields = ["id", "slug", "name", "description", "source_url", "version"]
+        fields = ["id", "slug", "name", "description", "source_url", "version", "source_pack", "entry_count"]
         read_only_fields = ["id"]
+
+    def get_entry_count(self, obj):
+        return obj.entries.count()
 
 
 class TaxonomyEntryNestedSerializer(serializers.ModelSerializer):

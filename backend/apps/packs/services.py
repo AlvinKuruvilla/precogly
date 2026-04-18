@@ -33,6 +33,31 @@ from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay
 logger = logging.getLogger(__name__)
 
 
+def _find_pack_dir(base_path: Path, slug: str) -> Path | None:
+    """Recursively find a pack directory by slug."""
+    for item in base_path.iterdir():
+        if not item.is_dir():
+            continue
+
+        pack_yaml = item / "pack.yaml"
+        if pack_yaml.exists():
+            try:
+                with open(pack_yaml) as f:
+                    pack_data = yaml.safe_load(f)
+                pack_meta = pack_data.get("pack", {})
+                if pack_meta.get("slug", item.name) == slug:
+                    return item
+            except Exception:
+                pass
+
+        # Check subdirectories (for nested structure)
+        result = _find_pack_dir(item, slug)
+        if result:
+            return result
+
+    return None
+
+
 @dataclass
 class PackInfo:
     """Information about a pack discovered from the libraries folder."""
@@ -260,31 +285,7 @@ def get_pack_preview_from_source(slug: str) -> dict | None:
     if not libraries_path.exists():
         return None
 
-    def find_pack_dir(base_path: Path) -> Path | None:
-        """Recursively find a pack directory by slug."""
-        for item in base_path.iterdir():
-            if not item.is_dir():
-                continue
-
-            pack_yaml = item / "pack.yaml"
-            if pack_yaml.exists():
-                try:
-                    with open(pack_yaml) as f:
-                        pack_data = yaml.safe_load(f)
-                    pack_meta = pack_data.get("pack", {})
-                    if pack_meta.get("slug", item.name) == slug:
-                        return item
-                except Exception:
-                    pass
-
-            # Check subdirectories (for nested structure)
-            result = find_pack_dir(item)
-            if result:
-                return result
-
-        return None
-
-    pack_dir = find_pack_dir(libraries_path)
+    pack_dir = _find_pack_dir(libraries_path, slug)
     if not pack_dir:
         return None
 
@@ -1394,6 +1395,13 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
             logger.warning("Skipping taxonomy without slug")
             continue
 
+        existing_taxonomy = ExternalTaxonomy.objects.filter(slug=slug).first()
+        if existing_taxonomy and existing_taxonomy.source_pack and existing_taxonomy.source_pack != library_pack:
+            logger.warning(
+                "Taxonomy '%s' source_pack changing from '%s' to '%s'",
+                slug, existing_taxonomy.source_pack.slug, library_pack.slug,
+            )
+
         taxonomy_obj, _ = ExternalTaxonomy.objects.update_or_create(
             slug=slug,
             defaults={
@@ -2128,31 +2136,7 @@ def get_available_overlays_for_pack(slug: str) -> list[OverlayInfo]:
     if not libraries_path.exists():
         return []
 
-    # Find the pack directory
-    def find_pack_dir(base_path: Path) -> Path | None:
-        for item in base_path.iterdir():
-            if not item.is_dir():
-                continue
-
-            pack_yaml = item / "pack.yaml"
-            if pack_yaml.exists():
-                try:
-                    with open(pack_yaml) as f:
-                        pack_data = yaml.safe_load(f)
-                    pack_meta = pack_data.get("pack", {})
-                    if pack_meta.get("slug", item.name) == slug:
-                        return item
-                except Exception:
-                    pass
-
-            # Check subdirectories (for nested structure)
-            result = find_pack_dir(item)
-            if result:
-                return result
-
-        return None
-
-    pack_dir = find_pack_dir(libraries_path)
+    pack_dir = _find_pack_dir(libraries_path, slug)
     if not pack_dir:
         return []
 

@@ -12,6 +12,17 @@ from apps.compliance.models import StandardFramework
 from .models import LibraryPack, LibraryPackDependency
 
 
+def _check_is_imported(pack):
+    """Check if pack has library items in the database."""
+    return (
+        ComponentLibrary.objects.filter(source_pack=pack).exists()
+        or ThreatLibrary.objects.filter(source_pack=pack).exists()
+        or CountermeasureLibrary.objects.filter(source_pack=pack).exists()
+        or StandardFramework.objects.filter(source_pack=pack).exists()
+        or ExternalTaxonomy.objects.filter(source_pack=pack).exists()
+    )
+
+
 class LibraryPackDependencySerializer(serializers.ModelSerializer):
     """Serializer for pack dependencies."""
 
@@ -59,15 +70,7 @@ class LibraryPackListSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_imported(self, obj):
-        """Check if pack has library items in the database."""
-        # A pack is "imported" if it has components, threats, countermeasures, frameworks, or taxonomies
-        return (
-            ComponentLibrary.objects.filter(source_pack=obj).exists()
-            or ThreatLibrary.objects.filter(source_pack=obj).exists()
-            or CountermeasureLibrary.objects.filter(source_pack=obj).exists()
-            or StandardFramework.objects.filter(source_pack=obj).exists()
-            or ExternalTaxonomy.objects.filter(source_pack=obj).exists()
-        )
+        return _check_is_imported(obj)
 
 
 class LibraryPackDetailSerializer(serializers.ModelSerializer):
@@ -118,6 +121,7 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
             "threats": ThreatLibrary.objects.filter(source_pack=obj).count(),
             "countermeasures": CountermeasureLibrary.objects.filter(source_pack=obj).count(),
             "templates": DFDTemplatesLibrary.objects.filter(source_pack=obj).count(),
+            "taxonomies": ExternalTaxonomy.objects.filter(source_pack=obj).count(),
         }
 
         # If all DB counts are 0 and pack has content, use content as fallback
@@ -143,24 +147,22 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
                 for threat in comp.get("threats", []):
                     cm_count += len(threat.get("countermeasures", []))
 
+            # Count taxonomies from pack content
+            taxonomies = content.get("taxonomies", [])
+            taxonomy_count = len(taxonomies)
+
             return {
                 "components": component_count,
                 "threats": threat_count,
                 "countermeasures": cm_count,
                 "templates": db_counts["templates"],  # Keep DB count for templates
+                "taxonomies": taxonomy_count,
             }
 
         return db_counts
 
     def get_is_imported(self, obj):
-        """Check if pack has library items in the database."""
-        return (
-            ComponentLibrary.objects.filter(source_pack=obj).exists()
-            or ThreatLibrary.objects.filter(source_pack=obj).exists()
-            or CountermeasureLibrary.objects.filter(source_pack=obj).exists()
-            or StandardFramework.objects.filter(source_pack=obj).exists()
-            or ExternalTaxonomy.objects.filter(source_pack=obj).exists()
-        )
+        return _check_is_imported(obj)
 
 
 class PackDependencyTreeSerializer(serializers.Serializer):

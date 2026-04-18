@@ -23,7 +23,6 @@ from .serializers import (
 from .services import (
     ValidationResult,
     discover_packs_from_source,
-    get_active_overlays_for_pack,
     get_available_overlays_for_pack,
     get_pack_preview_from_database,
     get_pack_preview_from_source,

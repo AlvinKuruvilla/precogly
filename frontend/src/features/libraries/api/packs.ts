@@ -332,6 +332,9 @@ export interface UnimportResult {
     components: number
     threats: number
     countermeasures: number
+    templates: number
+    taxonomies: number
+    frameworks: number
   }
   dryRun: boolean
   deleted?: boolean
