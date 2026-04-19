@@ -43,6 +43,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["pack_type", "tier", "source"]
     search_fields = ["name", "description", "author", "tags", "industries"]
