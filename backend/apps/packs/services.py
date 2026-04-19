@@ -1243,11 +1243,14 @@ def _hard_delete_pack_items(pack: LibraryPack):
     Note: Instance models use SET_NULL for library FKs, so deleting library items
     will orphan instances but not delete them. This preserves user work.
     """
+    from apps.compliance.models import StandardFramework
+
     ComponentLibrary.objects.filter(source_pack=pack).delete()
     ThreatLibrary.objects.filter(source_pack=pack).delete()
     CountermeasureLibrary.objects.filter(source_pack=pack).delete()
     DFDTemplatesLibrary.objects.filter(source_pack=pack).delete()
     ExternalTaxonomy.objects.filter(source_pack=pack).delete()
+    StandardFramework.objects.filter(source_pack=pack).delete()
 
 
 def _create_or_update_pack(pack_data: dict) -> LibraryPack:
@@ -1643,7 +1646,25 @@ def _load_frameworks(library_pack: LibraryPack, pack_data: dict) -> int:
         if is_new:
             created_frameworks.append(framework_slug)
 
-        # Create requirements for this framework
+        # Purge stale requirements no longer in the pack YAML
+        incoming_section_codes = {
+            req.get("section_code", "")
+            for req in framework_data.get("requirements", [])
+        }
+        incoming_section_codes.discard("")
+
+        stale_count, _ = StandardRequirement.objects.filter(
+            framework=framework
+        ).exclude(
+            section_code__in=incoming_section_codes
+        ).delete()
+
+        if stale_count:
+            logger.info(
+                f"Purged {stale_count} stale requirements from framework '{framework_slug}'"
+            )
+
+        # Create or update requirements for this framework
         for req_data in framework_data.get("requirements", []):
             section_code = req_data.get("section_code", "")
             if not section_code:
