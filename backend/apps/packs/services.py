@@ -1217,6 +1217,7 @@ def sync_all_packs_from_source(
         # Validate before importing — skip packs with issues
         validation_result = validate_pack(Path(pack_info.path))
         if not validation_result.success or validation_result.warnings:
+            validation_result.success = False
             results.append(validation_result)
             continue
 
