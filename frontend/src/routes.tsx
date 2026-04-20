@@ -5,10 +5,6 @@ import {
   Dashboard,
   ThreatModels,
   ThreatModelDetail,
-  TechComponents,
-  ThreatLibraries,
-  Countermeasures,
-  DFDTemplates,
   Libraries,
   DFDEditor,
   Login,
@@ -67,15 +63,14 @@ export const router = createBrowserRouter([
       { path: 'threat-models/:id/diagrams/:diagramId', element: <DFDEditor /> },
       // New unified Libraries page
       { path: 'libraries', element: <Libraries /> },
-      // Legacy routes - redirect to new Libraries page
+      // Legacy routes - redirect to Libraries page
       { path: 'frameworks', element: <Navigate to="/libraries" replace /> },
       { path: 'packs', element: <Navigate to="/libraries" replace /> },
       { path: 'packs/installed', element: <Navigate to="/libraries?tab=imported" replace /> },
-      // Keep individual library pages for now (accessed via Libraries page)
-      { path: 'tech-components', element: <TechComponents /> },
-      { path: 'threat-libraries', element: <ThreatLibraries /> },
-      { path: 'countermeasures', element: <Countermeasures /> },
-      { path: 'dfd-templates', element: <DFDTemplates /> },
+      { path: 'tech-components', element: <Navigate to="/libraries" replace /> },
+      { path: 'threat-libraries', element: <Navigate to="/libraries" replace /> },
+      { path: 'countermeasures', element: <Navigate to="/libraries" replace /> },
+      { path: 'dfd-templates', element: <Navigate to="/libraries" replace /> },
       // Settings routes
       {
         path: 'settings',

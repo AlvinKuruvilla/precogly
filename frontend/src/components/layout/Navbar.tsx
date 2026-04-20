@@ -19,14 +19,6 @@ const navItems = [
   { name: 'Libraries', href: '/libraries' },
 ]
 
-// Browse items in Libraries dropdown (for quick access to specific library views)
-const browseItems = [
-  { name: 'Tech Components', href: '/tech-components' },
-  { name: 'Threats', href: '/threat-libraries' },
-  { name: 'Countermeasures', href: '/countermeasures' },
-  { name: 'DFD Templates', href: '/dfd-templates' },
-]
-
 // Routes where we show minimal navbar (just logo + user menu)
 const minimalNavRoutes = [
   /^\/threat-models\/[^/]+$/, // /threat-models/:id (but not /threat-models)
@@ -89,30 +81,6 @@ export function Navbar() {
                 {item.name}
               </Link>
             ))}
-            {/* Browse Dropdown - quick access to specific library item views */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={cn(
-                    'flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                    'hover:bg-accent hover:text-accent-foreground',
-                    browseItems.some((item) => location.pathname === item.href)
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground'
-                  )}
-                >
-                  Browse
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {browseItems.map((item) => (
-                  <DropdownMenuItem key={item.href} asChild>
-                    <Link to={item.href}>{item.name}</Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </nav>
         )}
 
@@ -130,15 +98,6 @@ export function Navbar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {navItems.map((item) => (
-                <DropdownMenuItem key={item.href} asChild>
-                  <Link to={item.href}>{item.name}</Link>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                Browse
-              </div>
-              {browseItems.map((item) => (
                 <DropdownMenuItem key={item.href} asChild>
                   <Link to={item.href}>{item.name}</Link>
                 </DropdownMenuItem>

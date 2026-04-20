@@ -1,14 +1,7 @@
 export { Dashboard } from '@/features/dashboard'
 export { ThreatModels, ThreatModelDetail, SharedThreatModelView } from '@/features/threat-models'
 export { default as DFDEditor } from '@/features/dfd-editor'
-export { Frameworks } from '@/features/compliance'
-export {
-  TechComponents,
-  ThreatLibraries,
-  Countermeasures,
-  DFDTemplates,
-  Libraries,
-} from '@/features/libraries'
+export { Libraries } from '@/features/libraries'
 export { Login } from './Login'
 export { Signup } from './Signup'
 export { ForgotPassword } from './ForgotPassword'

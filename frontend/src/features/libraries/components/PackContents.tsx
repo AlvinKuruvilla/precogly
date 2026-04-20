@@ -8,14 +8,11 @@ import {
   Tags,
 } from 'lucide-react'
 import { useComponentLibraries, useThreatLibraries, useCountermeasureLibraries, useRequirements, useTaxonomies, useTaxonomyEntries } from '@/features/libraries/api/libraries'
-import { Link } from 'react-router-dom'
 
 export function PackContents({
   packId,
-  packName,
 }: {
   packId: number
-  packName: string
 }) {
   const { data: allComponents, isLoading: loadingComponents } = useComponentLibraries()
   const { data: allThreats, isLoading: loadingThreats } = useThreatLibraries()
@@ -88,12 +85,6 @@ export function PackContents({
     )
   }
 
-  // Build URLs with pack filter
-  const encodedPackName = encodeURIComponent(packName)
-  const componentsUrl = `/tech-components?packId=${packId}&packName=${encodedPackName}`
-  const threatsUrl = `/threat-libraries?packId=${packId}&packName=${encodedPackName}`
-  const countermeasuresUrl = `/countermeasures?packId=${packId}&packName=${encodedPackName}`
-
   // Determine grid columns based on content types present
   const contentTypeCount = [hasComponents, hasThreats, hasCountermeasures, hasRequirements, hasTaxonomies].filter(Boolean).length
   const gridCols = contentTypeCount === 1 ? 'grid-cols-1' : contentTypeCount === 2 ? 'md:grid-cols-2' : contentTypeCount === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'
@@ -103,17 +94,9 @@ export function PackContents({
       {/* Components */}
       {hasComponents && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Server className="h-4 w-4 text-blue-600" />
-              Components ({components.length})
-            </div>
-            <Link
-              to={componentsUrl}
-              className="text-xs text-primary hover:underline"
-            >
-              View all &rarr;
-            </Link>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Server className="h-4 w-4 text-blue-600" />
+            Components ({components.length})
           </div>
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {components.slice(0, 10).map((c) => (
@@ -126,12 +109,9 @@ export function PackContents({
               </div>
             ))}
             {components.length > 10 && (
-              <Link
-                to={componentsUrl}
-                className="text-xs text-primary hover:underline pl-6 block"
-              >
+              <div className="text-xs text-muted-foreground pl-6">
                 +{components.length - 10} more
-              </Link>
+              </div>
             )}
           </div>
         </div>
@@ -140,17 +120,9 @@ export function PackContents({
       {/* Threats */}
       {hasThreats && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Bug className="h-4 w-4 text-red-600" />
-              Threats ({threats.length})
-            </div>
-            <Link
-              to={threatsUrl}
-              className="text-xs text-primary hover:underline"
-            >
-              View all &rarr;
-            </Link>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Bug className="h-4 w-4 text-red-600" />
+            Threats ({threats.length})
           </div>
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {threats.slice(0, 10).map((t) => (
@@ -163,12 +135,9 @@ export function PackContents({
               </div>
             ))}
             {threats.length > 10 && (
-              <Link
-                to={threatsUrl}
-                className="text-xs text-primary hover:underline pl-6 block"
-              >
+              <div className="text-xs text-muted-foreground pl-6">
                 +{threats.length - 10} more
-              </Link>
+              </div>
             )}
           </div>
         </div>
@@ -177,17 +146,9 @@ export function PackContents({
       {/* Countermeasures */}
       {hasCountermeasures && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Shield className="h-4 w-4 text-green-600" />
-              Countermeasures ({countermeasures.length})
-            </div>
-            <Link
-              to={countermeasuresUrl}
-              className="text-xs text-primary hover:underline"
-            >
-              View all &rarr;
-            </Link>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Shield className="h-4 w-4 text-green-600" />
+            Countermeasures ({countermeasures.length})
           </div>
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {countermeasures.slice(0, 10).map((cm) => (
@@ -200,12 +161,9 @@ export function PackContents({
               </div>
             ))}
             {countermeasures.length > 10 && (
-              <Link
-                to={countermeasuresUrl}
-                className="text-xs text-primary hover:underline pl-6 block"
-              >
+              <div className="text-xs text-muted-foreground pl-6">
                 +{countermeasures.length - 10} more
-              </Link>
+              </div>
             )}
           </div>
         </div>

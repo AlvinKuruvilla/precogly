@@ -88,7 +88,7 @@ export function ImportedPackRow({
       {/* Expanded Content */}
       {isExpanded && (
         <div className="border-t px-4 py-3 bg-muted/30">
-          <PackContents packId={pack.id} packName={pack.name} />
+          <PackContents packId={pack.id} />
         </div>
       )}
     </div>
