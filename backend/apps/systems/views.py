@@ -116,6 +116,7 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
 
     serializer_class = ComponentLibrarySerializer
     permission_classes = [IsAuthenticated, IsSecurityTeam]
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["category", "component_type", "provider"]
     search_fields = ["name", "component_type", "slug"]

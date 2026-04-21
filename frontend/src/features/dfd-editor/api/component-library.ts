@@ -20,14 +20,6 @@ interface ComponentLibraryItem {
   sourcePackSlug: string | null
 }
 
-// Paginated response from DRF
-interface PaginatedResponse<T> {
-  count: number
-  next: string | null
-  previous: string | null
-  results: T[]
-}
-
 // Map backend provider to frontend vendor
 function mapProviderToVendor(provider: string): Technology['vendor'] {
   const providerLower = provider.toLowerCase()
@@ -95,24 +87,8 @@ export function useComponentLibrary() {
   return useQuery({
     queryKey: ['component-library'],
     queryFn: async () => {
-      // Fetch all pages of paginated results
-      const allItems: ComponentLibraryItem[] = []
-      let url: string | null = '/component-library/'
-
-      while (url) {
-        const response: PaginatedResponse<ComponentLibraryItem> = await api.get<PaginatedResponse<ComponentLibraryItem>>(url)
-        allItems.push(...response.results)
-        // Get next page URL - extract just the path after /api
-        if (response.next) {
-          const parsedUrl: URL = new URL(response.next)
-          // Remove the /api prefix since api.get() adds it
-          url = parsedUrl.pathname.replace(/^\/api/, '') + parsedUrl.search
-        } else {
-          url = null
-        }
-      }
-
-      return allItems.map(transformToTechnology)
+      const items = await api.get<ComponentLibraryItem[]>('/component-library/')
+      return items.map(transformToTechnology)
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })

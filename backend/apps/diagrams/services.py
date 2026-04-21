@@ -23,19 +23,142 @@ from apps.threats.models import (
     build_taxonomy_snapshot,
 )
 
+ANALYZABLE_NODE_TYPES = ("process", "datastore", "humanActor", "systemActor")
 
-def sync_dfd_nodes_to_components(dfd, threat_model):
+
+def _extract_backend_ids_from_canvas(canvas_data):
+    """
+    Extract all backend record IDs stored in canvas_data nodes and edges.
+
+    Returns a dict of sets:
+        component_ids, dataflow_ids, trust_zone_ids, orgsystem_ids, trust_boundary_ids
+    """
+    nodes = canvas_data.get("nodes", [])
+    edges = canvas_data.get("edges", [])
+
+    component_ids = set()
+    trust_zone_ids = set()
+    orgsystem_ids = set()
+    dataflow_ids = set()
+    trust_boundary_ids = set()
+
+    for node in nodes:
+        node_data = node.get("data", {})
+        node_type = node.get("type")
+
+        if node_type in ANALYZABLE_NODE_TYPES:
+            cid = node_data.get("component_id")
+            if cid is not None:
+                component_ids.add(cid)
+        elif node_type == "trustZone":
+            zid = node_data.get("trust_zone_id")
+            if zid is not None:
+                trust_zone_ids.add(zid)
+        elif node_type == "systemScope":
+            sid = node_data.get("orgsystem_id")
+            if sid is not None:
+                orgsystem_ids.add(sid)
+
+    for edge in edges:
+        edge_data = edge.get("data", {})
+        edge_type = edge.get("type")
+
+        if edge_type == "dataFlow":
+            did = edge_data.get("dataflow_id")
+            if did is not None:
+                dataflow_ids.add(did)
+        elif edge_type == "trustBoundary":
+            bid = edge_data.get("trust_boundary_id")
+            if bid is not None:
+                trust_boundary_ids.add(bid)
+
+    return {
+        "component_ids": component_ids,
+        "dataflow_ids": dataflow_ids,
+        "trust_zone_ids": trust_zone_ids,
+        "orgsystem_ids": orgsystem_ids,
+        "trust_boundary_ids": trust_boundary_ids,
+    }
+
+
+def _cleanup_orphaned_records(old_canvas_data, new_canvas_data, threat_model):
+    """
+    Delete backend records whose canvas nodes/edges were removed between saves.
+
+    Compares old_canvas_data (before save) with new_canvas_data (after save) to
+    find backend IDs that disappeared, then deletes those records. Deletion order
+    respects FK constraints: boundaries -> dataflows -> components -> zones -> systems.
+
+    Analysis-only components (created via Threat Analysis UI, not from canvas) are
+    never in canvas_data and are therefore never affected.
+    """
+    old_ids = _extract_backend_ids_from_canvas(old_canvas_data)
+    new_ids = _extract_backend_ids_from_canvas(new_canvas_data)
+
+    orphaned_boundary_ids = old_ids["trust_boundary_ids"] - new_ids["trust_boundary_ids"]
+    orphaned_dataflow_ids = old_ids["dataflow_ids"] - new_ids["dataflow_ids"]
+    orphaned_component_ids = old_ids["component_ids"] - new_ids["component_ids"]
+    orphaned_zone_ids = old_ids["trust_zone_ids"] - new_ids["trust_zone_ids"]
+    orphaned_system_ids = old_ids["orgsystem_ids"] - new_ids["orgsystem_ids"]
+
+    has_orphans = (
+        orphaned_boundary_ids or orphaned_dataflow_ids or orphaned_component_ids
+        or orphaned_zone_ids or orphaned_system_ids
+    )
+    if not has_orphans:
+        return
+
+    deleted_counts = {}
+
+    # 1. Trust boundaries (FK zone_a/zone_b -> CASCADE, delete before zones)
+    if orphaned_boundary_ids:
+        count, _ = TrustBoundary.objects.filter(id__in=orphaned_boundary_ids).delete()
+        deleted_counts["trust_boundaries"] = count
+
+    # 2. DataFlows (FK source/dest component -> CASCADE, delete before components)
+    if orphaned_dataflow_ids:
+        count, _ = DataFlow.objects.filter(id__in=orphaned_dataflow_ids).delete()
+        deleted_counts["dataflows"] = count
+
+    # 3. Components (CASCADE -> ComponentInstanceThreat -> ComponentInstanceCountermeasure)
+    # Scope to this threat model to prevent cross-model deletion from corrupted canvas data
+    if orphaned_component_ids:
+        count, _ = OrgsystemComponent.objects.filter(
+            id__in=orphaned_component_ids,
+            threat_model=threat_model,
+        ).delete()
+        deleted_counts["components"] = count
+
+    # 4. Trust zones
+    if orphaned_zone_ids:
+        count, _ = TrustZone.objects.filter(id__in=orphaned_zone_ids).delete()
+        deleted_counts["trust_zones"] = count
+
+    # 5. Orgsystems and their ThreatModelOrgsystem links
+    if orphaned_system_ids:
+        ThreatModelOrgsystem.objects.filter(
+            threat_model=threat_model,
+            orgsystem_id__in=orphaned_system_ids,
+        ).delete()
+        count, _ = Orgsystem.objects.filter(id__in=orphaned_system_ids).delete()
+        deleted_counts["orgsystems"] = count
+
+    return deleted_counts
+
+
+def sync_dfd_nodes_to_components(dfd, threat_model, old_canvas_data=None):
     """
     Sync DFD canvas nodes and edges to backend records.
 
     When a DFD is saved, this function:
-    1. Extracts analyzable nodes (process, datastore, humanActor, systemActor) from canvas_data
-    2. Creates or updates OrgsystemComponent records for each
-    3. Links to ComponentLibrary based on technology if available
-    4. Stores the component_id back in the node data
-    5. Auto-generates threats for new components
-    6. Syncs edges to DataFlow records
-    7. Auto-generates threats for new data flows
+    1. Cleans up orphaned records (nodes/edges removed since last save)
+    2. Extracts analyzable nodes (process, datastore, humanActor, systemActor) from canvas_data
+    3. Creates or updates OrgsystemComponent records for each
+    4. Links to ComponentLibrary based on technology if available
+    5. Stores the component_id back in the node data
+    6. Auto-generates threats for new components
+    7. Syncs edges to DataFlow records
+    8. Auto-generates threats for new data flows
 
     Note: Components are created with orgsystem=None. Users can optionally
     assign components to systems via the node edit panel if the threat model
@@ -44,41 +167,39 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
     Args:
         dfd: The DFD instance being saved
         threat_model: The associated ThreatModel instance
-
-    Returns:
-        dict with:
-            - synced_count: number of components synced
-            - created_count: number of new components created
-            - threats_generated: number of new threats generated
-            - node_component_map: mapping of node_id -> component_id
-            - flows_synced: number of data flows synced
-            - flows_created: number of new data flows created
-            - flow_threats_generated: number of new flow threats generated
+        old_canvas_data: Canvas data from before this save (used to detect
+            deleted nodes/edges and clean up orphaned backend records)
     """
     canvas_data = dfd.canvas_data or {}
     nodes = canvas_data.get("nodes", [])
     edges = canvas_data.get("edges", [])
 
+    empty_result = {
+        "synced_count": 0,
+        "created_count": 0,
+        "threats_generated": 0,
+        "node_component_map": {},
+        "flows_synced": 0,
+        "flows_created": 0,
+        "flow_threats_generated": 0,
+        "zones_synced": 0,
+        "zones_created": 0,
+        "boundaries_synced": 0,
+        "boundaries_created": 0,
+    }
+
     if not nodes:
-        return {
-            "synced_count": 0,
-            "created_count": 0,
-            "threats_generated": 0,
-            "node_component_map": {},
-            "flows_synced": 0,
-            "flows_created": 0,
-            "flow_threats_generated": 0,
-            "zones_synced": 0,
-            "zones_created": 0,
-            "boundaries_synced": 0,
-            "boundaries_created": 0,
-        }
+        # Even with no nodes, we must clean up records from the old canvas
+        if old_canvas_data:
+            with transaction.atomic():
+                _cleanup_orphaned_records(old_canvas_data, canvas_data, threat_model)
+        return empty_result
 
     # Filter to analyzable nodes (process, datastore, humanActor, systemActor)
     # All of these can have associated threats and participate in data flows
     analyzable_nodes = [
         node for node in nodes
-        if node.get("type") in ("process", "datastore", "humanActor", "systemActor")
+        if node.get("type") in ANALYZABLE_NODE_TYPES
     ]
 
     synced_count = 0
@@ -287,6 +408,10 @@ def sync_dfd_nodes_to_components(dfd, threat_model):
         boundary_result = _sync_edges_to_trust_boundaries(
             dfd, edges, node_zone_map
         )
+
+        # Clean up orphaned records (nodes/edges removed since last save)
+        if old_canvas_data:
+            _cleanup_orphaned_records(old_canvas_data, dfd.canvas_data or {}, threat_model)
 
     return {
         "synced_count": synced_count,

@@ -132,9 +132,10 @@ export function useDiagramState({
       // Invalidate delete preview cache since component sync may have changed
       queryClient.invalidateQueries({ queryKey: ['dfd-delete-preview', diagramId] })
       // Invalidate related queries so Threat Analysis and other views get fresh data
-      queryClient.invalidateQueries({ queryKey: ['diagrams'] })
-      queryClient.invalidateQueries({ queryKey: ['threat-model'] })
-      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      const threatModelId = String(updatedDiagram.threatModel)
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats', threatModelId] })
+      queryClient.invalidateQueries({ queryKey: ['components', 'analysis', threatModelId] })
 
       // Merge backend-generated IDs (componentId, trustZoneId, orgsystemId)
       // back into local node state so features like Data Assets become available

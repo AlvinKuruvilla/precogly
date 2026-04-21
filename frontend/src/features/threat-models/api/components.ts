@@ -47,7 +47,7 @@ export interface OrgsystemComponent {
 
 export const componentKeys = {
   all: ['components'] as const,
-  library: ['component-library'] as const,
+  library: ['component-library-raw'] as const,
   analysisComponents: (threatModelId: string) =>
     [...componentKeys.all, 'analysis', threatModelId] as const,
 }

@@ -85,11 +85,17 @@ class DFDViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """Set updated_by to current user and sync nodes to components (primary only)."""
+        # Capture canvas state before save so sync can detect deleted nodes/edges
+        dfd_before_save = self.get_object()
+        old_canvas_data = dfd_before_save.canvas_data or {}
+
         dfd = serializer.save(updated_by=self.request.user)
 
         # Only the primary DFD syncs nodes to OrgsystemComponent records
         if dfd.is_primary and dfd.threat_model:
-            sync_dfd_nodes_to_components(dfd, dfd.threat_model)
+            sync_dfd_nodes_to_components(
+                dfd, dfd.threat_model, old_canvas_data=old_canvas_data
+            )
 
     @action(detail=False, methods=["post"])
     def create_for_threat_model(self, request):
