@@ -3,7 +3,7 @@ Services for diagrams app - DFD node synchronization and threat generation.
 """
 
 from django.db import transaction
-
+from django.db.models import Q
 
 from apps.systems.models import (
     ComponentLibrary,
@@ -19,9 +19,12 @@ from apps.threats.models import (
     ComponentLibraryThreat,
     DataFlowInstanceThreat,
     FlowInstanceCountermeasure,
+    Risk,
+    RiskThreat,
     ThreatLibrary,
     build_taxonomy_snapshot,
 )
+from apps.threats.services import recalculate_risk
 
 ANALYZABLE_NODE_TYPES = ("process", "datastore", "humanActor", "systemActor")
 
@@ -265,33 +268,78 @@ def sync_dfd_nodes_to_components(dfd, threat_model, old_canvas_data=None):
                 try:
                     component = OrgsystemComponent.objects.get(id=existing_component_id)
 
-                    # Track if library is being assigned for the first time
-                    library_newly_assigned = (
-                        component.component_library is None and component_library is not None
-                    )
+                    # Detect library change BEFORE any mutation to the component
+                    old_library_id = component.component_library_id
+                    new_library_id = component_library.id if component_library else None
+                    library_changed = old_library_id != new_library_id
 
-                    component.name = label
-                    component.component_library = component_library
-                    component.category = category
-                    component.description = node_data.get("description", "")
-                    if node_type == "humanActor":
-                        component.actor_type = node_data.get("actor_type", "")
-                    elif node_type == "systemActor":
-                        component.actor_type = node_data.get("system_type", "")
-                    if node_type == "datastore":
-                        component.data_store_type = node_data.get("data_store_type", "")
-                    if node_type in ("process", "datastore"):
-                        component.data_sensitivity_level = node_data.get("data_sensitivity", "")
-                    # NOTE: Don't overwrite orgsystem - preserve user's system assignment
-                    # Backfill threat_model if not set (for components created before this link existed)
-                    if component.threat_model_id is None:
-                        component.threat_model = threat_model
-                    component.save()
-                    synced_count += 1
+                    if library_changed and old_library_id is not None:
+                        # Technology changed (or cleared). Delete the old component
+                        # and create a fresh one. CASCADE handles cleanup of:
+                        #   - ComponentInstanceThreat (+ countermeasures, tests,
+                        #     compliance mappings, risk links)
+                        #   - DataFlow records (+ flow threats, flow countermeasures,
+                        #     flow tests, flow compliance mappings, flow risk links)
+                        #   - ComponentDataAsset records
+                        #   - PentestFinding matches (SET_NULL)
 
-                    # Generate threats if library was just assigned to existing component
-                    if library_newly_assigned:
+                        # Capture affected risk IDs before CASCADE wipes RiskThreat links
+                        affected_risk_ids = list(
+                            RiskThreat.objects.filter(
+                                Q(component_threat__component=component)
+                                | Q(flow_threat__data_flow__source_component=component)
+                                | Q(flow_threat__data_flow__dest_component=component)
+                            ).values_list("risk_id", flat=True).distinct()
+                        )
+
+                        component.delete()
+
+                        # Recalculate risks that lost threat links
+                        for risk in Risk.objects.filter(id__in=affected_risk_ids):
+                            recalculate_risk(risk)
+
+                        # Create replacement component with new library
+                        component = OrgsystemComponent.objects.create(
+                            name=label,
+                            orgsystem=None,
+                            threat_model=threat_model,
+                            component_library=component_library,
+                            category=category,
+                            description=node_data.get("description", ""),
+                            actor_type=(
+                                node_data.get("actor_type", "") if node_type == "humanActor"
+                                else node_data.get("system_type", "") if node_type == "systemActor"
+                                else ""
+                            ),
+                            data_store_type=node_data.get("data_store_type", "") if node_type == "datastore" else "",
+                            data_sensitivity_level=node_data.get("data_sensitivity", "") if node_type in ("process", "datastore") else "",
+                        )
+                        created_count += 1
                         new_components.append(component)
+                    else:
+                        # No library change (or first assignment): update in place
+                        component.name = label
+                        component.component_library = component_library
+                        component.category = category
+                        component.description = node_data.get("description", "")
+                        if node_type == "humanActor":
+                            component.actor_type = node_data.get("actor_type", "")
+                        elif node_type == "systemActor":
+                            component.actor_type = node_data.get("system_type", "")
+                        if node_type == "datastore":
+                            component.data_store_type = node_data.get("data_store_type", "")
+                        if node_type in ("process", "datastore"):
+                            component.data_sensitivity_level = node_data.get("data_sensitivity", "")
+                        # NOTE: Don't overwrite orgsystem - preserve user's system assignment
+                        # Backfill threat_model if not set (for components created before this link existed)
+                        if component.threat_model_id is None:
+                            component.threat_model = threat_model
+                        component.save()
+                        synced_count += 1
+
+                        # Generate threats if library was just assigned (null to non-null)
+                        if library_changed and new_library_id is not None:
+                            new_components.append(component)
 
                 except OrgsystemComponent.DoesNotExist:
                     # Component was deleted, create new one
@@ -490,7 +538,8 @@ def _generate_countermeasures_for_threat(threat_instance):
     Returns:
         Number of countermeasures created
     """
-    from apps.threats.models import ComponentInstanceCountermeasure, CountermeasureLibrary
+    from apps.threats.models import ComponentInstanceCountermeasure, ComponentInstanceCountermeasureStandard, CountermeasureLibrary
+    from apps.compliance.models import CountermeasureLibraryStandard
 
     # Find countermeasures that apply to this threat's library
     applicable_countermeasures = CountermeasureLibrary.objects.filter(
@@ -501,7 +550,7 @@ def _generate_countermeasures_for_threat(threat_instance):
     has_platform_countermeasure = False
     for countermeasure_library in applicable_countermeasures:
         countermeasure_status = countermeasure_library.default_status
-        _, created = ComponentInstanceCountermeasure.objects.get_or_create(
+        cm_instance, created = ComponentInstanceCountermeasure.objects.get_or_create(
             instance_threat=threat_instance,
             countermeasure_library=countermeasure_library,
             defaults={
@@ -516,6 +565,25 @@ def _generate_countermeasures_for_threat(threat_instance):
             created_count += 1
             if countermeasure_status == "platform":
                 has_platform_countermeasure = True
+            # Propagate library-level compliance mappings to instance level (#29)
+            library_standards = CountermeasureLibraryStandard.objects.filter(
+                countermeasure_library=countermeasure_library,
+            ).select_related("requirement", "requirement__framework")
+            if library_standards.exists():
+                ComponentInstanceCountermeasureStandard.objects.bulk_create(
+                    [
+                        ComponentInstanceCountermeasureStandard(
+                            component_countermeasure=cm_instance,
+                            requirement=ls.requirement,
+                            sufficiency=ls.sufficiency,
+                            section_code=ls.requirement.section_code,
+                            framework_name=ls.requirement.framework.name,
+                            requirement_description=ls.requirement.description,
+                        )
+                        for ls in library_standards
+                    ],
+                    ignore_conflicts=True,
+                )
 
     # Recalculate threat status if any platform countermeasures were created
     if has_platform_countermeasure:
@@ -806,7 +874,8 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
     Returns:
         Number of countermeasures created
     """
-    from apps.threats.models import CountermeasureLibrary
+    from apps.threats.models import CountermeasureLibrary, FlowInstanceCountermeasureStandard
+    from apps.compliance.models import CountermeasureLibraryStandard
 
     # Find countermeasures that apply to this threat's library
     applicable_countermeasures = CountermeasureLibrary.objects.filter(
@@ -817,7 +886,7 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
     has_platform_countermeasure = False
     for countermeasure_library in applicable_countermeasures:
         countermeasure_status = countermeasure_library.default_status
-        _, created = FlowInstanceCountermeasure.objects.get_or_create(
+        cm_instance, created = FlowInstanceCountermeasure.objects.get_or_create(
             flow_threat=threat_instance,
             countermeasure_library=countermeasure_library,
             defaults={
@@ -832,6 +901,25 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
             created_count += 1
             if countermeasure_status == "platform":
                 has_platform_countermeasure = True
+            # Propagate library-level compliance mappings to instance level (#29)
+            library_standards = CountermeasureLibraryStandard.objects.filter(
+                countermeasure_library=countermeasure_library,
+            ).select_related("requirement", "requirement__framework")
+            if library_standards.exists():
+                FlowInstanceCountermeasureStandard.objects.bulk_create(
+                    [
+                        FlowInstanceCountermeasureStandard(
+                            flow_countermeasure=cm_instance,
+                            requirement=ls.requirement,
+                            sufficiency=ls.sufficiency,
+                            section_code=ls.requirement.section_code,
+                            framework_name=ls.requirement.framework.name,
+                            requirement_description=ls.requirement.description,
+                        )
+                        for ls in library_standards
+                    ],
+                    ignore_conflicts=True,
+                )
 
     # Recalculate threat status if any platform countermeasures were created
     if has_platform_countermeasure:

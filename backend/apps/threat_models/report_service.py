@@ -21,9 +21,11 @@ from apps.systems.models import (
 )
 from apps.threats.models import (
     ComponentInstanceCountermeasure,
+    ComponentInstanceCountermeasureStandard,
     ComponentInstanceThreat,
     DataFlowInstanceThreat,
     FlowInstanceCountermeasure,
+    FlowInstanceCountermeasureStandard,
     Risk,
     RiskThreat,
 )
@@ -571,49 +573,48 @@ def _build_risks(threat_model):
 
 
 def _build_compliance(threat_model, component_ids, dataflow_ids):
-    """Build compliance section with framework coverage."""
+    """Build compliance section with framework coverage.
+
+    Derives frameworks from instance-level compliance mappings rather than
+    requiring explicit ThreatModelFramework associations.
+    """
+    # Collect all covered (framework_id, requirement_id) pairs from instance-level mappings
+    framework_coverage = defaultdict(set)
+
+    # From component countermeasure instance mappings
+    component_standards = ComponentInstanceCountermeasureStandard.objects.filter(
+        component_countermeasure__instance_threat__component_id__in=component_ids,
+        requirement__isnull=False,
+    ).select_related("requirement__framework")
+
+    for mapping in component_standards:
+        framework_coverage[mapping.requirement.framework_id].add(mapping.requirement_id)
+
+    # From flow countermeasure instance mappings
+    flow_standards = FlowInstanceCountermeasureStandard.objects.filter(
+        flow_countermeasure__flow_threat__data_flow_id__in=dataflow_ids,
+        requirement__isnull=False,
+    ).select_related("requirement__framework")
+
+    for mapping in flow_standards:
+        framework_coverage[mapping.requirement.framework_id].add(mapping.requirement_id)
+
+    # Build framework summaries
     frameworks = []
-    for assoc in threat_model.framework_associations.select_related("framework").all():
-        framework = assoc.framework
-        total_requirements = framework.requirements.count()
-
-        # Count requirements covered by countermeasures in scope
-        covered_requirement_ids = set()
-
-        # From component countermeasure library mappings
-        component_cms = ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component_id__in=component_ids,
-            countermeasure_library__isnull=False,
-        ).select_related("countermeasure_library")
-
-        for cm in component_cms:
-            for mapping in cm.countermeasure_library.standard_mappings.filter(
-                requirement__framework=framework
-            ):
-                covered_requirement_ids.add(mapping.requirement_id)
-
-        # From flow countermeasure library mappings
-        flow_cms = FlowInstanceCountermeasure.objects.filter(
-            flow_threat__data_flow_id__in=dataflow_ids,
-            countermeasure_library__isnull=False,
-        ).select_related("countermeasure_library")
-
-        for cm in flow_cms:
-            for mapping in cm.countermeasure_library.standard_mappings.filter(
-                requirement__framework=framework
-            ):
-                covered_requirement_ids.add(mapping.requirement_id)
-
-        frameworks.append({
-            "name": framework.name,
-            "slug": framework.slug,
-            "total_requirements": total_requirements,
-            "covered_requirements": len(covered_requirement_ids),
-            "coverage_percentage": (
-                round(len(covered_requirement_ids) / total_requirements * 100, 1)
-                if total_requirements > 0 else 0
-            ),
-        })
+    if framework_coverage:
+        for framework in StandardFramework.objects.filter(id__in=framework_coverage.keys()):
+            covered_ids = framework_coverage[framework.id]
+            total_requirements = framework.requirements.count()
+            frameworks.append({
+                "name": framework.name,
+                "slug": framework.slug,
+                "total_requirements": total_requirements,
+                "covered_requirements": len(covered_ids),
+                "coverage_percentage": (
+                    round(len(covered_ids) / total_requirements * 100, 1)
+                    if total_requirements > 0 else 0
+                ),
+            })
 
     return {
         "frameworks": frameworks,

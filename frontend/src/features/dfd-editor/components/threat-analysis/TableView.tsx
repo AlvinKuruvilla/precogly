@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +17,7 @@ import { deriveThreatStatus, THREAT_STATUS_CONFIG } from '../../types/threat-ana
 import type { TaxonomyEntry } from '@/types/domain'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { getAncestryPath, buildNodesMap } from './hierarchy-utils'
+import { useTechnologies } from '../../api/component-library'
 
 interface TableViewProps {
   canvasData: CanvasData
@@ -53,6 +54,19 @@ export function TableView({
 }: TableViewProps) {
   // Mark as used - inline editing will be added later
   void _onCountermeasureStatusChange
+  // Resolve technology slugs to display names
+  const { technologies } = useTechnologies()
+  const resolveTechName = useCallback(
+    (value: string | undefined) => {
+      if (!value) return ''
+      const match = technologies.find(
+        (t) => t.id === value || t.name.toLowerCase() === value.toLowerCase()
+      )
+      return match?.name ?? value
+    },
+    [technologies]
+  )
+
   // Build nodes map once for hierarchy lookups
   const nodesMap = useMemo(
     () => buildNodesMap(canvasData.nodes),
@@ -72,7 +86,7 @@ export function TableView({
         // Use threat metadata from backend (stored in ComponentThreat)
         if (!ct.threatName) return
 
-        const technologyName = (node.data as { technology?: string }).technology
+        const technologyName = resolveTechName((node.data as { technology?: string }).technology)
 
         // Compute parent path for nested process nodes
         let parentPath: string | undefined
@@ -82,7 +96,11 @@ export function TableView({
             // Exclude the node itself — show only ancestors
             parentPath = ancestry
               .slice(0, -1)
-              .map((a) => (a.data as { technology?: string }).technology || String(a.data.label))
+              .map((a) => {
+                const aLabel = String(a.data.label)
+                const aTech = resolveTechName((a.data as { technology?: string }).technology)
+                return aLabel.toLowerCase().includes('new ') ? (aTech || aLabel) : aLabel
+              })
               .join(' > ')
           }
         }
@@ -115,7 +133,7 @@ export function TableView({
     rows.sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
 
     return rows
-  }, [componentThreats, canvasData.nodes, nodesMap])
+  }, [componentThreats, canvasData.nodes, nodesMap, resolveTechName])
 
   // Summary stats
   const stats = useMemo(() => {

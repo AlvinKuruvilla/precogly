@@ -108,3 +108,18 @@ export function useTechnologies() {
     isEmpty: !isLoading && technologies.length === 0,
   }
 }
+
+/**
+ * Resolve a technology value (slug or legacy display name) to its display name.
+ * Returns the original value as fallback if no match is found (custom entries).
+ */
+export function useTechnologyDisplayName(value: string | undefined): string {
+  const { technologies } = useTechnologies()
+
+  if (!value) return ''
+
+  const match = technologies.find(
+    (t) => t.id === value || t.name.toLowerCase() === value.toLowerCase()
+  )
+  return match?.name ?? value
+}

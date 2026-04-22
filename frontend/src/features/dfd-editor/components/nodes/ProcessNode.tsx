@@ -4,6 +4,7 @@ import { Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProcessNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
+import { useTechnologyDisplayName } from '../../api/component-library'
 
 type ProcessNodeType = Node<ProcessNodeData, 'process'>
 
@@ -38,6 +39,7 @@ export const ProcessNode = memo(function ProcessNode({
   selected,
 }: NodeProps<ProcessNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
+  const technologyDisplayName = useTechnologyDisplayName(data.technology)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
   const [showReceiveAnimation, setShowReceiveAnimation] = useState(false)
 
@@ -111,7 +113,7 @@ export const ProcessNode = memo(function ProcessNode({
             {/* Technology badge at top-right */}
             {data.technology && (
               <div className="absolute -top-3 right-3 px-2 py-0.5 rounded text-xs bg-white text-blue-600 border border-blue-300">
-                {data.technology}
+                {technologyDisplayName}
               </div>
             )}
             {/* Data sensitivity badge at bottom-left */}
@@ -137,7 +139,7 @@ export const ProcessNode = memo(function ProcessNode({
                 </span>
                 {data.technology && (
                   <span className="text-xs text-blue-600 truncate">
-                    {data.technology}
+                    {technologyDisplayName}
                   </span>
                 )}
               </div>

@@ -71,8 +71,6 @@ export interface ComponentInstanceCountermeasure {
 }
 
 export interface GenerateThreatsResponse {
-  created: ComponentInstanceThreat[]
-  existing: ComponentInstanceThreat[]
   createdCount: number
   existingCount: number
   total: number

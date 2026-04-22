@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { X, Trash2, Cog, Database, User, Server, Shield, Box, ShieldCheck, ArrowRight, Link, Lock, LockOpen } from 'lucide-react'
+import { X, Trash2, Cog, Database, User, Server, Shield, Box, ShieldCheck, ArrowRight, Link, Lock, LockOpen, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,6 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { TechnologyCombobox } from '../technology-combobox'
 import { SuggestionCombobox } from '../suggestion-combobox'
 import { useThreatModelSystems, useUpdateComponentSystem } from '@/features/threat-models/api/threat-models'
@@ -239,12 +249,34 @@ export const NodeEditPanel = memo(function NodeEditPanel({
     ? (getNodes() as DiagramNode[]).find((n) => n.id === node.parentId)
     : null
 
+  // Pending technology change awaiting confirmation
+  const [pendingTechnology, setPendingTechnology] = useState<string | null>(null)
+
   const updateNodeData = (updates: Partial<DiagramNode['data']>) => {
     setNodes((nodes) =>
       nodes.map((n) =>
         n.id === node.id ? { ...n, data: { ...n.data, ...updates } } : n
       )
     )
+  }
+
+  const handleTechnologyChange = (newValue: string) => {
+    const currentTechnology = (node.data as { technology?: string }).technology
+    const componentId = (node.data as { componentId?: number }).componentId
+
+    // Show confirmation only when: component is synced, has an existing technology, and it's changing
+    if (componentId && currentTechnology && newValue !== currentTechnology) {
+      setPendingTechnology(newValue)
+    } else {
+      updateNodeData({ technology: newValue })
+    }
+  }
+
+  const confirmTechnologyChange = () => {
+    if (pendingTechnology !== null) {
+      updateNodeData({ technology: pendingTechnology })
+      setPendingTechnology(null)
+    }
   }
 
   const handleDelete = () => {
@@ -328,7 +360,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
               <Label>Technology</Label>
               <TechnologyCombobox
                 value={(node.data as { technology?: string }).technology || ''}
-                onChange={(value) => updateNodeData({ technology: value })}
+                onChange={handleTechnologyChange}
                 filterNodeType={node.type as 'process' | 'datastore'}
                 placeholder={
                   node.type === 'datastore'
@@ -794,6 +826,30 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           Delete Node
         </Button>
       </div>
+
+      {/* Technology change confirmation dialog */}
+      <AlertDialog open={pendingTechnology !== null} onOpenChange={(open) => { if (!open) setPendingTechnology(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Change Technology?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This component has already been synced. Changing its technology will
+              replace the current component and regenerate all associated threats.
+              Any existing threat analysis work (countermeasures, risk ratings) for
+              this component will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmTechnologyChange}>
+              Change Technology
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 })

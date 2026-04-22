@@ -42,6 +42,7 @@ export function ComponentTreeItem({
   collapsedNodes,
   onSelectComponent,
   onToggleCollapsed,
+  resolveTechName,
 }: {
   treeNode: ComponentTreeNode
   componentThreats: ComponentThreat[]
@@ -49,15 +50,17 @@ export function ComponentTreeItem({
   collapsedNodes: Set<string>
   onSelectComponent: (id: string) => void
   onToggleCollapsed: (id: string) => void
+  resolveTechName: (value: string | undefined) => string
 }) {
   const { node, children, depth } = treeNode
   const Icon = nodeTypeIcons[node.type as string] || Cog
   const summary = getComponentThreatSummary(node.id, componentThreats)
   const isSelected = node.id === selectedComponentId
-  const technologyName = (node.data as { technology?: string }).technology
+  const technologyName = resolveTechName((node.data as { technology?: string }).technology)
   const nodeLabel = String(node.data.label)
-  const displayName = technologyName || nodeLabel
-  const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
+  const isDefaultLabel = nodeLabel.toLowerCase().includes('new ')
+  const displayName = !isDefaultLabel ? nodeLabel : (technologyName || nodeLabel)
+  const showSecondaryLabel = technologyName && !isDefaultLabel && nodeLabel !== technologyName
   const hasChildren = children.length > 0
   const isCollapsed = collapsedNodes.has(node.id)
 
@@ -102,7 +105,7 @@ export function ComponentTreeItem({
               </div>
               {showSecondaryLabel && (
                 <div className="text-xs text-muted-foreground truncate">
-                  {nodeLabel}
+                  {technologyName}
                 </div>
               )}
             </div>
@@ -151,6 +154,7 @@ export function ComponentTreeItem({
           collapsedNodes={collapsedNodes}
           onSelectComponent={onSelectComponent}
           onToggleCollapsed={onToggleCollapsed}
+          resolveTechName={resolveTechName}
         />
       ))}
     </>

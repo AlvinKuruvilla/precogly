@@ -199,12 +199,11 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
         """
         Auto-generate threats for this component based on its library type.
 
-        Queries ComponentLibraryThreat for threats linked to the component's
-        library entry and creates ComponentInstanceThreat records.
+        Delegates to _generate_threats_for_component() in diagrams/services.py
+        to keep threat creation logic in a single place.
 
         Returns:
-            - created: list of newly created threat instances
-            - existing: list of threats that already existed
+            - created_count: number of newly created threat instances
             - total: total threats now associated with this component
         """
         component = self.get_object()
@@ -215,52 +214,18 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get threats linked to this component's library type
-        # Only include component-level threats (not flow-only threats)
-        library_threats = ComponentLibraryThreat.objects.filter(
-            component_library=component.component_library,
-            applies_to__in=[
-                ComponentLibraryThreat.AppliesTo.COMPONENT,
-                ComponentLibraryThreat.AppliesTo.BOTH,
-            ],
-        ).select_related("threat_library")
-
-        created_threats = []
-        existing_threats = []
-
-        # Import here to avoid circular imports
-        from apps.diagrams.services import _generate_countermeasures_for_threat
+        from apps.diagrams.services import _generate_threats_for_component
 
         with transaction.atomic():
-            for lib_threat in library_threats:
-                threat_lib = lib_threat.threat_library
-                instance_threat, created = ComponentInstanceThreat.objects.get_or_create(
-                    component=component,
-                    threat_library=threat_lib,
-                    defaults={
-                        "inherent_severity": lib_threat.default_severity,
-                        "status": ComponentInstanceThreat.Status.EXPOSED,
-                        # Copy metadata for self-sufficiency if library is later removed
-                        "threat_name": threat_lib.name if threat_lib else "",
-                        "threat_description": threat_lib.description if threat_lib else "",
-                        "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
-                    },
-                )
+            created_count = _generate_threats_for_component(component)
 
-                if created:
-                    created_threats.append(instance_threat)
-                    # Auto-generate countermeasures for this new threat
-                    _generate_countermeasures_for_threat(instance_threat)
-                else:
-                    existing_threats.append(instance_threat)
+        total = ComponentInstanceThreat.objects.filter(component=component).count()
 
         return Response({
-            "created": ComponentInstanceThreatSerializer(created_threats, many=True).data,
-            "existing": ComponentInstanceThreatSerializer(existing_threats, many=True).data,
-            "created_count": len(created_threats),
-            "existing_count": len(existing_threats),
-            "total": len(created_threats) + len(existing_threats),
-            "message": f"Generated {len(created_threats)} new threats, {len(existing_threats)} already existed",
+            "created_count": created_count,
+            "existing_count": total - created_count,
+            "total": total,
+            "message": f"Generated {created_count} new threats, {total - created_count} already existed",
         })
 
 
@@ -324,6 +289,7 @@ class ComponentDataAssetViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, CanWrite]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["component", "data_asset"]
+    ordering = ["id"]
 
     def get_queryset(self):
         """Filter by user's organizations."""

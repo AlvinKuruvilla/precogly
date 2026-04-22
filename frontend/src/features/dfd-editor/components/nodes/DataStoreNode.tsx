@@ -4,6 +4,7 @@ import { Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DataStoreNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
+import { useTechnologyDisplayName } from '../../api/component-library'
 
 type DataStoreNodeType = Node<DataStoreNodeData, 'datastore'>
 
@@ -12,6 +13,7 @@ export const DataStoreNode = memo(function DataStoreNode({
   selected,
 }: NodeProps<DataStoreNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
+  const technologyDisplayName = useTechnologyDisplayName(data.technology)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
 
   // Trigger lock animation when lockAnimationKey changes (new timestamp = new animation)
@@ -75,7 +77,7 @@ export const DataStoreNode = memo(function DataStoreNode({
                 </span>
                 {data.technology && (
                   <span className="text-xs text-purple-600 truncate">
-                    {data.technology}
+                    {technologyDisplayName}
                   </span>
                 )}
               </div>

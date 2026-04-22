@@ -44,6 +44,7 @@ import { ComplianceDetailSection } from './ComplianceDetailSection'
 import { CountermeasureStatusButtons } from './CountermeasureStatusButtons'
 import { ComponentTreeItem } from './ComponentTreeItem'
 import { ComponentDataAssetsDisplay } from './ComponentDataAssetsDisplay'
+import { useTechnologies } from '../../api/component-library'
 import { DataFlowAssetsDisplay } from './DataFlowAssetsDisplay'
 import { SortableList } from '@/components/shared/SortableList'
 
@@ -181,6 +182,19 @@ export function ComponentView({
     name: string
     mappings: ComplianceStandardMapping[]
   } | null>(null)
+
+  // Resolve technology slugs to display names
+  const { technologies } = useTechnologies()
+  const resolveTechName = useCallback(
+    (value: string | undefined) => {
+      if (!value) return ''
+      const match = technologies.find(
+        (t) => t.id === value || t.name.toLowerCase() === value.toLowerCase()
+      )
+      return match?.name ?? value
+    },
+    [technologies]
+  )
 
   // Severity assessment mutations
   const updateThreatMutation = useUpdateThreat()
@@ -408,6 +422,7 @@ export function ComponentView({
                 collapsedNodes={collapsedNodes}
                 onSelectComponent={onSelectComponent}
                 onToggleCollapsed={toggleNodeCollapsed}
+                resolveTechName={resolveTechName}
               />
             ))}
 
@@ -421,10 +436,12 @@ export function ComponentView({
                   const Icon = nodeTypeIcons[node.type as string] || Cog
                   const summary = getComponentThreatSummary(node.id, componentThreats)
                   const isSelected = node.id === selectedComponentId
-                  const technologyName = (node.data as { technology?: string }).technology
+                  const technologySlug = (node.data as { technology?: string }).technology
+                  const technologyName = resolveTechName(technologySlug)
                   const nodeLabel = String(node.data.label)
-                  const displayName = technologyName || nodeLabel
-                  const showSecondaryLabel = technologyName && nodeLabel !== technologyName && !nodeLabel.toLowerCase().includes('new ')
+                  const isDefaultLabel = nodeLabel.toLowerCase().includes('new ')
+                  const displayName = !isDefaultLabel ? nodeLabel : (technologyName || nodeLabel)
+                  const showSecondaryLabel = technologyName && !isDefaultLabel && nodeLabel !== technologyName
 
                   return (
                     <Fragment key={node.id}>
@@ -446,7 +463,7 @@ export function ComponentView({
                               </div>
                               {showSecondaryLabel && (
                                 <div className="text-xs text-muted-foreground truncate">
-                                  {nodeLabel}
+                                  {technologyName}
                                 </div>
                               )}
                             </div>
@@ -670,8 +687,11 @@ export function ComponentView({
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-0.5 flex-wrap">
               {ancestryPath.map((ancestor, index) => {
                 const isLast = index === ancestryPath.length - 1
-                const ancestorLabel =
-                  (ancestor.data as { technology?: string }).technology || String(ancestor.data.label)
+                const ancestorNodeLabel = String(ancestor.data.label)
+                const ancestorTechName = resolveTechName((ancestor.data as { technology?: string }).technology)
+                const ancestorLabel = ancestorNodeLabel.toLowerCase().includes('new ')
+                  ? (ancestorTechName || ancestorNodeLabel)
+                  : ancestorNodeLabel
                 return (
                   <span key={ancestor.id} className="flex items-center gap-1">
                     {index > 0 && <ChevronRight className="h-3 w-3 flex-shrink-0" />}
@@ -692,7 +712,7 @@ export function ComponentView({
           )}
           <div className="text-xs text-muted-foreground">
             {selectedComponent
-              ? (selectedComponent.data as { technology?: string }).technology || String(selectedComponent.data.label)
+              ? resolveTechName((selectedComponent.data as { technology?: string }).technology) || String(selectedComponent.data.label)
               : selectedTrustZone
                 ? String(selectedTrustZone.data.label)
                 : selectedDataFlow
@@ -716,8 +736,11 @@ export function ComponentView({
             </div>
             <div className="mt-1.5 space-y-0.5">
               {childProcesses.map((child) => {
-                const childLabel =
-                  (child.data as { technology?: string }).technology || String(child.data.label)
+                const childNodeLabel = String(child.data.label)
+                const childTechName = resolveTechName((child.data as { technology?: string }).technology)
+                const childLabel = childNodeLabel.toLowerCase().includes('new ')
+                  ? (childTechName || childNodeLabel)
+                  : childNodeLabel
                 const childSummary = getComponentThreatSummary(child.id, componentThreats)
                 return (
                   <button

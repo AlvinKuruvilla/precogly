@@ -136,6 +136,8 @@ export function useDiagramState({
       queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats', threatModelId] })
       queryClient.invalidateQueries({ queryKey: ['components', 'analysis', threatModelId] })
+      // Invalidate risk queries (technology changes CASCADE-delete RiskThreat links)
+      queryClient.invalidateQueries({ queryKey: ['risks'] })
 
       // Merge backend-generated IDs (componentId, trustZoneId, orgsystemId)
       // back into local node state so features like Data Assets become available

@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/table'
 import {
   useRisks,
+  useRisk,
   useCreateRisk,
   useDeleteRisk,
   useRecalculateRisk,
@@ -376,36 +377,41 @@ function RiskDetailPanel({
   threatModelId: string
   onClose: () => void
 }) {
+  const { data: riskDetail } = useRisk(threatModelId, risk.id)
+  const displayRisk = riskDetail ?? risk
   const recalculate = useRecalculateRisk(threatModelId)
+  const { data: scoringMethods } = useScoringMethods()
+  const scoringMethodLabel = scoringMethods?.find((m) => m.key === displayRisk.scoringMethod)?.label
+    ?? displayRisk.scoringMethod.replace(/_/g, ' ')
 
   return (
     <Card className="border-l-2 border-l-primary">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{risk.name}</CardTitle>
+          <CardTitle className="text-lg">{displayRisk.name}</CardTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>
             &times;
           </Button>
         </div>
-        {risk.description && (
-          <p className="text-sm text-muted-foreground">{risk.description}</p>
+        {displayRisk.description && (
+          <p className="text-sm text-muted-foreground">{displayRisk.description}</p>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Inherent Risk</p>
-            <ScoreDisplay score={risk.inherentScore} level={risk.inherentLevel} />
+            <ScoreDisplay score={displayRisk.inherentScore} level={displayRisk.inherentLevel} />
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Residual Risk</p>
-            <ScoreDisplay score={risk.residualScore} level={risk.residualLevel} />
+            <ScoreDisplay score={displayRisk.residualScore} level={displayRisk.residualLevel} />
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <p className="text-xs text-muted-foreground">Status:</p>
-          <StatusBadge status={risk.status} />
+          <StatusBadge status={displayRisk.status} />
           <Button
             variant="ghost"
             size="sm"
@@ -416,26 +422,26 @@ function RiskDetailPanel({
           </Button>
         </div>
 
-        {risk.ownerEmail && (
+        {displayRisk.ownerEmail && (
           <div>
             <p className="text-xs text-muted-foreground">Owner</p>
-            <p className="text-sm">{risk.ownerEmail}</p>
+            <p className="text-sm">{displayRisk.ownerEmail}</p>
           </div>
         )}
-        {risk.assignedToEmail && (
+        {displayRisk.assignedToEmail && (
           <div>
             <p className="text-xs text-muted-foreground">Assigned To</p>
-            <p className="text-sm">{risk.assignedToEmail}</p>
+            <p className="text-sm">{displayRisk.assignedToEmail}</p>
           </div>
         )}
 
-        {risk.threats && risk.threats.length > 0 && (
+        {displayRisk.threats && displayRisk.threats.length > 0 && (
           <div>
             <p className="text-xs text-muted-foreground mb-2">
-              Linked Threats ({risk.threats.length})
+              Linked Threats ({displayRisk.threats.length})
             </p>
             <div className="space-y-1">
-              {risk.threats.map((threat) => (
+              {displayRisk.threats.map((threat) => (
                 <div
                   key={threat.riskThreatId}
                   className="flex items-center justify-between text-sm border rounded px-2 py-1"
@@ -467,8 +473,8 @@ function RiskDetailPanel({
         )}
 
         <div className="text-xs text-muted-foreground pt-2 border-t">
-          <p>Method: {risk.scoringMethod.replace(/_/g, ' ')}</p>
-          <p>Created: {new Date(risk.createdAt).toLocaleDateString()}</p>
+          <p>Method: {scoringMethodLabel}</p>
+          <p>Created: {new Date(displayRisk.createdAt).toLocaleDateString()}</p>
         </div>
       </CardContent>
     </Card>

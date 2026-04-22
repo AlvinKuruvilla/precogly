@@ -167,6 +167,9 @@ export function useDeleteDFD() {
       queryClient.invalidateQueries({ queryKey: ['diagrams'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+      // Invalidate components and threats (orphaned component deletion changes these)
+      queryClient.invalidateQueries({ queryKey: ['components'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
   })
 }

@@ -97,9 +97,9 @@ export function TechnologyCombobox({
     return groups
   }, [filteredTechnologies])
 
-  // Find current selection
+  // Find current selection (match slug first, then fall back to name for legacy canvas data)
   const selectedTech = technologies.find(
-    (t) => t.name.toLowerCase() === value.toLowerCase() || t.id === value.toLowerCase()
+    (t) => t.id === value || t.name.toLowerCase() === value.toLowerCase()
   )
 
   // Check if query doesn't match any technology (for custom option)
@@ -200,7 +200,7 @@ export function TechnologyCombobox({
                     key={tech.id}
                     value={tech.name}
                     onSelect={() => {
-                      onChange(tech.name)
+                      onChange(tech.id)
                       setOpen(false)
                       setSearchQuery('')
                     }}
@@ -216,7 +216,7 @@ export function TechnologyCombobox({
                     <Check
                       className={cn(
                         'h-4 w-4',
-                        value.toLowerCase() === tech.name.toLowerCase()
+                        value === tech.id || value.toLowerCase() === tech.name.toLowerCase()
                           ? 'opacity-100'
                           : 'opacity-0'
                       )}
