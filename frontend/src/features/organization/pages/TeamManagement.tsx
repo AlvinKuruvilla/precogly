@@ -413,8 +413,8 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
                 ) : inviteResult.invitation ? (
                   <div className="space-y-2">
                     <p>Invitation created for <span className="font-medium">{inviteResult.invitation.email}</span>. Share this link with them:</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 text-xs bg-background p-2 rounded border truncate">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <code className="flex-1 text-xs bg-background p-2 rounded border truncate block overflow-hidden">
                         {`${window.location.origin}${inviteResult.invitation.inviteUrl}`}
                       </code>
                       <Button variant="outline" size="sm" onClick={handleCopyInviteLink}>
