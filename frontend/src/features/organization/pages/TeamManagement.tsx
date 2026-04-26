@@ -371,9 +371,9 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Invite form */}
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <Label>Invite Member</Label>
             <div className="flex gap-2">
               <Input
@@ -381,7 +381,7 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
                 placeholder="Email address"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
               <Select
                 value={inviteRole}
@@ -404,20 +404,20 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
               If the user doesn't have an account, they'll receive an invite link.
             </p>
             {inviteResult && (
-              <div className="p-3 rounded-md bg-muted text-sm">
+              <div className="p-3 rounded-md bg-muted text-sm min-w-0">
                 {inviteResult.status === 'added' ? (
                   <p className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-green-600" />
                     Member added to the team.
                   </p>
                 ) : inviteResult.invitation ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <p>Invitation created for <span className="font-medium">{inviteResult.invitation.email}</span>. Share this link with them:</p>
                     <div className="flex items-center gap-2 min-w-0">
-                      <code className="flex-1 text-xs bg-background p-2 rounded border truncate block overflow-hidden">
+                      <code className="flex-1 min-w-0 text-xs bg-background p-2 rounded border break-all">
                         {`${window.location.origin}${inviteResult.invitation.inviteUrl}`}
                       </code>
-                      <Button variant="outline" size="sm" onClick={handleCopyInviteLink}>
+                      <Button variant="outline" size="sm" onClick={handleCopyInviteLink} className="shrink-0">
                         {copiedLink ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                       </Button>
                     </div>
