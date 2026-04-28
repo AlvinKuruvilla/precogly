@@ -573,37 +573,53 @@ def _build_risks(threat_model):
 
 
 def _build_compliance(threat_model, component_ids, dataflow_ids):
-    """Build compliance section with framework coverage.
+    """Build compliance section with framework coverage and satisfaction.
 
     Derives frameworks from instance-level compliance mappings rather than
     requiring explicit ThreatModelFramework associations.
+
+    Coverage: requirement has at least one countermeasure mapped to it.
+    Satisfaction: requirement has at least one countermeasure with status
+    "verified" or "platform".
     """
-    # Collect all covered (framework_id, requirement_id) pairs from instance-level mappings
+    satisfied_statuses = {"verified", "platform"}
+
+    # Collect all covered and satisfied (framework_id, requirement_id) pairs
     framework_coverage = defaultdict(set)
+    framework_satisfied = defaultdict(set)
 
     # From component countermeasure instance mappings
     component_standards = ComponentInstanceCountermeasureStandard.objects.filter(
         component_countermeasure__instance_threat__component_id__in=component_ids,
         requirement__isnull=False,
-    ).select_related("requirement__framework")
+    ).select_related("requirement__framework", "component_countermeasure")
 
     for mapping in component_standards:
-        framework_coverage[mapping.requirement.framework_id].add(mapping.requirement_id)
+        fw_id = mapping.requirement.framework_id
+        req_id = mapping.requirement_id
+        framework_coverage[fw_id].add(req_id)
+        if mapping.component_countermeasure.status in satisfied_statuses:
+            framework_satisfied[fw_id].add(req_id)
 
     # From flow countermeasure instance mappings
     flow_standards = FlowInstanceCountermeasureStandard.objects.filter(
         flow_countermeasure__flow_threat__data_flow_id__in=dataflow_ids,
         requirement__isnull=False,
-    ).select_related("requirement__framework")
+    ).select_related("requirement__framework", "flow_countermeasure")
 
     for mapping in flow_standards:
-        framework_coverage[mapping.requirement.framework_id].add(mapping.requirement_id)
+        fw_id = mapping.requirement.framework_id
+        req_id = mapping.requirement_id
+        framework_coverage[fw_id].add(req_id)
+        if mapping.flow_countermeasure.status in satisfied_statuses:
+            framework_satisfied[fw_id].add(req_id)
 
     # Build framework summaries
     frameworks = []
     if framework_coverage:
         for framework in StandardFramework.objects.filter(id__in=framework_coverage.keys()):
             covered_ids = framework_coverage[framework.id]
+            satisfied_ids = framework_satisfied.get(framework.id, set())
             total_requirements = framework.requirements.count()
             frameworks.append({
                 "name": framework.name,
@@ -612,6 +628,11 @@ def _build_compliance(threat_model, component_ids, dataflow_ids):
                 "covered_requirements": len(covered_ids),
                 "coverage_percentage": (
                     round(len(covered_ids) / total_requirements * 100, 1)
+                    if total_requirements > 0 else 0
+                ),
+                "satisfied_requirements": len(satisfied_ids),
+                "satisfaction_percentage": (
+                    round(len(satisfied_ids) / total_requirements * 100, 1)
                     if total_requirements > 0 else 0
                 ),
             })
