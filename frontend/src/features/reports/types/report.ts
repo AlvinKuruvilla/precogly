@@ -207,6 +207,8 @@ export interface ReportComplianceFramework {
   totalRequirements: number
   coveredRequirements: number
   coveragePercentage: number
+  satisfiedRequirements: number
+  satisfactionPercentage: number
 }
 
 export interface ReportCompliance {

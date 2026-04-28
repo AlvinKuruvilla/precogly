@@ -1,4 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ReportCompliance } from '@/features/reports/types/report'
 import type { SectionDepth } from '../reportConfig'
 import { ReportSection } from '../ReportSection'
@@ -32,12 +33,12 @@ export function ComplianceSection({ compliance, depth }: ComplianceSectionProps)
 
   if (depth === 'summary') {
     return (
-      <ReportSection title="Compliance Coverage">
+      <ReportSection title="Compliance Status">
         <div className="space-y-2">
           {compliance.frameworks.map((fw) => (
             <div key={fw.slug} className="flex items-center justify-between">
               <span className="text-sm font-medium">{fw.name}</span>
-              <CoverageBar percentage={fw.coveragePercentage} />
+              <CoverageBar percentage={fw.satisfactionPercentage} />
             </div>
           ))}
         </div>
@@ -51,9 +52,29 @@ export function ComplianceSection({ compliance, depth }: ComplianceSectionProps)
         <TableHeader>
           <TableRow>
             <TableHead>Framework</TableHead>
-            <TableHead className="text-right">Total Requirements</TableHead>
-            <TableHead className="text-right">Covered</TableHead>
-            <TableHead>Coverage</TableHead>
+            <TableHead className="text-right">Requirements</TableHead>
+            <TableHead>
+              Covered
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <sup className="ml-0.5 cursor-help text-muted-foreground">?</sup>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Requirement has at least one countermeasure mapped to it
+                </TooltipContent>
+              </Tooltip>
+            </TableHead>
+            <TableHead>
+              Satisfied
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <sup className="ml-0.5 cursor-help text-muted-foreground">?</sup>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Requirement has at least one countermeasure with status Verified or Platform
+                </TooltipContent>
+              </Tooltip>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -61,14 +82,25 @@ export function ComplianceSection({ compliance, depth }: ComplianceSectionProps)
             <TableRow key={fw.slug}>
               <TableCell className="font-medium">{fw.name}</TableCell>
               <TableCell className="text-right">{fw.totalRequirements}</TableCell>
-              <TableCell className="text-right">{fw.coveredRequirements}</TableCell>
               <TableCell>
-                <CoverageBar percentage={fw.coveragePercentage} />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{fw.coveredRequirements}/{fw.totalRequirements}</span>
+                  <CoverageBar percentage={fw.coveragePercentage} />
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{fw.satisfiedRequirements}/{fw.totalRequirements}</span>
+                  <CoverageBar percentage={fw.satisfactionPercentage} />
+                </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <p className="text-xs text-muted-foreground mt-2">
+        Bar color: green = 80%+, yellow = 50-79%, red = below 50%.
+      </p>
     </ReportSection>
   )
 }
