@@ -1,11 +1,15 @@
 # Precogly
 
+[![Latest Release](https://img.shields.io/github/v/release/precogly/precogly)](https://github.com/precogly/precogly/releases/latest)
+[![License](https://img.shields.io/github/license/precogly/precogly)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/precogly/precogly)](https://github.com/precogly/precogly/stargazers)
+
 ## The open-source alternative to commercial threat modeling platforms
 
 ### Quick Start
 
 ```bash
-  git clone https://github.com/precogly/precogly.git
+  git clone --branch v0.1.0 https://github.com/precogly/precogly.git
   cd precogly
   docker compose up --build
 ```
