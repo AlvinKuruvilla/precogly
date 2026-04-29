@@ -834,33 +834,6 @@ def _generate_threats_for_dataflow(dataflow):
                 # Auto-generate countermeasures for this new threat
                 _generate_countermeasures_for_flow_threat(threat_instance)
 
-    # If no component-specific threats were found, use generic dataflow threats
-    # This ensures data flows from/to actors still get threat coverage
-    if created_count == 0:
-        # Get generic dataflow threats (those with "dataflow" in slug)
-        generic_threats = ThreatLibrary.objects.filter(slug__icontains="dataflow")
-
-        for threat_lib in generic_threats:
-            if threat_lib.id in seen_threat_ids:
-                continue
-            seen_threat_ids.add(threat_lib.id)
-
-            threat_instance, created = DataFlowInstanceThreat.objects.get_or_create(
-                data_flow=dataflow,
-                threat_library=threat_lib,
-                defaults={
-                    "inherent_severity": "medium",  # Default severity for generic threats
-                    "status": DataFlowInstanceThreat.Status.EXPOSED,
-                    "threat_name": threat_lib.name if threat_lib else "",
-                    "threat_description": threat_lib.description if threat_lib else "",
-                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
-                },
-            )
-            if created:
-                created_count += 1
-                # Auto-generate countermeasures for this new threat
-                _generate_countermeasures_for_flow_threat(threat_instance)
-
     return created_count
 
 
