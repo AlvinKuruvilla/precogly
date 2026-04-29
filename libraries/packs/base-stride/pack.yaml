@@ -1,6 +1,7 @@
 # Base STRIDE Threat Pack
 pack:
   slug: base-stride
+  path: base-stride
   name: "Base STRIDE Threats"
   description: "Foundational STRIDE-based threats and countermeasures for threat modeling"
   version: "2.0.0"

@@ -1,5 +1,6 @@
 pack:
   slug: stride-taxonomy
+  path: stride-taxonomy
   name: STRIDE Taxonomy
   description: "Microsoft STRIDE threat classification model"
   version: "1.0.0"

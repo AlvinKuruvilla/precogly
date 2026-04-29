@@ -33,29 +33,52 @@ from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay
 logger = logging.getLogger(__name__)
 
 
-def _find_pack_dir(base_path: Path, slug: str) -> Path | None:
-    """Recursively find a pack directory by slug."""
-    for item in base_path.iterdir():
-        if not item.is_dir():
-            continue
+def _find_pack_dir(base_path: Path, pack_path: str) -> Path | None:
+    """
+    Resolve a pack's directory from its declared relative path.
 
-        pack_yaml = item / "pack.yaml"
-        if pack_yaml.exists():
-            try:
-                with open(pack_yaml) as f:
-                    pack_data = yaml.safe_load(f)
-                pack_meta = pack_data.get("pack", {})
-                if pack_meta.get("slug", item.name) == slug:
-                    return item
-            except Exception:
-                pass
+    The path is the value of `pack.path` in pack.yaml — a relative path
+    from the libraries/packs root to the pack directory. This is an O(1)
+    lookup: no scanning or YAML parsing of unrelated packs is needed.
 
-        # Check subdirectories (for nested structure)
-        result = _find_pack_dir(item, slug)
-        if result:
-            return result
-
+    Returns None if the directory does not exist or has no pack.yaml.
+    """
+    if not pack_path:
+        return None
+    pack_dir = base_path / pack_path
+    if pack_dir.is_dir() and (pack_dir / "pack.yaml").exists():
+        return pack_dir
     return None
+
+
+def _resolve_slug_to_path(libraries_path: Path, slug: str) -> str | None:
+    """
+    Resolve a pack slug to its declared relative path.
+
+    Used by legacy slug-based APIs (preview, available_overlays) where the
+    caller has only a slug. Walks the libraries tree once via
+    discover_packs_from_source() and returns the first match. Issues a
+    warning when multiple packs share the slug — disambiguation requires
+    using the path-based API directly.
+
+    Returns None if no pack with the given slug is found.
+    """
+    matches = []
+    for pack_info in discover_packs_from_source():
+        if pack_info.slug == slug:
+            matches.append(pack_info)
+
+    if not matches:
+        return None
+
+    if len(matches) > 1:
+        paths = [m.relative_path for m in matches]
+        logger.warning(
+            f"Multiple packs found with slug '{slug}': {paths}. "
+            f"Using first match. Pass an explicit path to disambiguate."
+        )
+
+    return matches[0].relative_path
 
 
 @dataclass
@@ -72,7 +95,13 @@ class PackInfo:
     author: str = ""
     industries: list = field(default_factory=list)
     tags: list = field(default_factory=list)
+    # Absolute filesystem path to the pack directory (for callers that
+    # need to load files from disk).
     path: str = ""
+    # Declared relative path from libraries/packs root, taken from
+    # pack.yaml's `pack.path` field. Used for O(1) lookup and dependency
+    # disambiguation. Empty when pack.yaml omits the field (older packs).
+    relative_path: str = ""
     is_in_database: bool = False
     database_version: Optional[str] = None
     component_count: int = 0
@@ -94,6 +123,7 @@ class PackInfo:
             "industries": self.industries,
             "tags": self.tags,
             "path": self.path,
+            "relative_path": self.relative_path,
             "is_in_database": self.is_in_database,
             "database_version": self.database_version,
             "needs_update": self.is_in_database and self.database_version != self.version,
@@ -163,8 +193,18 @@ def _count_items_in_file(file_path: Path, key: str) -> int:
         return 0
 
 
-def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
-    """Discover a pack from its directory."""
+def _discover_pack(pack_dir: Path, libraries_path: Path, existing_packs: dict) -> PackInfo | None:
+    """Discover a pack from its directory.
+
+    Path invariants from issue #33 are checked here so problems surface
+    in discovery output, not just at import time:
+      - missing `path` field → warning, fall back to disk location
+      - declared path's last segment != slug → warning
+      - declared path != actual on-disk location → warning
+
+    Discovery still returns a PackInfo for invalid packs so users can
+    see them in listings; the import path enforces these as errors.
+    """
     pack_yaml = pack_dir / "pack.yaml"
     if not pack_yaml.exists():
         return None
@@ -175,6 +215,36 @@ def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
 
         pack_meta = pack_data.get("pack", {})
         slug = pack_meta.get("slug", pack_dir.name)
+
+        # Resolve the declared path. If pack.yaml omits `path`, fall back
+        # to the actual location on disk so older packs keep working.
+        # Validation in validate_pack() will flag the missing field.
+        declared_path = pack_meta.get("path", "")
+        actual_relative_path = str(pack_dir.relative_to(libraries_path)).replace("\\", "/")
+
+        if not declared_path:
+            logger.warning(
+                f"Pack at {actual_relative_path} is missing the required "
+                f"`path` field in pack.yaml — falling back to disk location"
+            )
+            relative_path = actual_relative_path
+        else:
+            declared_normalized = declared_path.replace("\\", "/").strip("/")
+            relative_path = declared_normalized
+
+            last_segment = declared_normalized.split("/")[-1]
+            if slug and last_segment != slug:
+                logger.warning(
+                    f"Pack at {actual_relative_path}: declared path "
+                    f"'{declared_path}' last segment '{last_segment}' "
+                    f"does not match slug '{slug}'"
+                )
+
+            if declared_normalized != actual_relative_path:
+                logger.warning(
+                    f"Pack at {actual_relative_path}: declared path "
+                    f"'{declared_path}' does not match actual location"
+                )
 
         # Count items from separate files
         component_count = _count_items_in_file(pack_dir / "components.yaml", "components")
@@ -194,6 +264,7 @@ def _discover_pack(pack_dir: Path, existing_packs: dict) -> PackInfo | None:
             industries=pack_meta.get("industries", []),
             tags=pack_meta.get("tags", []),
             path=str(pack_dir),
+            relative_path=relative_path,
             is_in_database=slug in existing_packs,
             database_version=existing_packs.get(slug),
             component_count=component_count,
@@ -234,7 +305,7 @@ def discover_packs_from_source() -> list[PackInfo]:
 
             # Check if this directory is a pack (has pack.yaml)
             if (item / "pack.yaml").exists():
-                pack_info = _discover_pack(item, existing_packs)
+                pack_info = _discover_pack(item, libraries_path, existing_packs)
                 if pack_info:
                     packs.append(pack_info)
             else:
@@ -243,18 +314,34 @@ def discover_packs_from_source() -> list[PackInfo]:
 
     scan_directory(libraries_path)
 
-    # Resolve depends_on slugs to {slug, name, is_imported} dicts
-    pack_by_slug = {p.slug: p for p in packs}
+    # Resolve depends_on entries to {slug, name, is_imported} dicts.
+    # Dependencies can reference packs in two ways:
+    #   1. By slug only (legacy): `depends_on: [pack-slug]` or
+    #      `depends_on: [{pack: pack-slug, version: "^1.0.0"}]`
+    #   2. By slug + path (disambiguating): `depends_on: [{pack: pack-slug,
+    #      path: frameworks/pack-slug, version: "^1.0.0"}]`
+    # The path-based form is required when multiple packs share a slug on
+    # disk; without it, the resolver picks the first match.
+    pack_by_path = {p.relative_path: p for p in packs if p.relative_path}
+    pack_by_slug: dict[str, PackInfo] = {}
+    for p in packs:
+        # Keep the first occurrence — disambiguation happens via `path`.
+        pack_by_slug.setdefault(p.slug, p)
+
     for pack_info in packs:
         resolved_dependencies = []
         for dep_entry in pack_info.depends_on:
             if isinstance(dep_entry, str):
                 dep_slug = dep_entry
+                dep_path = ""
             else:
                 dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
-            dep = pack_by_slug.get(dep_slug)
+                dep_path = dep_entry.get("path", "")
+
+            dep = pack_by_path.get(dep_path) if dep_path else pack_by_slug.get(dep_slug)
             resolved_dependencies.append({
                 "slug": dep_slug,
+                "path": dep_path or (dep.relative_path if dep else ""),
                 "name": dep.name if dep else dep_slug,
                 "is_imported": dep_slug in existing_packs,
             })
@@ -285,7 +372,11 @@ def get_pack_preview_from_source(slug: str) -> dict | None:
     if not libraries_path.exists():
         return None
 
-    pack_dir = _find_pack_dir(libraries_path, slug)
+    pack_relative_path = _resolve_slug_to_path(libraries_path, slug)
+    if not pack_relative_path:
+        return None
+
+    pack_dir = _find_pack_dir(libraries_path, pack_relative_path)
     if not pack_dir:
         return None
 
@@ -591,12 +682,13 @@ def validate_pack(pack_path: Path) -> ValidationResult:
     errors = []
     warnings = []
 
-    # =========================================================================
     # Structural checks
-    # =========================================================================
 
-    # Required metadata fields
-    required_metadata = ["slug", "name", "version", "pack_type"]
+    # Required metadata fields. The `path` field was added to make pack
+    # resolution O(1) (see issue #33) — it must be present so the
+    # discovery layer can locate this pack without scanning every
+    # pack.yaml in the tree.
+    required_metadata = ["slug", "name", "version", "pack_type", "path"]
     for required_field in required_metadata:
         if required_field not in pack_meta:
             errors.append(ValidationError(
@@ -606,6 +698,60 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                 reference=required_field,
                 message=f"Missing required field: {required_field}",
             ))
+
+    # Path validation. The `path` field is the source of truth for where
+    # the pack lives under libraries/packs. Two invariants must hold:
+    #   1. The last segment of the path equals the slug. The folder name
+    #      is meaningful and must match the slug, so paths cannot rename
+    #      the pack out from under callers.
+    #   2. The declared path matches where the pack.yaml actually lives
+    #      on disk. Otherwise lookups by path would resolve to a
+    #      different directory than the one declaring this slug.
+    declared_path = pack_meta.get("path", "")
+    if declared_path:
+        # Normalize to use forward slashes for cross-platform consistency.
+        # We accept paths written with either separator in pack.yaml.
+        declared_path_normalized = declared_path.replace("\\", "/").strip("/")
+        path_segments = declared_path_normalized.split("/")
+        last_segment = path_segments[-1] if path_segments else ""
+
+        if slug and last_segment != slug:
+            errors.append(ValidationError(
+                file="pack.yaml",
+                line=None,
+                ref_type="pack",
+                reference="path",
+                message=(
+                    f"Path '{declared_path}' last segment '{last_segment}' "
+                    f"does not match slug '{slug}'. The folder name must "
+                    f"equal the slug."
+                ),
+            ))
+
+        # Compare declared path to actual disk location, if discoverable.
+        # We expect pack_path to be under libraries/packs; if it's not
+        # (e.g., test fixtures pointing at an arbitrary directory), skip
+        # this check rather than emit a misleading error.
+        try:
+            libraries_path = get_libraries_path()
+            actual_relative = pack_path.resolve().relative_to(libraries_path.resolve())
+            actual_relative_str = str(actual_relative).replace("\\", "/")
+            if actual_relative_str != declared_path_normalized:
+                errors.append(ValidationError(
+                    file="pack.yaml",
+                    line=None,
+                    ref_type="pack",
+                    reference="path",
+                    message=(
+                        f"Declared path '{declared_path}' does not match "
+                        f"actual location '{actual_relative_str}'. The path "
+                        f"field must reflect where the pack lives on disk."
+                    ),
+                ))
+        except (ValueError, FileNotFoundError):
+            # pack_path is outside libraries/packs (test fixture or
+            # ad-hoc import): skip the on-disk match check.
+            pass
 
     # Valid pack_type enum
     valid_pack_types = {"technology", "threat", "countermeasure", "compliance", "template", "full", "taxonomy"}
@@ -1282,7 +1428,16 @@ def _create_or_update_pack(pack_data: dict) -> LibraryPack:
 
 
 def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
-    """Process pack dependencies with version constraints."""
+    """Process pack dependencies with version constraints.
+
+    Dependencies may include an optional `path` field for disambiguating
+    between packs that share a slug on disk. The DB enforces slug
+    uniqueness, so once imported a slug refers to exactly one pack —
+    `path` is informational here and only affects which pack on disk we
+    consider the dependency target. We log when path is given but the
+    matching pack isn't yet imported, since the dependency record will
+    be created without it.
+    """
     depends_on = pack_data.get("pack", {}).get("depends_on", [])
 
     # Clear existing dependencies
@@ -1298,7 +1453,9 @@ def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
             version_constraint = dep.get("version", "")
             is_optional = dep.get("optional", False)
 
-        # Find the dependency pack (may not exist yet)
+        # Find the dependency pack (may not exist yet). Slug uniqueness
+        # in the DB makes the lookup unambiguous regardless of how many
+        # disk variants share the slug.
         dep_pack = LibraryPack.objects.filter(slug=dep_slug).first()
         if dep_pack:
             LibraryPackDependency.objects.create(
@@ -2158,7 +2315,11 @@ def get_available_overlays_for_pack(slug: str) -> list[OverlayInfo]:
     if not libraries_path.exists():
         return []
 
-    pack_dir = _find_pack_dir(libraries_path, slug)
+    pack_relative_path = _resolve_slug_to_path(libraries_path, slug)
+    if not pack_relative_path:
+        return []
+
+    pack_dir = _find_pack_dir(libraries_path, pack_relative_path)
     if not pack_dir:
         return []
 

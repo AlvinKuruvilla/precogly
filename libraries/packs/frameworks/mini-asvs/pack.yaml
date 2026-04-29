@@ -1,5 +1,6 @@
 pack:
   slug: mini-asvs
+  path: frameworks/mini-asvs
   name: "OWASP ASVS 4.0 (Mini)"
   version: "1.0.0"
   pack_type: compliance

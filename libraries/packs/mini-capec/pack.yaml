@@ -1,5 +1,6 @@
 pack:
   slug: mini-capec
+  path: mini-capec
   name: Mini CAPEC
   description: "Curated subset of MITRE CAPEC (Common Attack Pattern Enumeration and Classification) covering the most common web and cloud attack patterns."
   version: "1.0.0"

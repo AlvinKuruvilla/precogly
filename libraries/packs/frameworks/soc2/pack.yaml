@@ -1,5 +1,6 @@
 pack:
   slug: soc2
+  path: frameworks/soc2
   name: "SOC 2"
   version: "1.0.0"
   pack_type: compliance

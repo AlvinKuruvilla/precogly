@@ -1,5 +1,6 @@
 pack:
   slug: dora
+  path: frameworks/dora
   name: "DORA"
   version: "1.0.0"
   pack_type: compliance
