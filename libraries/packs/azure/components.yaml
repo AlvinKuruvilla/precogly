@@ -5,30 +5,35 @@ components:
     name: "Azure SQL Database"
     category: datastore
     component_type: database
+    provider: azure
     description: "Managed SQL Server database service"
 
   - slug: cosmosdb
     name: "Azure Cosmos DB"
     category: datastore
     component_type: database
+    provider: azure
     description: "Globally distributed multi-model database"
 
   - slug: postgresql
     name: "Azure Database for PostgreSQL"
     category: datastore
     component_type: database
+    provider: azure
     description: "Managed PostgreSQL database service"
 
   - slug: mysql
     name: "Azure Database for MySQL"
     category: datastore
     component_type: database
+    provider: azure
     description: "Managed MySQL database service"
 
   - slug: synapse
     name: "Azure Synapse Analytics"
     category: datastore
     component_type: database
+    provider: azure
     description: "Analytics and data warehouse service"
 
   # STORAGE
@@ -36,24 +41,28 @@ components:
     name: "Azure Blob Storage"
     category: datastore
     component_type: storage
+    provider: azure
     description: "Object storage for unstructured data"
 
   - slug: files
     name: "Azure Files"
     category: datastore
     component_type: storage
+    provider: azure
     description: "Managed file shares (SMB/NFS)"
 
   - slug: data-lake
     name: "Azure Data Lake Storage"
     category: datastore
     component_type: storage
+    provider: azure
     description: "Big data analytics storage"
 
   - slug: queue-storage
     name: "Azure Queue Storage"
     category: datastore
     component_type: storage
+    provider: azure
     description: "Message queue storage service"
 
   # CACHE
@@ -61,6 +70,7 @@ components:
     name: "Azure Cache for Redis"
     category: datastore
     component_type: cache
+    provider: azure
     description: "Managed Redis in-memory cache"
 
   # COMPUTE
@@ -68,42 +78,49 @@ components:
     name: "Azure Functions"
     category: process
     component_type: compute
+    provider: azure
     description: "Serverless function execution"
 
   - slug: aks
     name: "Azure AKS"
     category: process
     component_type: compute
+    provider: azure
     description: "Azure Kubernetes Service - managed Kubernetes"
 
   - slug: app-service
     name: "Azure App Service"
     category: process
     component_type: compute
+    provider: azure
     description: "PaaS for web apps and APIs"
 
   - slug: container-apps
     name: "Azure Container Apps"
     category: process
     component_type: compute
+    provider: azure
     description: "Serverless container platform"
 
   - slug: container-instances
     name: "Azure Container Instances"
     category: process
     component_type: compute
+    provider: azure
     description: "Run containers without managing servers"
 
   - slug: virtual-machines
     name: "Azure Virtual Machines"
     category: process
     component_type: compute
+    provider: azure
     description: "IaaS virtual servers"
 
   - slug: batch
     name: "Azure Batch"
     category: process
     component_type: compute
+    provider: azure
     description: "Large-scale parallel batch processing"
 
   # MESSAGING
@@ -111,18 +128,21 @@ components:
     name: "Azure Service Bus"
     category: process
     component_type: messaging
+    provider: azure
     description: "Enterprise message broker"
 
   - slug: event-hubs
     name: "Azure Event Hubs"
     category: process
     component_type: messaging
+    provider: azure
     description: "Big data streaming platform"
 
   - slug: event-grid
     name: "Azure Event Grid"
     category: process
     component_type: messaging
+    provider: azure
     description: "Event routing service"
 
   # NETWORKING
@@ -130,54 +150,63 @@ components:
     name: "Azure Virtual Network"
     category: process
     component_type: networking
+    provider: azure
     description: "Isolated virtual network"
 
   - slug: subnet
     name: "Azure Subnet"
     category: process
     component_type: networking
+    provider: azure
     description: "Network subnet within VNet"
 
   - slug: private-endpoint
     name: "Azure Private Endpoint"
     category: process
     component_type: networking
+    provider: azure
     description: "Private connectivity to Azure services"
 
   - slug: virtual-wan
     name: "Azure Virtual WAN"
     category: process
     component_type: networking
+    provider: azure
     description: "Network transit hub"
 
   - slug: application-gateway
     name: "Azure Application Gateway"
     category: process
     component_type: networking
+    provider: azure
     description: "Layer 7 load balancer with WAF"
 
   - slug: front-door
     name: "Azure Front Door"
     category: process
     component_type: networking
+    provider: azure
     description: "Global load balancer and CDN"
 
   - slug: load-balancer
     name: "Azure Load Balancer"
     category: process
     component_type: networking
+    provider: azure
     description: "Layer 4 load balancer"
 
   - slug: traffic-manager
     name: "Azure Traffic Manager"
     category: process
     component_type: networking
+    provider: azure
     description: "DNS-based traffic routing"
 
   - slug: dns
     name: "Azure DNS"
     category: process
     component_type: networking
+    provider: azure
     description: "DNS hosting service"
 
   # SECURITY
@@ -185,54 +214,63 @@ components:
     name: "Azure WAF"
     category: process
     component_type: security
+    provider: azure
     description: "Web Application Firewall"
 
   - slug: ddos-protection
     name: "Azure DDoS Protection"
     category: process
     component_type: security
+    provider: azure
     description: "DDoS attack mitigation"
 
   - slug: firewall
     name: "Azure Firewall"
     category: process
     component_type: security
+    provider: azure
     description: "Cloud-native network firewall"
 
   - slug: defender
     name: "Microsoft Defender for Cloud"
     category: process
     component_type: security
+    provider: azure
     description: "Cloud security posture management"
 
   - slug: sentinel
     name: "Microsoft Sentinel"
     category: process
     component_type: security
+    provider: azure
     description: "Cloud-native SIEM and SOAR"
 
   - slug: key-vault
     name: "Azure Key Vault"
     category: process
     component_type: security
+    provider: azure
     description: "Secrets, keys, and certificate management"
 
   - slug: dedicated-hsm
     name: "Azure Dedicated HSM"
     category: process
     component_type: security
+    provider: azure
     description: "Hardware Security Module"
 
   - slug: bastion
     name: "Azure Bastion"
     category: process
     component_type: security
+    provider: azure
     description: "Secure RDP/SSH access to VMs"
 
   - slug: vpn-gateway
     name: "Azure VPN Gateway"
     category: process
     component_type: security
+    provider: azure
     description: "Site-to-site and point-to-site VPN"
 
   # AUTH / IDENTITY
@@ -240,18 +278,21 @@ components:
     name: "Microsoft Entra ID"
     category: process
     component_type: auth
+    provider: azure
     description: "Cloud identity and access management (formerly Azure AD)"
 
   - slug: ad-b2c
     name: "Azure AD B2C"
     category: process
     component_type: auth
+    provider: azure
     description: "Customer identity management"
 
   - slug: managed-identity
     name: "Azure Managed Identity"
     category: process
     component_type: auth
+    provider: azure
     description: "Automatic credential management for Azure resources"
 
   # MONITORING
@@ -259,18 +300,21 @@ components:
     name: "Azure Monitor"
     category: process
     component_type: monitoring
+    provider: azure
     description: "Full-stack monitoring service"
 
   - slug: app-insights
     name: "Azure Application Insights"
     category: process
     component_type: monitoring
+    provider: azure
     description: "Application performance monitoring"
 
   - slug: log-analytics
     name: "Azure Log Analytics"
     category: process
     component_type: monitoring
+    provider: azure
     description: "Log collection and analysis"
 
   # API MANAGEMENT
@@ -278,4 +322,5 @@ components:
     name: "Azure API Management"
     category: process
     component_type: networking
+    provider: azure
     description: "API gateway and developer portal"
