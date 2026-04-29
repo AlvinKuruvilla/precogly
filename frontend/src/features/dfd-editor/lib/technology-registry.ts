@@ -24,10 +24,11 @@ export type TechnologyCategory =
   | 'security'
   | 'other'
 
-// Map diagram node types to relevant technology categories
+// Map diagram node types to relevant technology categories.
+// When adding a new TechnologyCategory, add it here too or it won't appear in the combobox.
 export const NODE_TYPE_CATEGORIES: Record<DiagramNodeType, TechnologyCategory[]> = {
   datastore: ['database', 'storage', 'cache'],
-  process: ['compute', 'backend', 'messaging', 'security'],
+  process: ['compute', 'backend', 'messaging', 'security', 'networking', 'auth', 'monitoring', 'storage', 'other'],
   humanActor: [], // Human actors typically don't have technologies
   systemActor: [], // System actors (external systems) typically don't have internal technologies
   trustZone: ['networking'], // Will be further filtered by TRUST_ZONE_TECHNOLOGY_IDS

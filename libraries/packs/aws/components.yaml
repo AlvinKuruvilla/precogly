@@ -13,36 +13,42 @@ components:
     name: "AWS RDS (PostgreSQL)"
     category: datastore
     component_type: database
+    provider: aws
     description: "Managed PostgreSQL database service"
 
   - slug: rds-mysql
     name: "AWS RDS (MySQL)"
     category: datastore
     component_type: database
+    provider: aws
     description: "Managed MySQL database service"
 
   - slug: aurora
     name: "AWS Aurora"
     category: datastore
     component_type: database
+    provider: aws
     description: "High-performance managed relational database"
 
   - slug: dynamodb
     name: "AWS DynamoDB"
     category: datastore
     component_type: database
+    provider: aws
     description: "Managed NoSQL key-value and document database"
 
   - slug: redshift
     name: "AWS Redshift"
     category: datastore
     component_type: database
+    provider: aws
     description: "Cloud data warehouse for analytics"
 
   - slug: documentdb
     name: "AWS DocumentDB"
     category: datastore
     component_type: database
+    provider: aws
     description: "MongoDB-compatible document database"
 
   # ---------------------------------------------------------------------------
@@ -52,18 +58,21 @@ components:
     name: "AWS S3"
     category: datastore
     component_type: storage
+    provider: aws
     description: "Simple Storage Service - object storage"
 
   - slug: efs
     name: "AWS EFS"
     category: datastore
     component_type: storage
+    provider: aws
     description: "Elastic File System - managed NFS"
 
   - slug: fsx
     name: "AWS FSx"
     category: datastore
     component_type: storage
+    provider: aws
     description: "Managed file storage (Windows, Lustre, NetApp, OpenZFS)"
 
   # ---------------------------------------------------------------------------
@@ -73,12 +82,14 @@ components:
     name: "AWS ElastiCache (Redis)"
     category: datastore
     component_type: cache
+    provider: aws
     description: "Managed Redis in-memory cache"
 
   - slug: elasticache-memcached
     name: "AWS ElastiCache (Memcached)"
     category: datastore
     component_type: cache
+    provider: aws
     description: "Managed Memcached in-memory cache"
 
   # ---------------------------------------------------------------------------
@@ -88,42 +99,49 @@ components:
     name: "AWS Lambda"
     category: process
     component_type: compute
+    provider: aws
     description: "Serverless function execution"
 
   - slug: ecs
     name: "AWS ECS"
     category: process
     component_type: compute
+    provider: aws
     description: "Elastic Container Service - container orchestration"
 
   - slug: eks
     name: "AWS EKS"
     category: process
     component_type: compute
+    provider: aws
     description: "Elastic Kubernetes Service - managed Kubernetes"
 
   - slug: ec2
     name: "AWS EC2"
     category: process
     component_type: compute
+    provider: aws
     description: "Elastic Compute Cloud - virtual servers"
 
   - slug: fargate
     name: "AWS Fargate"
     category: process
     component_type: compute
+    provider: aws
     description: "Serverless container execution"
 
   - slug: apprunner
     name: "AWS App Runner"
     category: process
     component_type: compute
+    provider: aws
     description: "Fully managed container application service"
 
   - slug: beanstalk
     name: "AWS Elastic Beanstalk"
     category: process
     component_type: compute
+    provider: aws
     description: "PaaS for web applications"
 
   # ---------------------------------------------------------------------------
@@ -133,24 +151,28 @@ components:
     name: "AWS SQS"
     category: process
     component_type: messaging
+    provider: aws
     description: "Simple Queue Service - message queuing"
 
   - slug: sns
     name: "AWS SNS"
     category: process
     component_type: messaging
+    provider: aws
     description: "Simple Notification Service - pub/sub messaging"
 
   - slug: eventbridge
     name: "AWS EventBridge"
     category: process
     component_type: messaging
+    provider: aws
     description: "Serverless event bus"
 
   - slug: kinesis
     name: "AWS Kinesis"
     category: process
     component_type: messaging
+    provider: aws
     description: "Real-time data streaming"
 
   # ---------------------------------------------------------------------------
@@ -160,60 +182,70 @@ components:
     name: "AWS VPC"
     category: process
     component_type: networking
+    provider: aws
     description: "Virtual Private Cloud - isolated network"
 
   - slug: subnet-public
     name: "AWS Public Subnet"
     category: process
     component_type: networking
+    provider: aws
     description: "Public subnet with internet gateway access"
 
   - slug: subnet-private
     name: "AWS Private Subnet"
     category: process
     component_type: networking
+    provider: aws
     description: "Private subnet without direct internet access"
 
   - slug: privatelink
     name: "AWS PrivateLink"
     category: process
     component_type: networking
+    provider: aws
     description: "Private connectivity to AWS services"
 
   - slug: transit-gateway
     name: "AWS Transit Gateway"
     category: process
     component_type: networking
+    provider: aws
     description: "Network transit hub for VPC interconnection"
 
   - slug: alb
     name: "AWS ALB"
     category: process
     component_type: networking
+    provider: aws
     description: "Application Load Balancer - Layer 7"
 
   - slug: nlb
     name: "AWS NLB"
     category: process
     component_type: networking
+    provider: aws
     description: "Network Load Balancer - Layer 4"
 
   - slug: cloudfront
     name: "AWS CloudFront"
     category: process
     component_type: networking
+    provider: aws
     description: "Content Delivery Network (CDN)"
 
   - slug: api-gateway
     name: "AWS API Gateway"
     category: process
     component_type: networking
+    provider: aws
     description: "Managed API gateway service"
 
   - slug: route53
     name: "AWS Route 53"
     category: process
     component_type: networking
+    provider: aws
     description: "DNS and domain registration service"
 
   # ---------------------------------------------------------------------------
@@ -223,54 +255,63 @@ components:
     name: "AWS WAF"
     category: process
     component_type: security
+    provider: aws
     description: "Web Application Firewall"
 
   - slug: shield
     name: "AWS Shield"
     category: process
     component_type: security
+    provider: aws
     description: "DDoS protection service"
 
   - slug: network-firewall
     name: "AWS Network Firewall"
     category: process
     component_type: security
+    provider: aws
     description: "Managed network firewall service"
 
   - slug: guardduty
     name: "AWS GuardDuty"
     category: process
     component_type: security
+    provider: aws
     description: "Threat detection and monitoring"
 
   - slug: kms
     name: "AWS KMS"
     category: process
     component_type: security
+    provider: aws
     description: "Key Management Service - encryption keys"
 
   - slug: cloudhsm
     name: "AWS CloudHSM"
     category: process
     component_type: security
+    provider: aws
     description: "Hardware Security Module"
 
   - slug: secrets-manager
     name: "AWS Secrets Manager"
     category: process
     component_type: security
+    provider: aws
     description: "Secrets storage and rotation"
 
   - slug: ssm
     name: "AWS Systems Manager"
     category: process
     component_type: security
+    provider: aws
     description: "Operations management and secure access"
 
   - slug: vpn
     name: "AWS VPN"
     category: process
     component_type: security
+    provider: aws
     description: "Site-to-site and client VPN"
 
   # ---------------------------------------------------------------------------
@@ -280,12 +321,14 @@ components:
     name: "AWS Cognito"
     category: process
     component_type: auth
+    provider: aws
     description: "User identity and authentication"
 
   - slug: iam
     name: "AWS IAM"
     category: process
     component_type: auth
+    provider: aws
     description: "Identity and Access Management"
 
   # ---------------------------------------------------------------------------
@@ -295,16 +338,19 @@ components:
     name: "AWS CloudWatch"
     category: process
     component_type: monitoring
+    provider: aws
     description: "Monitoring and observability service"
 
   - slug: xray
     name: "AWS X-Ray"
     category: process
     component_type: monitoring
+    provider: aws
     description: "Distributed tracing and analysis"
 
   - slug: cloudtrail
     name: "AWS CloudTrail"
     category: process
     component_type: monitoring
+    provider: aws
     description: "API activity logging and auditing"

@@ -490,21 +490,30 @@ def _find_component_library(technology: str, node_type: str):
     if not technology:
         return None
 
-    # Try exact match on slug first
-    component = ComponentLibrary.objects.filter(slug=technology).first()
+    node_type_to_category = {
+        "process": "process",
+        "datastore": "datastore",
+        "humanActor": "human_actor",
+        "systemActor": "system_actor",
+    }
+    category = node_type_to_category.get(node_type)
 
+    base_qs = ComponentLibrary.objects.all()
+    if category:
+        base_qs = base_qs.filter(category=category)
+
+    # Try exact match on slug first
+    component = base_qs.filter(slug=technology).first()
     if component:
         return component
 
     # Try name match (case-insensitive)
-    component = ComponentLibrary.objects.filter(name__iexact=technology).first()
-
+    component = base_qs.filter(name__iexact=technology).first()
     if component:
         return component
 
     # Try partial name match
-    component = ComponentLibrary.objects.filter(name__icontains=technology).first()
-
+    component = base_qs.filter(name__icontains=technology).first()
     return component
 
 

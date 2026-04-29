@@ -1474,7 +1474,7 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
                 "name": comp.get("name", comp_id),
                 "category": comp.get("category", "process"),
                 "component_type": comp.get("type", comp.get("component_type", "")),
-                "provider": _infer_provider(library_pack.slug),
+                "provider": comp.get("provider", ""),
                 "customization_status": "original",
                 "parent": None,
             },
@@ -2053,23 +2053,6 @@ def _resolve_countermeasure_reference(library_pack: LibraryPack, ref: str) -> Op
         qualified_slug = f"{library_pack.slug}/{ref}"
         return CountermeasureLibrary.objects.filter(qualified_slug=qualified_slug).first()
 
-
-def _infer_provider(pack_slug: str) -> str:
-    """Infer the provider from the pack slug."""
-    # Map common pack slugs to providers
-    provider_map = {
-        "aws": "aws",
-        "azure": "azure",
-        "gcp": "gcp",
-        "generic": "generic",
-    }
-
-    # Check if slug starts with a known provider
-    for prefix, provider in provider_map.items():
-        if pack_slug.startswith(prefix):
-            return provider
-
-    return ""
 
 
 # =============================================================================

@@ -27,7 +27,7 @@ function ComponentTable({ components, label }: { components: ReportComponent[]; 
             <TableRow key={comp.id}>
               <TableCell className="font-medium">{comp.name}</TableCell>
               <TableCell>{comp.componentType}</TableCell>
-              <TableCell>{comp.provider || '—'}</TableCell>
+              <TableCell>{comp.provider || 'Not Available'}</TableCell>
               <TableCell>{comp.trustZone || '—'}</TableCell>
             </TableRow>
           ))}
