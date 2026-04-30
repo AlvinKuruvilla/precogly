@@ -7,13 +7,16 @@ For detailed setup instructions and architecture docs, head over to our
 
 ## 🦉 Owl's Orders\*
 
-- **Human review is non-negotiable.** Every PR needs a real human to sign off.
-  AI-generated code is welcome, but a person is always accountable. "The buck stops here".
-  This also means that you write the commit message (an ugly from a human > AI-generated
-  commit message.)
+- **Human review is non-negotiable.** Every PR needs a real human to review all code before
+  submitting. AI-generated code is welcome, but a person is always accountable. "The buck
+  stops with the human". This includes commit messages and GitHub ops: you write them, not your AI.
 - **Frontend changes need proof.** If your PR touches the UI, include screenshots
   (or a short screen recording) showing what changed. Manual testing is required before
   requesting review.
+- **Move slow and don't break things.** A single wrong decision can cause downstream
+  effects in a large codebase like Precogly. Deliberate before you generate.
+- **Don't over-engineer.** Avoid letting your AI build a Rube Goldberg machine. Keep your AI on a tight leash. Simple beats bloated.
+- **Plan before you generate.** Before writing any code, draft a plan for the change you're making. Ask: _"What could this break? What are the unintended side effects?"_ And read every line before submitting. If you can't explain it, you're not ready to submit it.
 
 ## Contributor License Agreement
 
@@ -21,18 +24,6 @@ Before your first PR can be merged, you'll need to accept our
 [Contributor License Agreement](https://gist.github.com/vikram-s-narayan/725cfa57e6e7e68852f1589c321a3bf9).
 It's short, written in plain English, and CLA Assistant will prompt you automatically on
 your first pull request.
-
-## Using AI? Great! But Follow the Process
-
-We love AI-assisted development. Just be intentional about it:
-
-1. **Start with a plan.** Before writing any code, have your AI tool draft a planning
-   doc for the change you're making. Understand the approach before generating code.
-2. **Ask about unintended consequences.** Seriously. Before you commit to a direction,
-   ask your AI: _"What could this break? What are the unintended side effects?"_
-   You'll be surprised how often this catches things early.
-3. **Read what it wrote.** You're the author of record. If you can't explain every line
-   in your PR, you're not ready to submit it.
 
 ## Quick Checklist Before You Open a PR
 
