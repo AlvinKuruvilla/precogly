@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from django.db.models import Count, Q
 
-from apps.compliance.models import StandardFramework
+from apps.compliance.models import StandardFramework, StandardRequirementMapping
 from apps.systems.models import (
     ComponentDataAsset,
     DataAsset,
@@ -637,8 +637,47 @@ def _build_compliance(threat_model, component_ids, dataflow_ids):
                 ),
             })
 
+    # Build cross-framework requirement mappings
+    cross_framework_mappings = []
+    framework_slugs = {fw["slug"] for fw in frameworks}
+
+    if len(framework_slugs) >= 2:
+        relevant_mappings = StandardRequirementMapping.objects.filter(
+            from_requirement__framework__slug__in=framework_slugs,
+            to_requirement__framework__slug__in=framework_slugs,
+        ).select_related(
+            "from_requirement__framework",
+            "to_requirement__framework",
+        )
+
+        # Group by (source_framework_slug, target_framework_slug)
+        groups = defaultdict(list)
+        for mapping in relevant_mappings:
+            key = (
+                mapping.from_requirement.framework.slug,
+                mapping.to_requirement.framework.slug,
+            )
+            groups[key].append({
+                "from_section_code": mapping.from_requirement.section_code,
+                "from_description": mapping.from_requirement.description,
+                "to_section_code": mapping.to_requirement.section_code,
+                "to_description": mapping.to_requirement.description,
+                "sufficiency": mapping.sufficiency,
+            })
+
+        # Build display names from frameworks already computed above
+        framework_name_by_slug = {fw["slug"]: fw["name"] for fw in frameworks}
+
+        for (source_slug, target_slug), mappings_list in groups.items():
+            cross_framework_mappings.append({
+                "source_framework": framework_name_by_slug.get(source_slug, source_slug),
+                "target_framework": framework_name_by_slug.get(target_slug, target_slug),
+                "mappings": mappings_list,
+            })
+
     return {
         "frameworks": frameworks,
+        "cross_framework_mappings": cross_framework_mappings,
     }
 
 
