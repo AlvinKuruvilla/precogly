@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, FileText } from 'lucide-react'
+import { Plus, Search, FileText, Library, Info } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useThreatLibrary, useCreateComponentThreat, useCreateFlowThreat } from '@/features/threat-models/api/threats'
 const SEVERITY_OPTIONS = [
@@ -56,8 +58,14 @@ export function AddThreatDialog({
   const [customName, setCustomName] = useState('')
   const [customDescription, setCustomDescription] = useState('')
   const [customSeverity, setCustomSeverity] = useState('medium')
+  const [showAllThreats, setShowAllThreats] = useState(false)
 
-  const { data: threatLibrary, isLoading } = useThreatLibrary()
+  // Filter by component's library unless showing all or targeting a dataflow
+  const effectiveComponentId = (targetType === 'component' && !showAllThreats)
+    ? targetId
+    : undefined
+
+  const { data: threatLibrary, isLoading } = useThreatLibrary(effectiveComponentId)
   const createComponentThreat = useCreateComponentThreat()
   const createFlowThreat = useCreateFlowThreat()
 
@@ -134,6 +142,7 @@ export function AddThreatDialog({
     setCustomDescription('')
     setCustomSeverity('medium')
     setActiveTab('library')
+    setShowAllThreats(false)
   }
 
   const isSubmitting = createComponentThreat.isPending || createFlowThreat.isPending
@@ -165,6 +174,25 @@ export function AddThreatDialog({
               />
             </div>
 
+            {targetType === 'component' && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Library className="h-4 w-4" />
+                  <span>{showAllThreats ? 'Showing all threats' : "Showing threats for this component's library"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="show-all-threats"
+                    checked={showAllThreats}
+                    onCheckedChange={setShowAllThreats}
+                  />
+                  <Label htmlFor="show-all-threats" className="text-sm">
+                    Show all
+                  </Label>
+                </div>
+              </div>
+            )}
+
             <ScrollArea className="h-[300px] border rounded-md">
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground">Loading threats...</div>
@@ -185,17 +213,24 @@ export function AddThreatDialog({
                           : 'hover:bg-muted'
                       )}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{threat.name}</p>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {threat.description}
-                          </p>
-                        </div>
-                        {threat.taxonomyEntries && threat.taxonomyEntries.length > 0 && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-muted shrink-0">
-                            {threat.taxonomyEntries.map((e) => e.title).join(', ')}
-                          </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{threat.name}</span>
+                        {(threat.description || (threat.taxonomyEntries && threat.taxonomyEntries.length > 0)) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              {threat.description && (
+                                <p>{threat.description}</p>
+                              )}
+                              {threat.taxonomyEntries && threat.taxonomyEntries.length > 0 && (
+                                <p className="mt-1 opacity-75">
+                                  {threat.taxonomyEntries.map((e) => e.title).join(' · ')}
+                                </p>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                     </button>
