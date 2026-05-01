@@ -1,6 +1,5 @@
 pack:
   slug: nist-csf
-  path: frameworks/nist-csf
   name: "NIST CSF 2.0"
   version: "1.0.0"
   pack_type: compliance

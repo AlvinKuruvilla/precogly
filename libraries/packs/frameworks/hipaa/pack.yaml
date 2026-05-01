@@ -1,6 +1,5 @@
 pack:
   slug: hipaa
-  path: frameworks/hipaa
   name: "HIPAA"
   version: "1.0.0"
   pack_type: compliance

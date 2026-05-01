@@ -1,6 +1,5 @@
 pack:
   slug: gdpr
-  path: frameworks/gdpr
   name: "GDPR"
   version: "1.0.0"
   pack_type: compliance

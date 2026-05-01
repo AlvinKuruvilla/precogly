@@ -31,7 +31,7 @@ export function ImportPackDialog({
   onConfirm: (pack: UnifiedPack, selectedOverlays: string[] | null) => void
 }) {
   const { data: overlaysData, isLoading: loadingOverlays } = usePackOverlays(
-    pack?.slug ?? null
+    pack?.relativePath ?? null
   )
   const [selectedOverlays, setSelectedOverlays] = useState<Set<string>>(new Set())
 

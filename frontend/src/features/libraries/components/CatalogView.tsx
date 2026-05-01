@@ -28,7 +28,7 @@ export function CatalogView() {
   const [filters, setFilters] = useState<PackFilters>({})
   const [searchInput, setSearchInput] = useState('')
   const [previewPackId, setPreviewPackId] = useState<number | null>(null)
-  const [previewPackSlug, setPreviewPackSlug] = useState<string | null>(null)
+  const [previewPackPath, setPreviewPackPath] = useState<string | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [importingSlug, setImportingSlug] = useState<string | null>(null)
   const [installDialogPack, setInstallDialogPack] = useState<UnifiedPack | null>(null)
@@ -58,6 +58,7 @@ export function CatalogView() {
           tier: sp.tier,
           source: sp.source,
           tags: sp.tags,
+          relativePath: sp.relativePath,
           componentCount: sp.componentCount,
           threatCount: sp.threatCount,
           isInDatabase: sp.isInDatabase,
@@ -81,6 +82,7 @@ export function CatalogView() {
             tier: dbPack.tier,
             source: dbPack.source,
             tags: dbPack.tags,
+            relativePath: '',
             componentCount: 0,
             threatCount: 0,
             isInDatabase: true,
@@ -163,10 +165,10 @@ export function CatalogView() {
   const handlePreview = (pack: UnifiedPack) => {
     if (pack.databaseId) {
       setPreviewPackId(pack.databaseId)
-      setPreviewPackSlug(null)
+      setPreviewPackPath(null)
     } else {
       setPreviewPackId(null)
-      setPreviewPackSlug(pack.slug)
+      setPreviewPackPath(pack.relativePath)
     }
     setPreviewDialogOpen(true)
   }
@@ -261,7 +263,7 @@ export function CatalogView() {
 
       <PreviewPackDialog
         packId={previewPackId}
-        packSlug={previewPackSlug}
+        packPath={previewPackPath}
         open={previewDialogOpen}
         onOpenChange={setPreviewDialogOpen}
       />

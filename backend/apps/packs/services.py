@@ -35,10 +35,9 @@ logger = logging.getLogger(__name__)
 
 def _find_pack_dir(base_path: Path, pack_path: str) -> Path | None:
     """
-    Resolve a pack's directory from its declared relative path.
+    Resolve a pack's directory from its relative path.
 
-    The path is the value of `pack.path` in pack.yaml — a relative path
-    from the libraries/packs root to the pack directory. This is an O(1)
+    The path is relative to the libraries/packs root. This is an O(1)
     lookup: no scanning or YAML parsing of unrelated packs is needed.
 
     Returns None if the directory does not exist or has no pack.yaml.
@@ -49,36 +48,6 @@ def _find_pack_dir(base_path: Path, pack_path: str) -> Path | None:
     if pack_dir.is_dir() and (pack_dir / "pack.yaml").exists():
         return pack_dir
     return None
-
-
-def _resolve_slug_to_path(libraries_path: Path, slug: str) -> str | None:
-    """
-    Resolve a pack slug to its declared relative path.
-
-    Used by legacy slug-based APIs (preview, available_overlays) where the
-    caller has only a slug. Walks the libraries tree once via
-    discover_packs_from_source() and returns the first match. Issues a
-    warning when multiple packs share the slug — disambiguation requires
-    using the path-based API directly.
-
-    Returns None if no pack with the given slug is found.
-    """
-    matches = []
-    for pack_info in discover_packs_from_source():
-        if pack_info.slug == slug:
-            matches.append(pack_info)
-
-    if not matches:
-        return None
-
-    if len(matches) > 1:
-        paths = [m.relative_path for m in matches]
-        logger.warning(
-            f"Multiple packs found with slug '{slug}': {paths}. "
-            f"Using first match. Pass an explicit path to disambiguate."
-        )
-
-    return matches[0].relative_path
 
 
 @dataclass
@@ -98,9 +67,8 @@ class PackInfo:
     # Absolute filesystem path to the pack directory (for callers that
     # need to load files from disk).
     path: str = ""
-    # Declared relative path from libraries/packs root, taken from
-    # pack.yaml's `pack.path` field. Used for O(1) lookup and dependency
-    # disambiguation. Empty when pack.yaml omits the field (older packs).
+    # Relative path from libraries/packs root, computed from filesystem
+    # location. Used for O(1) lookup and dependency disambiguation.
     relative_path: str = ""
     is_in_database: bool = False
     database_version: Optional[str] = None
@@ -196,14 +164,8 @@ def _count_items_in_file(file_path: Path, key: str) -> int:
 def _discover_pack(pack_dir: Path, libraries_path: Path, existing_packs: dict) -> PackInfo | None:
     """Discover a pack from its directory.
 
-    Path invariants from issue #33 are checked here so problems surface
-    in discovery output, not just at import time:
-      - missing `path` field → warning, fall back to disk location
-      - declared path's last segment != slug → warning
-      - declared path != actual on-disk location → warning
-
-    Discovery still returns a PackInfo for invalid packs so users can
-    see them in listings; the import path enforces these as errors.
+    The relative path is computed from the pack's actual filesystem
+    location, so packs never need to declare where they live.
     """
     pack_yaml = pack_dir / "pack.yaml"
     if not pack_yaml.exists():
@@ -215,36 +177,7 @@ def _discover_pack(pack_dir: Path, libraries_path: Path, existing_packs: dict) -
 
         pack_meta = pack_data.get("pack", {})
         slug = pack_meta.get("slug", pack_dir.name)
-
-        # Resolve the declared path. If pack.yaml omits `path`, fall back
-        # to the actual location on disk so older packs keep working.
-        # Validation in validate_pack() will flag the missing field.
-        declared_path = pack_meta.get("path", "")
-        actual_relative_path = str(pack_dir.relative_to(libraries_path)).replace("\\", "/")
-
-        if not declared_path:
-            logger.warning(
-                f"Pack at {actual_relative_path} is missing the required "
-                f"`path` field in pack.yaml — falling back to disk location"
-            )
-            relative_path = actual_relative_path
-        else:
-            declared_normalized = declared_path.replace("\\", "/").strip("/")
-            relative_path = declared_normalized
-
-            last_segment = declared_normalized.split("/")[-1]
-            if slug and last_segment != slug:
-                logger.warning(
-                    f"Pack at {actual_relative_path}: declared path "
-                    f"'{declared_path}' last segment '{last_segment}' "
-                    f"does not match slug '{slug}'"
-                )
-
-            if declared_normalized != actual_relative_path:
-                logger.warning(
-                    f"Pack at {actual_relative_path}: declared path "
-                    f"'{declared_path}' does not match actual location"
-                )
+        relative_path = str(pack_dir.relative_to(libraries_path)).replace("\\", "/")
 
         # Count items from separate files
         component_count = _count_items_in_file(pack_dir / "components.yaml", "components")
@@ -350,18 +283,17 @@ def discover_packs_from_source() -> list[PackInfo]:
     return packs
 
 
-def get_pack_preview_from_source(slug: str) -> dict | None:
+def get_pack_preview_from_source(pack_relative_path: str) -> dict | None:
     """
     Get full pack content for preview from the libraries folder.
 
     Reads pack metadata from pack.yaml and components/threats/countermeasures
-    from their respective YAML files.
-
-    Supports both flat (packs directly in libraries/packs/) and
-    nested (packs in libraries/packs/category/pack/) directory structures.
+    from their respective YAML files. Uses the pack's relative path from the
+    libraries/packs root for O(1) directory lookup.
 
     Args:
-        slug: The pack slug to find
+        pack_relative_path: Relative path from libraries/packs root (e.g. "aws-mini",
+            "frameworks/nist-csf")
 
     Returns:
         Dictionary with pack metadata, components, threats, and countermeasures
@@ -370,10 +302,6 @@ def get_pack_preview_from_source(slug: str) -> dict | None:
     libraries_path = get_libraries_path()
 
     if not libraries_path.exists():
-        return None
-
-    pack_relative_path = _resolve_slug_to_path(libraries_path, slug)
-    if not pack_relative_path:
         return None
 
     pack_dir = _find_pack_dir(libraries_path, pack_relative_path)
@@ -391,20 +319,35 @@ def get_pack_preview_from_source(slug: str) -> dict | None:
         return None
 
 
-def get_pack_preview_from_database(pack: "LibraryPack") -> dict:
+def get_pack_preview_from_database(pack: "LibraryPack") -> dict | None:
     """
     Get full pack content for preview from a database pack.
 
     Reads preview data from the source YAML files rather than the database,
     ensuring consistent results regardless of how the pack was imported.
+    Scans the libraries tree to find the pack directory by slug.
 
     Args:
         pack: The LibraryPack model instance
 
     Returns:
         Dictionary with pack metadata, components, threats, and countermeasures
+        or None if pack not found on disk
     """
-    return get_pack_preview_from_source(pack.slug)
+    libraries_path = get_libraries_path()
+    if not libraries_path.exists():
+        return None
+
+    for pack_yaml in libraries_path.rglob("pack.yaml"):
+        try:
+            with open(pack_yaml) as f:
+                pack_data = yaml.safe_load(f)
+            if pack_data.get("pack", {}).get("slug") == pack.slug:
+                return _extract_pack_preview(pack_yaml.parent, pack_data)
+        except Exception:
+            continue
+
+    return None
 
 
 def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
@@ -684,11 +627,8 @@ def validate_pack(pack_path: Path) -> ValidationResult:
 
     # Structural checks
 
-    # Required metadata fields. The `path` field was added to make pack
-    # resolution O(1) (see issue #33) — it must be present so the
-    # discovery layer can locate this pack without scanning every
-    # pack.yaml in the tree.
-    required_metadata = ["slug", "name", "version", "pack_type", "path"]
+    # Required metadata fields
+    required_metadata = ["slug", "name", "version", "pack_type"]
     for required_field in required_metadata:
         if required_field not in pack_meta:
             errors.append(ValidationError(
@@ -698,60 +638,6 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                 reference=required_field,
                 message=f"Missing required field: {required_field}",
             ))
-
-    # Path validation. The `path` field is the source of truth for where
-    # the pack lives under libraries/packs. Two invariants must hold:
-    #   1. The last segment of the path equals the slug. The folder name
-    #      is meaningful and must match the slug, so paths cannot rename
-    #      the pack out from under callers.
-    #   2. The declared path matches where the pack.yaml actually lives
-    #      on disk. Otherwise lookups by path would resolve to a
-    #      different directory than the one declaring this slug.
-    declared_path = pack_meta.get("path", "")
-    if declared_path:
-        # Normalize to use forward slashes for cross-platform consistency.
-        # We accept paths written with either separator in pack.yaml.
-        declared_path_normalized = declared_path.replace("\\", "/").strip("/")
-        path_segments = declared_path_normalized.split("/")
-        last_segment = path_segments[-1] if path_segments else ""
-
-        if slug and last_segment != slug:
-            errors.append(ValidationError(
-                file="pack.yaml",
-                line=None,
-                ref_type="pack",
-                reference="path",
-                message=(
-                    f"Path '{declared_path}' last segment '{last_segment}' "
-                    f"does not match slug '{slug}'. The folder name must "
-                    f"equal the slug."
-                ),
-            ))
-
-        # Compare declared path to actual disk location, if discoverable.
-        # We expect pack_path to be under libraries/packs; if it's not
-        # (e.g., test fixtures pointing at an arbitrary directory), skip
-        # this check rather than emit a misleading error.
-        try:
-            libraries_path = get_libraries_path()
-            actual_relative = pack_path.resolve().relative_to(libraries_path.resolve())
-            actual_relative_str = str(actual_relative).replace("\\", "/")
-            if actual_relative_str != declared_path_normalized:
-                errors.append(ValidationError(
-                    file="pack.yaml",
-                    line=None,
-                    ref_type="pack",
-                    reference="path",
-                    message=(
-                        f"Declared path '{declared_path}' does not match "
-                        f"actual location '{actual_relative_str}'. The path "
-                        f"field must reflect where the pack lives on disk."
-                    ),
-                ))
-        except (ValueError, FileNotFoundError):
-            # pack_path is outside libraries/packs (test fixture or
-            # ad-hoc import): skip the on-disk match check.
-            pass
 
     # Valid pack_type enum
     valid_pack_types = {"technology", "threat", "countermeasure", "compliance", "template", "full", "taxonomy"}
@@ -2278,15 +2164,16 @@ def get_active_overlays_for_pack(pack: LibraryPack) -> list[ActiveOverlayInfo]:
     ]
 
 
-def get_available_overlays_for_pack(slug: str) -> list[OverlayInfo]:
+def get_available_overlays_for_pack(pack_relative_path: str) -> list[OverlayInfo]:
     """
     Get available framework overlays for a pack.
 
     Scans the pack's joins/ directory for countermeasures-*.yaml files
-    and returns information about each overlay.
+    and returns information about each overlay. Uses the pack's relative
+    path from the libraries/packs root for O(1) directory lookup.
 
     Args:
-        slug: The pack slug to check
+        pack_relative_path: Relative path from libraries/packs root (e.g. "aws-mini")
 
     Returns:
         List of OverlayInfo with framework_id, framework_name, mapping_count, framework_exists
@@ -2296,10 +2183,6 @@ def get_available_overlays_for_pack(slug: str) -> list[OverlayInfo]:
     libraries_path = get_libraries_path()
 
     if not libraries_path.exists():
-        return []
-
-    pack_relative_path = _resolve_slug_to_path(libraries_path, slug)
-    if not pack_relative_path:
         return []
 
     pack_dir = _find_pack_dir(libraries_path, pack_relative_path)

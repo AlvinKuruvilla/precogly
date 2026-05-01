@@ -1,7 +1,6 @@
 # Azure Technologies Pack
 pack:
   slug: azure
-  path: azure
   name: "Azure Technologies"
   description: "Microsoft Azure cloud components for threat modeling diagrams"
   version: "2.0.0"

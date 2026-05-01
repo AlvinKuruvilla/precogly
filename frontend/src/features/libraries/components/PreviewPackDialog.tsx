@@ -30,24 +30,24 @@ import {
 interface PreviewPackDialogProps {
   /** Pack ID for database packs */
   packId?: number | null
-  /** Pack slug for source packs */
-  packSlug?: string | null
+  /** Pack relative path for source packs */
+  packPath?: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function PreviewPackDialog({
   packId,
-  packSlug,
+  packPath,
   open,
   onOpenChange,
 }: PreviewPackDialogProps) {
   // Use the appropriate hook based on what's provided
-  const dbPreview = usePackPreview(packSlug ? null : packId ?? null)
-  const sourcePreview = useSourcePackPreview(packId ? null : packSlug ?? null)
+  const dbPreview = usePackPreview(packPath ? null : packId ?? null)
+  const sourcePreview = useSourcePackPreview(packId ? null : packPath ?? null)
 
-  const isLoading = packSlug ? sourcePreview.isLoading : dbPreview.isLoading
-  const preview = packSlug ? sourcePreview.data : dbPreview.data
+  const isLoading = packPath ? sourcePreview.isLoading : dbPreview.isLoading
+  const preview = packPath ? sourcePreview.data : dbPreview.data
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
