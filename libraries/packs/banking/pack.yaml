@@ -1,6 +1,7 @@
 # Banking Industry Pack
 pack:
   slug: banking
+  path: banking
   name: "Banking"
   description: "Banking and financial services components and DFD templates"
   version: "2.0.0"

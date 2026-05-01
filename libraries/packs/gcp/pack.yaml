@@ -1,6 +1,7 @@
 # GCP Technologies Pack
 pack:
   slug: gcp
+  path: gcp
   name: "GCP Technologies"
   description: "Google Cloud Platform components for threat modeling diagrams"
   version: "2.0.0"

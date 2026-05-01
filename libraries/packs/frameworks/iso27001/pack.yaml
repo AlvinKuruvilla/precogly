@@ -1,5 +1,6 @@
 pack:
   slug: iso27001
+  path: frameworks/iso27001
   name: "ISO 27001:2022"
   version: "1.0.0"
   pack_type: compliance

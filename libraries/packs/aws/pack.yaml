@@ -8,6 +8,7 @@
 
 pack:
   slug: aws
+  path: aws
   name: "AWS Technologies"
   description: "Amazon Web Services cloud components for threat modeling diagrams"
   version: "2.0.0"

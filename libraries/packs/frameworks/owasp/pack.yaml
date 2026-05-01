@@ -1,5 +1,6 @@
 pack:
   slug: owasp
+  path: frameworks/owasp
   name: "OWASP Top 10 2021"
   version: "1.0.0"
   pack_type: compliance
