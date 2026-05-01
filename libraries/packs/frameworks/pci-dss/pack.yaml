@@ -1,6 +1,5 @@
 pack:
   slug: pci-dss
-  path: frameworks/pci-dss
   name: "PCI-DSS v4.0"
   version: "1.0.0"
   pack_type: compliance

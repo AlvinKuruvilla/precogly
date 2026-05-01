@@ -1,6 +1,5 @@
 pack:
   slug: bci-mini
-  path: bci-mini
   name: BCI Mini
   version: 1.0.0
   pack_type: full

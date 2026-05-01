@@ -8,6 +8,7 @@ export interface UnifiedPack {
   tier: string
   source: string
   tags: string[]
+  relativePath: string
   componentCount: number
   threatCount: number
   isInDatabase: boolean

@@ -20,7 +20,7 @@ export const packKeys = {
   detail: (id: number) => [...packKeys.details(), id] as const,
   dependencies: (id: number) => [...packKeys.all, 'dependencies', id] as const,
   preview: (id: number) => [...packKeys.all, 'preview', id] as const,
-  previewFromSource: (slug: string) => [...packKeys.all, 'preview-source', slug] as const,
+  previewFromSource: (packPath: string) => [...packKeys.all, 'preview-source', packPath] as const,
   availableFromSource: ['packs', 'available-from-source'] as const,
 }
 
@@ -37,6 +37,7 @@ export interface SourcePackInfo {
   industries: string[]
   tags: string[]
   path: string
+  relativePath: string
   isInDatabase: boolean
   databaseVersion: string | null
   needsUpdate: boolean
@@ -279,14 +280,14 @@ export function useImportSinglePack() {
 /**
  * Fetch available framework overlays for a pack before import.
  */
-export function usePackOverlays(slug: string | null) {
+export function usePackOverlays(packPath: string | null) {
   return useQuery({
-    queryKey: [...packKeys.all, 'overlays', slug],
+    queryKey: [...packKeys.all, 'overlays', packPath],
     queryFn: () =>
       api.get<AvailableOverlaysResponse>(
-        `/packs/available_overlays/?slug=${slug}`
+        `/packs/available_overlays/?path=${encodeURIComponent(packPath!)}`
       ),
-    enabled: slug !== null,
+    enabled: packPath !== null,
   })
 }
 
@@ -306,14 +307,16 @@ export function usePackPreview(id: number | null) {
 }
 
 /**
- * Fetch full pack contents for preview (source packs by slug).
+ * Fetch full pack contents for preview (source packs by path).
  */
-export function useSourcePackPreview(slug: string | null) {
+export function useSourcePackPreview(packPath: string | null) {
   return useQuery({
-    queryKey: packKeys.previewFromSource(slug!),
+    queryKey: packKeys.previewFromSource(packPath!),
     queryFn: () =>
-      api.get<PackPreviewResponse>(`/packs/preview_from_source/?slug=${slug}`),
-    enabled: slug !== null,
+      api.get<PackPreviewResponse>(
+        `/packs/preview_from_source/?path=${encodeURIComponent(packPath!)}`
+      ),
+    enabled: packPath !== null,
   })
 }
 

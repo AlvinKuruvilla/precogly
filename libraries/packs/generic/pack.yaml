@@ -1,7 +1,6 @@
 # Generic Technologies Pack
 pack:
   slug: generic
-  path: generic
   name: "Generic Technologies"
   description: "Vendor-agnostic components: open-source, frameworks, and self-hosted solutions"
   version: "2.0.0"

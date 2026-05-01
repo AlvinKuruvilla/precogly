@@ -224,26 +224,27 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=["get"])
     def preview_from_source(self, request):
         """
-        Get full pack contents for preview (source packs by slug).
+        Get full pack contents for preview (source packs by path).
 
         Query parameters:
-            slug: The pack slug to preview
+            path: The pack's relative path from libraries/packs root
+                  (e.g. "aws-mini", "frameworks/nist-csf")
 
         Returns pack metadata along with all components, threats, and countermeasures.
         """
-        slug = request.query_params.get("slug")
+        pack_path = request.query_params.get("path")
 
-        if not slug:
+        if not pack_path:
             return Response(
-                {"error": "Pack slug is required"},
+                {"error": "Pack path is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        preview_data = get_pack_preview_from_source(slug)
+        preview_data = get_pack_preview_from_source(pack_path)
 
         if not preview_data:
             return Response(
-                {"error": f"Pack '{slug}' not found in libraries folder"},
+                {"error": f"Pack at '{pack_path}' not found in libraries folder"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -255,20 +256,21 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         Get available framework overlays for a pack before installation.
 
         Query parameters:
-            slug: The pack slug to check overlays for
+            path: The pack's relative path from libraries/packs root
+                  (e.g. "aws-mini", "frameworks/nist-csf")
 
         Returns list of overlays with framework_id, framework_name, mapping_count,
         and whether the framework is installed.
         """
-        slug = request.query_params.get("slug")
+        pack_path = request.query_params.get("path")
 
-        if not slug:
+        if not pack_path:
             return Response(
-                {"error": "Pack slug is required"},
+                {"error": "Pack path is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        overlays = get_available_overlays_for_pack(slug)
+        overlays = get_available_overlays_for_pack(pack_path)
 
         return Response({
             "overlays": [

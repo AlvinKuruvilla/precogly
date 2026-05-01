@@ -1,6 +1,5 @@
 pack:
   slug: cra
-  path: frameworks/cra
   name: "Cyber Resilience Act"
   version: "2.0.0"
   pack_type: compliance
