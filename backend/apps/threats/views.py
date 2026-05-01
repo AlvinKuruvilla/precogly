@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 
 from apps.core.permissions import CanWrite, IsSecurityTeam
+from apps.systems.models import OrgsystemComponent
 from apps.threat_models.models import ThreatModel
 
 from .models import (
@@ -80,8 +81,29 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return all threats in the library."""
-        return ThreatLibrary.objects.all().select_related("source_pack")
+        """Return threats, optionally filtered by component's library.
+
+        Query params:
+            component_id: If provided, returns only threats linked to that
+            component's component_library via ComponentLibraryThreat.
+            Falls back to all threats if the component has no library.
+        """
+        queryset = ThreatLibrary.objects.all().select_related("source_pack")
+
+        component_id = self.request.query_params.get("component_id")
+        if component_id:
+            try:
+                component = OrgsystemComponent.objects.get(pk=component_id)
+            except (OrgsystemComponent.DoesNotExist, ValueError):
+                return queryset
+
+            if component.component_library_id:
+                threat_ids = ComponentLibraryThreat.objects.filter(
+                    component_library_id=component.component_library_id,
+                ).values_list("threat_library_id", flat=True)
+                queryset = queryset.filter(id__in=threat_ids)
+
+        return queryset
 
     def get_serializer_class(self):
         """Return appropriate serializer."""

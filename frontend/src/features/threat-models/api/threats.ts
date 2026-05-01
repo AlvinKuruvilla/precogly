@@ -104,7 +104,10 @@ export const threatKeys = {
   componentThreats: (componentId: number) => [...threatKeys.all, 'component', componentId] as const,
   threatCountermeasures: (threatId: number) => [...threatKeys.all, 'countermeasures', threatId] as const,
   suggestedCountermeasures: (threatId: number) => [...threatKeys.all, 'suggested', threatId] as const,
-  threatLibrary: ['threat-library'] as const,
+  threatLibrary: (componentId?: number | null) =>
+    componentId
+      ? ['threat-library', componentId] as const
+      : ['threat-library'] as const,
   countermeasureLibrary: ['countermeasure-library'] as const,
 }
 
@@ -140,15 +143,17 @@ export function useSuggestedCountermeasures(threatId: number | null) {
 }
 
 /**
- * Fetch all threats from the threat library.
+ * Fetch threats from the threat library.
+ * Optionally filter by a component's library via component_id query param.
  */
-export function useThreatLibrary() {
+export function useThreatLibrary(componentId?: number | null) {
   return useQuery({
-    queryKey: threatKeys.threatLibrary,
+    queryKey: threatKeys.threatLibrary(componentId),
     queryFn: async () => {
-      const response = await api.get<{ results: ThreatLibraryItem[] } | ThreatLibraryItem[]>(
-        '/threat-library/'
-      )
+      const url = componentId
+        ? `/threat-library/?component_id=${componentId}`
+        : '/threat-library/'
+      const response = await api.get<{ results: ThreatLibraryItem[] } | ThreatLibraryItem[]>(url)
       return Array.isArray(response) ? response : response.results
     },
   })
