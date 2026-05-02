@@ -56,13 +56,15 @@ export const componentKeys = {
 
 /**
  * Fetch all components from the component library.
+ * Optionally filtered by a threat model's connected packs.
  */
-export function useComponentLibrary() {
+export function useComponentLibrary(threatModelId?: string) {
   return useQuery({
-    queryKey: componentKeys.library,
+    queryKey: [...componentKeys.library, threatModelId],
     queryFn: async () => {
+      const params = threatModelId ? `?threat_model=${threatModelId}` : ''
       const response = await api.get<{ results: ComponentLibraryItem[] } | ComponentLibraryItem[]>(
-        '/component-library/'
+        `/component-library/${params}`
       )
       return Array.isArray(response) ? response : response.results
     },

@@ -15,6 +15,7 @@ import {
   SystemContextModal,
   ManageSystemsModal,
   ManageThreatModelsModal,
+  ManagePacksModal,
   ManagePeopleModal,
   ViewFrameworksModal,
   RiskAnalysisTab,
@@ -47,8 +48,11 @@ import {
   useRemoveThreatModelSystem,
   useAddReferencedModel,
   useRemoveReferencedModel,
+  useRemoveThreatModelPack,
+  useAddThreatModelPack,
   exportTmLibrary,
 } from '@/features/threat-models/api/threat-models'
+import { usePacks } from '@/features/libraries/api/packs'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/features/threat-models/components'
 import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/features/threat-models/api/reference-images'
 
@@ -79,6 +83,7 @@ export function ThreatModelDetail() {
   const [systemContextModalOpen, setSystemContextModalOpen] = useState(false)
   const [manageSystemsModalOpen, setManageSystemsModalOpen] = useState(false)
   const [manageThreatModelsModalOpen, setManageThreatModelsModalOpen] = useState(false)
+  const [managePacksModalOpen, setManagePacksModalOpen] = useState(false)
   const [managePeopleModalOpen, setManagePeopleModalOpen] = useState(false)
   const [viewFrameworksModalOpen, setViewFrameworksModalOpen] = useState(false)
   const [shareLinkDialogOpen, setShareLinkDialogOpen] = useState(false)
@@ -109,6 +114,11 @@ export function ThreatModelDetail() {
   const removeSystemMutation = useRemoveThreatModelSystem()
   const addReferencedModelMutation = useAddReferencedModel()
   const removeReferencedModelMutation = useRemoveReferencedModel()
+  const removePackMutation = useRemoveThreatModelPack()
+  const addPackMutation = useAddThreatModelPack()
+
+  // All imported packs (for add-back in ManagePacksModal)
+  const { data: allImportedPacks = [] } = usePacks()
 
   // Reference images
   const { data: referenceImages = [] } = useReferenceImages(id || null)
@@ -636,6 +646,7 @@ export function ThreatModelDetail() {
             }}
             onManageSystems={() => setManageSystemsModalOpen(true)}
             onManageThreatModels={() => setManageThreatModelsModalOpen(true)}
+            onManagePacks={() => setManagePacksModalOpen(true)}
             onManagePeople={() => setManagePeopleModalOpen(true)}
             onEditSystemContext={() => setSystemContextModalOpen(true)}
             onNavigateToThreats={() => setActiveTab('threats')}
@@ -795,6 +806,24 @@ export function ThreatModelDetail() {
         currentModelId={id!}
         onAdd={(modelId) => addReferencedModelMutation.mutate({ threatModelId: id!, targetModelId: Number(modelId) })}
         onRemove={(modelId) => removeReferencedModelMutation.mutate({ threatModelId: id!, targetModelId: Number(modelId) })}
+      />
+
+      <ManagePacksModal
+        open={managePacksModalOpen}
+        onOpenChange={setManagePacksModalOpen}
+        connectedPacks={threatModel.connectedPacks ?? []}
+        availablePacks={allImportedPacks.map((p) => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          version: p.version,
+          packType: p.packType,
+        }))}
+        onRemove={async (packId) => {
+          const response = await removePackMutation.mutateAsync({ threatModelId: id!, packId })
+          return response.dependencyWarnings ?? []
+        }}
+        onAdd={(packId) => addPackMutation.mutate({ threatModelId: id!, packId })}
       />
 
       <ManagePeopleModal

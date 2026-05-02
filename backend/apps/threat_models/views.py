@@ -14,9 +14,9 @@ from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.permissions import CanWrite
+from apps.core.permissions import CanWrite, IsSecurityTeam
 
-from .models import OutOfScopeItem, ThreatModel, ThreatModelReferenceImage
+from .models import OutOfScopeItem, ThreatModel, ThreatModelLibraryPack, ThreatModelReferenceImage
 from .serializers import (
     OutOfScopeItemSerializer,
     ThreatModelCreateSerializer,
@@ -234,6 +234,112 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             {"error": "System not associated with this threat model"},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+    @action(detail=True, methods=["post"])
+    def remove_pack(self, request, pk=None):
+        """Remove a pack from this threat model."""
+        from apps.packs.models import LibraryPack, LibraryPackDependency
+
+        threat_model = self.get_object()
+        pack_id = request.data.get("pack_id")
+
+        if not pack_id:
+            return Response(
+                {"error": "pack_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted, _ = ThreatModelLibraryPack.objects.filter(
+            threat_model=threat_model, library_pack_id=pack_id
+        ).delete()
+
+        if not deleted:
+            return Response(
+                {"error": "Pack not associated with this threat model"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Build dependency warnings
+        dependency_warnings = []
+        try:
+            removed_pack = LibraryPack.objects.get(id=pack_id)
+        except LibraryPack.DoesNotExist:
+            removed_pack = None
+
+        if removed_pack:
+            connected_pack_ids = set(
+                ThreatModelLibraryPack.objects.filter(
+                    threat_model=threat_model
+                ).values_list("library_pack_id", flat=True)
+            )
+
+            # Packs that depend on the removed pack
+            dependent_deps = LibraryPackDependency.objects.filter(
+                depends_on_pack=removed_pack,
+                pack_id__in=connected_pack_ids,
+            ).select_related("pack")
+            for dep in dependent_deps:
+                dependency_warnings.append({
+                    "pack": dep.pack.name,
+                    "message": (
+                        f"{dep.pack.name} (still connected) depends on {removed_pack.name}. "
+                        f"Threat and countermeasure generation from {removed_pack.name} "
+                        f"will no longer apply to this threat model."
+                    ),
+                })
+
+            # Packs the removed pack depends on: check if any other connected
+            # pack also depends on them
+            child_deps = LibraryPackDependency.objects.filter(
+                pack=removed_pack,
+            ).select_related("depends_on_pack")
+            for dep in child_deps:
+                child_pack = dep.depends_on_pack
+                other_dependents = LibraryPackDependency.objects.filter(
+                    depends_on_pack=child_pack,
+                    pack_id__in=connected_pack_ids,
+                ).exists()
+                if not other_dependents:
+                    dependency_warnings.append({
+                        "pack": child_pack.name,
+                        "message": (
+                            f"{child_pack.name} was a dependency of {removed_pack.name} "
+                            f"and no other connected pack uses it. "
+                            f"Consider removing it too if it is no longer needed."
+                        ),
+                    })
+
+        return Response({
+            "status": "pack removed",
+            "dependency_warnings": dependency_warnings,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def add_pack(self, request, pk=None):
+        """Add a pack to this threat model."""
+        from apps.packs.models import LibraryPack
+
+        threat_model = self.get_object()
+        pack_id = request.data.get("pack_id")
+
+        if not pack_id:
+            return Response(
+                {"error": "pack_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            library_pack = LibraryPack.objects.get(id=pack_id)
+        except LibraryPack.DoesNotExist:
+            return Response(
+                {"error": "Pack not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        ThreatModelLibraryPack.objects.get_or_create(
+            threat_model=threat_model, library_pack=library_pack
+        )
+        return Response({"status": "pack added"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def add_referenced_model(self, request, pk=None):

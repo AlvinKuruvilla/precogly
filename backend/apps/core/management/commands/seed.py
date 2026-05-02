@@ -13,7 +13,8 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 
 from apps.organizations.models import Organization, OrganizationMember, Team, TeamMembership
-from apps.threat_models.models import ThreatModel
+from apps.packs.models import LibraryPack
+from apps.threat_models.models import ThreatModel, ThreatModelLibraryPack
 from apps.diagrams.models import DFD, DFDTemplatesLibrary
 from apps.diagrams.services import sync_dfd_nodes_to_components
 from apps.packs.services import get_libraries_path, import_pack_from_path, validate_pack
@@ -66,6 +67,7 @@ class Command(BaseCommand):
         team = self._setup_membership(org, user)
         self._import_packs(force)
         self._create_sample_threat_model(org, team, user)
+        self._connect_packs_to_threat_models()
 
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("Seed complete!"))
@@ -221,3 +223,24 @@ class Command(BaseCommand):
             f"Created: {THREAT_MODEL_NAME} "
             f"({components_count} components, {threats_count} threats)"
         ))
+
+    def _connect_packs_to_threat_models(self):
+        """Ensure all imported packs are connected to all threat models."""
+        all_packs = LibraryPack.objects.all()
+        all_threat_models = ThreatModel.objects.all()
+        if not all_packs.exists() or not all_threat_models.exists():
+            return
+
+        associations = [
+            ThreatModelLibraryPack(threat_model=tm, library_pack=pack)
+            for tm in all_threat_models
+            for pack in all_packs
+        ]
+        created = ThreatModelLibraryPack.objects.bulk_create(
+            associations, ignore_conflicts=True
+        )
+        count = len(created)
+        if count:
+            self.stdout.write(self.style.SUCCESS(
+                f"Connected {all_packs.count()} packs to {all_threat_models.count()} threat models"
+            ))

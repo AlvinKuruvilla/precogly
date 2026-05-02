@@ -555,6 +555,17 @@ def _generate_countermeasures_for_threat(threat_instance):
         applicable_threats=threat_instance.threat_library,
     )
 
+    # Filter by connected packs if the threat's component has a threat model
+    if hasattr(threat_instance, 'component') and threat_instance.component and threat_instance.component.threat_model_id:
+        from apps.threat_models.models import ThreatModelLibraryPack
+
+        connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+            threat_model_id=threat_instance.component.threat_model_id
+        ).values_list("library_pack_id", flat=True)
+        applicable_countermeasures = applicable_countermeasures.filter(
+            source_pack_id__in=connected_pack_ids
+        )
+
     created_count = 0
     has_platform_countermeasure = False
     for countermeasure_library in applicable_countermeasures:
@@ -620,6 +631,17 @@ def _generate_threats_for_component(component):
             ComponentLibraryThreat.AppliesTo.BOTH,
         ],
     ).select_related("threat_library")
+
+    # Filter by connected packs if component has a threat model
+    if component.threat_model_id:
+        from apps.threat_models.models import ThreatModelLibraryPack
+
+        connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+            threat_model_id=component.threat_model_id
+        ).values_list("library_pack_id", flat=True)
+        library_threats = library_threats.filter(
+            threat_library__source_pack_id__in=connected_pack_ids
+        )
 
     created_count = 0
 

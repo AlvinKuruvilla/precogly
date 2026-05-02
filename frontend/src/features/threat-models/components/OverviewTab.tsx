@@ -59,6 +59,7 @@ interface OverviewTabProps {
   onImageClick: (index: number) => void
   onManageSystems: () => void
   onManageThreatModels: () => void
+  onManagePacks: () => void
   onManagePeople: () => void
   onEditSystemContext: () => void
   onNavigateToThreats: () => void
@@ -86,6 +87,7 @@ export function OverviewTab({
   onImageClick,
   onManageSystems,
   onManageThreatModels,
+  onManagePacks,
   onManagePeople,
   onEditSystemContext,
   onNavigateToThreats,
@@ -104,10 +106,12 @@ export function OverviewTab({
         <RelationshipCards
           connectedSystems={linkedSystems}
           connectedThreatModels={referencedModels}
+          connectedPacks={threatModel.connectedPacks ?? []}
           teamMemberCount={currentTeam?.memberCount ?? 0}
           teamName={currentTeam?.name}
           onManageSystems={onManageSystems}
           onManageThreatModels={onManageThreatModels}
+          onManagePacks={onManagePacks}
           onManagePeople={onManagePeople}
         />
       </div>
