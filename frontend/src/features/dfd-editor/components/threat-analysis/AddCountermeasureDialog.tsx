@@ -44,6 +44,7 @@ interface AddCountermeasureDialogProps {
   threatType: 'component' | 'dataflow'
   threatName: string
   threatLibraryId?: number | null // For filtering applicable countermeasures
+  threatModelId?: string
   onSuccess?: () => void
 }
 
@@ -54,6 +55,7 @@ export function AddCountermeasureDialog({
   threatType,
   threatName,
   threatLibraryId,
+  threatModelId,
   onSuccess,
 }: AddCountermeasureDialogProps) {
   const [activeTab, setActiveTab] = useState<'library' | 'custom'>('library')
@@ -66,7 +68,7 @@ export function AddCountermeasureDialog({
   const [customControlType, setCustomControlType] = useState('')
 
   // Fetch countermeasures - filter by applicable threats if we have a library threat
-  const { data: countermeasureLibrary, isLoading } = useCountermeasureLibrary(threatLibraryId)
+  const { data: countermeasureLibrary, isLoading } = useCountermeasureLibrary(threatLibraryId, threatModelId)
   const createComponentCountermeasure = useCreateComponentCountermeasure()
   const createFlowCountermeasure = useCreateFlowCountermeasure()
 

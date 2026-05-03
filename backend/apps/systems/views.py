@@ -136,7 +136,10 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
             connected_pack_ids = ThreatModelLibraryPack.objects.filter(
                 threat_model_id=threat_model_id
             ).values_list("library_pack_id", flat=True)
-            qs = qs.filter(source_pack_id__in=connected_pack_ids)
+            qs = qs.filter(
+                Q(source_pack_id__in=connected_pack_ids)
+                | Q(source_pack__isnull=True)
+            )
         return qs
 
 

@@ -555,7 +555,8 @@ def _generate_countermeasures_for_threat(threat_instance):
         applicable_threats=threat_instance.threat_library,
     )
 
-    # Filter by connected packs if the threat's component has a threat model
+    # Filter by connected packs if the threat's component has a threat model.
+    # Allow countermeasures with no source_pack (custom/legacy) to always pass through.
     if hasattr(threat_instance, 'component') and threat_instance.component and threat_instance.component.threat_model_id:
         from apps.threat_models.models import ThreatModelLibraryPack
 
@@ -563,7 +564,8 @@ def _generate_countermeasures_for_threat(threat_instance):
             threat_model_id=threat_instance.component.threat_model_id
         ).values_list("library_pack_id", flat=True)
         applicable_countermeasures = applicable_countermeasures.filter(
-            source_pack_id__in=connected_pack_ids
+            Q(source_pack_id__in=connected_pack_ids)
+            | Q(source_pack__isnull=True)
         )
 
     created_count = 0
@@ -632,7 +634,8 @@ def _generate_threats_for_component(component):
         ],
     ).select_related("threat_library")
 
-    # Filter by connected packs if component has a threat model
+    # Filter by connected packs if component has a threat model.
+    # Allow threats with no source_pack (custom/legacy) to always pass through.
     if component.threat_model_id:
         from apps.threat_models.models import ThreatModelLibraryPack
 
@@ -640,7 +643,8 @@ def _generate_threats_for_component(component):
             threat_model_id=component.threat_model_id
         ).values_list("library_pack_id", flat=True)
         library_threats = library_threats.filter(
-            threat_library__source_pack_id__in=connected_pack_ids
+            Q(threat_library__source_pack_id__in=connected_pack_ids)
+            | Q(threat_library__source_pack__isnull=True)
         )
 
     created_count = 0
@@ -841,6 +845,20 @@ def _generate_threats_for_dataflow(dataflow):
             ],
         ).select_related("threat_library").distinct()
 
+        # Filter by connected packs if dataflow has a threat model.
+        # Allow threats with no source_pack (custom/legacy) to always pass through.
+        threat_model_id = getattr(source_component, "threat_model_id", None) or getattr(dest_component, "threat_model_id", None)
+        if threat_model_id:
+            from apps.threat_models.models import ThreatModelLibraryPack
+
+            connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+                threat_model_id=threat_model_id
+            ).values_list("library_pack_id", flat=True)
+            library_threats = library_threats.filter(
+                Q(threat_library__source_pack_id__in=connected_pack_ids)
+                | Q(threat_library__source_pack__isnull=True)
+            )
+
         for lib_threat in library_threats:
             # Avoid duplicate threats if both endpoints have the same threat
             if lib_threat.threat_library_id in seen_threat_ids:
@@ -885,6 +903,25 @@ def _generate_countermeasures_for_flow_threat(threat_instance):
     applicable_countermeasures = CountermeasureLibrary.objects.filter(
         applicable_threats=threat_instance.threat_library,
     )
+
+    # Filter by connected packs if the flow's component has a threat model.
+    # Allow countermeasures with no source_pack (custom/legacy) to always pass through.
+    data_flow = threat_instance.data_flow
+    threat_model_id = None
+    if hasattr(data_flow, "source_component") and data_flow.source_component:
+        threat_model_id = data_flow.source_component.threat_model_id
+    if not threat_model_id and hasattr(data_flow, "dest_component") and data_flow.dest_component:
+        threat_model_id = data_flow.dest_component.threat_model_id
+    if threat_model_id:
+        from apps.threat_models.models import ThreatModelLibraryPack
+
+        connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+            threat_model_id=threat_model_id
+        ).values_list("library_pack_id", flat=True)
+        applicable_countermeasures = applicable_countermeasures.filter(
+            Q(source_pack_id__in=connected_pack_ids)
+            | Q(source_pack__isnull=True)
+        )
 
     created_count = 0
     has_platform_countermeasure = False

@@ -316,8 +316,15 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def add_pack(self, request, pk=None):
-        """Add a pack to this threat model."""
+        """Add a pack to this threat model.
+
+        After connecting the pack, scans existing components on the TM
+        whose component_library belongs to the newly connected pack and
+        generates threats and countermeasures for each.
+        """
+        from apps.diagrams.services import _generate_threats_for_component
         from apps.packs.models import LibraryPack
+        from apps.systems.models import OrgsystemComponent
 
         threat_model = self.get_object()
         pack_id = request.data.get("pack_id")
@@ -336,10 +343,28 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        ThreatModelLibraryPack.objects.get_or_create(
+        _, created = ThreatModelLibraryPack.objects.get_or_create(
             threat_model=threat_model, library_pack=library_pack
         )
-        return Response({"status": "pack added"}, status=status.HTTP_200_OK)
+
+        # Auto-materialize threats for existing components from this pack
+        threats_created = 0
+        components_matched = 0
+        if created:
+            matching_components = OrgsystemComponent.objects.filter(
+                threat_model=threat_model,
+                component_library__source_pack=library_pack,
+            )
+            with transaction.atomic():
+                for component in matching_components:
+                    components_matched += 1
+                    threats_created += _generate_threats_for_component(component)
+
+        return Response({
+            "status": "pack added",
+            "components_matched": components_matched,
+            "threats_created": threats_created,
+        }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def add_referenced_model(self, request, pk=None):

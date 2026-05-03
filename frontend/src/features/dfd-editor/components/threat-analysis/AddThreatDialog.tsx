@@ -38,6 +38,7 @@ interface AddThreatDialogProps {
   targetId: number // Component ID or DataFlow ID
   targetType: 'component' | 'dataflow'
   targetName: string
+  threatModelId?: string
   onSuccess?: () => void
 }
 
@@ -47,6 +48,7 @@ export function AddThreatDialog({
   targetId,
   targetType,
   targetName,
+  threatModelId,
   onSuccess,
 }: AddThreatDialogProps) {
   const [activeTab, setActiveTab] = useState<'library' | 'custom'>('library')
@@ -65,7 +67,7 @@ export function AddThreatDialog({
     ? targetId
     : undefined
 
-  const { data: threatLibrary, isLoading } = useThreatLibrary(effectiveComponentId)
+  const { data: threatLibrary, isLoading } = useThreatLibrary(effectiveComponentId, threatModelId)
   const createComponentThreat = useCreateComponentThreat()
   const createFlowThreat = useCreateFlowThreat()
 

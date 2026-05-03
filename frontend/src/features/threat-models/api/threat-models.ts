@@ -256,6 +256,10 @@ export function useRemoveThreatModelPack() {
     onSuccess: (_, { threatModelId }) => {
       queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
       queryClient.invalidateQueries({ queryKey: ['component-library'] })
+      queryClient.invalidateQueries({ queryKey: ['component-library-raw'] })
+      queryClient.invalidateQueries({ queryKey: ['dfd-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-library'] })
+      queryClient.invalidateQueries({ queryKey: ['countermeasure-library'] })
     },
   })
 }
@@ -269,6 +273,10 @@ export function useAddThreatModelPack() {
     onSuccess: (_, { threatModelId }) => {
       queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
       queryClient.invalidateQueries({ queryKey: ['component-library'] })
+      queryClient.invalidateQueries({ queryKey: ['component-library-raw'] })
+      queryClient.invalidateQueries({ queryKey: ['dfd-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-library'] })
+      queryClient.invalidateQueries({ queryKey: ['countermeasure-library'] })
     },
   })
 }

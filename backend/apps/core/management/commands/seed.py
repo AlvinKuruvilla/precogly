@@ -205,6 +205,14 @@ class Command(BaseCommand):
             criticality=ThreatModel.Criticality.HIGH,
         )
 
+        # Connect all imported packs before generating threats
+        imported_packs = LibraryPack.objects.all()
+        ThreatModelLibraryPack.objects.bulk_create(
+            [ThreatModelLibraryPack(threat_model=threat_model, library_pack=pack)
+             for pack in imported_packs],
+            ignore_conflicts=True,
+        )
+
         dfd = DFD.objects.create(
             name="Data Flow Diagram 1",
             diagram_type=template.diagram_type,

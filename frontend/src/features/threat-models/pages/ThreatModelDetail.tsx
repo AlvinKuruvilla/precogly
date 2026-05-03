@@ -615,11 +615,7 @@ export function ThreatModelDetail() {
         <TabsContent value="overview" className="flex-1 overflow-auto m-0 p-6">
           <OverviewTab
             threatModelId={id!}
-            threatModel={threatModel}
             diagrams={diagrams}
-            linkedSystems={linkedSystems}
-            referencedModels={referencedModels}
-            currentTeam={currentTeam ?? null}
             progressChecklist={progressChecklist}
             summaries={summaries}
             selectedDiagramId={selectedDiagramId}
@@ -811,14 +807,18 @@ export function ThreatModelDetail() {
       <ManagePacksModal
         open={managePacksModalOpen}
         onOpenChange={setManagePacksModalOpen}
-        connectedPacks={threatModel.connectedPacks ?? []}
-        availablePacks={allImportedPacks.map((p) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          version: p.version,
-          packType: p.packType,
-        }))}
+        connectedPacks={(threatModel.connectedPacks ?? []).filter(
+          (p) => p.packType !== 'taxonomy' && p.packType !== 'compliance'
+        )}
+        availablePacks={allImportedPacks
+          .filter((p) => p.packType !== 'taxonomy' && p.packType !== 'compliance')
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            version: p.version,
+            packType: p.packType,
+          }))}
         onRemove={async (packId) => {
           const response = await removePackMutation.mutateAsync({ threatModelId: id!, packId })
           return response.dependencyWarnings ?? []
@@ -876,6 +876,7 @@ export function ThreatModelDetail() {
           targetId={selectedBackendInfo.backendId}
           targetType={selectedBackendInfo.type}
           targetName={selectedBackendInfo.name}
+          threatModelId={id}
           onSuccess={() => {
             refetchThreats()
           }}
@@ -891,6 +892,7 @@ export function ThreatModelDetail() {
           threatType={selectedThreatBackendInfo.type as 'component' | 'dataflow'}
           threatName={selectedThreatBackendInfo.name}
           threatLibraryId={selectedThreatBackendInfo.threatLibraryId}
+          threatModelId={id}
           onSuccess={() => {
             refetchThreats()
           }}

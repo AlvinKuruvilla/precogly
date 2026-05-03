@@ -104,11 +104,12 @@ export const threatKeys = {
   componentThreats: (componentId: number) => [...threatKeys.all, 'component', componentId] as const,
   threatCountermeasures: (threatId: number) => [...threatKeys.all, 'countermeasures', threatId] as const,
   suggestedCountermeasures: (threatId: number) => [...threatKeys.all, 'suggested', threatId] as const,
-  threatLibrary: (componentId?: number | null) =>
+  threatLibrary: (componentId?: number | null, threatModelId?: string) =>
     componentId
-      ? ['threat-library', componentId] as const
-      : ['threat-library'] as const,
-  countermeasureLibrary: ['countermeasure-library'] as const,
+      ? ['threat-library', componentId, threatModelId] as const
+      : ['threat-library', threatModelId] as const,
+  countermeasureLibrary: (threatModelId?: string) =>
+    ['countermeasure-library', threatModelId] as const,
 }
 
 // Query Hooks
@@ -145,14 +146,17 @@ export function useSuggestedCountermeasures(threatId: number | null) {
 /**
  * Fetch threats from the threat library.
  * Optionally filter by a component's library via component_id query param.
+ * Optionally filter by connected packs via threat_model query param.
  */
-export function useThreatLibrary(componentId?: number | null) {
+export function useThreatLibrary(componentId?: number | null, threatModelId?: string) {
   return useQuery({
-    queryKey: threatKeys.threatLibrary(componentId),
+    queryKey: threatKeys.threatLibrary(componentId, threatModelId),
     queryFn: async () => {
-      const url = componentId
-        ? `/threat-library/?component_id=${componentId}`
-        : '/threat-library/'
+      const params = new URLSearchParams()
+      if (componentId) params.set('component_id', String(componentId))
+      if (threatModelId) params.set('threat_model', threatModelId)
+      const queryString = params.toString()
+      const url = queryString ? `/threat-library/?${queryString}` : '/threat-library/'
       const response = await api.get<{ results: ThreatLibraryItem[] } | ThreatLibraryItem[]>(url)
       return Array.isArray(response) ? response : response.results
     },
@@ -162,14 +166,17 @@ export function useThreatLibrary(componentId?: number | null) {
 /**
  * Fetch all countermeasures from the countermeasure library.
  * Optionally filter by applicable threat library ID.
+ * Optionally filter by connected packs via threat_model query param.
  */
-export function useCountermeasureLibrary(threatLibraryId?: number | null) {
+export function useCountermeasureLibrary(threatLibraryId?: number | null, threatModelId?: string) {
   return useQuery({
-    queryKey: [...threatKeys.countermeasureLibrary, threatLibraryId],
+    queryKey: [...threatKeys.countermeasureLibrary(threatModelId), threatLibraryId],
     queryFn: async () => {
-      const url = threatLibraryId
-        ? `/countermeasure-library/?applicable_threats=${threatLibraryId}`
-        : '/countermeasure-library/'
+      const params = new URLSearchParams()
+      if (threatLibraryId) params.set('applicable_threats', String(threatLibraryId))
+      if (threatModelId) params.set('threat_model', threatModelId)
+      const queryString = params.toString()
+      const url = queryString ? `/countermeasure-library/?${queryString}` : '/countermeasure-library/'
       const response = await api.get<{ results: CountermeasureLibraryItem[] } | CountermeasureLibraryItem[]>(url)
       return Array.isArray(response) ? response : response.results
     },
