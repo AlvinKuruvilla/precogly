@@ -15,6 +15,7 @@ import { DismissedThreatsSection } from './sections/DismissedThreatsSection'
 import { CountermeasureSection } from './sections/CountermeasureSection'
 import { RiskSection } from './sections/RiskSection'
 import { ComplianceSection } from './sections/ComplianceSection'
+import { CrossFrameworkMappingsSection } from './sections/CrossFrameworkMappingsSection'
 import { AssumptionsReviewSection } from './sections/AssumptionsReviewSection'
 import { FindingsSection } from './sections/FindingsSection'
 import { ProgressChecklistSection } from './sections/ProgressChecklistSection'
@@ -88,6 +89,8 @@ function renderSection(sectionId: string, depth: string, data: ReportData) {
       return <RiskSection risks={data.risks} depth={depth as any} />
     case 'compliance':
       return <ComplianceSection compliance={data.compliance} depth={depth as any} />
+    case 'crossFrameworkMappings':
+      return <CrossFrameworkMappingsSection compliance={data.compliance} />
     case 'assumptions':
       return <AssumptionsReviewSection scope={data.scope} depth={depth as any} />
     case 'findings':

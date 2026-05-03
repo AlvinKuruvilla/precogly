@@ -211,8 +211,23 @@ export interface ReportComplianceFramework {
   satisfactionPercentage: number
 }
 
+export interface ReportCrossFrameworkMappingEntry {
+  fromSectionCode: string
+  fromDescription: string
+  toSectionCode: string
+  toDescription: string
+  sufficiency: 'full' | 'partial'
+}
+
+export interface ReportCrossFrameworkMappingGroup {
+  sourceFramework: string
+  targetFramework: string
+  mappings: ReportCrossFrameworkMappingEntry[]
+}
+
 export interface ReportCompliance {
   frameworks: ReportComplianceFramework[]
+  crossFrameworkMappings?: ReportCrossFrameworkMappingGroup[]
 }
 
 export interface ReportSummaryMetrics {

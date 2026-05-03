@@ -28,7 +28,7 @@ from apps.threats.models import (
     ThreatLibraryTaxonomyEntry,
 )
 
-from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay
+from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay, PendingRequirementOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -1184,6 +1184,15 @@ def _import_pack(
                         mappings_count = _load_framework_overlay(library_pack, join_file)
                         logger.info(f"Loaded {mappings_count} mappings from {join_file.name}")
 
+                # Phase 3b: Load requirement overlays
+                for join_file in joins_dir.glob("requirements-*.yaml"):
+                    logger.info(f"Loading requirement overlay: {join_file.name}")
+                    req_mappings_count = _load_requirement_overlay(library_pack, join_file)
+                    logger.info(
+                        f"Loaded {req_mappings_count} requirement mappings "
+                        f"from {join_file.name}"
+                    )
+
             # Phase 4: Load DFD templates
             templates_count = _load_templates(library_pack, pack_path / "dfd-templates")
 
@@ -1261,6 +1270,23 @@ def sync_all_packs_from_source(
         )
         results.append(result)
 
+    # Second pass: re-apply cross-framework requirement overlays.
+    # During force re-import, activation can create mappings using stale
+    # framework objects from the previous run. When those frameworks are
+    # later re-imported, CASCADE deletes destroy the mappings and the
+    # pending overlay has already been consumed. Re-loading from disk
+    # after all frameworks exist fixes this ordering issue.
+    if force:
+        for pack_info in packs:
+            pack = LibraryPack.objects.filter(slug=pack_info.slug).first()
+            if not pack:
+                continue
+            joins_dir = Path(pack_info.path) / "joins"
+            if not joins_dir.exists():
+                continue
+            for join_file in joins_dir.glob("requirements-*.yaml"):
+                _load_requirement_overlay(pack, join_file)
+
     return results
 
 
@@ -1275,13 +1301,15 @@ def _hard_delete_pack_items(pack: LibraryPack):
     Note: Instance models use SET_NULL for library FKs, so deleting library items
     will orphan instances but not delete them. This preserves user work.
     """
-    from apps.compliance.models import StandardFramework
+    from apps.compliance.models import StandardFramework, StandardRequirementMapping
 
     ComponentLibrary.objects.filter(source_pack=pack).delete()
     ThreatLibrary.objects.filter(source_pack=pack).delete()
     CountermeasureLibrary.objects.filter(source_pack=pack).delete()
     DFDTemplatesLibrary.objects.filter(source_pack=pack).delete()
     ExternalTaxonomy.objects.filter(source_pack=pack).delete()
+    StandardRequirementMapping.objects.filter(source_pack=pack).delete()
+    PendingRequirementOverlay.objects.filter(pack=pack).delete()
     StandardFramework.objects.filter(source_pack=pack).delete()
 
 
@@ -1731,6 +1759,13 @@ def _load_frameworks(library_pack: LibraryPack, pack_data: dict) -> int:
                 f"for framework '{framework_slug}'"
             )
 
+        req_result = activate_pending_requirement_overlays_for_framework(framework_slug)
+        if req_result.get("total_mappings", 0) > 0:
+            logger.info(
+                f"Activated {req_result['total_mappings']} pending requirement "
+                f"overlay mappings for framework '{framework_slug}'"
+            )
+
     return count
 
 
@@ -1898,6 +1933,121 @@ def _load_framework_overlay(library_pack: LibraryPack, file_path: Path) -> int:
     return count
 
 
+def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int:
+    """
+    Load requirement overlay from joins/requirements-{target-framework}.yaml.
+
+    Requirement overlays map requirements from one framework to another.
+    If either framework doesn't exist, stores as pending for later activation.
+
+    YAML schema:
+        framework: iec-81001-5-1          # target framework slug
+        source_framework: caa-3305        # source framework slug
+        mappings:
+          - requirement: "CAA3305-524B(b)(1)"
+            entries:
+              - "6.2.1"
+              - "9.2"
+            sufficiency: partial
+    """
+    if not file_path.exists():
+        return 0
+
+    try:
+        with open(file_path) as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.error(f"Error loading requirement overlay {file_path}: {e}")
+        return 0
+
+    target_framework_slug = data.get("framework", "")
+    source_framework_slug = data.get("source_framework", "")
+    if not target_framework_slug or not source_framework_slug:
+        logger.warning(
+            f"Missing 'framework' or 'source_framework' in {file_path}"
+        )
+        return 0
+
+    from apps.compliance.models import StandardFramework, StandardRequirement, StandardRequirementMapping
+
+    source_framework = StandardFramework.objects.filter(slug=source_framework_slug).first()
+    target_framework = StandardFramework.objects.filter(slug=target_framework_slug).first()
+
+    if not source_framework or not target_framework:
+        missing = []
+        if not source_framework:
+            missing.append(source_framework_slug)
+        if not target_framework:
+            missing.append(target_framework_slug)
+        logger.info(
+            f"Framework(s) {missing} not found. "
+            f"Storing requirement overlay as pending."
+        )
+        mapping_count = len(data.get("mappings", []))
+        PendingRequirementOverlay.objects.update_or_create(
+            pack=library_pack,
+            source_framework_slug=source_framework_slug,
+            target_framework_slug=target_framework_slug,
+            defaults={
+                "overlay_file_name": file_path.name,
+                "overlay_data": data,
+                "mapping_count": mapping_count,
+            },
+        )
+        return 0
+
+    # Both frameworks exist. Remove any pending overlay and apply.
+    PendingRequirementOverlay.objects.filter(
+        pack=library_pack,
+        source_framework_slug=source_framework_slug,
+        target_framework_slug=target_framework_slug,
+    ).delete()
+
+    count = 0
+    for mapping in data.get("mappings", []):
+        from_section_code = mapping.get("requirement", "")
+        if not from_section_code:
+            continue
+
+        from_requirement = StandardRequirement.objects.filter(
+            framework=source_framework,
+            section_code=str(from_section_code),
+        ).first()
+
+        if not from_requirement:
+            logger.warning(
+                f"Source requirement '{from_section_code}' not found "
+                f"in framework '{source_framework_slug}'"
+            )
+            continue
+
+        sufficiency = mapping.get("sufficiency", "partial")
+
+        for to_section_code in mapping.get("entries", []):
+            to_requirement = StandardRequirement.objects.filter(
+                framework=target_framework,
+                section_code=str(to_section_code),
+            ).first()
+
+            if to_requirement:
+                StandardRequirementMapping.objects.get_or_create(
+                    from_requirement=from_requirement,
+                    to_requirement=to_requirement,
+                    defaults={
+                        "sufficiency": sufficiency,
+                        "source_pack": library_pack,
+                    },
+                )
+                count += 1
+            else:
+                logger.warning(
+                    f"Target requirement '{to_section_code}' not found "
+                    f"in framework '{target_framework_slug}'"
+                )
+
+    return count
+
+
 def activate_pending_overlays_for_framework(framework_slug: str) -> dict:
     """
     Activate all pending overlays for a newly installed framework.
@@ -1971,6 +2121,116 @@ def activate_pending_overlays_for_framework(framework_slug: str) -> dict:
 
     logger.info(
         f"Activated {len(results['packs_activated'])} pending overlays for framework '{framework_slug}' "
+        f"with {results['total_mappings']} total mappings"
+    )
+
+    return results
+
+
+def activate_pending_requirement_overlays_for_framework(framework_slug: str) -> dict:
+    """
+    Activate all pending requirement overlays that reference the given framework
+    (either as source or target).
+
+    Called when a framework is installed to apply any requirement overlays
+    that were waiting for this framework.
+
+    Args:
+        framework_slug: The slug of the framework that was just installed
+
+    Returns:
+        Dictionary with activation results including counts per pack
+    """
+    from django.db.models import Q
+
+    from apps.compliance.models import StandardFramework, StandardRequirement, StandardRequirementMapping
+
+    framework = StandardFramework.objects.filter(slug=framework_slug).first()
+    if not framework:
+        logger.error(
+            f"Cannot activate requirement overlays: "
+            f"Framework '{framework_slug}' not found"
+        )
+        return {"success": False, "error": "Framework not found", "activated": 0}
+
+    # Find pending overlays where this framework is either source or target
+    pending_overlays = PendingRequirementOverlay.objects.filter(
+        Q(source_framework_slug=framework_slug)
+        | Q(target_framework_slug=framework_slug)
+    )
+
+    results = {
+        "success": True,
+        "framework": framework_slug,
+        "framework_name": framework.name,
+        "packs_activated": [],
+        "total_mappings": 0,
+    }
+
+    for pending in pending_overlays:
+        data = pending.overlay_data
+        source_fw_slug = data.get("source_framework", "")
+        target_fw_slug = data.get("framework", "")
+
+        source_fw = StandardFramework.objects.filter(slug=source_fw_slug).first()
+        target_fw = StandardFramework.objects.filter(slug=target_fw_slug).first()
+
+        if not source_fw or not target_fw:
+            # Still missing the other framework, skip
+            continue
+
+        pack = pending.pack
+        mappings_applied = 0
+
+        for mapping in data.get("mappings", []):
+            from_section_code = mapping.get("requirement", "")
+            if not from_section_code:
+                continue
+
+            from_requirement = StandardRequirement.objects.filter(
+                framework=source_fw,
+                section_code=str(from_section_code),
+            ).first()
+
+            if not from_requirement:
+                logger.warning(
+                    f"Source requirement '{from_section_code}' not found "
+                    f"during activation in framework '{source_fw_slug}'"
+                )
+                continue
+
+            sufficiency = mapping.get("sufficiency", "partial")
+
+            for to_section_code in mapping.get("entries", []):
+                to_requirement = StandardRequirement.objects.filter(
+                    framework=target_fw,
+                    section_code=str(to_section_code),
+                ).first()
+
+                if to_requirement:
+                    StandardRequirementMapping.objects.get_or_create(
+                        from_requirement=from_requirement,
+                        to_requirement=to_requirement,
+                        defaults={
+                            "sufficiency": sufficiency,
+                            "source_pack": pack,
+                        },
+                    )
+                    mappings_applied += 1
+
+        results["packs_activated"].append({
+            "pack_slug": pack.slug,
+            "pack_name": pack.name,
+            "mappings_applied": mappings_applied,
+        })
+        results["total_mappings"] += mappings_applied
+
+        # Remove the pending overlay now that both frameworks exist
+        pending.delete()
+
+    logger.info(
+        f"Activated {len(results['packs_activated'])} pending requirement overlays "
+        f"for framework '{framework_slug}' "
         f"with {results['total_mappings']} total mappings"
     )
 

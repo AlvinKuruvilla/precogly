@@ -202,3 +202,52 @@ class PendingFrameworkOverlay(TimestampedModel):
 
     def __str__(self):
         return f"{self.pack.slug} -> {self.framework_slug} (pending)"
+
+
+class PendingRequirementOverlay(TimestampedModel):
+    """
+    Stores requirement-to-requirement overlays that could not be applied
+    because one or both frameworks were not installed when the pack was imported.
+
+    When a framework is later installed, pending requirement overlays
+    referencing that framework can be activated automatically.
+    """
+
+    pack = models.ForeignKey(
+        LibraryPack,
+        on_delete=models.CASCADE,
+        related_name="pending_requirement_overlays",
+        help_text="The pack that contains this overlay",
+    )
+    source_framework_slug = models.CharField(
+        max_length=100,
+        help_text="The slug of the source framework (from_requirement side)",
+    )
+    target_framework_slug = models.CharField(
+        max_length=100,
+        help_text="The slug of the target framework (to_requirement side)",
+    )
+    overlay_file_name = models.CharField(
+        max_length=255,
+        help_text="Name of the overlay file (e.g., 'requirements-iec-81001-5-1.yaml')",
+    )
+    overlay_data = models.JSONField(
+        default=dict,
+        help_text="The raw overlay data from the YAML file",
+    )
+    mapping_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of mappings in this overlay",
+    )
+
+    class Meta:
+        unique_together = ["pack", "source_framework_slug", "target_framework_slug"]
+        verbose_name = "Pending Requirement Overlay"
+        verbose_name_plural = "Pending Requirement Overlays"
+        ordering = ["pack", "source_framework_slug", "target_framework_slug"]
+
+    def __str__(self):
+        return (
+            f"{self.pack.slug}: {self.source_framework_slug} -> "
+            f"{self.target_framework_slug} (pending)"
+        )

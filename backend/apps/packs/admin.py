@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LibraryPack, LibraryPackDependency
+from .models import LibraryPack, LibraryPackDependency, PendingRequirementOverlay
 
 
 class LibraryPackDependencyInline(admin.TabularInline):
@@ -60,3 +60,16 @@ class LibraryPackDependencyAdmin(admin.ModelAdmin):
     list_filter = ["is_optional"]
     search_fields = ["pack__name", "pack__slug", "depends_on_pack__name", "depends_on_pack__slug"]
     autocomplete_fields = ["pack", "depends_on_pack"]
+
+
+@admin.register(PendingRequirementOverlay)
+class PendingRequirementOverlayAdmin(admin.ModelAdmin):
+    list_display = [
+        "pack",
+        "source_framework_slug",
+        "target_framework_slug",
+        "overlay_file_name",
+        "mapping_count",
+    ]
+    list_filter = ["source_framework_slug", "target_framework_slug"]
+    search_fields = ["pack__name", "pack__slug"]
