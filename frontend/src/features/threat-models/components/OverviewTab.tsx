@@ -8,7 +8,7 @@ import {
   SummaryCards,
   SystemContextCard,
 } from '@/features/threat-models/components/workspace'
-import type { ThreatModel, Diagram, System } from '@/types'
+import type { Diagram } from '@/types'
 import type { ReferenceImage } from '@/features/threat-models/types/core'
 import type { ProgressChecklistItem } from '@/features/dfd-editor/types/threat-analysis'
 
@@ -39,11 +39,7 @@ interface SummaryData {
 
 interface OverviewTabProps {
   threatModelId: string
-  threatModel: ThreatModel
   diagrams: Diagram[]
-  linkedSystems: System[]
-  referencedModels: ThreatModel[]
-  currentTeam: { id: number; name: string; memberCount: number } | null
   progressChecklist: ProgressChecklistItem[]
   summaries: SummaryData
   selectedDiagramId: string | null
@@ -59,6 +55,7 @@ interface OverviewTabProps {
   onImageClick: (index: number) => void
   onManageSystems: () => void
   onManageThreatModels: () => void
+  onManagePacks: () => void
   onManagePeople: () => void
   onEditSystemContext: () => void
   onNavigateToThreats: () => void
@@ -66,11 +63,7 @@ interface OverviewTabProps {
 
 export function OverviewTab({
   threatModelId,
-  threatModel,
   diagrams,
-  linkedSystems,
-  referencedModels,
-  currentTeam,
   progressChecklist,
   summaries,
   selectedDiagramId,
@@ -86,6 +79,7 @@ export function OverviewTab({
   onImageClick,
   onManageSystems,
   onManageThreatModels,
+  onManagePacks,
   onManagePeople,
   onEditSystemContext,
   onNavigateToThreats,
@@ -102,12 +96,9 @@ export function OverviewTab({
           />
         </div>
         <RelationshipCards
-          connectedSystems={linkedSystems}
-          connectedThreatModels={referencedModels}
-          teamMemberCount={currentTeam?.memberCount ?? 0}
-          teamName={currentTeam?.name}
           onManageSystems={onManageSystems}
           onManageThreatModels={onManageThreatModels}
+          onManagePacks={onManagePacks}
           onManagePeople={onManagePeople}
         />
       </div>

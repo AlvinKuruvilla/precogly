@@ -54,7 +54,7 @@ export function AddCustomComponentDialog({
   const [selectedTrustZone, setSelectedTrustZone] = useState<string>('')
 
   // Fetch component library and trust zones
-  const { data: componentLibrary, isLoading } = useComponentLibrary()
+  const { data: componentLibrary, isLoading } = useComponentLibrary(threatModelId)
   const { data: trustZones } = useTrustZones(threatModelId)
   const createComponent = useCreateAnalysisComponent()
   const generateThreats = useGenerateThreats()

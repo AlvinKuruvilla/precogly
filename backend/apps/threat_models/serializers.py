@@ -8,6 +8,7 @@ from .models import (
     OutOfScopeItem,
     ThreatModel,
     ThreatModelFramework,
+    ThreatModelLibraryPack,
     ThreatModelOrgsystem,
     ThreatModelReferenceImage,
     ThreatModelRelationship,
@@ -179,6 +180,8 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
     owner = serializers.SerializerMethodField()
     frameworks = serializers.SerializerMethodField()
     system_ids = serializers.SerializerMethodField()
+    pack_ids = serializers.SerializerMethodField()
+    connected_packs = serializers.SerializerMethodField()
     referenced_model_ids = serializers.SerializerMethodField()
     reference_images = ThreatModelReferenceImageSerializer(many=True, read_only=True)
 
@@ -205,6 +208,8 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
             "dfds",
             "frameworks",
             "system_ids",
+            "pack_ids",
+            "connected_packs",
             "referenced_model_ids",
             "reference_images",
             "risk_scoring_method",
@@ -241,6 +246,25 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
         """Get associated system IDs."""
         associations = obj.orgsystem_associations.all()
         return [str(assoc.orgsystem_id) for assoc in associations]
+
+    def get_pack_ids(self, obj):
+        """Get associated library pack IDs."""
+        associations = obj.pack_associations.all()
+        return [assoc.library_pack_id for assoc in associations]
+
+    def get_connected_packs(self, obj):
+        """Get connected pack details for overview display."""
+        associations = obj.pack_associations.select_related("library_pack").all()
+        return [
+            {
+                "id": assoc.library_pack_id,
+                "name": assoc.library_pack.name,
+                "slug": assoc.library_pack.slug,
+                "version": assoc.library_pack.version,
+                "pack_type": assoc.library_pack.pack_type,
+            }
+            for assoc in associations
+        ]
 
     def get_referenced_model_ids(self, obj):
         """Get referenced threat model IDs."""
@@ -491,6 +515,20 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
                 target_threat_model_id=ref_model_id,
                 relation_type=ThreatModelRelationship.RelationType.RELATED_TO,
             )
+
+        # Auto-connect all imported packs
+        from apps.packs.models import LibraryPack
+
+        imported_packs = LibraryPack.objects.all()
+        ThreatModelLibraryPack.objects.bulk_create(
+            [
+                ThreatModelLibraryPack(
+                    threat_model=threat_model, library_pack=pack
+                )
+                for pack in imported_packs
+            ],
+            ignore_conflicts=True,
+        )
 
         return threat_model
 

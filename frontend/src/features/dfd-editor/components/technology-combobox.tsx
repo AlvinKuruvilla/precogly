@@ -33,6 +33,7 @@ interface TechnologyComboboxProps {
   filterNodeType?: DiagramNodeType
   allowCustom?: boolean
   className?: string
+  threatModelId?: string
 }
 
 export function TechnologyCombobox({
@@ -43,12 +44,13 @@ export function TechnologyCombobox({
   filterNodeType,
   allowCustom = true,
   className,
+  threatModelId,
 }: TechnologyComboboxProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Fetch technologies from installed packs
-  const { technologies, isLoading, isEmpty } = useTechnologies()
+  // Fetch technologies from installed packs (filtered by threat model's connected packs)
+  const { technologies, isLoading, isEmpty } = useTechnologies(threatModelId)
 
   // Determine which categories to filter by
   const filterCategories = useMemo(() => {

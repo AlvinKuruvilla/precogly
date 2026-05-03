@@ -27,6 +27,7 @@ interface TemplateBrowserProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onInsert: (nodes: DiagramNode[], edges: DataFlowEdge[]) => void
+  threatModelId?: string
 }
 
 type SortOption = 'newest' | 'name'
@@ -35,6 +36,7 @@ export function TemplateBrowser({
   open,
   onOpenChange,
   onInsert,
+  threatModelId,
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
@@ -44,7 +46,7 @@ export function TemplateBrowser({
     data: templates,
     isLoading,
     isError,
-  } = useDFDTemplates()
+  } = useDFDTemplates(threatModelId)
 
   // Derive unique categories from actual template data
   const availableCategories = useMemo(() => {

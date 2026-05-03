@@ -126,8 +126,21 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
         Get all component library entries.
 
         Returns all components that have been imported into the database.
+        Optionally filtered by a threat model's connected packs.
         """
-        return ComponentLibrary.objects.all().select_related("source_pack").order_by("name")
+        qs = ComponentLibrary.objects.all().select_related("source_pack").order_by("name")
+        threat_model_id = self.request.query_params.get("threat_model")
+        if threat_model_id:
+            from apps.threat_models.models import ThreatModelLibraryPack
+
+            connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+                threat_model_id=threat_model_id
+            ).values_list("library_pack_id", flat=True)
+            qs = qs.filter(
+                Q(source_pack_id__in=connected_pack_ids)
+                | Q(source_pack__isnull=True)
+            )
+        return qs
 
 
 class OrgsystemComponentViewSet(viewsets.ModelViewSet):

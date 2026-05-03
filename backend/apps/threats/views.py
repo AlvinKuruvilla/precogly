@@ -81,12 +81,14 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return threats, optionally filtered by component's library.
+        """Return threats, optionally filtered by component's library and/or connected packs.
 
         Query params:
             component_id: If provided, returns only threats linked to that
             component's component_library via ComponentLibraryThreat.
             Falls back to all threats if the component has no library.
+            threat_model: If provided, filters to threats from connected packs
+            (or with no source pack).
         """
         queryset = ThreatLibrary.objects.all().select_related("source_pack")
 
@@ -102,6 +104,18 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
                     component_library_id=component.component_library_id,
                 ).values_list("threat_library_id", flat=True)
                 queryset = queryset.filter(id__in=threat_ids)
+
+        threat_model_id = self.request.query_params.get("threat_model")
+        if threat_model_id:
+            from apps.threat_models.models import ThreatModelLibraryPack
+
+            connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+                threat_model_id=threat_model_id
+            ).values_list("library_pack_id", flat=True)
+            queryset = queryset.filter(
+                Q(source_pack_id__in=connected_pack_ids)
+                | Q(source_pack__isnull=True)
+            )
 
         return queryset
 
@@ -124,8 +138,27 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        """Return all countermeasures in the library."""
-        return CountermeasureLibrary.objects.all().select_related("source_pack")
+        """Return countermeasures, optionally filtered by connected packs.
+
+        Query params:
+            threat_model: If provided, filters to countermeasures from connected
+            packs (or with no source pack).
+        """
+        queryset = CountermeasureLibrary.objects.all().select_related("source_pack")
+
+        threat_model_id = self.request.query_params.get("threat_model")
+        if threat_model_id:
+            from apps.threat_models.models import ThreatModelLibraryPack
+
+            connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+                threat_model_id=threat_model_id
+            ).values_list("library_pack_id", flat=True)
+            queryset = queryset.filter(
+                Q(source_pack_id__in=connected_pack_ids)
+                | Q(source_pack__isnull=True)
+            )
+
+        return queryset
 
     def get_serializer_class(self):
         """Return appropriate serializer."""

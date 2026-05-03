@@ -82,12 +82,14 @@ function transformToTechnology(item: ComponentLibraryItem): Technology {
 /**
  * Fetch all available technologies from the component library API.
  * Returns technologies from installed packs for the user's organization.
+ * Optionally filtered by a threat model's connected packs.
  */
-export function useComponentLibrary() {
+export function useComponentLibrary(threatModelId?: string) {
   return useQuery({
-    queryKey: ['component-library'],
+    queryKey: ['component-library', threatModelId],
     queryFn: async () => {
-      const items = await api.get<ComponentLibraryItem[]>('/component-library/')
+      const params = threatModelId ? `?threat_model=${threatModelId}` : ''
+      const items = await api.get<ComponentLibraryItem[]>(`/component-library/${params}`)
       return items.map(transformToTechnology)
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -98,8 +100,8 @@ export function useComponentLibrary() {
  * Hook that provides technologies with fallback to empty array if no packs installed.
  * Use this in the TechnologyCombobox component.
  */
-export function useTechnologies() {
-  const { data: technologies = [], isLoading, error } = useComponentLibrary()
+export function useTechnologies(threatModelId?: string) {
+  const { data: technologies = [], isLoading, error } = useComponentLibrary(threatModelId)
 
   return {
     technologies,

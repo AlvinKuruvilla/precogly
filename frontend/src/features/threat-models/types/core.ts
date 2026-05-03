@@ -33,6 +33,14 @@ export interface ThreatModel {
   owningTeamName?: string | null
   businessUnitName?: string | null
   systemIds?: string[]
+  packIds?: number[]
+  connectedPacks?: Array<{
+    id: number
+    name: string
+    slug: string
+    version: string
+    packType: string
+  }>
   referencedModelIds?: string[]
   riskScoringMethod?: ScoringMethodKey
   referenceImages?: ReferenceImage[]

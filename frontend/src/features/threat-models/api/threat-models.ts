@@ -244,6 +244,43 @@ export function useAddReferencedModel() {
   })
 }
 
+export function useRemoveThreatModelPack() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, packId }: { threatModelId: string; packId: number }) =>
+      api.post<{ status: string; dependencyWarnings: Array<{ pack: string; message: string }> }>(
+        `/threat-models/${threatModelId}/remove_pack/`,
+        { packId }
+      ),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+      queryClient.invalidateQueries({ queryKey: ['component-library'] })
+      queryClient.invalidateQueries({ queryKey: ['component-library-raw'] })
+      queryClient.invalidateQueries({ queryKey: ['dfd-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-library'] })
+      queryClient.invalidateQueries({ queryKey: ['countermeasure-library'] })
+    },
+  })
+}
+
+export function useAddThreatModelPack() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ threatModelId, packId }: { threatModelId: string; packId: number }) =>
+      api.post(`/threat-models/${threatModelId}/add_pack/`, { packId }),
+    onSuccess: (_, { threatModelId }) => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models', threatModelId] })
+      queryClient.invalidateQueries({ queryKey: ['component-library'] })
+      queryClient.invalidateQueries({ queryKey: ['component-library-raw'] })
+      queryClient.invalidateQueries({ queryKey: ['dfd-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-library'] })
+      queryClient.invalidateQueries({ queryKey: ['countermeasure-library'] })
+    },
+  })
+}
+
 export function useRemoveReferencedModel() {
   const queryClient = useQueryClient()
 

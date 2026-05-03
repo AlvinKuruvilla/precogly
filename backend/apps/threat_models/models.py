@@ -95,6 +95,27 @@ class ThreatModelOrgsystem(models.Model):
         return f"{self.threat_model} - {self.orgsystem}"
 
 
+class ThreatModelLibraryPack(models.Model):
+    """Association between threat model and library pack."""
+
+    threat_model = models.ForeignKey(
+        ThreatModel,
+        on_delete=models.CASCADE,
+        related_name="pack_associations",
+    )
+    library_pack = models.ForeignKey(
+        "packs.LibraryPack",
+        on_delete=models.CASCADE,
+        related_name="threat_model_associations",
+    )
+
+    class Meta:
+        unique_together = ["threat_model", "library_pack"]
+
+    def __str__(self):
+        return f"{self.threat_model} - {self.library_pack}"
+
+
 class ThreatModelRelationship(TimestampedModel):
     """Relationship between threat models."""
 

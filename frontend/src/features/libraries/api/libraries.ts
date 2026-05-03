@@ -71,14 +71,15 @@ export function useCountermeasureLibraries() {
 }
 
 /**
- * Fetch DFD templates.
+ * Fetch DFD templates, optionally filtered by a threat model's connected packs.
  */
-export function useDFDTemplates() {
+export function useDFDTemplates(threatModelId?: string) {
   return useQuery({
-    queryKey: libraryKeys.templates,
+    queryKey: [...libraryKeys.templates, threatModelId],
     queryFn: async () => {
+      const params = threatModelId ? `?threat_model=${threatModelId}` : ''
       const response = await api.get<{ results: DFDTemplate[] } | DFDTemplate[]>(
-        '/dfd-templates/'
+        `/dfd-templates/${params}`
       )
       return Array.isArray(response) ? response : response.results
     },

@@ -147,6 +147,23 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         successful = [r for r in results if r.success]
         failed = [r for r in results if not r.success]
 
+        # Auto-connect all successfully synced packs to all threat models
+        if successful:
+            from apps.threat_models.models import ThreatModel, ThreatModelLibraryPack
+
+            synced_slugs = [r.pack_slug for r in successful]
+            synced_packs = LibraryPack.objects.filter(slug__in=synced_slugs)
+            threat_models = ThreatModel.objects.all()
+            associations = [
+                ThreatModelLibraryPack(threat_model=tm, library_pack=pack)
+                for tm in threat_models
+                for pack in synced_packs
+            ]
+            if associations:
+                ThreatModelLibraryPack.objects.bulk_create(
+                    associations, ignore_conflicts=True
+                )
+
         return Response({
             "results": [r.to_dict() for r in results],
             "summary": {
@@ -206,6 +223,21 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(result.to_dict(), status=422)
 
         if result.success:
+            # Auto-connect to all existing threat models
+            from apps.threat_models.models import ThreatModel, ThreatModelLibraryPack
+
+            library_pack = LibraryPack.objects.filter(slug=slug).first()
+            if library_pack:
+                threat_models = ThreatModel.objects.all()
+                ThreatModelLibraryPack.objects.bulk_create(
+                    [
+                        ThreatModelLibraryPack(
+                            threat_model=tm, library_pack=library_pack
+                        )
+                        for tm in threat_models
+                    ],
+                    ignore_conflicts=True,
+                )
             return Response(result.to_dict(), status=status.HTTP_201_CREATED)
         else:
             return Response(result.to_dict(), status=status.HTTP_400_BAD_REQUEST)

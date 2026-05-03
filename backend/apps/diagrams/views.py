@@ -242,8 +242,20 @@ class DFDTemplatesLibraryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["name", "description"]
 
     def get_queryset(self):
-        """Get all available DFD templates."""
-        return DFDTemplatesLibrary.objects.all().select_related("source_pack")
+        """Get available DFD templates, optionally filtered by connected packs."""
+        qs = DFDTemplatesLibrary.objects.all().select_related("source_pack")
+        threat_model_id = self.request.query_params.get("threat_model")
+        if threat_model_id:
+            from apps.threat_models.models import ThreatModelLibraryPack
+
+            connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+                threat_model_id=threat_model_id
+            ).values_list("library_pack_id", flat=True)
+            qs = qs.filter(
+                Q(source_pack_id__in=connected_pack_ids)
+                | Q(source_pack__isnull=True)
+            )
+        return qs
 
     @action(detail=True, methods=["get"])
     def resolved(self, request, pk=None):
