@@ -752,6 +752,24 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         result = apply_zone_protections(items)
         return Response(result)
 
+    @action(detail=True, methods=["get"])
+    def compliance_drift(self, request, pk=None):
+        """Check for compliance drift between instance and library mappings."""
+        from apps.threat_models.compliance_service import check_compliance_drift
+
+        threat_model = self.get_object()
+        result = check_compliance_drift(threat_model)
+        return Response(result)
+
+    @action(detail=True, methods=["post"])
+    def refresh_compliance(self, request, pk=None):
+        """Sync instance compliance mappings with library sources."""
+        from apps.threat_models.compliance_service import refresh_compliance_standards
+
+        threat_model = self.get_object()
+        result = refresh_compliance_standards(threat_model)
+        return Response(result)
+
     @action(
         detail=False,
         methods=["post"],

@@ -474,7 +474,7 @@ def _build_countermeasure_summary(component_ids, dataflow_ids):
 
         if cm.status == "gap":
             gaps.append({
-                "id": cm.id,
+                "id": f"component-{cm.id}",
                 "countermeasure_name": cm_name,
                 "component_name": component_name,
                 "priority": cm.priority,
@@ -482,13 +482,13 @@ def _build_countermeasure_summary(component_ids, dataflow_ids):
             })
         elif cm.status == "waived":
             waived.append({
-                "id": cm.id,
+                "id": f"component-{cm.id}",
                 "countermeasure_name": cm_name,
                 "component_name": component_name,
             })
         if cm.is_inherited:
             inherited.append({
-                "id": cm.id,
+                "id": f"component-{cm.id}",
                 "countermeasure_name": cm_name,
                 "component_name": component_name,
                 "inherited_from_component_name": cm.inherited_from_component_name,
@@ -504,7 +504,7 @@ def _build_countermeasure_summary(component_ids, dataflow_ids):
 
         if cm.status == "gap":
             gaps.append({
-                "id": cm.id,
+                "id": f"flow-{cm.id}",
                 "countermeasure_name": cm_name,
                 "flow_label": flow_label,
                 "priority": cm.priority,
@@ -512,7 +512,7 @@ def _build_countermeasure_summary(component_ids, dataflow_ids):
             })
         elif cm.status == "waived":
             waived.append({
-                "id": cm.id,
+                "id": f"flow-{cm.id}",
                 "countermeasure_name": cm_name,
                 "flow_label": flow_label,
             })

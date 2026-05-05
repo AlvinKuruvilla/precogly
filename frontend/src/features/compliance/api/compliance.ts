@@ -31,6 +31,8 @@ export const complianceKeys = {
   countermeasureMappings: (countermeasureId?: number) => [...complianceKeys.all, 'mappings', countermeasureId] as const,
   instanceMappings: (countermeasureId: number, type: 'component' | 'flow') =>
     [...complianceKeys.all, 'instance-mappings', type, countermeasureId] as const,
+  complianceDrift: (threatModelId: string) =>
+    [...complianceKeys.all, 'drift', threatModelId] as const,
 }
 
 /**
@@ -214,6 +216,57 @@ export function useDeleteInstanceMapping(type: 'component' | 'flow') {
   return useMutation({
     mutationFn: (id: number) => api.delete(`${endpoint}/${id}/`),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: complianceKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+// ============================================
+// Compliance Drift Detection
+// ============================================
+
+export interface ComplianceDriftResult {
+  hasDrift: boolean
+  totalAdditions: number
+  totalRemovals: number
+  totalUpdates: number
+  affectedCountermeasures: number
+}
+
+export interface RefreshComplianceResult {
+  standardsAdded: number
+  standardsRemoved: number
+  standardsUpdated: number
+  countermeasuresAffected: number
+}
+
+/**
+ * Check for compliance drift between instance and library mappings.
+ */
+export function useComplianceDrift(threatModelId: string | undefined) {
+  return useQuery({
+    queryKey: complianceKeys.complianceDrift(threatModelId!),
+    queryFn: () =>
+      api.get<ComplianceDriftResult>(`/threat-models/${threatModelId}/compliance_drift/`),
+    enabled: !!threatModelId,
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * Refresh instance compliance mappings from library sources.
+ */
+export function useRefreshCompliance() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (threatModelId: string) =>
+      api.post<RefreshComplianceResult>(`/threat-models/${threatModelId}/refresh_compliance/`),
+    onSuccess: (_, threatModelId) => {
+      queryClient.invalidateQueries({
+        queryKey: complianceKeys.complianceDrift(threatModelId),
+      })
       queryClient.invalidateQueries({ queryKey: complianceKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
