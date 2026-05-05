@@ -19,6 +19,7 @@ import { CrossFrameworkMappingsSection } from './sections/CrossFrameworkMappings
 import { AssumptionsReviewSection } from './sections/AssumptionsReviewSection'
 import { FindingsSection } from './sections/FindingsSection'
 import { ProgressChecklistSection } from './sections/ProgressChecklistSection'
+import { ComplianceDriftBanner } from '@/features/compliance/components/ComplianceDriftBanner'
 
 interface ReportViewProps {
   threatModelId: string
@@ -134,6 +135,10 @@ export function ReportView({ threatModelId }: ReportViewProps) {
           ))}
         </div>
       </div>
+
+      {reportType === 'compliance' && (
+        <ComplianceDriftBanner threatModelId={threatModelId} />
+      )}
 
       {/* Report content */}
       <div className="flex-1 overflow-y-auto p-4">
