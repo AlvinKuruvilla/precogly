@@ -918,6 +918,109 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                     message=f"Failed to parse: {e}",
                 ))
 
+        # Validate threat-taxonomy joins
+        # Build pool of known taxonomy slugs
+        known_taxonomy_slugs = set()
+
+        # From this pack's own taxonomy.yaml
+        if taxonomy_file.exists():
+            try:
+                with open(taxonomy_file) as f:
+                    own_tax_data = yaml.safe_load(f) or {}
+                for t in own_tax_data.get("taxonomies", []):
+                    if t.get("slug"):
+                        known_taxonomy_slugs.add(t["slug"])
+            except Exception:
+                pass
+
+        # From dependency packs' taxonomy.yaml files
+        dep_entries = pack_meta.get("depends_on", [])
+        if dep_entries:
+            libraries_path = get_libraries_path()
+            for dep_entry in dep_entries:
+                if isinstance(dep_entry, str):
+                    dep_slug = dep_entry
+                    dep_path = dep_entry
+                else:
+                    dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
+                    dep_path = dep_entry.get("path", dep_slug)
+
+                dep_dir = _find_pack_dir(libraries_path, dep_path)
+                if not dep_dir and dep_path != dep_slug:
+                    dep_dir = _find_pack_dir(libraries_path, dep_slug)
+                if not dep_dir:
+                    # Fallback: search for pack with matching slug
+                    for nested_pack_yaml in libraries_path.glob("**/pack.yaml"):
+                        try:
+                            with open(nested_pack_yaml) as f:
+                                nested_pack_data = yaml.safe_load(f) or {}
+                            if nested_pack_data.get("pack", {}).get("slug") == dep_slug:
+                                dep_dir = nested_pack_yaml.parent
+                                break
+                        except Exception:
+                            continue
+
+                if dep_dir:
+                    dep_tax_file = dep_dir / "taxonomy.yaml"
+                    if dep_tax_file.exists():
+                        try:
+                            with open(dep_tax_file) as f:
+                                dep_tax_data = yaml.safe_load(f) or {}
+                            for t in dep_tax_data.get("taxonomies", []):
+                                if t.get("slug"):
+                                    known_taxonomy_slugs.add(t["slug"])
+                        except Exception:
+                            pass
+
+        # Fallback: also check database for already-imported taxonomies
+        db_taxonomy_slugs = set(
+            ExternalTaxonomy.objects.values_list("slug", flat=True)
+        )
+        known_taxonomy_slugs |= db_taxonomy_slugs
+
+        for join_file in joins_dir.glob("threats-*.yaml"):
+            if join_file.name == "threats-countermeasures.yaml":
+                continue
+            try:
+                with open(join_file) as f:
+                    join_data = yaml.safe_load(f) or {}
+                taxonomy_ref = join_data.get("taxonomy", "")
+                if taxonomy_ref and taxonomy_ref not in known_taxonomy_slugs:
+                    errors.append(ValidationError(
+                        file=f"joins/{join_file.name}",
+                        line=None,
+                        ref_type="taxonomy",
+                        reference=taxonomy_ref,
+                        message=(
+                            f"Taxonomy '{taxonomy_ref}' not found. "
+                            f"Note: taxonomy slugs come from taxonomy.yaml, "
+                            f"not from the pack slug. "
+                            f"Available taxonomies: {sorted(known_taxonomy_slugs)}"
+                        ),
+                    ))
+
+                # Also validate threat references in mappings
+                for mapping in join_data.get("mappings", []):
+                    threat_ref = mapping.get("threat", "")
+                    if (threat_ref and "/" not in threat_ref
+                            and threat_ref not in pack_threats):
+                        if not _resolve_threat_reference_exists(slug, threat_ref):
+                            errors.append(ValidationError(
+                                file=f"joins/{join_file.name}",
+                                line=None,
+                                ref_type="threat",
+                                reference=threat_ref,
+                                message=f"Threat '{threat_ref}' not found in pack or database",
+                            ))
+            except Exception as e:
+                errors.append(ValidationError(
+                    file=f"joins/{join_file.name}",
+                    line=None,
+                    ref_type="join",
+                    reference="",
+                    message=f"Failed to parse: {e}",
+                ))
+
     # Validate DFD templates
     templates_dir = pack_path / "dfd-templates"
 
@@ -1420,6 +1523,14 @@ def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> i
         logger.warning(f"No taxonomy specified in {file_path}")
         return 0
 
+    if not ExternalTaxonomy.objects.filter(slug=taxonomy_slug).exists():
+        logger.error(
+            f"Taxonomy '{taxonomy_slug}' does not exist — "
+            f"check that this matches the slug in taxonomy.yaml, not the pack slug. "
+            f"File: {file_path.name}"
+        )
+        return 0
+
     count = 0
     for mapping in data.get("mappings", []):
         threat_ref = mapping.get("threat", "")
@@ -1444,8 +1555,9 @@ def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> i
                 count += 1
             except TaxonomyEntry.DoesNotExist:
                 logger.warning(
-                    f"Taxonomy entry {taxonomy_slug}:{external_id} not found — "
-                    f"import the taxonomy pack first"
+                    f"Taxonomy entry {taxonomy_slug}:{external_id} not found. "
+                    f"Check that '{taxonomy_slug}' matches the slug in taxonomy.yaml "
+                    f"(not the pack slug). Import the taxonomy pack first if not yet imported."
                 )
 
     return count

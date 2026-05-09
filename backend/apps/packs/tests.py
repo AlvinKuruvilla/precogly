@@ -1,4 +1,5 @@
-"""Tests for path-based pack discovery and O(1) lookup (issue #33)."""
+"""Tests for path-based pack discovery, O(1) lookup (issue #33),
+and taxonomy reference validation (issue #26)."""
 
 import tempfile
 from pathlib import Path
@@ -10,6 +11,7 @@ from django.test import SimpleTestCase
 from apps.packs.services import (
     _find_pack_dir,
     discover_packs_from_source,
+    validate_pack,
 )
 
 
@@ -167,3 +169,88 @@ class DiscoveryAndDisambiguationTests(SimpleTestCase):
                 dep = consumer.depends_on[0]
                 self.assertEqual(dep["slug"], "nist-csf")
                 self.assertEqual(dep["path"], "demo/nist-csf")
+
+
+class TaxonomyReferenceValidationTests(SimpleTestCase):
+    """validate_pack catches bad taxonomy slugs in joins/threats-*.yaml (#26)."""
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    def test_validate_rejects_unknown_taxonomy_reference(self, mock_taxonomy_model):
+        mock_taxonomy_model.objects.values_list.return_value = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "bad-pack", slug="bad-pack")
+
+            joins_dir = pack_dir / "joins"
+            joins_dir.mkdir()
+            join_data = {"taxonomy": "nonexistent-taxonomy", "mappings": []}
+            (joins_dir / "threats-foo.yaml").write_text(yaml.safe_dump(join_data))
+
+            result = validate_pack(pack_dir)
+
+            taxonomy_errors = [e for e in result.errors if e.ref_type == "taxonomy"]
+            self.assertEqual(len(taxonomy_errors), 1)
+            self.assertEqual(taxonomy_errors[0].reference, "nonexistent-taxonomy")
+            self.assertIn("taxonomy.yaml", taxonomy_errors[0].message)
+            self.assertIn("not from the pack slug", taxonomy_errors[0].message)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    def test_validate_accepts_valid_taxonomy_reference(self, mock_taxonomy_model):
+        mock_taxonomy_model.objects.values_list.return_value = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "good-pack", slug="good-pack")
+
+            # Pack defines its own taxonomy
+            tax_data = {
+                "taxonomies": [{"slug": "cwe", "name": "CWE", "entries": []}]
+            }
+            (pack_dir / "taxonomy.yaml").write_text(yaml.safe_dump(tax_data))
+
+            joins_dir = pack_dir / "joins"
+            joins_dir.mkdir()
+            join_data = {"taxonomy": "cwe", "mappings": []}
+            (joins_dir / "threats-cwe.yaml").write_text(yaml.safe_dump(join_data))
+
+            result = validate_pack(pack_dir)
+
+            taxonomy_errors = [e for e in result.errors if e.ref_type == "taxonomy"]
+            self.assertEqual(len(taxonomy_errors), 0)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.get_libraries_path")
+    def test_validate_accepts_taxonomy_from_dependency(
+        self, mock_get_libraries_path, mock_taxonomy_model
+    ):
+        mock_taxonomy_model.objects.values_list.return_value = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            mock_get_libraries_path.return_value = base
+
+            # Dependency pack provides the taxonomy
+            dep_dir = _write_pack(
+                base, "cwe-taxonomy", slug="cwe-taxonomy", pack_type="taxonomy"
+            )
+            tax_data = {
+                "taxonomies": [{"slug": "cwe", "name": "CWE", "entries": []}]
+            }
+            (dep_dir / "taxonomy.yaml").write_text(yaml.safe_dump(tax_data))
+
+            # Downstream pack references the dependency's taxonomy
+            pack_dir = _write_pack(
+                base,
+                "mini-cwe",
+                slug="mini-cwe",
+                pack_type="threat",
+                depends_on=["cwe-taxonomy"],
+            )
+            joins_dir = pack_dir / "joins"
+            joins_dir.mkdir()
+            join_data = {"taxonomy": "cwe", "mappings": []}
+            (joins_dir / "threats-cwe.yaml").write_text(yaml.safe_dump(join_data))
+
+            result = validate_pack(pack_dir)
+
+            taxonomy_errors = [e for e in result.errors if e.ref_type == "taxonomy"]
+            self.assertEqual(len(taxonomy_errors), 0)
