@@ -1,6 +1,6 @@
-import { Fragment, useState, useMemo, useCallback } from 'react'
+import { Fragment, useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -37,7 +37,8 @@ import {
   getDirectProcessChildren,
 } from './hierarchy-utils'
 import { PRIORITY_CONFIG } from './severity-utils'
-import { SeverityAssessmentPanel } from './SeverityAssessmentPanel'
+import { SeverityAssessmentPanel, type SeverityAssessmentData } from './SeverityAssessmentPanel'
+import { ActorImpactPanel, type ActorImpactData } from './ActorImpactPanel'
 import { UserSearchCombobox } from './UserSearchCombobox'
 import { WaiverReasonInput } from './WaiverReasonInput'
 import { ComplianceDetailSection } from './ComplianceDetailSection'
@@ -196,27 +197,47 @@ export function ComponentView({
     [technologies]
   )
 
-  // Severity assessment mutations
+  // Threat update mutations
   const updateThreatMutation = useUpdateThreat()
   const updateFlowThreatMutation = useUpdateFlowThreat()
 
-  const handleSeverityAssessment = useCallback((
-    threat: ComponentThreat,
-    data: { severityScoringMetadata: Record<string, unknown>; inherentSeverity: string }
-  ) => {
+  // Refs to collect latest data from child panels
+  const severityDataRef = useRef<SeverityAssessmentData | null>(null)
+  const actorImpactDataRef = useRef<ActorImpactData | null>(null)
+
+  // Unified save handler — merges severity + actor/impact data into one PATCH
+  const handleSaveThreat = useCallback((threat: ComponentThreat) => {
     if (!threat.backendThreatId) return
-    const onSuccess = () => {
-      toast.success('Severity assessment saved')
+    const data: Record<string, unknown> = {}
+    if (severityDataRef.current) {
+      data.severityScoringMetadata = severityDataRef.current.severityScoringMetadata
+      data.inherentSeverity = severityDataRef.current.inherentSeverity
     }
-    const onError = () => {
-      toast.error('Failed to save severity assessment')
+    if (actorImpactDataRef.current) {
+      data.impactDescription = actorImpactDataRef.current.impactDescription
+      data.threatActor = actorImpactDataRef.current.threatActor
+      data.threatActorText = actorImpactDataRef.current.threatActorText
     }
+    const onSuccess = () => { toast.success('Threat saved') }
+    const onError = () => { toast.error('Failed to save threat') }
     if (threat.threatType === 'dataflow') {
       updateFlowThreatMutation.mutate({ threatId: threat.backendThreatId, data }, { onSuccess, onError })
     } else {
       updateThreatMutation.mutate({ threatId: threat.backendThreatId, data }, { onSuccess, onError })
     }
   }, [updateThreatMutation, updateFlowThreatMutation])
+
+  // Derive actor nodes from analyzableComponents
+  const actorNodes = useMemo(() => {
+    return analyzableComponents
+      .filter((node) => node.type === 'humanActor' || node.type === 'systemActor')
+      .map((node) => ({
+        nodeId: node.id,
+        componentId: (node.data as { componentId?: number }).componentId || 0,
+        name: String(node.data.label),
+      }))
+      .filter((actor) => actor.componentId > 0)
+  }, [analyzableComponents])
 
   const toggleComplianceExpanded = (cmId: string) => {
     setExpandedComplianceFor(prev => {
@@ -840,16 +861,28 @@ export function ComponentView({
                           </div>
                         )}
                         {isSelected && (
-                          <div className="mt-1 ml-4">
+                          <div className="mt-1 ml-4 p-2 rounded-md bg-slate-50 border border-slate-200 space-y-3" onClick={(e) => e.stopPropagation()}>
                             <SeverityAssessmentPanel
                               threat={ct}
-                              onSave={(data) => handleSeverityAssessment(ct, data)}
-                              isSaving={
-                                ct.threatType === 'dataflow'
-                                  ? updateFlowThreatMutation.isPending
-                                  : updateThreatMutation.isPending
-                              }
+                              onChange={(data) => { severityDataRef.current = data }}
                             />
+                            <ActorImpactPanel
+                              threat={ct}
+                              actorNodes={actorNodes}
+                              onChange={(data) => { actorImpactDataRef.current = data }}
+                            />
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs w-full"
+                              onClick={() => handleSaveThreat(ct)}
+                              disabled={updateThreatMutation.isPending || updateFlowThreatMutation.isPending}
+                            >
+                              {(updateThreatMutation.isPending || updateFlowThreatMutation.isPending) ? (
+                                <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Saving...</>
+                              ) : (
+                                'Save'
+                              )}
+                            </Button>
                           </div>
                         )}
                       </div>

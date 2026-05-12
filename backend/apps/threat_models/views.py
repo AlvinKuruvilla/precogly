@@ -586,7 +586,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         component_threats = ComponentInstanceThreat.objects.filter(
             component_id__in=component_ids
         ).select_related(
-            "component", "threat_library"
+            "component", "threat_library", "threat_actor"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "countermeasures__countermeasure_library",
@@ -600,7 +600,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         flow_threats = DataFlowInstanceThreat.objects.filter(
             data_flow_id__in=dataflow_ids
         ).select_related(
-            "data_flow", "threat_library"
+            "data_flow", "threat_library", "threat_actor"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "countermeasures__countermeasure_library",
@@ -639,6 +639,10 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "is_dismissed": threat.is_dismissed,
                 "dismissal_reason": threat.dismissal_reason,
                 "display_order": threat.display_order,
+                "impact_description": threat.impact_description,
+                "threat_actor_id": threat.threat_actor_id,
+                "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
+                "threat_actor_text": threat.threat_actor_text,
                 "countermeasures": [
                     {
                         "id": cm.id,
@@ -691,6 +695,10 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "is_dismissed": threat.is_dismissed,
                 "dismissal_reason": threat.dismissal_reason,
                 "display_order": threat.display_order,
+                "impact_description": threat.impact_description,
+                "threat_actor_id": threat.threat_actor_id,
+                "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
+                "threat_actor_text": threat.threat_actor_text,
                 "countermeasures": [
                     {
                         "id": cm.id,

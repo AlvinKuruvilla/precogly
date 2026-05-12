@@ -324,7 +324,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     component_threats = ComponentInstanceThreat.objects.filter(
         component_id__in=component_ids
     ).select_related(
-        "component", "threat_library"
+        "component", "threat_library", "threat_actor"
     ).prefetch_related(
         "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
         "countermeasures__countermeasure_library",
@@ -336,7 +336,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     flow_threats = DataFlowInstanceThreat.objects.filter(
         data_flow_id__in=dataflow_ids
     ).select_related(
-        "data_flow", "threat_library"
+        "data_flow", "threat_library", "threat_actor"
     ).prefetch_related(
         "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
         "countermeasures__countermeasure_library",
@@ -383,6 +383,9 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             "inherent_severity": threat.inherent_severity,
             "residual_severity": threat.residual_severity,
             "status": threat.status,
+            "impact_description": threat.impact_description,
+            "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
+            "threat_actor_text": threat.threat_actor_text,
             "countermeasures": [
                 _serialize_countermeasure(cm)
                 for cm in threat.countermeasures.all()
@@ -405,6 +408,9 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             "inherent_severity": threat.inherent_severity,
             "residual_severity": threat.residual_severity,
             "status": threat.status,
+            "impact_description": threat.impact_description,
+            "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
+            "threat_actor_text": threat.threat_actor_text,
             "countermeasures": [
                 _serialize_countermeasure(cm)
                 for cm in threat.countermeasures.all()

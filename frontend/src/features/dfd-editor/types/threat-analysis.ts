@@ -163,6 +163,11 @@ export interface ComponentThreat {
   backendThreatId?: number
   backendComponentId?: number
   threatType?: 'component' | 'dataflow'
+  // Actor & impact fields
+  impactDescription?: string
+  threatActorId?: number | null
+  threatActorName?: string | null
+  threatActorText?: string
 }
 
 /**

@@ -193,9 +193,9 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             Q(component__orgsystem__organization_id__in=org_ids)
             | Q(component__orgsystem__isnull=True,
                 component__threat_model__organization_id__in=org_ids)
-        ).select_related("component", "threat_library")
+        ).select_related("component", "threat_library", "threat_actor")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["component", "threat_library", "status", "inherent_severity"]
+    filterset_fields = ["component", "threat_library", "status", "inherent_severity", "threat_actor"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
     ordering = ["-inherent_severity"]
 
@@ -357,9 +357,9 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
             Q(data_flow__source_component__orgsystem__organization_id__in=org_ids)
             | Q(data_flow__source_component__orgsystem__isnull=True,
                 data_flow__source_component__threat_model__organization_id__in=org_ids)
-        ).select_related("data_flow", "threat_library")
+        ).select_related("data_flow", "threat_library", "threat_actor")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity"]
+    filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity", "threat_actor"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
     ordering = ["-inherent_severity"]
 

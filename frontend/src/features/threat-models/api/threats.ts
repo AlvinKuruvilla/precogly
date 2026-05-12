@@ -25,6 +25,11 @@ export interface ComponentInstanceThreat {
   isDismissed: boolean
   dismissalReason: string
   formatMetadata: Record<string, unknown>
+  // Actor & impact fields
+  impactDescription?: string
+  threatActor?: number | null
+  threatActorName?: string | null
+  threatActorText?: string
   createdAt: string
   updatedAt: string
 }
@@ -216,6 +221,9 @@ export function useCreateComponentThreat() {
       threatDescription?: string
       inherentSeverity: string
       status?: string
+      impactDescription?: string
+      threatActor?: number | null
+      threatActorText?: string
     }) => api.post<ComponentInstanceThreat>('/component-threats/', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
@@ -239,6 +247,9 @@ export function useCreateFlowThreat() {
       threatDescription?: string
       inherentSeverity: string
       status?: string
+      impactDescription?: string
+      threatActor?: number | null
+      threatActorText?: string
     }) => api.post('/flow-threats/', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
@@ -625,6 +636,11 @@ export interface BackendThreat {
   isDismissed: boolean
   dismissalReason: string
   displayOrder?: number
+  // Actor & impact fields
+  impactDescription?: string
+  threatActorId?: number | null
+  threatActorName?: string | null
+  threatActorText?: string
   countermeasures: BackendCountermeasure[]
 }
 
@@ -722,6 +738,11 @@ export function transformBackendThreatsToComponentThreats(
       backendThreatId: bt.id,
       backendComponentId: bt.componentId,
       threatType: bt.type,
+      // Actor & impact fields
+      impactDescription: bt.impactDescription || undefined,
+      threatActorId: bt.threatActorId ?? null,
+      threatActorName: bt.threatActorName || undefined,
+      threatActorText: bt.threatActorText || undefined,
     }
   })
 }
