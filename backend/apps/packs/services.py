@@ -857,11 +857,20 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                         ))
 
                     for threat_entry in mapping.get("threats", []):
-                        # Threats can be plain strings or dicts with a "threat" key
-                        if isinstance(threat_entry, dict):
-                            threat_ref = threat_entry.get("threat", "")
-                        else:
-                            threat_ref = threat_entry
+                        if not isinstance(threat_entry, dict):
+                            errors.append(ValidationError(
+                                file="joins/components-threats.yaml",
+                                line=None,
+                                ref_type="threat",
+                                reference=str(threat_entry),
+                                message=(
+                                    f"Invalid threat entry format: expected a dict "
+                                    f"with 'threat' and 'applies_to' keys, got "
+                                    f"{type(threat_entry).__name__} '{threat_entry}'"
+                                ),
+                            ))
+                            continue
+                        threat_ref = threat_entry.get("threat", "")
                         if threat_ref and "/" not in threat_ref and threat_ref not in pack_threats:
                             # Check if it's a cross-pack reference to existing threat
                             if not _resolve_threat_reference_exists(slug, threat_ref):
