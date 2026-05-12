@@ -3,6 +3,10 @@
 [![Latest Release](https://img.shields.io/github/v/release/precogly/precogly)](https://github.com/precogly/precogly/releases/latest)
 [![License](https://img.shields.io/github/license/precogly/precogly)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/precogly/precogly)](https://github.com/precogly/precogly/stargazers)
+![OWASP Project](https://img.shields.io/badge/OWASP-Project-blue?logo=owasp)
+
+> [!IMPORTANT]
+> **Precogly is now an OWASP project!** OWASP is the world's largest open-source application security community, and Precogly is proud to be part of it.
 
 ## The open-source alternative to commercial threat modeling platforms
 
