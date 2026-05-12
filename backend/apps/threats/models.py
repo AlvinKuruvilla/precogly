@@ -351,6 +351,26 @@ class ComponentInstanceThreat(TimestampedModel):
         help_text="Snapshot of taxonomy entries at creation time",
     )
 
+    impact_description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Narrative description of what the attacker achieves",
+    )
+    threat_actor = models.ForeignKey(
+        OrgsystemComponent,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="threats_as_actor",
+        help_text="DFD actor who can initiate this threat",
+    )
+    threat_actor_text = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Free-text threat actor when not linked to a DFD component (e.g. 'state actor', 'hacktivist')",
+    )
+
     class Meta:
         unique_together = ["component", "threat_library"]
         ordering = ["component", "display_order", "created_at"]
@@ -427,6 +447,26 @@ class DataFlowInstanceThreat(TimestampedModel):
         blank=True,
         default=list,
         help_text="Snapshot of taxonomy entries at creation time",
+    )
+
+    impact_description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Narrative description of what the attacker achieves",
+    )
+    threat_actor = models.ForeignKey(
+        OrgsystemComponent,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="flow_threats_as_actor",
+        help_text="DFD actor who can initiate this threat",
+    )
+    threat_actor_text = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Free-text threat actor when not linked to a DFD component (e.g. 'state actor', 'hacktivist')",
     )
 
     class Meta:

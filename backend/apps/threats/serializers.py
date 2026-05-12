@@ -175,6 +175,7 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
     threat_name_display = serializers.SerializerMethodField()
     taxonomy_entries = serializers.SerializerMethodField()
     component_name = serializers.CharField(source="component.name", read_only=True)
+    threat_actor_name = serializers.CharField(source="threat_actor.name", read_only=True, default=None)
 
     # Write fields - accept threat_name for custom threats
     threat_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -197,6 +198,10 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "dismissal_reason",
             "format_metadata",
             "display_order",
+            "impact_description",
+            "threat_actor",
+            "threat_actor_name",
+            "threat_actor_text",
             "created_at",
             "updated_at",
         ]
@@ -207,6 +212,7 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "threat_name_display",
             "taxonomy_entries",
             "component_name",
+            "threat_actor_name",
         ]
 
     def get_threat_name_display(self, obj):
@@ -242,6 +248,7 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
     threat_name_display = serializers.SerializerMethodField()
     taxonomy_entries = serializers.SerializerMethodField()
     flow_label = serializers.CharField(source="data_flow.label", read_only=True)
+    threat_actor_name = serializers.CharField(source="threat_actor.name", read_only=True, default=None)
 
     # Write fields - accept threat_name for custom threats
     threat_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -264,6 +271,10 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "dismissal_reason",
             "format_metadata",
             "display_order",
+            "impact_description",
+            "threat_actor",
+            "threat_actor_name",
+            "threat_actor_text",
             "created_at",
             "updated_at",
         ]
@@ -274,6 +285,7 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "threat_name_display",
             "taxonomy_entries",
             "flow_label",
+            "threat_actor_name",
         ]
 
     def get_threat_name_display(self, obj):
