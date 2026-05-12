@@ -1216,6 +1216,14 @@ def _import_pack(
         )
 
         if has_active_items:
+            if version != existing.version:
+                return ImportResult(
+                    success=False,
+                    pack_slug=slug,
+                    pack_name=name,
+                    version=existing.version,
+                    message=f"Pack '{slug}' has a newer version on disk (v{version} != v{existing.version}). Use force=True to upgrade.",
+                )
             return ImportResult(
                 success=True,
                 pack_slug=slug,
