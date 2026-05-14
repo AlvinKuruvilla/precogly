@@ -17,6 +17,7 @@ import { CatalogPackCard } from './CatalogPackCard'
 import {
   useAvailablePacksFromSource,
   useImportSinglePack,
+  useValidatePack,
   usePacks,
 } from '@/features/libraries/api/packs'
 import type { PackFilters, ValidationResult } from '@/features/libraries/types/packs'
@@ -41,6 +42,8 @@ export function CatalogView() {
   const { data: sourcePacks, isLoading: isLoadingSource } = useAvailablePacksFromSource()
 
   const importMutation = useImportSinglePack()
+  const validateMutation = useValidatePack()
+  const [validatingSlug, setValidatingSlug] = useState<string | null>(null)
 
   const unifiedPacks = useMemo(() => {
     const packs: UnifiedPack[] = []
@@ -138,12 +141,25 @@ export function CatalogView() {
     setImportingSlug(pack.slug)
     setInstallDialogPack(null)
     try {
-      await importMutation.mutateAsync({
+      const result = await importMutation.mutateAsync({
         slug: pack.slug,
         force: pack.isInDatabase,
         selectedOverlays,
       })
-      toast.success(`Successfully imported ${pack.name}`)
+      if (result.warnings && result.warnings.length > 0) {
+        toast.warning(
+          `Imported ${pack.name} with ${result.warnings.length} warning(s)`,
+          {
+            description:
+              result.warnings[0] +
+              (result.warnings.length > 1
+                ? ` (+${result.warnings.length - 1} more)`
+                : ''),
+          }
+        )
+      } else {
+        toast.success(`Successfully imported ${pack.name}`)
+      }
     } catch (error: unknown) {
       const errorObj = error as { status?: number; data?: unknown }
       const errorData = errorObj?.data as Record<string, unknown> | undefined
@@ -171,6 +187,24 @@ export function CatalogView() {
       setPreviewPackPath(pack.relativePath)
     }
     setPreviewDialogOpen(true)
+  }
+
+  const handleValidate = async (pack: UnifiedPack) => {
+    setValidatingSlug(pack.slug)
+    try {
+      const result = await validateMutation.mutateAsync({ slug: pack.slug })
+      if (result.errorCount > 0 || result.warningCount > 0) {
+        setValidationResult(result)
+        setValidationPackSlug(pack.slug)
+        setValidationDialogOpen(true)
+      } else {
+        toast.success('Validation passed — no issues found')
+      }
+    } catch {
+      toast.error('Validation request failed')
+    } finally {
+      setValidatingSlug(null)
+    }
   }
 
   const isLoading = isLoadingDb || isLoadingSource
@@ -244,7 +278,9 @@ export function CatalogView() {
               pack={pack}
               onImport={handleImportClick}
               onPreview={handlePreview}
+              onValidate={handleValidate}
               isImporting={importingSlug === pack.slug}
+              isValidating={validatingSlug === pack.slug}
               isSecurityTeam={isSecurityTeam}
             />
           ))}
