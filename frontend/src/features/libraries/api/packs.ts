@@ -9,6 +9,7 @@ import type {
   LibraryPackListItem,
   PackDependencyCheck,
   PackFilters,
+  ValidationResult,
 } from '@/features/libraries/types/packs'
 
 // Query keys
@@ -67,6 +68,7 @@ export interface ImportResult {
   templatesCreated: number
   taxonomiesCreated: number
   errors: string[]
+  warnings: string[]
 }
 
 export interface SyncFromSourceResponse {
@@ -288,6 +290,20 @@ export function usePackOverlays(packPath: string | null) {
         `/packs/available_overlays/?path=${encodeURIComponent(packPath!)}`
       ),
     enabled: packPath !== null,
+  })
+}
+
+// =============================================================================
+// Pack Validation
+// =============================================================================
+
+/**
+ * Validate a pack's YAML references without importing (dry-run).
+ */
+export function useValidatePack() {
+  return useMutation({
+    mutationFn: ({ slug }: { slug: string }) =>
+      api.post<ValidationResult>('/packs/validate/', { slug }),
   })
 }
 

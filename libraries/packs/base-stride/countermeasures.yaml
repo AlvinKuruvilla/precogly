@@ -301,12 +301,6 @@ countermeasures:
     control_type: procedural
     cost: low
 
-  - slug: least-privilege-principle
-    name: "Least Privilege Implementation"
-    description: "Grant minimum necessary permissions to all users and services"
-    control_type: procedural
-    cost: low
-
   - slug: privilege-separation
     name: "Privilege Separation"
     description: "Run services with minimal required privileges"

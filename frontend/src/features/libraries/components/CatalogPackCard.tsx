@@ -4,6 +4,7 @@ import {
   Eye,
   Check,
   Download,
+  ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,13 +15,17 @@ export function CatalogPackCard({
   pack,
   onImport,
   onPreview,
+  onValidate,
   isImporting,
+  isValidating,
   isSecurityTeam,
 }: {
   pack: UnifiedPack
   onImport: (pack: UnifiedPack) => void
   onPreview: (pack: UnifiedPack) => void
+  onValidate?: (pack: UnifiedPack) => void
   isImporting: boolean
+  isValidating?: boolean
   isSecurityTeam: boolean
 }) {
   return (
@@ -76,6 +81,21 @@ export function CatalogPackCard({
           >
             <Eye className="h-4 w-4" />
           </Button>
+          {isSecurityTeam && onValidate && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onValidate(pack)}
+              disabled={isValidating}
+              title="Validate pack references"
+            >
+              {isValidating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           {pack.isImported ? (
             <Badge variant="outline" className="text-green-600 border-green-600">
               <Check className="mr-1 h-3 w-3" />

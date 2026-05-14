@@ -141,7 +141,7 @@ mappings:
   # ELEVATION OF PRIVILEGE
   - threat: privilege-escalation
     countermeasures:
-      - least-privilege-principle
+      - principle-of-least-privilege
       - privilege-separation
       - regular-access-reviews
 
