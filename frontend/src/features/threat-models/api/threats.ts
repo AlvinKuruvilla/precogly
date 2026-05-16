@@ -476,6 +476,36 @@ export function useRestoreFlowThreat() {
 }
 
 /**
+ * Delete a component threat instance.
+ */
+export function useDeleteThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (threatId: number) => api.delete(`/component-threats/${threatId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
+ * Delete a flow threat instance.
+ */
+export function useDeleteFlowThreat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (threatId: number) => api.delete(`/flow-threats/${threatId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+/**
  * Update a component countermeasure instance (e.g., status, evidenceUrl).
  */
 export function useUpdateCountermeasure() {
@@ -909,6 +939,18 @@ export function useApplyZoneProtections() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['zone-protections'] })
+    },
+  })
+}
+
+export function useDeleteComponent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (componentId: number) => api.delete(`/components/${componentId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
   })
 }

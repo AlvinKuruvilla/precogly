@@ -1,9 +1,19 @@
 import { Fragment, useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical, Loader2 } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
@@ -29,7 +39,16 @@ import {
 } from '../../types/threat-analysis'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
-import { parseCountermeasureId, useUpdateThreat, useUpdateFlowThreat } from '@/features/threat-models/api/threats'
+import {
+  parseCountermeasureId,
+  useDeleteCountermeasure,
+  useDeleteFlowCountermeasure,
+  useDeleteThreat,
+  useDeleteFlowThreat,
+  useDeleteComponent,
+  useUpdateThreat,
+  useUpdateFlowThreat,
+} from '@/features/threat-models/api/threats'
 import {
   buildComponentTree,
   buildNodesMap,
@@ -183,6 +202,25 @@ export function ComponentView({
     name: string
     mappings: ComplianceStandardMapping[]
   } | null>(null)
+  // Track which threat is being deleted
+  const [deleteThreatConfirmFor, setDeleteThreatConfirmFor] = useState<{
+    id: string
+    name: string
+    backendId: number
+    type: 'component' | 'flow'
+  } | null>(null)
+  // Track which countermeasure is being deleted
+  const [deleteCountermeasureConfirmFor, setDeleteCountermeasureConfirmFor] = useState<{
+    id: string
+    name: string
+    backendId: number
+    type: 'component' | 'flow'
+  } | null>(null)
+  // Track which component is being deleted
+  const [deleteComponentConfirmFor, setDeleteComponentConfirmFor] = useState<{
+    id: number
+    name: string
+  } | null>(null)
 
   // Resolve technology slugs to display names
   const { technologies } = useTechnologies()
@@ -200,6 +238,11 @@ export function ComponentView({
   // Threat update mutations
   const updateThreatMutation = useUpdateThreat()
   const updateFlowThreatMutation = useUpdateFlowThreat()
+  const deleteThreatMutation = useDeleteThreat()
+  const deleteFlowThreatMutation = useDeleteFlowThreat()
+  const deleteCountermeasureMutation = useDeleteCountermeasure()
+  const deleteFlowCountermeasureMutation = useDeleteFlowCountermeasure()
+  const deleteComponentMutation = useDeleteComponent()
 
   // Refs to collect latest data from child panels
   const severityDataRef = useRef<SeverityAssessmentData | null>(null)
@@ -226,6 +269,62 @@ export function ComponentView({
       updateThreatMutation.mutate({ threatId: threat.backendThreatId, data }, { onSuccess, onError })
     }
   }, [updateThreatMutation, updateFlowThreatMutation])
+  
+  // Unified delete handler for countermeasures
+  const handleConfirmDeleteCountermeasure = useCallback(() => {
+    if (!deleteCountermeasureConfirmFor) return
+
+    const onSuccess = () => {
+      toast.success('Countermeasure deleted')
+      setDeleteCountermeasureConfirmFor(null)
+    }
+
+    const onError = () => {
+      toast.error('Failed to delete countermeasure')
+    }
+
+    if (deleteCountermeasureConfirmFor.type === 'flow') {
+      deleteFlowCountermeasureMutation.mutate(deleteCountermeasureConfirmFor.backendId, { onSuccess, onError })
+    } else {
+      deleteCountermeasureMutation.mutate(deleteCountermeasureConfirmFor.backendId, { onSuccess, onError })
+    }
+  }, [deleteCountermeasureConfirmFor, deleteCountermeasureMutation, deleteFlowCountermeasureMutation])
+
+  // Unified delete handler for threats
+  const handleConfirmDeleteThreat = useCallback(() => {
+    if (!deleteThreatConfirmFor) return
+
+    const onSuccess = () => {
+      toast.success('Threat deleted')
+      setDeleteThreatConfirmFor(null)
+    }
+
+    const onError = () => {
+      toast.error('Failed to delete threat')
+    }
+
+    if (deleteThreatConfirmFor.type === 'flow') {
+      deleteFlowThreatMutation.mutate(deleteThreatConfirmFor.backendId, { onSuccess, onError })
+    } else {
+      deleteThreatMutation.mutate(deleteThreatConfirmFor.backendId, { onSuccess, onError })
+    }
+  }, [deleteThreatConfirmFor, deleteThreatMutation, deleteFlowThreatMutation])
+
+  // Unified delete handler for components
+  const handleConfirmDeleteComponent = useCallback(() => {
+    if (!deleteComponentConfirmFor) return
+
+    const onSuccess = () => {
+      toast.success('Component deleted')
+      setDeleteComponentConfirmFor(null)
+    }
+
+    const onError = () => {
+      toast.error('Failed to delete component')
+    }
+
+    deleteComponentMutation.mutate(deleteComponentConfirmFor.id, { onSuccess, onError })
+  }, [deleteComponentConfirmFor, deleteComponentMutation])
 
   // Derive actor nodes from analyzableComponents
   const actorNodes = useMemo(() => {
@@ -444,6 +543,7 @@ export function ComponentView({
                 onSelectComponent={onSelectComponent}
                 onToggleCollapsed={toggleNodeCollapsed}
                 resolveTechName={resolveTechName}
+                onRequestDeleteComponent={(component) => setDeleteComponentConfirmFor(component)}
               />
             ))}
 
@@ -944,14 +1044,36 @@ export function ComponentView({
                             </span>
                             <TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => onRestoreThreat(ct.id)}
-                          >
-                            Restore
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => onRestoreThreat(ct.id)}
+                            >
+                              Restore
+                            </Button>
+                            {ct.backendThreatId !== undefined && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                  if (!ct.threatName || ct.backendThreatId === undefined) return
+                                  setDeleteThreatConfirmFor({
+                                    id: ct.id,
+                                    name: ct.threatName,
+                                    backendId: ct.backendThreatId,
+                                    type: ct.threatType === 'dataflow' ? 'flow' : 'component',
+                                  })
+                                }}
+                                aria-label={`Delete ${ct.threatName}`}
+                                title="Delete threat"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       )
                     })}
@@ -1037,6 +1159,10 @@ export function ComponentView({
                 renderItem={(cm, dragHandleRef, _isDragging) => {
                   const cmName = cm.countermeasureName || cm.countermeasureId
                   const cmDescription = cm.countermeasureDescription
+                  const canDelete = (() => {
+                    const parsed = parseCountermeasureId(cm.id)
+                    return parsed.id !== null && parsed.type !== 'local'
+                  })()
 
                   const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
                   const isAssigning = assigningOwnerFor === cm.id
@@ -1065,6 +1191,28 @@ export function ComponentView({
                             )}
                           </div>
                         </div>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const parsed = parseCountermeasureId(cm.id)
+                              if (parsed.id === null || parsed.type === 'local') return
+                              setDeleteCountermeasureConfirmFor({
+                                id: cm.id,
+                                name: cmName,
+                                backendId: parsed.id,
+                                type: parsed.type,
+                              })
+                            }}
+                            aria-label={`Delete ${cmName}`}
+                            title="Delete countermeasure"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
 
                       {/* Compliance mappings - expandable detail */}
@@ -1280,6 +1428,93 @@ export function ComponentView({
           libraryMappings={editingComplianceFor.mappings}
         />
       )}
+
+      <AlertDialog
+        open={!!deleteThreatConfirmFor}
+        onOpenChange={(open) => {
+          if (!open) setDeleteThreatConfirmFor(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete threat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteThreatConfirmFor?.name || 'this threat'} and all of its countermeasures.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDeleteThreat()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteCountermeasureConfirmFor}
+        onOpenChange={(open) => {
+          if (!open) setDeleteCountermeasureConfirmFor(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete countermeasure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteCountermeasureConfirmFor?.name || 'this countermeasure'}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDeleteCountermeasure()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteComponentConfirmFor}
+        onOpenChange={(open) => {
+          if (!open) setDeleteComponentConfirmFor(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete component?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteComponentConfirmFor?.name || 'this component'} and all of its associated threats and countermeasures.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDeleteComponent()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
