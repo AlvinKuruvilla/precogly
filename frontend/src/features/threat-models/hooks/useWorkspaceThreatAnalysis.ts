@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Diagram, ThreatModel } from '@/types'
 import type {
+  CompletionStatus,
   ComponentThreat,
   ComponentThreatCountermeasure,
   CountermeasureStatus,
@@ -522,9 +523,16 @@ export function useWorkspaceThreatAnalysis(
     return []
   }, [threatModel?.workspaceData])
 
+  // Enhanced completion status from backend
+  const completionStatus: CompletionStatus | undefined = useMemo(() => {
+    const workspaceData = threatModel?.workspaceData as Record<string, unknown> | undefined
+    return workspaceData?.completionStatus as CompletionStatus | undefined
+  }, [threatModel?.workspaceData])
+
   return {
     componentThreats: state.componentThreats,
     progressChecklist,
+    completionStatus,
     summaries,
     isLoading: isLoadingThreats || isLoadingThreatModel,
     isLoadingThreats,

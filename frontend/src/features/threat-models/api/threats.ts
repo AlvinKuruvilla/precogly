@@ -228,6 +228,7 @@ export function useCreateComponentThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -254,6 +255,7 @@ export function useCreateFlowThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -277,6 +279,7 @@ export function useCreateComponentCountermeasure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -300,6 +303,7 @@ export function useCreateFlowCountermeasure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -327,6 +331,8 @@ export function useApplyCountermeasure() {
     onSuccess: (_, { threatId }) => {
       queryClient.invalidateQueries({ queryKey: threatKeys.suggestedCountermeasures(threatId) })
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -383,6 +389,7 @@ export function useUpdateFlowThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -408,6 +415,7 @@ export function useDismissThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -427,6 +435,7 @@ export function useRestoreThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -452,6 +461,7 @@ export function useDismissFlowThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -471,6 +481,7 @@ export function useRestoreFlowThreat() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -497,6 +508,7 @@ export function useUpdateCountermeasure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -523,6 +535,7 @@ export function useUpdateFlowCountermeasure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -539,6 +552,7 @@ export function useDeleteCountermeasure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }
@@ -555,6 +569,7 @@ export function useDeleteFlowCountermeasure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }

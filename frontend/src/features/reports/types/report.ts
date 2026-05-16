@@ -250,6 +250,42 @@ export interface ReportProgressItem {
   autoComputed: boolean
 }
 
+export interface ReportSystemDefinitionItem {
+  id: string
+  label: string
+  checked: boolean
+  count: number
+  countLabel: string
+}
+
+export interface ReportCoverageItem {
+  id: string
+  label: string
+  numerator: number
+  denominator: number
+  percentage: number
+}
+
+export interface ReportQualitySignalFlaggedItem {
+  id: number
+  name: string
+  detail?: string
+}
+
+export interface ReportQualitySignal {
+  id: string
+  status: 'ok' | 'warning'
+  okLabel: string
+  warningLabel: string
+  flaggedItems: ReportQualitySignalFlaggedItem[]
+}
+
+export interface ReportCompletionStatus {
+  systemDefinition: ReportSystemDefinitionItem[]
+  coverage: ReportCoverageItem[]
+  qualitySignals: ReportQualitySignal[]
+}
+
 export interface ReportData {
   metadata: ReportMetadata
   scope: ReportScope
@@ -263,4 +299,5 @@ export interface ReportData {
   compliance: ReportCompliance
   summaryMetrics: ReportSummaryMetrics
   progressChecklist: ReportProgressItem[]
+  completionStatus?: ReportCompletionStatus
 }
