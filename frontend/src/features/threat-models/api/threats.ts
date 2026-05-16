@@ -927,3 +927,15 @@ export function useApplyZoneProtections() {
     },
   })
 }
+
+export function useDeleteComponent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (componentId: number) => api.delete(`/components/${componentId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
