@@ -97,7 +97,7 @@ function renderSection(sectionId: string, depth: string, data: ReportData) {
     case 'findings':
       return <FindingsSection data={data} depth={depth as any} />
     case 'progressChecklist':
-      return <ProgressChecklistSection progressChecklist={data.progressChecklist} />
+      return <ProgressChecklistSection progressChecklist={data.progressChecklist} completionStatus={data.completionStatus} />
     default:
       return null
   }

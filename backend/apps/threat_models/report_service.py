@@ -749,10 +749,12 @@ def build_report_data(threat_model):
     compliance = _build_compliance(threat_model, component_ids, dataflow_ids)
     summary_metrics = _build_summary_metrics(threat_analysis, countermeasure_summary, risks)
 
-    # Reuse progress checklist from serializer
+    # Reuse completion status from serializer
     from apps.threat_models.serializers import ThreatModelSerializer
 
-    progress_checklist = ThreatModelSerializer()._compute_progress_checklist(threat_model)
+    serializer = ThreatModelSerializer()
+    completion_status = serializer._compute_completion_status(threat_model)
+    progress_checklist = serializer._flatten_to_legacy_checklist(completion_status)
 
     return {
         "metadata": metadata,
@@ -767,4 +769,5 @@ def build_report_data(threat_model):
         "compliance": compliance,
         "summary_metrics": summary_metrics,
         "progress_checklist": progress_checklist,
+        "completion_status": completion_status,
     }

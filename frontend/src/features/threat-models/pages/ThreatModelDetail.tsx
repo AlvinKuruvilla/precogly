@@ -149,6 +149,7 @@ export function ThreatModelDetail() {
   const {
     componentThreats,
     progressChecklist,
+    completionStatus,
     summaries,
     isLoadingThreats,
     revertInheritedCountermeasure,
@@ -157,7 +158,6 @@ export function ThreatModelDetail() {
     assignOwner,
     dismissThreat,
     restoreThreat,
-    toggleChecklistItem,
     reorderThreats,
     reorderCountermeasures,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
@@ -617,12 +617,12 @@ export function ThreatModelDetail() {
             threatModelId={id!}
             diagrams={diagrams}
             progressChecklist={progressChecklist}
+            completionStatus={completionStatus}
             summaries={summaries}
             selectedDiagramId={selectedDiagramId}
             referenceImages={referenceImages}
             isCreatingDiagram={createDiagramMutation.isPending}
             isUploadingImage={uploadImageMutation.isPending}
-            onToggleChecklistItem={toggleChecklistItem}
             onSelectDiagram={setSelectedDiagramId}
             onEditDiagram={(diagramId) => navigate(`/threat-models/${id}/diagrams/${diagramId}`)}
             onCreateDiagram={handleCreateDFD}

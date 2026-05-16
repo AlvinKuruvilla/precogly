@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import {
-  ProgressChecklist,
+  CompletionStatusCard,
   ReferenceImageGallery,
   ReferenceImageUploader,
   RelationshipCards,
@@ -10,7 +10,7 @@ import {
 } from '@/features/threat-models/components/workspace'
 import type { Diagram } from '@/types'
 import type { ReferenceImage } from '@/features/threat-models/types/core'
-import type { ProgressChecklistItem } from '@/features/dfd-editor/types/threat-analysis'
+import type { CompletionStatus, ProgressChecklistItem } from '@/features/dfd-editor/types/threat-analysis'
 
 interface SummaryData {
   componentSummary: {
@@ -41,12 +41,12 @@ interface OverviewTabProps {
   threatModelId: string
   diagrams: Diagram[]
   progressChecklist: ProgressChecklistItem[]
+  completionStatus?: CompletionStatus
   summaries: SummaryData
   selectedDiagramId: string | null
   referenceImages: ReferenceImage[]
   isCreatingDiagram: boolean
   isUploadingImage: boolean
-  onToggleChecklistItem: (itemId: string, checked: boolean) => void
   onSelectDiagram: (id: string | null) => void
   onEditDiagram: (diagramId: string) => void
   onCreateDiagram: () => void
@@ -65,12 +65,12 @@ export function OverviewTab({
   threatModelId,
   diagrams,
   progressChecklist,
+  completionStatus,
   summaries,
   selectedDiagramId,
   referenceImages,
   isCreatingDiagram,
   isUploadingImage,
-  onToggleChecklistItem,
   onSelectDiagram,
   onEditDiagram,
   onCreateDiagram,
@@ -89,10 +89,11 @@ export function OverviewTab({
       {/* Completion Status + Relationship Cards */}
       <div className="grid grid-cols-2 gap-6">
         <div className="border rounded-lg p-4">
-          <h3 className="text-sm font-medium mb-3">Completion Status</h3>
-          <ProgressChecklist
-            items={progressChecklist}
-            onToggle={onToggleChecklistItem}
+          <h3 className="text-sm font-medium">Completion Status</h3>
+          <p className="text-xs text-muted-foreground mb-3">Did We Do a Good Job?</p>
+          <CompletionStatusCard
+            completionStatus={completionStatus}
+            progressChecklist={progressChecklist}
           />
         </div>
         <RelationshipCards
