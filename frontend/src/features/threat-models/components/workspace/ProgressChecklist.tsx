@@ -1,6 +1,16 @@
+import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Circle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import type {
   CompletionStatus,
@@ -16,6 +26,8 @@ interface CompletionStatusCardProps {
 }
 
 export function CompletionStatusCard({ completionStatus, progressChecklist }: CompletionStatusCardProps) {
+  const [crossCheckOpen, setCrossCheckOpen] = useState(false)
+
   // Fall back to legacy rendering if no completionStatus available
   if (!completionStatus) {
     return <LegacyChecklist items={progressChecklist || []} />
@@ -50,18 +62,19 @@ export function CompletionStatusCard({ completionStatus, progressChecklist }: Co
         </div>
       </div>
 
-      {/* Quality Signals */}
+      {/* Pack Cross-Check Summary */}
       {completionStatus.qualitySignals.length > 0 && (
-        <div className="border-t pt-3">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Quality Signals
-          </h4>
-          <div className="space-y-2">
-            {completionStatus.qualitySignals.map((signal) => (
-              <QualitySignalRow key={signal.id} signal={signal} />
-            ))}
-          </div>
-        </div>
+        <>
+          <PackCrossCheckSummary
+            signals={completionStatus.qualitySignals}
+            onViewDetails={() => setCrossCheckOpen(true)}
+          />
+          <PackCrossCheckModal
+            open={crossCheckOpen}
+            onOpenChange={setCrossCheckOpen}
+            signals={completionStatus.qualitySignals}
+          />
+        </>
       )}
     </div>
   )
@@ -96,6 +109,72 @@ function CoverageRow({ item }: { item: CoverageItem }) {
       </div>
       <Progress value={item.percentage} />
     </div>
+  )
+}
+
+function PackCrossCheckSummary({
+  signals,
+  onViewDetails,
+}: {
+  signals: QualitySignal[]
+  onViewDetails: () => void
+}) {
+  const flaggedCount = signals.reduce(
+    (count, s) => count + (s.status === 'warning' ? s.flaggedItems.length : 0),
+    0,
+  )
+
+  return (
+    <div className="border-t pt-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        {flaggedCount === 0 ? (
+          <>
+            <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+            <span className="text-sm text-green-700">All entries match installed packs</span>
+          </>
+        ) : (
+          <>
+            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+            <span className="text-sm text-amber-700">
+              {flaggedCount} {flaggedCount === 1 ? 'item' : 'items'} flagged
+            </span>
+          </>
+        )}
+      </div>
+      <Button variant="ghost" size="sm" onClick={onViewDetails}>
+        View Details
+      </Button>
+    </div>
+  )
+}
+
+function PackCrossCheckModal({
+  open,
+  onOpenChange,
+  signals,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  signals: QualitySignal[]
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Pack Cross-Check</DialogTitle>
+          <DialogDescription>
+            Entries cross-checked against installed library packs
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh]">
+          <div className="space-y-3">
+            {signals.map((signal) => (
+              <QualitySignalRow key={signal.id} signal={signal} />
+            ))}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   )
 }
 

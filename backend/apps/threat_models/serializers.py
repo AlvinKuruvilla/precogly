@@ -586,32 +586,54 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
                     "detail": f"Component: {ct.component.name}",
                 })
 
-        # Check flow threats
+        # Check flow threats — a flow threat is valid if EITHER endpoint's
+        # component library has the mapping (since flows connect two components)
         flow_threats = DataFlowInstanceThreat.objects.filter(
             data_flow_id__in=dataflow_ids, is_dismissed=False
-        ).select_related("data_flow", "threat_library")
+        ).select_related(
+            "data_flow__source_component__component_library",
+            "data_flow__dest_component__component_library",
+            "threat_library",
+        )
 
         for ft in flow_threats:
-            # For flow threats, we check source component's library
-            source_comp = ft.data_flow.source_component if hasattr(ft.data_flow, "source_component") else None
-            comp_lib_id = (
-                source_comp.component_library_id
-                if source_comp and source_comp.component_library_id
+            threat_lib_id = ft.threat_library_id
+            source_lib_id = (
+                ft.data_flow.source_component.component_library_id
+                if ft.data_flow.source_component and ft.data_flow.source_component.component_library_id
                 else None
             )
-            threat_lib_id = ft.threat_library_id
-            if comp_lib_id and threat_lib_id:
-                if (comp_lib_id, threat_lib_id) not in valid_flow_threat_pairs:
-                    flagged_threats.append({
-                        "id": ft.id,
-                        "name": ft.threat_name or (ft.threat_library.name if ft.threat_library else "Unknown"),
-                        "detail": f"Flow: {ft.data_flow.label}",
-                    })
-            elif not threat_lib_id:
+            dest_lib_id = (
+                ft.data_flow.dest_component.component_library_id
+                if ft.data_flow.dest_component and ft.data_flow.dest_component.component_library_id
+                else None
+            )
+
+            # Build a readable flow description
+            flow_desc = ft.data_flow.label
+            if not flow_desc:
+                src_name = ft.data_flow.source_component.name if ft.data_flow.source_component else "?"
+                dst_name = ft.data_flow.dest_component.name if ft.data_flow.dest_component else "?"
+                flow_desc = f"{src_name} \u2192 {dst_name}"
+
+            if threat_lib_id:
+                # Valid if either source or dest component has this threat mapping
+                source_valid = source_lib_id and (source_lib_id, threat_lib_id) in valid_flow_threat_pairs
+                dest_valid = dest_lib_id and (dest_lib_id, threat_lib_id) in valid_flow_threat_pairs
+                if not source_valid and not dest_valid:
+                    # Only flag if at least one endpoint has a library (otherwise it's a custom component issue)
+                    if source_lib_id or dest_lib_id:
+                        flagged_threats.append({
+                            "id": ft.id,
+                            "name": ft.threat_name or (ft.threat_library.name if ft.threat_library else "Unknown"),
+                            "detail": f"Flow: {flow_desc}",
+                        })
+            else:
+                # Custom threat (no library link)
                 flagged_threats.append({
                     "id": ft.id,
                     "name": ft.threat_name or "Custom threat",
-                    "detail": f"Flow: {ft.data_flow.label}",
+                    "detail": f"Flow: {flow_desc}",
                 })
 
         signals.append({
