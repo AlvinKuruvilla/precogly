@@ -43,8 +43,6 @@ import {
   parseCountermeasureId,
   useDeleteCountermeasure,
   useDeleteFlowCountermeasure,
-  useDeleteThreat,
-  useDeleteFlowThreat,
   useDeleteComponent,
   useUpdateThreat,
   useUpdateFlowThreat,
@@ -202,13 +200,6 @@ export function ComponentView({
     name: string
     mappings: ComplianceStandardMapping[]
   } | null>(null)
-  // Track which threat is being deleted
-  const [deleteThreatConfirmFor, setDeleteThreatConfirmFor] = useState<{
-    id: string
-    name: string
-    backendId: number
-    type: 'component' | 'flow'
-  } | null>(null)
   // Track which countermeasure is being deleted
   const [deleteCountermeasureConfirmFor, setDeleteCountermeasureConfirmFor] = useState<{
     id: string
@@ -238,8 +229,6 @@ export function ComponentView({
   // Threat update mutations
   const updateThreatMutation = useUpdateThreat()
   const updateFlowThreatMutation = useUpdateFlowThreat()
-  const deleteThreatMutation = useDeleteThreat()
-  const deleteFlowThreatMutation = useDeleteFlowThreat()
   const deleteCountermeasureMutation = useDeleteCountermeasure()
   const deleteFlowCountermeasureMutation = useDeleteFlowCountermeasure()
   const deleteComponentMutation = useDeleteComponent()
@@ -289,26 +278,6 @@ export function ComponentView({
       deleteCountermeasureMutation.mutate(deleteCountermeasureConfirmFor.backendId, { onSuccess, onError })
     }
   }, [deleteCountermeasureConfirmFor, deleteCountermeasureMutation, deleteFlowCountermeasureMutation])
-
-  // Unified delete handler for threats
-  const handleConfirmDeleteThreat = useCallback(() => {
-    if (!deleteThreatConfirmFor) return
-
-    const onSuccess = () => {
-      toast.success('Threat deleted')
-      setDeleteThreatConfirmFor(null)
-    }
-
-    const onError = () => {
-      toast.error('Failed to delete threat')
-    }
-
-    if (deleteThreatConfirmFor.type === 'flow') {
-      deleteFlowThreatMutation.mutate(deleteThreatConfirmFor.backendId, { onSuccess, onError })
-    } else {
-      deleteThreatMutation.mutate(deleteThreatConfirmFor.backendId, { onSuccess, onError })
-    }
-  }, [deleteThreatConfirmFor, deleteThreatMutation, deleteFlowThreatMutation])
 
   // Unified delete handler for components
   const handleConfirmDeleteComponent = useCallback(() => {
@@ -1053,26 +1022,6 @@ export function ComponentView({
                             >
                               Restore
                             </Button>
-                            {ct.backendThreatId !== undefined && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                onClick={() => {
-                                  if (!ct.threatName || ct.backendThreatId === undefined) return
-                                  setDeleteThreatConfirmFor({
-                                    id: ct.id,
-                                    name: ct.threatName,
-                                    backendId: ct.backendThreatId,
-                                    type: ct.threatType === 'dataflow' ? 'flow' : 'component',
-                                  })
-                                }}
-                                aria-label={`Delete ${ct.threatName}`}
-                                title="Delete threat"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
                           </div>
                         </div>
                       )
@@ -1428,35 +1377,6 @@ export function ComponentView({
           libraryMappings={editingComplianceFor.mappings}
         />
       )}
-
-      <AlertDialog
-        open={!!deleteThreatConfirmFor}
-        onOpenChange={(open) => {
-          if (!open) setDeleteThreatConfirmFor(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete threat?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete {deleteThreatConfirmFor?.name || 'this threat'} and all of its countermeasures.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleConfirmDeleteThreat()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog
         open={!!deleteCountermeasureConfirmFor}
