@@ -3,6 +3,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/precogly/precogly)](https://github.com/precogly/precogly/releases/latest)
 [![License](https://img.shields.io/github/license/precogly/precogly)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/precogly/precogly)](https://github.com/precogly/precogly/stargazers)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/EMn653Qkq)
 ![OWASP Project](https://img.shields.io/badge/OWASP-Project-blue?logo=owasp)
 
 > [!IMPORTANT]
@@ -70,6 +71,10 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 - Contribute to the codebase
 
 If you find Precogly useful, give the project a star!
+
+### Community
+
+Join the conversation on [Discord](https://discord.gg/EMn653Qkq).
 
 ### Need Help? Contact the Developer
 
