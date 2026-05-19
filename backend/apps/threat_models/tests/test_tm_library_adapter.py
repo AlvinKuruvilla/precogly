@@ -98,11 +98,10 @@ class TestImportHuskyAi(TmLibraryAdapterTestMixin, TestCase):
             self.assertIsNotNone(risk.inherent_score)
             self.assertIn(risk.inherent_level, ["low", "medium", "high", "critical"])
 
-        # Verify threat model format_metadata has threat_personas
-        fm = threat_model.format_metadata
-        self.assertIn("tm_library", fm)
-        self.assertIn("threat_personas", fm["tm_library"])
-        self.assertEqual(len(fm["tm_library"]["threat_personas"]), 2)
+        # Verify threat personas created as DB records
+        from apps.threats.models import ThreatPersona
+        personas = ThreatPersona.objects.filter(threat_model=threat_model)
+        self.assertEqual(personas.count(), 2)
 
 
 class TestImportHashicorpVault(TmLibraryAdapterTestMixin, TestCase):
@@ -202,7 +201,7 @@ class TestEnumMappings(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
         actor = OrgsystemComponent.objects.get(threat_model=threat_model, name="Unknown")
-        self.assertEqual(actor.category, "human_actor")
+        self.assertIsNone(actor.category)
 
     def test_control_status_mappings(self):
         json_data = {

@@ -46,6 +46,7 @@ import {
   useDeleteComponent,
   useUpdateThreat,
   useUpdateFlowThreat,
+  useThreatPersonas,
 } from '@/features/threat-models/api/threats'
 import {
   buildComponentTree,
@@ -156,7 +157,7 @@ function ThreatStatusBadge({ status }: { status: ThreatStatus }) {
 }
 
 export function ComponentView({
-  threatModelId: _threatModelId,
+  threatModelId,
   canvasData,
   analyzableComponents,
   trustZones,
@@ -247,7 +248,6 @@ export function ComponentView({
     }
     if (actorImpactDataRef.current) {
       data.impactDescription = actorImpactDataRef.current.impactDescription
-      data.threatActor = actorImpactDataRef.current.threatActor
       data.threatActorText = actorImpactDataRef.current.threatActorText
     }
     const onSuccess = () => { toast.success('Threat saved') }
@@ -295,17 +295,12 @@ export function ComponentView({
     deleteComponentMutation.mutate(deleteComponentConfirmFor.id, { onSuccess, onError })
   }, [deleteComponentConfirmFor, deleteComponentMutation])
 
-  // Derive actor nodes from analyzableComponents
-  const actorNodes = useMemo(() => {
-    return analyzableComponents
-      .filter((node) => node.type === 'humanActor' || node.type === 'systemActor')
-      .map((node) => ({
-        nodeId: node.id,
-        componentId: (node.data as { componentId?: number }).componentId || 0,
-        name: String(node.data.label),
-      }))
-      .filter((actor) => actor.componentId > 0)
-  }, [analyzableComponents])
+  // Fetch threat personas for the threat model
+  const { data: threatPersonas = [] } = useThreatPersonas(threatModelId)
+  const personas = useMemo(() =>
+    threatPersonas.map((p) => ({ id: p.id, name: p.name })),
+    [threatPersonas]
+  )
 
   const toggleComplianceExpanded = (cmId: string) => {
     setExpandedComplianceFor(prev => {
@@ -937,7 +932,7 @@ export function ComponentView({
                             />
                             <ActorImpactPanel
                               threat={ct}
-                              actorNodes={actorNodes}
+                              personas={personas}
                               onChange={(data) => { actorImpactDataRef.current = data }}
                             />
                             <Button

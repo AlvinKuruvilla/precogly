@@ -153,9 +153,8 @@ class ComponentLibrary(TimestampedModel):
     class Category(models.TextChoices):
         PROCESS = "process", "Process"
         DATASTORE = "datastore", "Data Store"
-        EXTERNAL = "external", "External Entity"  # Legacy, kept for backwards compat
-        HUMAN_ACTOR = "human_actor", "Human Actor"
-        SYSTEM_ACTOR = "system_actor", "System Actor"
+        EXTERNAL_HUMAN_ACTOR = "external_human_actor", "External Human Actor"
+        EXTERNAL_SYSTEM_ACTOR = "external_system_actor", "External System Actor"
 
     class CustomizationStatus(models.TextChoices):
         ORIGINAL = "original", "Original (from pack)"
@@ -183,7 +182,7 @@ class ComponentLibrary(TimestampedModel):
         help_text="Namespace-safe identifier, e.g., 'aws-technologies/s3'",
     )
     name = models.CharField(max_length=255)
-    category = models.CharField(max_length=20, choices=Category.choices)
+    category = models.CharField(max_length=30, choices=Category.choices)
     component_type = models.CharField(max_length=100)
     provider = models.CharField(max_length=100, blank=True)
 
@@ -361,8 +360,9 @@ class OrgsystemComponent(TimestampedModel):
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
     category = models.CharField(
-        max_length=20,
+        max_length=30,
         blank=True,
+        null=True,
         help_text="Copied from ComponentLibrary.category on creation",
     )
     component_type = models.CharField(

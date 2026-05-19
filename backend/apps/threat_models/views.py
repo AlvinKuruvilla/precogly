@@ -586,7 +586,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         component_threats = ComponentInstanceThreat.objects.filter(
             component_id__in=component_ids
         ).select_related(
-            "component", "threat_library", "threat_actor"
+            "component", "threat_library"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "countermeasures__countermeasure_library",
@@ -600,7 +600,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         flow_threats = DataFlowInstanceThreat.objects.filter(
             data_flow_id__in=dataflow_ids
         ).select_related(
-            "data_flow", "threat_library", "threat_actor"
+            "data_flow", "threat_library"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "countermeasures__countermeasure_library",
@@ -640,8 +640,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "dismissal_reason": threat.dismissal_reason,
                 "display_order": threat.display_order,
                 "impact_description": threat.impact_description,
-                "threat_actor_id": threat.threat_actor_id,
-                "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
                 "threat_actor_text": threat.threat_actor_text,
                 "countermeasures": [
                     {
@@ -696,8 +694,6 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "dismissal_reason": threat.dismissal_reason,
                 "display_order": threat.display_order,
                 "impact_description": threat.impact_description,
-                "threat_actor_id": threat.threat_actor_id,
-                "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
                 "threat_actor_text": threat.threat_actor_text,
                 "countermeasures": [
                     {
@@ -846,8 +842,15 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         adapter = TmLibraryAdapter()
         export_data = adapter.export_data(threat_model)
 
+        import re
+
         response = JsonResponse(export_data, json_dumps_params={"indent": 2})
-        filename = f"{threat_model.name.replace(' ', '-').lower()}-threat-model.json"
+        safe_name = re.sub(r"[^a-z0-9\-]", "-", threat_model.name.lower())
+        safe_name = re.sub(r"-{2,}", "-", safe_name).strip("-")
+        if safe_name.endswith("-threat-model"):
+            filename = f"{safe_name}.json"
+        else:
+            filename = f"{safe_name}-threat-model.json"
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 

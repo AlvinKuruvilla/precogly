@@ -31,6 +31,8 @@ from .models import (
     RiskThreat,
     TaxonomyEntry,
     ThreatLibrary,
+    ThreatPersona,
+    ThreatSource,
     VerificationTest,
 )
 from .scoring.registry import get_scoring_methods_list
@@ -64,6 +66,8 @@ from .serializers import (
     TaxonomyEntryNestedSerializer,
     ThreatLibraryListSerializer,
     ThreatLibrarySerializer,
+    ThreatPersonaSerializer,
+    ThreatSourceSerializer,
     VerificationTestSerializer,
 )
 from .services import recalculate_risk, recalculate_risks_for_threat, recalculate_threat_status
@@ -193,9 +197,9 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             Q(component__orgsystem__organization_id__in=org_ids)
             | Q(component__orgsystem__isnull=True,
                 component__threat_model__organization_id__in=org_ids)
-        ).select_related("component", "threat_library", "threat_actor")
+        ).select_related("component", "threat_library")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["component", "threat_library", "status", "inherent_severity", "threat_actor"]
+    filterset_fields = ["component", "threat_library", "status", "inherent_severity"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
     ordering = ["-inherent_severity"]
 
@@ -357,9 +361,9 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
             Q(data_flow__source_component__orgsystem__organization_id__in=org_ids)
             | Q(data_flow__source_component__orgsystem__isnull=True,
                 data_flow__source_component__threat_model__organization_id__in=org_ids)
-        ).select_related("data_flow", "threat_library", "threat_actor")
+        ).select_related("data_flow", "threat_library")
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity", "threat_actor"]
+    filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity"]
     ordering_fields = ["inherent_severity", "status", "created_at"]
     ordering = ["-inherent_severity"]
 
@@ -783,6 +787,37 @@ class RiskViewSet(viewsets.ModelViewSet):
         risk.refresh_from_db()
         serializer = RiskDetailSerializer(risk, context=self.get_serializer_context())
         return Response(serializer.data)
+
+
+class ThreatPersonaViewSet(viewsets.ModelViewSet):
+    """CRUD ViewSet for ThreatPersona, scoped to a threat model."""
+
+    serializer_class = ThreatPersonaSerializer
+    permission_classes = [IsAuthenticated, CanWrite]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "symbolic_name"]
+    pagination_class = None
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return ThreatPersona.objects.filter(
+            threat_model_id=self.kwargs["threat_model_pk"],
+            threat_model__organization_id__in=org_ids,
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(threat_model_id=self.kwargs["threat_model_pk"])
+
+
+class ThreatSourceViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only ViewSet for ThreatSource reference data."""
+
+    queryset = ThreatSource.objects.all()
+    serializer_class = ThreatSourceSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
 
 
 class ScoringMethodsView(APIView):

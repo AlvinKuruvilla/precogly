@@ -27,21 +27,21 @@ BUSINESS_CRITICALITY_REVERSE = {
 }
 
 ACTOR_TYPE_TO_CATEGORY = {
-    "user": "human_actor",
-    "power_user": "human_actor",
-    "administrator": "human_actor",
-    "engineer": "human_actor",
-    "third_party": "human_actor",
-    "customer": "human_actor",
-    "system": "system_actor",
-    "api": "system_actor",
-    "legacy": "system_actor",
-    "partner": "system_actor",
-    "saas": "system_actor",
+    "user": "external_human_actor",
+    "power_user": "external_human_actor",
+    "administrator": "external_human_actor",
+    "engineer": "external_human_actor",
+    "third_party": "external_human_actor",
+    "customer": "external_human_actor",
+    "system": "external_system_actor",
+    "api": "external_system_actor",
+    "legacy": "external_system_actor",
+    "partner": "external_system_actor",
+    "saas": "external_system_actor",
 }
 CATEGORY_TO_ACTOR_TYPE = {
-    "human_actor": "user",
-    "system_actor": "system",
+    "external_human_actor": "user",
+    "external_system_actor": "system",
 }
 
 CONTROL_STATUS_MAP = {
@@ -69,6 +69,15 @@ CONTROL_PRIORITY_MAP = {
     "medium": "medium",
     "low": "low",
 }
+
+# TM-Library JSON enum → DB slug (NIST SP 800-30r1 category names)
+SOURCE_SLUG_MAP = {
+    "adversary": "adversarial",
+    "human_error": "accidental",
+    "failure": "structural",
+    "events_beyond_org_control": "environmental",
+}
+SOURCE_SLUG_REVERSE = {v: k for k, v in SOURCE_SLUG_MAP.items()}
 
 
 def _resolve_flow_endpoint(resolver, endpoint):
@@ -303,6 +312,22 @@ class TmLibraryAdapter(BaseAdapter):
                         f"placement data_store '{store_ref}' not found."
                     )
 
+        # Threats → threat_persona cross-reference check
+        persona_names = {
+            item.get("symbolic_name")
+            for item in json_data.get("threat_personas", [])
+            if isinstance(item, dict) and item.get("symbolic_name")
+        }
+        for idx, threat in enumerate(entity_lists["threats"]):
+            if not isinstance(threat, dict):
+                continue
+            persona_ref = threat.get("threat_persona")
+            if persona_ref and persona_ref not in persona_names:
+                warnings.append(
+                    f"threats[{idx}] '{threat.get('symbolic_name', '?')}': "
+                    f"threat_persona '{persona_ref}' not found in threat_personas."
+                )
+
         return warnings
 
     def import_data(self, json_data, organization, created_by):
@@ -326,6 +351,10 @@ class TmLibraryAdapter(BaseAdapter):
             Risk,
             RiskThreat,
             ThreatLibrary,
+            ThreatPersona,
+            ThreatPersonaLink,
+            ThreatSource,
+            ThreatSourceLink,
             build_taxonomy_snapshot,
         )
         from apps.threats.services import calculate_inherent_score, recalculate_risk
@@ -342,6 +371,7 @@ class TmLibraryAdapter(BaseAdapter):
             "data_stores": 0,
             "data_assets": 0,
             "data_flows": 0,
+            "threat_personas": 0,
             "threats": 0,
             "controls": 0,
             "risks": 0,
@@ -426,7 +456,7 @@ class TmLibraryAdapter(BaseAdapter):
             # 4. Actors → OrgsystemComponent
             for actor_data in json_data.get("actors", []):
                 actor_type = actor_data.get("type", "user")
-                category = ACTOR_TYPE_TO_CATEGORY.get(actor_type, "human_actor")
+                category = None  # Users classify post-import via UI
                 trust_zone = resolver.resolve("trust_zone", actor_data.get("trust_zone", ""))
 
                 comp = OrgsystemComponent.objects.create(
@@ -556,12 +586,39 @@ class TmLibraryAdapter(BaseAdapter):
                         f"could not resolve source or destination"
                     )
 
-            # 9. Threat Personas → store in format_metadata
-            threat_personas = json_data.get("threat_personas", [])
-            if threat_personas:
-                fm = threat_model.format_metadata
-                fm.setdefault("tm_library", {})["threat_personas"] = threat_personas
-                threat_model.save(update_fields=["format_metadata"])
+            # 9. Threat Personas → create ThreatPersona records
+            persona_map = {}  # symbolic_name → ThreatPersona
+            for persona_data in json_data.get("threat_personas", []):
+                symbolic_name = persona_data.get("symbolic_name", "")
+                if not symbolic_name:
+                    summary["warnings"].append("Threat persona missing symbolic_name, skipped.")
+                    continue
+
+                # Extract known fields; store extras in format_metadata
+                known_fields = {
+                    "symbolic_name", "title", "description", "is_person",
+                    "malicious_intent", "skill_level", "motivation",
+                    "resources", "objectives",
+                }
+                extra_fields = {
+                    k: v for k, v in persona_data.items() if k not in known_fields
+                }
+
+                persona = ThreatPersona.objects.create(
+                    threat_model=threat_model,
+                    symbolic_name=symbolic_name,
+                    name=persona_data.get("title", symbolic_name),
+                    description=persona_data.get("description", ""),
+                    is_person=persona_data.get("is_person", True),
+                    malicious_intent=persona_data.get("malicious_intent", True),
+                    skill_level=persona_data.get("skill_level", ""),
+                    motivation=persona_data.get("motivation", ""),
+                    resources=persona_data.get("resources", ""),
+                    objectives=persona_data.get("objectives", ""),
+                    format_metadata=extra_fields,
+                )
+                persona_map[symbolic_name] = persona
+                summary["threat_personas"] += 1
 
             # 10. Assumptions
             raw_assumptions = json_data.get("assumptions", [])
@@ -616,9 +673,17 @@ class TmLibraryAdapter(BaseAdapter):
                     # (no specific component targeted)
                     components_affected = []
 
+                # Import severity from JSON or default to medium
+                inherent_severity = threat_data.get("inherent_severity", "medium")
+                if inherent_severity not in ("low", "medium", "high", "critical"):
+                    inherent_severity = "medium"
+
                 severity_metadata = {
-                    "rationale": "severity defaulted during TM-Library import",
+                    "rationale": "severity imported from TM-Library JSON",
                 }
+
+                # Map event → impact_description
+                impact_description = threat_data.get("event", "")
 
                 format_meta = {
                     "tm_library": {
@@ -636,6 +701,18 @@ class TmLibraryAdapter(BaseAdapter):
 
                 instances = []
 
+                # Shared defaults for threat instance creation
+                instance_defaults = {
+                    "threat_library": threat_lib,
+                    "threat_description": description,
+                    "inherent_severity": inherent_severity,
+                    "status": "exposed",
+                    "severity_scoring_metadata": severity_metadata,
+                    "format_metadata": format_meta,
+                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
+                    "impact_description": impact_description,
+                }
+
                 # Create ComponentInstanceThreat for each component affected
                 if components_affected:
                     for comp_ref in components_affected:
@@ -649,15 +726,7 @@ class TmLibraryAdapter(BaseAdapter):
                             instance, created = ComponentInstanceThreat.objects.get_or_create(
                                 component=comp,
                                 threat_name=title,
-                                defaults={
-                                    "threat_library": threat_lib,
-                                    "threat_description": description,
-                                    "inherent_severity": "medium",
-                                    "status": "exposed",
-                                    "severity_scoring_metadata": severity_metadata,
-                                    "format_metadata": format_meta,
-                                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
-                                },
+                                defaults=instance_defaults,
                             )
                             if not created and not instance.threat_library:
                                 instance.threat_library = threat_lib
@@ -675,15 +744,7 @@ class TmLibraryAdapter(BaseAdapter):
                             instance, created = DataFlowInstanceThreat.objects.get_or_create(
                                 data_flow=flow,
                                 threat_name=title,
-                                defaults={
-                                    "threat_library": threat_lib,
-                                    "threat_description": description,
-                                    "inherent_severity": "medium",
-                                    "status": "exposed",
-                                    "severity_scoring_metadata": severity_metadata,
-                                    "format_metadata": format_meta,
-                                    "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
-                                },
+                                defaults=instance_defaults,
                             )
                             if not created and not instance.threat_library:
                                 instance.threat_library = threat_lib
@@ -705,15 +766,7 @@ class TmLibraryAdapter(BaseAdapter):
                     instance, created = ComponentInstanceThreat.objects.get_or_create(
                         component=system_component,
                         threat_name=title,
-                        defaults={
-                            "threat_library": threat_lib,
-                            "threat_description": description,
-                            "inherent_severity": "medium",
-                            "status": "exposed",
-                            "severity_scoring_metadata": severity_metadata,
-                            "format_metadata": format_meta,
-                            "taxonomy_snapshot": build_taxonomy_snapshot(threat_lib),
-                        },
+                        defaults=instance_defaults,
                     )
                     if not created and not instance.threat_library:
                         instance.threat_library = threat_lib
@@ -722,6 +775,54 @@ class TmLibraryAdapter(BaseAdapter):
                     instances.append(("component", instance))
                     if created:
                         summary["threats"] += 1
+
+                # Link personas to threat instances
+                persona_ref = threat_data.get("threat_persona", "")
+                if persona_ref and persona_ref in persona_map:
+                    persona = persona_map[persona_ref]
+                    for threat_type, threat_instance in instances:
+                        if threat_type == "component":
+                            ThreatPersonaLink.objects.get_or_create(
+                                persona=persona,
+                                component_threat=threat_instance,
+                            )
+                        elif threat_type == "flow":
+                            ThreatPersonaLink.objects.get_or_create(
+                                persona=persona,
+                                flow_threat=threat_instance,
+                            )
+                elif persona_ref:
+                    summary["warnings"].append(
+                        f"Threat '{symbolic_name}': persona '{persona_ref}' "
+                        f"not found in threat_personas."
+                    )
+
+                # Link sources to threat instances
+                source_refs = threat_data.get("sources", [])
+                for source_ref in source_refs:
+                    raw_value = source_ref if isinstance(source_ref, str) else ""
+                    if not raw_value:
+                        continue
+                    source_slug = SOURCE_SLUG_MAP.get(raw_value, raw_value)
+                    try:
+                        source_obj = ThreatSource.objects.get(slug=source_slug)
+                    except ThreatSource.DoesNotExist:
+                        summary["warnings"].append(
+                            f"Threat '{symbolic_name}': source '{source_slug}' "
+                            f"not found in ThreatSource table."
+                        )
+                        continue
+                    for threat_type, threat_instance in instances:
+                        if threat_type == "component":
+                            ThreatSourceLink.objects.get_or_create(
+                                source=source_obj,
+                                component_threat=threat_instance,
+                            )
+                        elif threat_type == "flow":
+                            ThreatSourceLink.objects.get_or_create(
+                                source=source_obj,
+                                flow_threat=threat_instance,
+                            )
 
                 threat_component_map[symbolic_name] = instances
                 resolver.register("threat", symbolic_name, threat_lib)
@@ -823,18 +924,152 @@ class TmLibraryAdapter(BaseAdapter):
                     instances = threat_component_map.get(threat_ref, [])
                     for threat_type, threat_instance in instances:
                         if threat_type == "component":
-                            RiskThreat.objects.create(
+                            RiskThreat.objects.get_or_create(
                                 risk=risk,
                                 component_threat=threat_instance,
                             )
                         elif threat_type == "flow":
-                            RiskThreat.objects.create(
+                            RiskThreat.objects.get_or_create(
                                 risk=risk,
                                 flow_threat=threat_instance,
                             )
 
                 recalculate_risk(risk)
                 summary["risks"] += 1
+
+            # 14. Consume Precogly extensions (round-trip restore)
+            extensions = json_data.get("extensions", {})
+
+            # 14a. precogly.org/threat-details → restore severity_scoring_metadata
+            threat_details_ext = extensions.get("precogly.org/threat-details", {})
+            if threat_details_ext:
+                for threat_sym, detail_data in threat_details_ext.items():
+                    instances = threat_component_map.get(threat_sym, [])
+                    scoring_meta = detail_data.get("severity_scoring_metadata")
+                    if not scoring_meta:
+                        continue
+                    for threat_type, threat_instance in instances:
+                        threat_instance.severity_scoring_metadata = scoring_meta
+                        threat_instance.save(update_fields=["severity_scoring_metadata"])
+
+            # 14b. precogly.org/taxonomy-references → create ThreatLibraryTaxonomyEntry
+            from apps.threats.models import (
+                ExternalTaxonomy,
+                TaxonomyEntry,
+                ThreatLibraryTaxonomyEntry,
+            )
+            taxonomy_ext = extensions.get("precogly.org/taxonomy-references", {})
+            if taxonomy_ext:
+                for threat_sym, tax_data in taxonomy_ext.items():
+                    instances = threat_component_map.get(threat_sym, [])
+                    if not instances:
+                        continue
+                    # Get the threat_library from the first instance
+                    first_instance = instances[0][1]
+                    threat_lib_obj = first_instance.threat_library
+                    if not threat_lib_obj:
+                        continue
+                    for taxonomy_slug, entries in tax_data.items():
+                        # Map slug to ExternalTaxonomy
+                        db_slug = taxonomy_slug.replace("_", "-")  # mitre_attack → mitre-attack
+                        taxonomy = ExternalTaxonomy.objects.filter(slug=db_slug).first()
+                        if not taxonomy:
+                            continue
+                        for entry_data in entries:
+                            ext_id = entry_data.get("id", "")
+                            tax_entry = TaxonomyEntry.objects.filter(
+                                taxonomy=taxonomy, external_id=ext_id
+                            ).first()
+                            if tax_entry:
+                                ThreatLibraryTaxonomyEntry.objects.get_or_create(
+                                    threat_library=threat_lib_obj,
+                                    taxonomy_entry=tax_entry,
+                                )
+
+            # 14c. precogly.org/compliance-mappings → restore instance standards
+            from apps.threats.models import (
+                ComponentInstanceCountermeasureStandard,
+                FlowInstanceCountermeasureStandard,
+            )
+            from apps.compliance.models import StandardRequirement
+            compliance_ext = extensions.get("precogly.org/compliance-mappings", {})
+            if compliance_ext:
+                # Build reverse lookup: control symbolic_name → countermeasure instances
+                for ctrl_sym, mappings in compliance_ext.items():
+                    for mapping in mappings:
+                        req_id = mapping.get("requirement_id", "")
+                        framework_name = mapping.get("framework", "")
+                        sufficiency = mapping.get("sufficiency", "partial")
+                        if not req_id or not framework_name:
+                            continue
+                        requirement = StandardRequirement.objects.filter(
+                            framework__name=framework_name,
+                            section_code=req_id,
+                        ).first()
+                        if not requirement:
+                            summary["warnings"].append(
+                                f"Compliance mapping: requirement '{req_id}' "
+                                f"in framework '{framework_name}' not found."
+                            )
+                            continue
+                        # Find countermeasure instances matching this control sym
+                        comp_cms = ComponentInstanceCountermeasure.objects.filter(
+                            instance_threat__component__threat_model=threat_model,
+                            format_metadata__tm_library__symbolic_name=ctrl_sym,
+                        )
+                        for cm in comp_cms:
+                            ComponentInstanceCountermeasureStandard.objects.get_or_create(
+                                component_countermeasure=cm,
+                                requirement=requirement,
+                                defaults={"sufficiency": sufficiency},
+                            )
+                        flow_cms = FlowInstanceCountermeasure.objects.filter(
+                            flow_threat__data_flow__source_component__threat_model=threat_model,
+                            format_metadata__tm_library__symbolic_name=ctrl_sym,
+                        )
+                        for cm in flow_cms:
+                            FlowInstanceCountermeasureStandard.objects.get_or_create(
+                                flow_countermeasure=cm,
+                                requirement=requirement,
+                                defaults={"sufficiency": sufficiency},
+                            )
+
+            # 14d. precogly.org/pack-lineage → reconnect to library packs
+            from apps.systems.models import ComponentLibrary
+            from apps.packs.models import LibraryPack
+            pack_lineage_ext = extensions.get("precogly.org/pack-lineage", {})
+            if pack_lineage_ext:
+                for lineage_type, lineage_map in pack_lineage_ext.items():
+                    if lineage_type == "components":
+                        for comp_sym, lineage in lineage_map.items():
+                            lib_slug = lineage.get("library_slug", "")
+                            pack_slug = lineage.get("pack_slug", "")
+                            pack_version = lineage.get("pack_version", "")
+                            if not lib_slug:
+                                continue
+                            # Check if the pack is installed
+                            pack = LibraryPack.objects.filter(
+                                slug=pack_slug, version=pack_version
+                            ).first()
+                            if not pack:
+                                summary["warnings"].append(
+                                    f"Pack lineage: pack '{pack_slug}' v{pack_version} "
+                                    f"not installed, component '{comp_sym}' remains standalone."
+                                )
+                                continue
+                            comp_lib = ComponentLibrary.objects.filter(
+                                qualified_slug=lib_slug
+                            ).first()
+                            if not comp_lib:
+                                comp_lib = ComponentLibrary.objects.filter(
+                                    slug=lib_slug.split("/")[-1] if "/" in lib_slug else lib_slug,
+                                    source_pack=pack,
+                                ).first()
+                            if comp_lib:
+                                comp = resolver.resolve("component", comp_sym)
+                                if comp:
+                                    comp.component_library = comp_lib
+                                    comp.save(update_fields=["component_library"])
 
         return threat_model, summary
 
@@ -853,6 +1088,10 @@ class TmLibraryAdapter(BaseAdapter):
             DataFlowInstanceThreat,
             FlowInstanceCountermeasure,
             Risk,
+            ThreatLibraryTaxonomyEntry,
+            ThreatPersona,
+            ThreatPersonaLink,
+            ThreatSourceLink,
         )
 
         result = {
@@ -955,8 +1194,10 @@ class TmLibraryAdapter(BaseAdapter):
             if comp.trust_zone:
                 trust_zone_sym = _get_symbolic_name(comp.trust_zone, "zone")
 
-            if comp.category in ("human_actor", "system_actor"):
-                original_type = comp_fm.get("original_type") or CATEGORY_TO_ACTOR_TYPE.get(comp.category, "user")
+            if comp.category in ("external_human_actor", "external_system_actor") or (
+                comp.category is None and comp_fm.get("original_type")
+            ):
+                original_type = comp_fm.get("original_type") or CATEGORY_TO_ACTOR_TYPE.get(comp.category or "", "user")
                 result["actors"].append({
                     "symbolic_name": sym,
                     "title": comp.name,
@@ -1041,10 +1282,30 @@ class TmLibraryAdapter(BaseAdapter):
                 "encrypted": flow.encrypted,
             })
 
-        # Threat Personas (stored in format_metadata)
-        threat_personas = tm_lib_meta.get("threat_personas", [])
-        if threat_personas:
-            result["threat_personas"] = threat_personas
+        # Threat Personas (from DB)
+        db_personas = ThreatPersona.objects.filter(threat_model=threat_model)
+        if db_personas.exists():
+            result["threat_personas"] = []
+            for persona in db_personas:
+                persona_entry = {
+                    "symbolic_name": persona.symbolic_name,
+                    "title": persona.name,
+                    "description": persona.description,
+                    "is_person": persona.is_person,
+                    "malicious_intent": persona.malicious_intent,
+                }
+                if persona.skill_level:
+                    persona_entry["skill_level"] = persona.skill_level
+                if persona.motivation:
+                    persona_entry["motivation"] = persona.motivation
+                if persona.resources:
+                    persona_entry["resources"] = persona.resources
+                if persona.objectives:
+                    persona_entry["objectives"] = persona.objectives
+                # Merge back any extra fields from format_metadata
+                if persona.format_metadata:
+                    persona_entry.update(persona.format_metadata)
+                result["threat_personas"].append(persona_entry)
 
         # Threats — collect from component and flow threats, grouped by library
         component_threat_ids = set(components.values_list("id", flat=True))
@@ -1096,7 +1357,7 @@ class TmLibraryAdapter(BaseAdapter):
                     "description": threat.threat_description or (threat.threat_library.description if threat.threat_library else ""),
                     "tm_library_fields": {
                         field: threat_fm[field]
-                        for field in ("threat_persona", "event", "sources", "attack_mechanisms", "weaknesses")
+                        for field in ("attack_mechanisms", "weaknesses")
                         if threat_fm.get(field)
                     },
                     "components_affected": [],
@@ -1123,7 +1384,7 @@ class TmLibraryAdapter(BaseAdapter):
                     "description": threat.threat_description or (threat.threat_library.description if threat.threat_library else ""),
                     "tm_library_fields": {
                         field: threat_fm[field]
-                        for field in ("threat_persona", "event", "sources", "attack_mechanisms", "weaknesses")
+                        for field in ("attack_mechanisms", "weaknesses")
                         if threat_fm.get(field)
                     },
                     "components_affected": [],
@@ -1138,6 +1399,7 @@ class TmLibraryAdapter(BaseAdapter):
 
         # Emit grouped threats and collect countermeasures
         control_groups = {}  # control_symbolic_name → {data, threat_symbolic_names}
+        extensions = {}  # Precogly extensions block
 
         for group in threat_groups.values():
             threat_sym = group["symbolic_name"]
@@ -1151,6 +1413,109 @@ class TmLibraryAdapter(BaseAdapter):
             if group["data_flows_affected"]:
                 threat_entry["data_flows_affected"] = group["data_flows_affected"]
             threat_entry.update(group["tm_library_fields"])
+
+            # Export event from DB (impact_description field)
+            first_instance = group["instances"][0][1] if group["instances"] else None
+            if first_instance:
+                if first_instance.impact_description:
+                    threat_entry["event"] = first_instance.impact_description
+
+                # Export threat_persona from DB (ThreatPersonaLink records)
+                first_type, first_inst = group["instances"][0]
+                if first_type == "component":
+                    persona_link = ThreatPersonaLink.objects.filter(
+                        component_threat=first_inst,
+                    ).select_related("persona").first()
+                else:
+                    persona_link = ThreatPersonaLink.objects.filter(
+                        flow_threat=first_inst,
+                    ).select_related("persona").first()
+                if persona_link:
+                    threat_entry["threat_persona"] = persona_link.persona.symbolic_name
+
+                # Export severity
+                threat_entry["inherent_severity"] = first_instance.inherent_severity
+                if first_instance.residual_severity:
+                    threat_entry["residual_severity"] = first_instance.residual_severity
+
+                # Export CAPEC/CWE from DB via ThreatLibraryTaxonomyEntry
+                if first_instance.threat_library_id:
+                    taxonomy_joins = ThreatLibraryTaxonomyEntry.objects.filter(
+                        threat_library_id=first_instance.threat_library_id,
+                    ).select_related("taxonomy_entry__taxonomy")
+                    capec_entries = []
+                    cwe_entries = []
+                    stride_entries = []
+                    attack_entries = []
+                    for join in taxonomy_joins:
+                        entry = join.taxonomy_entry
+                        slug = entry.taxonomy.slug if entry.taxonomy else ""
+                        if slug == "capec":
+                            capec_entries.append({
+                                "id": entry.external_id,
+                                "title": entry.title,
+                            })
+                        elif slug == "cwe":
+                            cwe_entries.append({
+                                "id": entry.external_id,
+                                "title": entry.title,
+                            })
+                        elif slug == "stride":
+                            stride_entries.append({
+                                "id": entry.external_id,
+                                "title": entry.title,
+                            })
+                        elif slug == "mitre-attack":
+                            attack_entries.append({
+                                "id": entry.external_id,
+                                "title": entry.title,
+                            })
+                    if capec_entries:
+                        threat_entry["attack_mechanisms"] = {
+                            "capec": [e["id"] for e in capec_entries]
+                        }
+                    if cwe_entries:
+                        threat_entry["weaknesses"] = [e["id"] for e in cwe_entries]
+
+                    # Extensions: taxonomy references (STRIDE, ATT&CK)
+                    if stride_entries or attack_entries:
+                        ext_taxonomy = extensions.setdefault(
+                            "precogly.org/taxonomy-references", {}
+                        )
+                        threat_tax = {}
+                        if stride_entries:
+                            threat_tax["stride"] = stride_entries
+                        if attack_entries:
+                            threat_tax["mitre_attack"] = attack_entries
+                        ext_taxonomy[threat_sym] = threat_tax
+
+                # Extensions: severity scoring metadata
+                if first_instance.severity_scoring_metadata:
+                    ext_details = extensions.setdefault(
+                        "precogly.org/threat-details", {}
+                    )
+                    ext_details[threat_sym] = {
+                        "severity_scoring_metadata": first_instance.severity_scoring_metadata,
+                    }
+
+            # Export sources from DB (ThreatSourceLink records)
+            source_slugs = set()
+            for threat_type, threat_instance in group["instances"]:
+                if threat_type == "component":
+                    links = ThreatSourceLink.objects.filter(
+                        component_threat=threat_instance,
+                    ).select_related("source")
+                else:
+                    links = ThreatSourceLink.objects.filter(
+                        flow_threat=threat_instance,
+                    ).select_related("source")
+                for link in links:
+                    source_slugs.add(link.source.slug)
+            if source_slugs:
+                threat_entry["sources"] = [
+                    SOURCE_SLUG_REVERSE.get(slug, slug) for slug in sorted(source_slugs)
+                ]
+
             result["threats"].append(threat_entry)
 
             # Collect countermeasures from all instances in the group
@@ -1189,12 +1554,16 @@ class TmLibraryAdapter(BaseAdapter):
             risk_sym = risk_fm.get("symbolic_name") or f"risk_{risk.pk}"
 
             scoring = risk.scoring_metadata or {}
+            risk_threats_syms_seen = set()
             risk_threats_syms = []
             for rt in risk.risk_threats.all():
                 threat = rt.component_threat or rt.flow_threat
                 if threat:
                     t_fm = (threat.format_metadata or {}).get("tm_library", {})
-                    risk_threats_syms.append(t_fm.get("symbolic_name") or f"threat_{threat.pk}")
+                    sym = t_fm.get("symbolic_name") or f"threat_{threat.pk}"
+                    if sym not in risk_threats_syms_seen:
+                        risk_threats_syms.append(sym)
+                        risk_threats_syms_seen.add(sym)
 
             risk_entry = {
                 "symbolic_name": risk_sym,
@@ -1208,5 +1577,60 @@ class TmLibraryAdapter(BaseAdapter):
                 "level": risk.inherent_level,
             }
             result["risks"].append(risk_entry)
+
+        # Compliance mappings extension
+        from apps.threats.models import (
+            ComponentInstanceCountermeasureStandard,
+            FlowInstanceCountermeasureStandard,
+        )
+        compliance_data = {}
+        comp_standards = ComponentInstanceCountermeasureStandard.objects.filter(
+            component_countermeasure__instance_threat__component__threat_model=threat_model,
+        ).select_related(
+            "component_countermeasure", "requirement", "requirement__framework",
+        )
+        for standard in comp_standards:
+            cm = standard.component_countermeasure
+            cm_fm = (cm.format_metadata or {}).get("tm_library", {})
+            cm_sym = cm_fm.get("symbolic_name") or f"control_{cm.pk}"
+            compliance_data.setdefault(cm_sym, []).append({
+                "framework": standard.requirement.framework.name if standard.requirement.framework else "",
+                "requirement_id": standard.requirement.section_code if standard.requirement else "",
+                "sufficiency": standard.sufficiency,
+            })
+        flow_standards = FlowInstanceCountermeasureStandard.objects.filter(
+            flow_countermeasure__flow_threat__data_flow__source_component__threat_model=threat_model,
+        ).select_related(
+            "flow_countermeasure", "requirement", "requirement__framework",
+        )
+        for standard in flow_standards:
+            cm = standard.flow_countermeasure
+            cm_fm = (cm.format_metadata or {}).get("tm_library", {})
+            cm_sym = cm_fm.get("symbolic_name") or f"control_{cm.pk}"
+            compliance_data.setdefault(cm_sym, []).append({
+                "framework": standard.requirement.framework.name if standard.requirement.framework else "",
+                "requirement_id": standard.requirement.section_code if standard.requirement else "",
+                "sufficiency": standard.sufficiency,
+            })
+        if compliance_data:
+            extensions["precogly.org/compliance-mappings"] = compliance_data
+
+        # Pack lineage extension
+        pack_lineage = {}
+        for comp in components:
+            if comp.component_library and comp.component_library.source_pack:
+                comp_sym = _get_symbolic_name(comp, comp.category or "component")
+                pack = comp.component_library.source_pack
+                pack_lineage.setdefault("components", {})[comp_sym] = {
+                    "library_slug": comp.component_library.qualified_slug or comp.component_library.slug,
+                    "pack_slug": pack.slug,
+                    "pack_version": pack.version,
+                }
+        if pack_lineage:
+            extensions["precogly.org/pack-lineage"] = pack_lineage
+
+        # Add extensions block to result if any data
+        if extensions:
+            result["extensions"] = extensions
 
         return result

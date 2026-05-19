@@ -20,6 +20,8 @@ from .views import (
     ScoringMethodsView,
     TaxonomyEntryViewSet,
     ThreatLibraryViewSet,
+    ThreatPersonaViewSet,
+    ThreatSourceViewSet,
     VerificationTestViewSet,
 )
 
@@ -79,12 +81,20 @@ router.register(
 router.register(r"taxonomies", ExternalTaxonomyViewSet, basename="taxonomy")
 router.register(r"taxonomy-entries", TaxonomyEntryViewSet, basename="taxonomy-entry")
 
-# Nested route for risks under threat models
+# Nested routes under threat models
 router.register(
     r"threat-models/(?P<threat_model_pk>\d+)/risks",
     RiskViewSet,
     basename="threat-model-risk",
 )
+router.register(
+    r"threat-models/(?P<threat_model_pk>\d+)/threat-personas",
+    ThreatPersonaViewSet,
+    basename="threat-model-persona",
+)
+
+# Global reference data
+router.register(r"threat-sources", ThreatSourceViewSet, basename="threat-source")
 
 urlpatterns = [
     path("scoring-methods/", ScoringMethodsView.as_view(), name="scoring-methods"),

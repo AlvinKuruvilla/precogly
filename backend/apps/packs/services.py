@@ -785,7 +785,7 @@ def validate_pack(pack_path: Path) -> ValidationResult:
         try:
             with open(components_file) as f:
                 comp_data = yaml.safe_load(f) or {}
-            valid_categories = {"process", "datastore", "external", "human_actor", "system_actor"}
+            valid_categories = {"process", "datastore", "external_human_actor", "external_system_actor"}
             seen_component_ids: set[str] = set()
             for i, comp in enumerate(comp_data.get("components", [])):
                 if "id" not in comp and "slug" not in comp:

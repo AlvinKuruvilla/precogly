@@ -27,8 +27,8 @@ import { useGenerateThreats } from '@/features/threat-models/api/threats'
 const COMPONENT_CATEGORIES = [
   { value: 'process', label: 'Process' },
   { value: 'datastore', label: 'Data Store' },
-  { value: 'human_actor', label: 'Human Actor' },
-  { value: 'system_actor', label: 'System Actor' },
+  { value: 'external_human_actor', label: 'External Human Actor' },
+  { value: 'external_system_actor', label: 'External System Actor' },
 ]
 
 interface AddCustomComponentDialogProps {

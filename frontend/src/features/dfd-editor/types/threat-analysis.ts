@@ -165,9 +165,9 @@ export interface ComponentThreat {
   threatType?: 'component' | 'dataflow'
   // Actor & impact fields
   impactDescription?: string
-  threatActorId?: number | null
-  threatActorName?: string | null
   threatActorText?: string
+  threatPersonas?: { id: number; name: string }[]
+  threatSources?: { id: number; name: string; slug?: string }[]
 }
 
 /**

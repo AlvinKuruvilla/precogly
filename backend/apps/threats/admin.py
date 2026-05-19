@@ -14,6 +14,10 @@ from .models import (
     TaxonomyEntry,
     ThreatLibrary,
     ThreatLibraryTaxonomyEntry,
+    ThreatPersona,
+    ThreatPersonaLink,
+    ThreatSource,
+    ThreatSourceLink,
     VerificationTest,
 )
 
@@ -104,3 +108,26 @@ class RiskAdmin(admin.ModelAdmin):
 class RiskThreatAdmin(admin.ModelAdmin):
     list_display = ["risk", "component_threat", "flow_threat"]
     list_filter = ["risk__threat_model"]
+
+
+@admin.register(ThreatPersona)
+class ThreatPersonaAdmin(admin.ModelAdmin):
+    list_display = ["name", "symbolic_name", "threat_model", "is_person", "malicious_intent"]
+    list_filter = ["is_person", "malicious_intent"]
+    search_fields = ["name", "symbolic_name"]
+
+
+@admin.register(ThreatPersonaLink)
+class ThreatPersonaLinkAdmin(admin.ModelAdmin):
+    list_display = ["persona", "component_threat", "flow_threat"]
+
+
+@admin.register(ThreatSource)
+class ThreatSourceAdmin(admin.ModelAdmin):
+    list_display = ["name", "slug"]
+    search_fields = ["name", "slug"]
+
+
+@admin.register(ThreatSourceLink)
+class ThreatSourceLinkAdmin(admin.ModelAdmin):
+    list_display = ["source", "component_threat", "flow_threat"]
