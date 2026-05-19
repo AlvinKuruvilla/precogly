@@ -15,10 +15,13 @@ The export includes everything in your threat model:
 - **Actors, components, and data stores** — with trust zone assignments and parent relationships
 - **Data assets** — sensitivity classifications and placements
 - **Data flows** — source, destination, protocol, encryption status
-- **Threats** — with taxonomy references (STRIDE, CAPEC, CWE, ATT&CK) and severity assessments
+- **Threat personas** — skill level, intent, resources, objectives
+- **Threat sources** — linked NIST SP 800-30r1 source categories per threat
+- **Threats** — with taxonomy references (STRIDE, CAPEC, CWE, ATT&CK), severity (inherent and residual), and persona/source associations
 - **Controls** — status, priority, and linked threats
 - **Risks** — likelihood, impact, and score
 - **Assumptions** — with validity status
+- **Extensions** — Precogly-specific data (severity scoring metadata, STRIDE/ATT&CK taxonomy, compliance mappings, pack lineage)
 
 ## Importing
 
@@ -47,10 +50,12 @@ Precogly currently uses the [OWASP TM-Library format](https://github.com/OWASP/w
   "data_stores": [...],
   "data_sets": [...],
   "data_flows": [...],
+  "threat_personas": [...],
   "threats": [...],
   "controls": [...],
   "risks": [...],
-  "assumptions": [...]
+  "assumptions": [...],
+  "extensions": { ... }
 }
 ```
 
@@ -58,7 +63,9 @@ Every entity has a `symbolic_name` (a stable identifier like `comp_api_gateway`)
 
 ## Round-trip fidelity
 
-Precogly preserves TM-Library metadata through round-trips. Fields that don't map directly to Precogly's data model (like `threat_persona`, `attack_mechanisms`, or original risk scoring values) are stored in `format_metadata` and written back on export. An imported-then-exported file retains the structure and data of the original.
+Precogly preserves TM-Library metadata through round-trips. Core entities — threat personas, threat sources, severity values, CAPEC/CWE references — are stored as first-class database records and exported from live data. Fields that don't map directly to Precogly's data model (like original risk scoring values or extra persona attributes) are stored in `format_metadata` and written back on export. An imported-then-exported file retains the structure and data of the original.
+
+Precogly-specific analytical data (STRIDE/ATT&CK taxonomy, severity scoring metadata, compliance mappings, pack lineage) is carried in a standard `extensions` block keyed by `precogly.org/*` namespaces. Other tools safely ignore this block.
 
 ## Version control workflows
 
@@ -83,5 +90,6 @@ The repository includes ready-to-import sample threat models from the [OWASP Thr
 | `hashicorp-vault-threat-model.json` | Secrets management infrastructure |
 | `cryptocurrency-wallet-threat-model.json` | Crypto wallet with key management and transaction signing |
 | `ephemeral-browser-isolation-threat-model.json` | Browser isolation platform with session management |
+| `kata-containers-threat-model.json` | Container virtualisation isolation layer with threat personas and source references |
 
 Import any of these to explore a fully populated threat model with components, threats, controls, and risks.

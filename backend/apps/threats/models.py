@@ -356,19 +356,11 @@ class ComponentInstanceThreat(TimestampedModel):
         default="",
         help_text="Narrative description of what the attacker achieves",
     )
-    threat_actor = models.ForeignKey(
-        OrgsystemComponent,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="threats_as_actor",
-        help_text="DFD actor who can initiate this threat",
-    )
     threat_actor_text = models.CharField(
         max_length=100,
         blank=True,
         default="",
-        help_text="Free-text threat actor when not linked to a DFD component (e.g. 'state actor', 'hacktivist')",
+        help_text="Free-text threat actor (e.g. 'state actor', 'hacktivist')",
     )
 
     class Meta:
@@ -454,19 +446,11 @@ class DataFlowInstanceThreat(TimestampedModel):
         default="",
         help_text="Narrative description of what the attacker achieves",
     )
-    threat_actor = models.ForeignKey(
-        OrgsystemComponent,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="flow_threats_as_actor",
-        help_text="DFD actor who can initiate this threat",
-    )
     threat_actor_text = models.CharField(
         max_length=100,
         blank=True,
         default="",
-        help_text="Free-text threat actor when not linked to a DFD component (e.g. 'state actor', 'hacktivist')",
+        help_text="Free-text threat actor (e.g. 'state actor', 'hacktivist')",
     )
 
     class Meta:
@@ -911,6 +895,157 @@ class Risk(TimestampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.inherent_level})"
+
+
+class ThreatPersona(TimestampedModel):
+    """Threat persona scoped to a specific threat model."""
+
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
+        on_delete=models.CASCADE,
+        related_name="threat_personas",
+    )
+    symbolic_name = models.SlugField(
+        max_length=100,
+        help_text="Machine-readable identifier, e.g., 'malicious-insider'",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    is_person = models.BooleanField(default=True)
+    malicious_intent = models.BooleanField(default=True)
+    skill_level = models.CharField(max_length=100, blank=True, default="")
+    motivation = models.TextField(blank=True, default="")
+    resources = models.TextField(blank=True, default="")
+    objectives = models.TextField(blank=True, default="")
+    format_metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Extra fields from JSON for round-trip fidelity",
+    )
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["threat_model", "symbolic_name"],
+                name="unique_persona_per_threat_model",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ThreatPersonaLink(TimestampedModel):
+    """Links a ThreatPersona to a threat instance (dual-FK pattern)."""
+
+    persona = models.ForeignKey(
+        ThreatPersona,
+        on_delete=models.CASCADE,
+        related_name="threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="persona_links",
+    )
+    flow_threat = models.ForeignKey(
+        DataFlowInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="persona_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="persona_link_exactly_one_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["persona", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_persona_component_threat",
+            ),
+            models.UniqueConstraint(
+                fields=["persona", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_persona_flow_threat",
+            ),
+        ]
+
+    def __str__(self):
+        threat = self.component_threat or self.flow_threat
+        return f"{self.persona.name} -> {threat}"
+
+
+class ThreatSource(TimestampedModel):
+    """Global reference table for threat sources (e.g., NIST SP 800-30r1)."""
+
+    slug = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class ThreatSourceLink(TimestampedModel):
+    """Links a ThreatSource to a threat instance (dual-FK pattern)."""
+
+    source = models.ForeignKey(
+        ThreatSource,
+        on_delete=models.CASCADE,
+        related_name="threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="source_links",
+    )
+    flow_threat = models.ForeignKey(
+        DataFlowInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="source_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="source_link_exactly_one_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["source", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_source_component_threat",
+            ),
+            models.UniqueConstraint(
+                fields=["source", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_source_flow_threat",
+            ),
+        ]
+
+    def __str__(self):
+        threat = self.component_threat or self.flow_threat
+        return f"{self.source.name} -> {threat}"
 
 
 class RiskThreat(TimestampedModel):

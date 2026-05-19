@@ -251,11 +251,11 @@ def _build_components(component_ids):
         category = comp.category or ""
         if category == "process":
             grouped["processes"].append(entry)
-        elif category == "dataStore":
+        elif category == "datastore":
             grouped["data_stores"].append(entry)
-        elif category == "humanActor":
+        elif category == "external_human_actor":
             grouped["human_actors"].append(entry)
-        elif category == "systemActor":
+        elif category == "external_system_actor":
             grouped["system_actors"].append(entry)
         else:
             grouped["processes"].append(entry)
@@ -324,7 +324,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     component_threats = ComponentInstanceThreat.objects.filter(
         component_id__in=component_ids
     ).select_related(
-        "component", "threat_library", "threat_actor"
+        "component", "threat_library"
     ).prefetch_related(
         "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
         "countermeasures__countermeasure_library",
@@ -336,7 +336,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     flow_threats = DataFlowInstanceThreat.objects.filter(
         data_flow_id__in=dataflow_ids
     ).select_related(
-        "data_flow", "threat_library", "threat_actor"
+        "data_flow", "threat_library"
     ).prefetch_related(
         "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
         "countermeasures__countermeasure_library",
@@ -384,7 +384,6 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             "residual_severity": threat.residual_severity,
             "status": threat.status,
             "impact_description": threat.impact_description,
-            "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
             "threat_actor_text": threat.threat_actor_text,
             "countermeasures": [
                 _serialize_countermeasure(cm)
@@ -409,7 +408,6 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             "residual_severity": threat.residual_severity,
             "status": threat.status,
             "impact_description": threat.impact_description,
-            "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
             "threat_actor_text": threat.threat_actor_text,
             "countermeasures": [
                 _serialize_countermeasure(cm)

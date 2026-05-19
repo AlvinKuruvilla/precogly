@@ -33,11 +33,12 @@ The export captures the full structural and analytical content of the threat mod
 | **Data stores** | Name, description, type, vendor, product, trust zone |
 | **Data assets** | Name, description, sensitivity, access control methods, placements with encryption status |
 | **Data flows** | Label, description, source, destination, encryption, sensitive data flag |
-| **Threats** | Title, description, affected components, CAPEC attack mechanisms, CWE weaknesses |
+| **Threat personas** | Name, description, skill level, access level, intent, resources, objectives, applicability |
+| **Threat sources** | Linked NIST SP 800-30r1 source categories per threat |
+| **Threats** | Title, description, affected components, inherent/residual severity, CAPEC attack mechanisms, CWE weaknesses, persona and source links |
 | **Controls** | Title, description, status, priority, linked threats |
 | **Risks** | Title, description, likelihood, impact, score, level |
 | **Assumptions** | Description, validity, topic references |
-| **Threat personas** | Name, description, skill level, access level, intent, applicability |
 
 ### Precogly extensions
 
@@ -50,12 +51,6 @@ Data that has no equivalent in the TM-Library schema is preserved in an `extensi
 | Threat severity | `precogly.org/threat-details` | Inherent and residual severity, scoring metadata |
 | Compliance mappings | `precogly.org/compliance-mappings` | Framework, requirement, sufficiency per control |
 | Pack lineage | `precogly.org/pack-lineage` | Library slugs and pack versions for components, threats, controls |
-| DFD canvas data | `precogly.org/diagrams` | React Flow node/edge positions for restoring the DFD layout |
-| Trust zone hierarchy | `precogly.org/trust-zone-hierarchy` | Parent-child nesting and trust level values |
-| Per-instance control details | `precogly.org/control-details` | Status breakdown when multiple instances are merged into one control |
-| Workflow state | `precogly.org/workflow` | Draft/in-review/approved status, trigger, modeling mode |
-| Scope metadata | `precogly.org/scope` | Scope lock state, scope assets, out-of-scope items |
-| Reference images | `precogly.org/reference-images` | Base64-encoded raster images (whiteboard photos, diagrams) |
 
 !!! tip
     When sharing with non-Precogly tools, the extensions block is safely ignored — the standard TM-Library fields carry the core threat model data. When re-importing into Precogly, the extensions restore the full analytical context.
@@ -102,11 +97,14 @@ Entities are created in dependency order:
 4. Actors, components, data stores (reference zones)
 5. Data assets and placements (reference data stores)
 6. Data flows (reference actors, components, data stores)
-7. Threat personas
-8. Threats and component-threat associations (reference components, personas)
+7. Threat personas (stored as `ThreatPersona` DB records, scoped to the threat model)
+8. Threats and component-threat associations (reference components; persona and source links created)
 9. Controls and countermeasure instances (reference threats)
 10. Risks (reference threats)
 11. Assumptions
+
+!!! note "Actor categories"
+    Imported actors have their category set to `null`. The original actor type (e.g., `user`, `system`) is preserved in `format_metadata` for round-trip export. Users can classify actors via the UI after import.
 
 ### How TM-Library entities map to Precogly
 
@@ -120,17 +118,20 @@ Some structural differences between TM-Library and Precogly are resolved during 
 | **`data_sets`** | Mapped to Precogly's `DataAsset` model. Placements map to `ComponentDataAsset` join records. |
 | **`attack_mechanisms` / `weaknesses`** | CAPEC and CWE references are linked via the unified taxonomy model if the corresponding taxonomy packs are installed. |
 | **Flat trust zones** | Imported as top-level zones. If `precogly.org/trust-zone-hierarchy` extension is present, nesting is restored. |
+| **`threat_personas`** | Created as `ThreatPersona` records scoped to the threat model. Cross-referenced to threat instances via `ThreatPersonaLink`. |
+| **`sources` (on threats)** | Resolved against the global `ThreatSource` reference table and linked via `ThreatSourceLink`. Unknown slugs produce warnings. |
+| **`inherent_severity`** | Imported directly onto threat instances (defaults to `medium` if absent). On export, both `inherent_severity` and `residual_severity` are included. |
+| **`event` (on threats)** | Mapped to the `impact_description` field on threat instances. |
+| **Actor `type`** | Stored in `format_metadata` for round-trip. Actor category is set to `null` on import; users classify post-import. |
 
 ### Restoring Precogly extensions
 
 If the imported file contains `precogly.org/*` extensions (e.g., from a previous Precogly export), additional data is restored:
 
-- **Taxonomy references** — STRIDE and MITRE ATT&CK links are created if the corresponding taxonomy packs are installed on the target instance.
-- **Threat severity** — Inherent and residual severity values are restored on threat instances.
-- **Compliance mappings** — Control-to-framework mappings are restored if the referenced compliance frameworks are installed.
-- **Pack lineage** — Precogly attempts to re-link instances to library entries by qualified slug. If the pack isn't installed, the instances remain standalone and a warning is logged.
-- **DFD canvas data** — The DFD editor layout (node positions, edge routing) is restored.
-- **Scope metadata** — Scope lock state, scope assets, and out-of-scope items are restored.
+- **Threat details** (`precogly.org/threat-details`) — Severity scoring metadata is restored on threat instances.
+- **Taxonomy references** (`precogly.org/taxonomy-references`) — STRIDE and MITRE ATT&CK links are created if the corresponding taxonomy packs are installed on the target instance.
+- **Compliance mappings** (`precogly.org/compliance-mappings`) — Control-to-framework mappings are restored if the referenced compliance frameworks are installed.
+- **Pack lineage** (`precogly.org/pack-lineage`) — Precogly attempts to re-link instances to library entries by qualified slug. If the pack isn't installed, the instances remain standalone and a warning is logged.
 
 !!! note
     Extensions from other tools are preserved as-is during import and written back on export (pass-through). Precogly does not modify or discard unknown extension keys.
@@ -168,6 +169,7 @@ The repository includes ready-to-import examples from the OWASP Threat Model Lib
 | `hashicorp-vault-threat-model.json` | Secrets management infrastructure |
 | `cryptocurrency-wallet-threat-model.json` | Crypto wallet with key management and transaction signing |
 | `ephemeral-browser-isolation-threat-model.json` | Browser isolation platform (most comprehensive: 11 threats, 15 controls, 6 risks) |
+| `kata-containers-threat-model.json` | Container virtualisation isolation layer with threat personas and source references |
 
 Import any of these to explore a fully populated threat model.
 

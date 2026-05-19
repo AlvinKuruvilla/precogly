@@ -280,8 +280,8 @@ def sync_dfd_nodes_to_components(dfd, threat_model, old_canvas_data=None):
             node_type_to_category = {
                 "process": "process",
                 "datastore": "datastore",
-                "humanActor": "human_actor",
-                "systemActor": "system_actor",
+                "humanActor": "external_human_actor",
+                "systemActor": "external_system_actor",
             }
 
             # Get category for the component
@@ -514,8 +514,8 @@ def _find_component_library(technology: str, node_type: str):
     node_type_to_category = {
         "process": "process",
         "datastore": "datastore",
-        "humanActor": "human_actor",
-        "systemActor": "system_actor",
+        "humanActor": "external_human_actor",
+        "systemActor": "external_system_actor",
     }
     category = node_type_to_category.get(node_type)
 

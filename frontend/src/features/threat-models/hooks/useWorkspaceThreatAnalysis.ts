@@ -478,9 +478,9 @@ export function useWorkspaceThreatAnalysis(
       datastores: allNodes.filter((n) => n.type === 'datastore').length
         + analysisOnly.filter((c) => c.category === 'datastore').length,
       humanActors: allNodes.filter((n) => n.type === 'humanActor').length
-        + analysisOnly.filter((c) => c.category === 'human_actor').length,
+        + analysisOnly.filter((c) => c.category === 'external_human_actor').length,
       systemActors: allNodes.filter((n) => n.type === 'systemActor').length
-        + analysisOnly.filter((c) => c.category === 'system_actor').length,
+        + analysisOnly.filter((c) => c.category === 'external_system_actor').length,
       trustZones: allNodes.filter((n) => n.type === 'trustZone').length,
     }
 

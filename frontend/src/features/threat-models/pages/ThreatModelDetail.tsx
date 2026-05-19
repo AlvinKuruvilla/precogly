@@ -239,8 +239,8 @@ export function ThreatModelDetail() {
             id: `analysis-${comp.id}`,
             type: comp.category === 'process' ? 'process' :
                   comp.category === 'datastore' ? 'datastore' :
-                  comp.category === 'human_actor' ? 'humanActor' :
-                  comp.category === 'system_actor' ? 'systemActor' : 'process',
+                  comp.category === 'external_human_actor' ? 'humanActor' :
+                  comp.category === 'external_system_actor' ? 'systemActor' : 'process',
             position: { x: 0, y: 0 },
             data: {
               label: comp.name,

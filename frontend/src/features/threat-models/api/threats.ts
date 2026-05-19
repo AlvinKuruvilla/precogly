@@ -27,9 +27,9 @@ export interface ComponentInstanceThreat {
   formatMetadata: Record<string, unknown>
   // Actor & impact fields
   impactDescription?: string
-  threatActor?: number | null
-  threatActorName?: string | null
   threatActorText?: string
+  threatPersonas?: { id: number; name: string }[]
+  threatSources?: { id: number; name: string; slug?: string }[]
   createdAt: string
   updatedAt: string
 }
@@ -222,7 +222,6 @@ export function useCreateComponentThreat() {
       inherentSeverity: string
       status?: string
       impactDescription?: string
-      threatActor?: number | null
       threatActorText?: string
     }) => api.post<ComponentInstanceThreat>('/component-threats/', data),
     onSuccess: () => {
@@ -249,7 +248,6 @@ export function useCreateFlowThreat() {
       inherentSeverity: string
       status?: string
       impactDescription?: string
-      threatActor?: number | null
       threatActorText?: string
     }) => api.post('/flow-threats/', data),
     onSuccess: () => {
@@ -653,9 +651,9 @@ export interface BackendThreat {
   displayOrder?: number
   // Actor & impact fields
   impactDescription?: string
-  threatActorId?: number | null
-  threatActorName?: string | null
   threatActorText?: string
+  threatPersonas?: { id: number; name: string }[]
+  threatSources?: { id: number; name: string; slug?: string }[]
   countermeasures: BackendCountermeasure[]
 }
 
@@ -755,9 +753,9 @@ export function transformBackendThreatsToComponentThreats(
       threatType: bt.type,
       // Actor & impact fields
       impactDescription: bt.impactDescription || undefined,
-      threatActorId: bt.threatActorId ?? null,
-      threatActorName: bt.threatActorName || undefined,
       threatActorText: bt.threatActorText || undefined,
+      threatPersonas: bt.threatPersonas,
+      threatSources: bt.threatSources,
     }
   })
 }
@@ -937,5 +935,29 @@ export function useDeleteComponent() {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
+  })
+}
+
+/**
+ * Fetch threat personas for a threat model.
+ */
+export interface ThreatPersonaItem {
+  id: number
+  symbolicName: string
+  name: string
+  description: string
+  isPerson: boolean
+  maliciousIntent: boolean
+}
+
+export function useThreatPersonas(threatModelId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['threat-personas', threatModelId],
+    queryFn: threatModelId
+      ? () => api.get<ThreatPersonaItem[]>(
+          `/threat-models/${threatModelId}/threat-personas/`
+        )
+      : skipToken,
+    staleTime: 5 * 60 * 1000,
   })
 }
