@@ -148,7 +148,7 @@ components:
 |---|---|---|
 | `id` | yes | Unique within pack. Lowercase + hyphens. |
 | `name` | yes | Display name. |
-| `category` | yes | `process`, `datastore`, `human_actor`, `system_actor` |
+| `category` | yes | `process`, `datastore`, `external_human_actor`, `external_system_actor` |
 | `type` | yes | Free-text component type (e.g. "Object Storage", "NoSQL Database"). |
 | `provider` | no | Provider name (e.g. `aws`, `azure`, `gcp`). |
 | `description` | no | Multi-line description. |
@@ -214,7 +214,7 @@ countermeasures:
 | `id` | yes | Unique within pack. |
 | `name` | yes | Display name. |
 | `description` | yes | What the control does and how it helps. |
-| `control_type` | yes | `preventive`, `detective`, `corrective`, or `procedural` |
+| `control_type` | yes | `preventive`, `detective`, `corrective`, `deterrent`, `recovery`, `compensating`, or `procedural` |
 | `cost` | yes | `low`, `medium`, or `high` |
 | `default_status` | no | `gap` (default) or `platform`. Platform countermeasures are treated as infrastructure-level controls managed by the security team. See [Platform Controls](../docs/concepts/platform-controls.md). |
 
@@ -634,7 +634,7 @@ Before submitting a pack, verify:
 - [ ] `pack.yaml` has all required fields (`slug`, `name`, `version`, `pack_type`, `description`)
 - [ ] All `id` / `slug` values are unique within their file
 - [ ] All `id` values are lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`)
-- [ ] All `control_type` values are `preventive`, `detective`, `corrective`, or `procedural`
+- [ ] All `control_type` values are `preventive`, `detective`, `corrective`, `deterrent`, `recovery`, `compensating`, or `procedural`
 - [ ] All `cost` values are `low`, `medium`, or `high`
 - [ ] All references in join files point to ids that exist in the pack (or in declared dependencies)
 - [ ] All threat refs in `threats-{taxonomy}.yaml` join files resolve to valid threat IDs

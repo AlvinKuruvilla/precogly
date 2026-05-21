@@ -91,7 +91,7 @@ Here's how the YAML maps to what you see in the UI when previewing a pack:
 components:
   - id: s3
     name: Amazon S3
-    category: datastore          # process | datastore | human_actor | system_actor
+    category: datastore          # process | datastore | external_human_actor | external_system_actor
     type: Object Storage
     provider: aws
     description: |
@@ -116,7 +116,7 @@ countermeasures:
     name: S3 Block Public Access
     description: |
       Enable S3 Block Public Access at account and bucket level.
-    control_type: preventive     # preventive | detective | corrective
+    control_type: preventive     # preventive | detective | corrective | deterrent | recovery | compensating | procedural
     cost: low                    # low | medium | high
 ```
 

@@ -35,6 +35,7 @@ const CONTROL_TYPES = [
   { value: 'deterrent', label: 'Deterrent' },
   { value: 'recovery', label: 'Recovery' },
   { value: 'compensating', label: 'Compensating' },
+  { value: 'procedural', label: 'Procedural' },
 ]
 
 interface AddCountermeasureDialogProps {
