@@ -865,7 +865,7 @@ def validate_pack(pack_path: Path) -> ValidationResult:
             pass
 
     # Countermeasures must have 'id', check for duplicates, and validate control_type/cost enums
-    valid_control_types = {"preventive", "detective", "corrective", "procedural"}
+    valid_control_types = {"preventive", "detective", "corrective", "deterrent", "recovery", "compensating", "procedural"}
     valid_costs = {"low", "medium", "high"}
     cm_file = pack_path / "countermeasures.yaml"
     if cm_file.exists():
