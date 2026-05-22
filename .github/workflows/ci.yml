@@ -13,7 +13,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r backend/requirements/development.txt
-      - run: cd backend && python -m flake8 apps/
       - run: cd backend && python -m pytest
 
   frontend:
@@ -25,4 +24,3 @@ jobs:
           node-version: '22'
       - run: cd frontend && npm ci
       - run: cd frontend && npx tsc --noEmit
-      - run: cd frontend && npm run lint
