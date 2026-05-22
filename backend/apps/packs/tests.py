@@ -38,8 +38,6 @@ def _write_pack(base_dir: Path, relative_path: str, slug: str, **overrides) -> P
         "name": slug,
         "version": "1.0.0",
         "pack_type": "technology",
-        "tier": "free",
-        "source": "official",
         "author": "Test",
     }
     pack_meta.update(overrides)
@@ -159,7 +157,6 @@ class DiscoveryAndDisambiguationTests(SimpleTestCase):
                         {
                             "pack": "nist-csf",
                             "path": "demo/nist-csf",
-                            "version": "^1.0.0",
                         }
                     ],
                 )
@@ -171,6 +168,27 @@ class DiscoveryAndDisambiguationTests(SimpleTestCase):
                 dep = consumer.depends_on[0]
                 self.assertEqual(dep["slug"], "nist-csf")
                 self.assertEqual(dep["path"], "demo/nist-csf")
+
+    def test_path_format_string_depends_on_resolves(self):
+        # depends_on with path-format strings like "taxonomies/stride-taxonomy"
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            with self._patch_db_and_path(base):
+                _write_pack(base, "taxonomies/stride-taxonomy", slug="stride-taxonomy")
+                _write_pack(
+                    base,
+                    "consumer",
+                    slug="consumer",
+                    depends_on=["taxonomies/stride-taxonomy"],
+                )
+
+                packs = discover_packs_from_source()
+                consumer = next(p for p in packs if p.slug == "consumer")
+
+                self.assertEqual(len(consumer.depends_on), 1)
+                dep = consumer.depends_on[0]
+                self.assertEqual(dep["slug"], "stride-taxonomy")
+                self.assertEqual(dep["path"], "taxonomies/stride-taxonomy")
 
 
 class TaxonomyReferenceValidationTests(SimpleTestCase):
@@ -576,18 +594,18 @@ class DependsOnValidationTests(SimpleTestCase):
             mock_get_libraries_path.return_value = base
 
             # Create the dependency pack on disk
-            _write_pack(base, "base-stride", slug="base-stride")
+            _write_pack(base, "stride-taxonomy", slug="stride-taxonomy")
 
             pack_dir = _write_pack(
                 base, "dep-pack", slug="dep-pack",
-                depends_on=["base-stride"],
+                depends_on=["stride-taxonomy"],
             )
 
             result = validate_pack(pack_dir)
 
             dep_warnings = [
                 w for w in result.warnings
-                if "base-stride" in w.message and "depends_on" in w.field
+                if "stride-taxonomy" in w.message and "depends_on" in w.field
             ]
             self.assertEqual(len(dep_warnings), 0)
 
@@ -617,6 +635,36 @@ class DependsOnValidationTests(SimpleTestCase):
                 if "ghost-pack" in e.message
             ]
             self.assertEqual(len(dep_errors), 0)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.packs.services.get_libraries_path")
+    def test_path_format_depends_on_resolves(
+        self, mock_get_libraries_path, mock_lp, mock_taxonomy
+    ):
+        """depends_on with path-format strings (e.g. 'taxonomies/stride-taxonomy') should resolve."""
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            mock_get_libraries_path.return_value = base
+
+            # Create the dependency at the path
+            _write_pack(base, "taxonomies/stride-taxonomy", slug="stride-taxonomy")
+
+            pack_dir = _write_pack(
+                base, "dep-pack", slug="dep-pack",
+                depends_on=["taxonomies/stride-taxonomy"],
+            )
+
+            result = validate_pack(pack_dir)
+
+            dep_warnings = [
+                w for w in result.warnings
+                if "stride-taxonomy" in w.message and "depends_on" in w.field
+            ]
+            self.assertEqual(len(dep_warnings), 0)
 
 
 # =========================================================================

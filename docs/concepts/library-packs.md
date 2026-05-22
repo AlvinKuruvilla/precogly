@@ -22,19 +22,17 @@ When you add a component from a library pack to your threat model, its associate
 | Type | Contains | Example |
 |------|----------|---------|
 | `technology` | Components only | `aws`, `azure`, `gcp` |
-| `threat` | Threats + countermeasures | `base-stride` |
 | `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
-| `industry` | Industry-specific components + templates | `banking` |
 | `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
 | `taxonomy` | External threat classification taxonomies | `stride-taxonomy`, `mini-capec` |
 | `template` | DFD templates only | — |
 
 ## YAML structure
 
-Every pack is a directory under `libraries/packs/`. Only `pack.yaml` is required — other files depend on the pack type.
+Every pack is a directory under `libraries/packs/`, organized by category (`taxonomies/`, `standards/`, `threat-libraries/`, `demo/`). Only `pack.yaml` is required — other files depend on the pack type.
 
 ```
-aws-mini/
+demo/aws-mini/
 ├── pack.yaml                    # Pack metadata (required)
 ├── components.yaml              # Component definitions
 ├── threats.yaml                 # Threat definitions
@@ -62,15 +60,17 @@ pack:
   description: |
     A minimal AWS pack with core services,
     threats, and countermeasures.
-  tier: free
-  source: official
   author: Precogly
+  depends_on:
+    - taxonomies/stride-taxonomy
+    - taxonomies/mini-capec
+    - taxonomies/mini-cwe
+    - taxonomies/mini-attack
   tags:
     - aws
     - cloud
-  depends_on:
-    - pack: base-stride
-      version: "^1.0.0"
+    - demo
+    - mini
 ```
 
 Here's how the YAML maps to what you see in the UI when previewing a pack:
@@ -172,11 +172,11 @@ mappings:
     The **Import** button is only visible to users with the **Security Team** organization role. If you don't see the Import button, ask your organization admin to update your role from **Member** to **Security Team** in the organization settings.
 
 1. Navigate to the **Library Packs** section from the sidebar
-2. Browse available packs — you can filter by type, tier, or search by name
+2. Browse available packs — you can filter by type, tag, or search by name
 3. Click on a pack to preview its components, threats, and countermeasures
 4. Click **Import** to add it to your organization
 
-Packs with dependencies (e.g., `aws-mini` depends on `base-stride`) will show which dependencies need to be imported. Dependencies are **not enforced** — you can import a pack without its taxonomy dependencies if you don't need taxonomy enrichment (STRIDE, CAPEC, CWE tags on threats). Import taxonomy packs first if you want full taxonomy linking.
+Packs with dependencies (e.g., `aws-mini` depends on `stride-taxonomy`, `mini-capec`, etc.) will show which dependencies need to be imported. Dependencies are **not enforced** — you can import a pack without its taxonomy dependencies if you don't need taxonomy enrichment (STRIDE, CAPEC, CWE tags on threats). Import taxonomy packs first if you want full taxonomy linking.
 
 ![Import dialog with dependency checks and compliance overlay selection](../assets/images/library-packs-import-dialog.png)
 

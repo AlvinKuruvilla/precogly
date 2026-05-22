@@ -1,0 +1,14 @@
+pack:
+  slug: aws
+  name: AWS Technologies
+  description: Amazon Web Services cloud components for threat modeling diagrams
+  version: 2.0.0
+  author: Precogly Team
+  pack_type: technology
+  tags:
+  - aws
+  - cloud
+  - infrastructure
+  - all
+  repository_url: https://github.com/precogly/precogly
+  documentation_url: https://docs.aws.amazon.com/

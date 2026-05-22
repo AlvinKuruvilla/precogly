@@ -9,13 +9,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { UnifiedPack } from './unified-pack'
-import { packTypeColors, tierColors } from '../constants'
+import { packTypeColors } from '../constants'
 
 export function CatalogPackCard({
   pack,
   onImport,
   onPreview,
   onValidate,
+  onTagClick,
+  activeTag,
   isImporting,
   isValidating,
   isSecurityTeam,
@@ -24,6 +26,8 @@ export function CatalogPackCard({
   onImport: (pack: UnifiedPack) => void
   onPreview: (pack: UnifiedPack) => void
   onValidate?: (pack: UnifiedPack) => void
+  onTagClick?: (tag: string) => void
+  activeTag?: string
   isImporting: boolean
   isValidating?: boolean
   isSecurityTeam: boolean
@@ -37,41 +41,43 @@ export function CatalogPackCard({
           </div>
           <div>
             <h3 className="font-semibold">{pack.name}</h3>
-            <p className="text-sm text-muted-foreground">v{pack.version}</p>
+            <Badge
+              variant="secondary"
+              className={`text-xs ${packTypeColors[pack.packType] || 'bg-gray-100'}`}
+            >
+              {pack.packType}
+            </Badge>
           </div>
         </div>
-        <Badge className={tierColors[pack.tier] || 'bg-gray-100'}>
-          {pack.tier.toUpperCase()}
-        </Badge>
       </div>
 
-      <p className="text-sm text-muted-foreground line-clamp-2">
+      <p className="text-sm text-muted-foreground line-clamp-3">
         {pack.description || 'No description available'}
       </p>
 
       <div className="flex flex-wrap gap-1">
-        <Badge
-          variant="secondary"
-          className={packTypeColors[pack.packType] || 'bg-gray-100'}
-        >
-          {pack.packType}
-        </Badge>
-        {pack.tags.slice(0, 3).map((tag) => (
-          <Badge key={tag} variant="outline" className="text-xs">
+        {pack.tags.map((tag) => (
+          <Badge
+            key={tag}
+            variant={activeTag === tag ? 'default' : 'outline'}
+            className={`text-xs cursor-pointer hover:bg-primary/10 ${activeTag === tag ? 'bg-primary text-primary-foreground' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTagClick?.(tag)
+            }}
+          >
             {tag}
           </Badge>
         ))}
-        {pack.tags.length > 3 && (
-          <Badge variant="outline" className="text-xs">
-            +{pack.tags.length - 3}
-          </Badge>
-        )}
       </div>
 
+      {pack.dependsOn.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Depends on: {pack.dependsOn.map((d) => d.name).join(', ')}
+        </p>
+      )}
+
       <div className="flex items-center justify-between pt-2 border-t">
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{pack.source === 'official' ? 'Official' : 'Community'}</span>
-        </div>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -79,7 +85,8 @@ export function CatalogPackCard({
             onClick={() => onPreview(pack)}
             title="Preview pack contents"
           >
-            <Eye className="h-4 w-4" />
+            <Eye className="h-4 w-4 mr-1" />
+            Preview
           </Button>
           {isSecurityTeam && onValidate && (
             <Button
@@ -90,12 +97,15 @@ export function CatalogPackCard({
               title="Validate pack references"
             >
               {isValidating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
               ) : (
-                <ShieldCheck className="h-4 w-4" />
+                <ShieldCheck className="h-4 w-4 mr-1" />
               )}
+              Validate
             </Button>
           )}
+        </div>
+        <div className="flex items-center gap-2">
           {pack.isImported ? (
             <Badge variant="outline" className="text-green-600 border-green-600">
               <Check className="mr-1 h-3 w-3" />

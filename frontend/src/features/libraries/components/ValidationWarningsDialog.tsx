@@ -30,7 +30,7 @@ export function ValidationWarningsDialog({
         <DialogHeader>
           <DialogTitle>Validation Issues Found</DialogTitle>
           <DialogDescription>
-            {validationResult.packName} v{validationResult.version}
+            {validationResult.packName}
           </DialogDescription>
         </DialogHeader>
 

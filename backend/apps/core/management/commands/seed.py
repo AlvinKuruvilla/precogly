@@ -25,24 +25,24 @@ DEMO_EMAIL = "admin@precogly.dev"
 DEMO_PASSWORD = "admin123"
 DEMO_ORG_NAME = "Demo Organization"
 
-# Import order matters: taxonomies first, then frameworks, then full packs
+# Import order matters: taxonomies first, then standards, then full packs
 TAXONOMY_PACKS = [
-    "stride-taxonomy",
-    "mini-capec",
-    "mini-cwe",
-    "mini-attack",
+    "taxonomies/stride-taxonomy",
+    "taxonomies/mini-capec",
+    "taxonomies/mini-cwe",
+    "taxonomies/mini-attack",
 ]
 
-FRAMEWORK_PACKS = [
-    "frameworks/owasp",
-    "frameworks/soc2",
-    "frameworks/nist-csf",
-    "frameworks/cra",
-    "frameworks/mini-asvs",
+STANDARD_PACKS = [
+    "standards/owasp-top-10",
+    "standards/soc2",
+    "standards/nist-csf",
+    "standards/cra",
+    "standards/owasp-asvs",
 ]
 
 FULL_PACKS = [
-    "aws-mini",
+    "demo/aws-mini",
 ]
 
 DFD_TEMPLATE_SLUG = "aws-mini/aws-serverless"
@@ -145,7 +145,7 @@ class Command(BaseCommand):
             ))
             return
 
-        all_packs = TAXONOMY_PACKS + FRAMEWORK_PACKS + FULL_PACKS
+        all_packs = TAXONOMY_PACKS + STANDARD_PACKS + FULL_PACKS
         for pack_slug in all_packs:
             pack_path = libraries_path / pack_slug
             if not pack_path.exists():
