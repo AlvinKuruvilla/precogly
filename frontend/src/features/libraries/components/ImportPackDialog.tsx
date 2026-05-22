@@ -79,7 +79,7 @@ export function ImportPackDialog({
           <DialogDescription>
             {hasOverlays
               ? 'Select which compliance framework overlays to include with this pack.'
-              : `Import ${pack?.name} v${pack?.version} to make its content available.`}
+              : `Import ${pack?.name} to make its content available.`}
           </DialogDescription>
         </DialogHeader>
 

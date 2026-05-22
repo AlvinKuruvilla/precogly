@@ -1,0 +1,10 @@
+pack:
+  slug: stride-taxonomy
+  name: STRIDE Taxonomy
+  description: Microsoft STRIDE threat classification model
+  version: 1.0.0
+  pack_type: taxonomy
+  author: Precogly
+  tags:
+  - stride
+  - threat-classification

@@ -9,7 +9,6 @@ Library packs are modular bundles of threat-modeling content (components, threat
 | `pack_type` | What it contains | Example |
 |---|---|---|
 | `technology` | Components only | `aws`, `azure`, `gcp` |
-| `threat` | Threats + countermeasures | `base-stride` |
 | `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
 | `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
 | `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `mini-cwe` |
@@ -19,10 +18,20 @@ Library packs are modular bundles of threat-modeling content (components, threat
 
 ## Directory Structure
 
-Every pack is a directory. Only `pack.yaml` is required; all other files are optional depending on pack type.
+Every pack is a directory under one of the category folders in `libraries/packs/`:
 
 ```
-aws-mini/
+libraries/packs/
+├── taxonomies/          # Classification systems (STRIDE, CWE, CAPEC, ATT&CK)
+├── standards/           # Compliance frameworks (NIST CSF, OWASP, SOC 2, etc.)
+├── threat-libraries/    # Technology-specific threats (AWS, Azure, GCP, etc.)
+└── demo/                # Demonstration / mini packs
+```
+
+Only `pack.yaml` is required; all other files are optional depending on pack type.
+
+```
+demo/aws-mini/
 ├── pack.yaml                              # Pack metadata (required)
 ├── components.yaml                        # Component definitions
 ├── threats.yaml                           # Threat definitions
@@ -56,22 +65,18 @@ pack:
   description: |
     A minimal AWS pack demonstrating core AWS services with
     associated threats and countermeasures.
-  tier: free
-  source: official
   author: Precogly
-  industries:
-    - technology
-    - saas
+  depends_on:
+    - taxonomies/stride-taxonomy
+    - taxonomies/mini-capec
+    - taxonomies/mini-cwe
+    - taxonomies/mini-attack
   tags:
     - aws
     - cloud
     - serverless
-  repository_url: "https://github.com/precogly/precogly"
-  documentation_url: "https://docs.precogly.dev/packs/aws-mini"
-  depends_on:                          # optional
-    - pack: base-stride
-      version: "^1.0.0"               # SemVer constraint
-      optional: false                  # default false
+    - demo
+    - mini
 ```
 
 ### Field Reference
@@ -81,32 +86,23 @@ pack:
 | `slug` | yes | Unique identifier. Lowercase alphanumeric + hyphens. |
 | `name` | yes | Display name. |
 | `version` | yes | Semantic version (`X.Y.Z`). |
-| `pack_type` | yes | `technology`, `threat`, `countermeasure`, `compliance`, `template`, `full`, or `industry` |
+| `pack_type` | yes | `technology`, `threat`, `countermeasure`, `compliance`, `template`, `full`, or `taxonomy` |
 | `description` | yes | Multi-line description. |
-| `tier` | no | `free` (default), `premium`, `enterprise` |
-| `source` | no | `official`, `partner`, `community` (default), `private` |
 | `author` | no | Author name. |
-| `industries` | no | List of industry tags. |
 | `tags` | no | Searchable tags. |
-| `repository_url` | no | Source code URL. |
-| `documentation_url` | no | Documentation URL. |
 | `depends_on` | no | List of pack dependencies (see below). |
 
 ### Dependencies
 
+Dependencies use path-format strings relative to the `libraries/packs/` root:
+
 ```yaml
 depends_on:
-  - pack: base-stride        # pack slug
-    version: "^1.0.0"        # ^=compatible, ~=patch-only, >=, exact
-    optional: true            # optional dependency (default false)
+  - taxonomies/stride-taxonomy
+  - taxonomies/mini-cwe
 ```
 
-| Constraint | Meaning |
-|---|---|
-| `^1.0.0` | Compatible with 1.x.x |
-| `~1.2.0` | Compatible with 1.2.x |
-| `>=2.0.0` | At least 2.0.0 |
-| `1.5.0` | Exact version |
+The slug is extracted from the last path segment (e.g., `taxonomies/stride-taxonomy` resolves to slug `stride-taxonomy`). Plain slugs (without `/`) also work for backward compatibility.
 
 ---
 
@@ -544,13 +540,12 @@ Different item types use different identifier keys. Using the wrong key causes s
 Validation catches this automatically on import and suggests the fix.
 
 ```yaml
-# frameworks/nist-csf/pack.yaml
+# standards/nist-csf/pack.yaml
 pack:
   slug: nist-csf
   name: "NIST CSF 2.0"
   version: "1.0.0"
   pack_type: compliance
-  tier: free
   author: "Precogly"
   description: "NIST Cybersecurity Framework 2.0"
   tags:
@@ -580,20 +575,19 @@ frameworks:
 When your pack depends on another, you can reference its items using qualified slugs (`{pack-slug}/{item-id}`):
 
 ```yaml
-# In your threats-countermeasures.yaml, referencing a base-stride countermeasure
+# In your threats-countermeasures.yaml, referencing another pack's countermeasure
 mappings:
   - threat: my-custom-threat
     countermeasures:
       - my-local-countermeasure        # same pack — plain id
-      - base-stride/mfa-enforcement    # different pack — qualified slug
+      - aws/s3-block-public-access     # different pack — qualified slug
 ```
 
 Declare the dependency in `pack.yaml`:
 
 ```yaml
 depends_on:
-  - pack: base-stride
-    version: "^1.0.0"
+  - threat-libraries/aws
 ```
 
 ---
@@ -615,7 +609,6 @@ POST /api/packs/validate/
 |---|---|---|
 | Required metadata (`slug`, `name`, `version`, `pack_type`) | Error | Missing pack identity fields |
 | Valid `pack_type` enum | Warning | Typos in pack type |
-| Valid `tier` enum | Warning | Typos in tier value |
 | Framework entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
 | Taxonomy entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
 | Components/threats/countermeasures have `id` | Error | Missing identifier |

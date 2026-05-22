@@ -16,7 +16,6 @@ from typing import Optional
 import yaml
 from django.conf import settings
 from django.db import transaction
-from django.utils import timezone
 
 from apps.diagrams.models import DFDTemplatesLibrary
 from apps.systems.models import ComponentLibrary
@@ -60,10 +59,7 @@ class PackInfo:
     description: str
     version: str
     pack_type: str
-    tier: str = "free"
-    source: str = "official"
     author: str = ""
-    industries: list = field(default_factory=list)
     tags: list = field(default_factory=list)
     # Absolute filesystem path to the pack directory (for callers that
     # need to load files from disk).
@@ -86,10 +82,7 @@ class PackInfo:
             "description": self.description,
             "version": self.version,
             "pack_type": self.pack_type,
-            "tier": self.tier,
-            "source": self.source,
             "author": self.author,
-            "industries": self.industries,
             "tags": self.tags,
             "path": self.path,
             "relative_path": self.relative_path,
@@ -202,10 +195,7 @@ def _discover_pack(pack_dir: Path, libraries_path: Path, existing_packs: dict) -
             description=pack_meta.get("description", ""),
             version=pack_meta.get("version", "0.0.0"),
             pack_type=pack_meta.get("pack_type", "technology"),
-            tier=pack_meta.get("tier", "free"),
-            source=pack_meta.get("source", "official"),
             author=pack_meta.get("author", ""),
-            industries=pack_meta.get("industries", []),
             tags=pack_meta.get("tags", []),
             path=str(pack_dir),
             relative_path=relative_path,
@@ -276,8 +266,8 @@ def discover_packs_from_source() -> list[PackInfo]:
         resolved_dependencies = []
         for dep_entry in pack_info.depends_on:
             if isinstance(dep_entry, str):
-                dep_slug = dep_entry
-                dep_path = ""
+                dep_slug = dep_entry.split("/")[-1] if "/" in dep_entry else dep_entry
+                dep_path = dep_entry if "/" in dep_entry else ""
             else:
                 dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
                 dep_path = dep_entry.get("path", "")
@@ -303,8 +293,8 @@ def get_pack_preview_from_source(pack_relative_path: str) -> dict | None:
     libraries/packs root for O(1) directory lookup.
 
     Args:
-        pack_relative_path: Relative path from libraries/packs root (e.g. "aws-mini",
-            "frameworks/nist-csf")
+        pack_relative_path: Relative path from libraries/packs root (e.g. "demo/aws-mini",
+            "standards/nist-csf")
 
     Returns:
         Dictionary with pack metadata, components, threats, and countermeasures
@@ -502,10 +492,8 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
             "description": pack_meta.get("description", ""),
             "version": pack_meta.get("version", ""),
             "pack_type": pack_meta.get("pack_type", ""),
-            "tier": pack_meta.get("tier", ""),
             "author": pack_meta.get("author", ""),
             "tags": pack_meta.get("tags", []),
-            "industries": pack_meta.get("industries", []),
         },
         "components": components,
         "threats": threats,
@@ -670,24 +658,13 @@ def validate_pack(pack_path: Path) -> ValidationResult:
             suggestion=f"Use one of: {', '.join(sorted(valid_pack_types))}",
         ))
 
-    # Valid tier enum (if present)
-    valid_tiers = {"free", "premium", "enterprise"}
-    tier_value = pack_meta.get("tier", "")
-    if tier_value and tier_value not in valid_tiers:
-        warnings.append(ValidationWarning(
-            file="pack.yaml",
-            field="tier",
-            message=f"Unknown tier: '{tier_value}'",
-            suggestion=f"Use one of: {', '.join(sorted(valid_tiers))}",
-        ))
-
     # Validate depends_on entries exist on disk or in DB
     depends_on_entries = pack_meta.get("depends_on", [])
     if depends_on_entries:
         libraries_path = get_libraries_path()
         for dep_entry in depends_on_entries:
             if isinstance(dep_entry, str):
-                dep_slug = dep_entry
+                dep_slug = dep_entry.split("/")[-1] if "/" in dep_entry else dep_entry
                 dep_path = dep_entry
             else:
                 dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
@@ -1645,16 +1622,8 @@ def _create_or_update_pack(pack_data: dict) -> LibraryPack:
             "description": pack.get("description", ""),
             "version": pack["version"],
             "pack_type": pack["pack_type"],
-            "tier": pack.get("tier", "free"),
-            "source": pack.get("source", "official"),
             "author": pack.get("author", ""),
-            "repository_url": pack.get("repository_url", ""),
-            "documentation_url": pack.get("documentation_url", ""),
-            "industries": pack.get("industries", []),
             "tags": pack.get("tags", []),
-            "content": pack_data,
-            "is_published": True,
-            "published_at": timezone.now(),
         },
     )
 
@@ -1679,13 +1648,9 @@ def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
 
     for dep in depends_on:
         if isinstance(dep, str):
-            dep_slug = dep
-            version_constraint = ""
-            is_optional = False
+            dep_slug = dep.split("/")[-1] if "/" in dep else dep
         else:
             dep_slug = dep.get("pack", dep.get("slug", ""))
-            version_constraint = dep.get("version", "")
-            is_optional = dep.get("optional", False)
 
         # Find the dependency pack (may not exist yet). Slug uniqueness
         # in the DB makes the lookup unambiguous regardless of how many
@@ -1695,8 +1660,6 @@ def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
             LibraryPackDependency.objects.create(
                 pack=library_pack,
                 depends_on_pack=dep_pack,
-                version_constraint=version_constraint,
-                is_optional=is_optional,
             )
 
 
@@ -2740,7 +2703,7 @@ def _resolve_countermeasure_reference(library_pack: LibraryPack, ref: str) -> Op
 
     Supports:
     - 'encrypt_at_rest' → looks in current pack
-    - 'base-stride/encryption-at-rest' → looks in base-stride pack (cross-pack reference)
+    - 'aws/s3-block-public-access' → looks in aws pack (cross-pack reference)
     """
     if "/" in ref:
         # Cross-pack reference

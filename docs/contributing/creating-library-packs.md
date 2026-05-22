@@ -4,7 +4,7 @@ Library packs are modular bundles of threat-modeling content: components, threat
 
 For background on what library packs are and how they work in the UI, see [Library Packs (Concepts)](../concepts/library-packs.md). For the complete field-level YAML reference, see [`libraries/README.md`](https://github.com/precogly/precogly/blob/main/libraries/README.md).
 
-The canonical reference pack is **`aws-mini`** (`libraries/packs/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
+The canonical reference pack is **`aws-mini`** (`libraries/packs/demo/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
 
 ---
 
@@ -48,7 +48,7 @@ The `aws-mini` pack is a `full` pack that demonstrates every file type. Use it a
 ### Directory layout
 
 ```
-libraries/packs/aws-mini/
+libraries/packs/demo/aws-mini/
 ├── pack.yaml                              # Pack metadata
 ├── components.yaml                        # 4 components (S3, Lambda, API Gateway, DynamoDB)
 ├── threats.yaml                           # ~15 threats across all components
@@ -82,24 +82,26 @@ pack:
   description: |
     A minimal AWS pack demonstrating core AWS services with associated
     threats and countermeasures.
-  tier: free
-  source: official
   author: Precogly
-  depends_on: [stride-taxonomy, mini-capec, mini-cwe, mini-attack]
-  industries:
-    - technology
-    - saas
+  depends_on:
+    - taxonomies/stride-taxonomy
+    - taxonomies/mini-capec
+    - taxonomies/mini-cwe
+    - taxonomies/mini-attack
   tags:
     - aws
     - cloud
     - serverless
+    - technology
+    - saas
+    - demo
+    - mini
 ```
 
 Key points:
 
 - `slug` must be unique, lowercase, hyphens only.
-- `depends_on` lists taxonomy packs whose entries the join files reference. Without these, taxonomy mappings won't resolve on import.
-- `source` should be `community` for external contributions.
+- `depends_on` lists taxonomy packs (using path-format strings) whose entries the join files reference. Without these, taxonomy mappings won't resolve on import.
 
 **`components.yaml`** defines the technology building blocks:
 
@@ -334,7 +336,6 @@ pack:
   pack_type: full               # or technology, threat, etc.
   description: |
     Clear description of what this pack covers.
-  source: community             # use "community" for external contributions
   author: Your Name             # or your GitHub username
   tags:
     - relevant
@@ -373,7 +374,6 @@ All contributed packs are subject to the project's license. By submitting a pack
 Reviewers will check:
 
 - [ ] `pack.yaml` has all required fields
-- [ ] `source: community` is set (for external contributions)
 - [ ] All IDs are unique within their file and follow naming conventions
 - [ ] All join file references resolve to existing IDs
 - [ ] Threats are accurate and specific to the technology

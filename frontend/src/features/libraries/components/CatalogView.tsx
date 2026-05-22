@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Package, Search } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Package, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -45,6 +45,21 @@ export function CatalogView() {
   const validateMutation = useValidatePack()
   const [validatingSlug, setValidatingSlug] = useState<string | null>(null)
 
+  // Debounced search: update filters after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((prev) => ({ ...prev, search: searchInput || undefined }))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Category labels derived from the first segment of relativePath
+  const categoryLabels: Record<string, string> = {
+    taxonomies: 'Taxonomies',
+    standards: 'Standards',
+    'threat-libraries': 'Threat Libraries',
+  }
+
   const unifiedPacks = useMemo(() => {
     const packs: UnifiedPack[] = []
     const seenSlugs = new Set<string>()
@@ -58,8 +73,6 @@ export function CatalogView() {
           description: sp.description,
           version: sp.version,
           packType: sp.packType,
-          tier: sp.tier,
-          source: sp.source,
           tags: sp.tags,
           relativePath: sp.relativePath,
           componentCount: sp.componentCount,
@@ -82,8 +95,6 @@ export function CatalogView() {
             description: dbPack.description,
             version: dbPack.version,
             packType: dbPack.packType,
-            tier: dbPack.tier,
-            source: dbPack.source,
             tags: dbPack.tags,
             relativePath: '',
             componentCount: 0,
@@ -107,25 +118,30 @@ export function CatalogView() {
           p.tags.some((t) => t.toLowerCase().includes(search))
       )
     }
-    if (filters.packType) {
-      filtered = filtered.filter((p) => p.packType === filters.packType)
+    if (filters.category) {
+      filtered = filtered.filter((p) => {
+        const firstSegment = p.relativePath.split('/')[0]
+        return firstSegment === filters.category
+      })
     }
-    if (filters.tier) {
-      filtered = filtered.filter((p) => p.tier === filters.tier)
+    if (filters.tag) {
+      filtered = filtered.filter((p) => p.tags.includes(filters.tag!))
     }
 
     return filtered
   }, [sourcePacks, dbPacks, filters])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setFilters((prev) => ({ ...prev, search: searchInput || undefined }))
-  }
-
   const handleFilterChange = (key: keyof PackFilters, value: string) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value === 'all' ? undefined : value,
+    }))
+  }
+
+  const handleTagClick = (tag: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      tag: prev.tag === tag ? undefined : tag,
     }))
   }
 
@@ -213,55 +229,54 @@ export function CatalogView() {
     <div className="space-y-6">
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search packs..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Button type="submit" variant="secondary">
-            Search
-          </Button>
-        </form>
-        <div className="flex gap-2">
-          <Select
-            value={filters.packType ?? 'all'}
-            onValueChange={(value) => handleFilterChange('packType', value)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="technology">Technology</SelectItem>
-              <SelectItem value="threat">Threat</SelectItem>
-              <SelectItem value="countermeasure">Countermeasure</SelectItem>
-              <SelectItem value="compliance">Compliance</SelectItem>
-              <SelectItem value="template">Template</SelectItem>
-              <SelectItem value="full">Full</SelectItem>
-              <SelectItem value="taxonomy">Taxonomy</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.tier ?? 'all'}
-            onValueChange={(value) => handleFilterChange('tier', value)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Tier" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Tiers</SelectItem>
-              <SelectItem value="free">Free</SelectItem>
-              <SelectItem value="premium">Premium</SelectItem>
-              <SelectItem value="enterprise">Enterprise</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search packs..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
         </div>
+        <Select
+          value={filters.category ?? 'all'}
+          onValueChange={(value) => handleFilterChange('category', value)}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {Object.entries(categoryLabels).map(([key, label]) => (
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Active tag filter indicator */}
+      {filters.tag && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Filtered by tag:</span>
+          <Badge
+            variant="default"
+            className="cursor-pointer gap-1"
+            onClick={() => handleTagClick(filters.tag!)}
+          >
+            {filters.tag}
+            <X className="h-3 w-3" />
+          </Badge>
+        </div>
+      )}
+
+      {/* Result count */}
+      {!isLoading && (
+        <p className="text-sm text-muted-foreground">
+          Showing {unifiedPacks.length} pack{unifiedPacks.length !== 1 ? 's' : ''}
+        </p>
+      )}
 
       {/* Pack Grid */}
       {isLoading ? (
@@ -279,6 +294,8 @@ export function CatalogView() {
               onImport={handleImportClick}
               onPreview={handlePreview}
               onValidate={handleValidate}
+              onTagClick={handleTagClick}
+              activeTag={filters.tag}
               isImporting={importingSlug === pack.slug}
               isValidating={validatingSlug === pack.slug}
               isSecurityTeam={isSecurityTeam}
@@ -290,7 +307,7 @@ export function CatalogView() {
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No packs found</h3>
           <p className="text-muted-foreground">
-            {filters.search || filters.packType || filters.tier
+            {filters.search || filters.category || filters.tag
               ? 'Try adjusting your search or filters.'
               : 'No library packs are available yet.'}
           </p>

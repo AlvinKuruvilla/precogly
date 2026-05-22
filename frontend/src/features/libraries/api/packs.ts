@@ -32,10 +32,7 @@ export interface SourcePackInfo {
   description: string
   version: string
   packType: string
-  tier: string
-  source: string
   author: string
-  industries: string[]
   tags: string[]
   path: string
   relativePath: string
@@ -134,10 +131,8 @@ export interface PackPreviewResponse {
     description: string
     version: string
     packType: string
-    tier: string
     author: string
     tags: string[]
-    industries: string[]
   }
   components: PackPreviewComponent[]
   threats: PackPreviewThreat[]
@@ -163,11 +158,6 @@ export interface AvailableOverlaysResponse {
 // Build query string from filters
 function buildQueryString(filters: PackFilters): string {
   const params = new URLSearchParams()
-  if (filters.packType) params.append('pack_type', filters.packType)
-  if (filters.tier) params.append('tier', filters.tier)
-  if (filters.source) params.append('source', filters.source)
-  if (filters.industry) params.append('industry', filters.industry)
-  if (filters.tag) params.append('tag', filters.tag)
   if (filters.search) params.append('search', filters.search)
   const query = params.toString()
   return query ? `?${query}` : ''

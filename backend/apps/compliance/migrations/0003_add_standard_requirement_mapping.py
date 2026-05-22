@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('compliance', '0002_initial'),
-        ('packs', '0002_add_standard_requirement_mapping'),
+        ('packs', '0001_initial'),
     ]
 
     operations = [

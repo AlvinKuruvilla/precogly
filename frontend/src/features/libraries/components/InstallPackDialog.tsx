@@ -67,12 +67,6 @@ export function InstallPackDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Version info */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Version</span>
-            <span className="font-medium">{pack.version}</span>
-          </div>
-
           {/* Dependencies section */}
           {loadingDeps ? (
             <div className="text-sm text-muted-foreground">
@@ -89,9 +83,6 @@ export function InstallPackDialog({
                   >
                     <span>{dep.name}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {dep.version}
-                      </span>
                       {dep.isImported ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
