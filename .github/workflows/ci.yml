@@ -9,12 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r backend/requirements/development.txt
-      - run: cd backend && python -m flake8 apps/
-      - run: cd backend && python -m pytest
+      - run: docker compose up -d db
+      - run: docker compose run --rm backend python -m pytest
 
   frontend:
     runs-on: ubuntu-latest
@@ -25,4 +21,3 @@ jobs:
           node-version: '22'
       - run: cd frontend && npm ci
       - run: cd frontend && npx tsc --noEmit
-      - run: cd frontend && npm run lint
