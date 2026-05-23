@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: iso27001
   name: ISO 27001:2022
   version: 1.0.0

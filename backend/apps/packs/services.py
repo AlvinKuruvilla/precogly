@@ -59,6 +59,7 @@ class PackInfo:
     description: str
     version: str
     pack_type: str
+    schema_version: int = 1
     author: str = ""
     tags: list = field(default_factory=list)
     # Absolute filesystem path to the pack directory (for callers that
@@ -82,6 +83,7 @@ class PackInfo:
             "description": self.description,
             "version": self.version,
             "pack_type": self.pack_type,
+            "schema_version": self.schema_version,
             "author": self.author,
             "tags": self.tags,
             "path": self.path,
@@ -145,6 +147,8 @@ def get_libraries_path() -> Path:
     return libraries_path
 
 
+SUPPORTED_SCHEMA_VERSIONS = {1}
+
 _SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
@@ -195,6 +199,7 @@ def _discover_pack(pack_dir: Path, libraries_path: Path, existing_packs: dict) -
             description=pack_meta.get("description", ""),
             version=pack_meta.get("version", "0.0.0"),
             pack_type=pack_meta.get("pack_type", "technology"),
+            schema_version=pack_meta.get("schema_version", 1),
             author=pack_meta.get("author", ""),
             tags=pack_meta.get("tags", []),
             path=str(pack_dir),
@@ -637,6 +642,24 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                 reference=required_field,
                 message=f"Missing required field: {required_field}",
             ))
+
+    # Schema version check
+    schema_version = pack_meta.get("schema_version")
+    if schema_version is None:
+        warnings.append(ValidationWarning(
+            file="pack.yaml",
+            field="schema_version",
+            message="Missing schema_version field",
+            suggestion="Add 'schema_version: 1' to the pack section. This will be required in a future release.",
+        ))
+    elif schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        errors.append(ValidationError(
+            file="pack.yaml",
+            line=None,
+            ref_type="pack",
+            reference="schema_version",
+            message=f"Unsupported schema_version: {schema_version}. Supported versions: {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
+        ))
 
     # Pack slug format
     if slug and not _is_valid_slug(slug):

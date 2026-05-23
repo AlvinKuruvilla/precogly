@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: banking
   name: Banking
   description: Banking and financial services components and DFD templates

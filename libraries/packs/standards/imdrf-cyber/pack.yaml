@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: imdrf-cyber
   name: IMDRF Cybersecurity Guidance
   version: 1.0.0

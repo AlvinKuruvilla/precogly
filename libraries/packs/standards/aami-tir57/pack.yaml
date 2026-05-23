@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: aami-tir57
   name: AAMI TIR57 Medical Device Security
   version: 1.0.0

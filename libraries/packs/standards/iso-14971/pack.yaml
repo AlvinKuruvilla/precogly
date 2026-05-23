@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: iso-14971
   name: ISO 14971 Medical Device Risk Management
   version: 1.0.0

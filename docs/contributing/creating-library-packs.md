@@ -75,6 +75,7 @@ libraries/packs/demo/aws-mini/
 
 ```yaml
 pack:
+  schema_version: 1
   slug: aws-mini
   name: AWS Mini
   version: 1.1.0
@@ -100,6 +101,7 @@ pack:
 
 Key points:
 
+- `schema_version` declares the pack format version. Always use `1` (the current version). This is checked at import time — packs with an unsupported version are rejected.
 - `slug` must be unique, lowercase, hyphens only.
 - `depends_on` lists taxonomy packs (using path-format strings) whose entries the join files reference. Without these, taxonomy mappings won't resolve on import.
 
@@ -297,6 +299,8 @@ This endpoint requires **Security Team** role. It checks structural issues (meta
 | Invalid `cost` | "Unknown cost" | Use `low`, `medium`, or `high` |
 | Invalid `category` | "Unknown category" | Use `process`, `datastore`, `external_human_actor`, or `external_system_actor` |
 | Missing `pack_type` | "Missing required field: pack_type" | Add `pack_type` to the `pack:` section |
+| Missing `schema_version` | "Missing schema_version field" | Add `schema_version: 1` to the `pack:` section |
+| Unsupported `schema_version` | "Unsupported schema_version: N" | Use `schema_version: 1` (the only currently supported version) |
 | Missing component `id` | "Component at index N has no 'id' field" | Add `id:` to the component entry |
 
 ### Import and verify in the UI
@@ -330,6 +334,7 @@ Your `pack.yaml` must include:
 
 ```yaml
 pack:
+  schema_version: 1              # pack format version (always 1)
   slug: your-pack-slug          # unique, lowercase, hyphens only
   name: Your Pack Name
   version: 1.0.0                # start at 1.0.0 for new packs

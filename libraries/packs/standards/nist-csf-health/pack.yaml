@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: nist-csf-health
   name: NIST CSF Healthcare Profile
   version: 1.0.0

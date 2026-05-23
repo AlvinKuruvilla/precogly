@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: eu-mdr-cyber
   name: EU MDR Cybersecurity Requirements
   version: 1.0.0

@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: hipaa
   name: HIPAA
   version: 1.0.0

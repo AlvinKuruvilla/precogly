@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: pci-dss
   name: PCI-DSS v4.0
   version: 1.0.0

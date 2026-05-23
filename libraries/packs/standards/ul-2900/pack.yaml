@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: ul-2900
   name: UL 2900 Software Cybersecurity
   version: 1.0.0

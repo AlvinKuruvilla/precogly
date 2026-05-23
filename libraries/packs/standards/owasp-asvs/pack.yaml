@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: owasp-asvs
   name: OWASP ASVS 4.0 (Mini)
   version: 1.0.0

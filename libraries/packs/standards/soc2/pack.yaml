@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: soc2
   name: SOC 2
   version: 1.0.0
