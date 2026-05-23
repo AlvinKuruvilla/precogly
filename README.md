@@ -64,6 +64,10 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 - **Backend:** Django 5.1, Django REST Framework, PostgreSQL 16
 - **Infrastructure:** Docker, nginx (production)
 
+### Roadmap
+
+See the [v0.2.0 milestone](https://github.com/precogly/precogly/milestone/1) for what's coming next.
+
 ### Contributing
 
 - [Open an issue](https://github.com/precogly/precogly/issues)
