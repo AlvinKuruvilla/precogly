@@ -1,0 +1,15 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "extra-files": [
+        "frontend/package.json",
+        {
+          "type": "generic",
+          "path": "backend/config/settings/base.py",
+          "glob": false
+        }
+      ]
+    }
+  }
+}

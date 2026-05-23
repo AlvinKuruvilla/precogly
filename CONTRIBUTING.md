@@ -25,8 +25,26 @@ Before your first PR can be merged, you'll need to accept our
 It's short, written in plain English, and CLA Assistant will prompt you automatically on
 your first pull request.
 
+## PR Titles
+
+We use [conventional commits](https://www.conventionalcommits.org/) for PR titles. This drives our automated changelog and release process.
+
+Format: `type: short description`
+
+- `feat:` — new feature (bumps minor version)
+- `fix:` — bug fix (bumps patch version)
+- `docs:` — documentation only
+- `chore:` — maintenance, CI, deps
+- `refactor:` — code change that neither fixes a bug nor adds a feature
+
+Examples:
+- `feat: add OT/ICS threat library pack`
+- `fix: remove Demo category from catalog dropdown`
+- `docs: update contributing guide`
+
 ## Quick Checklist Before You Open a PR
 
+- [ ] PR title follows the conventional commit format above
 - [ ] Code runs locally without errors
 - [ ] Frontend changes include screenshots in the PR description
 - [ ] You've tested the happy path AND at least one edge case
