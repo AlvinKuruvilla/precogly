@@ -42,7 +42,7 @@ STANDARD_PACKS = [
 ]
 
 FULL_PACKS = [
-    "demo/aws-mini",
+    "threat-libraries/aws-mini",
 ]
 
 DFD_TEMPLATE_SLUG = "aws-mini/aws-serverless"
