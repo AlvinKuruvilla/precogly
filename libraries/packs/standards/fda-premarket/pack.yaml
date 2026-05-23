@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: fda-premarket
   name: FDA Pre-Market Cybersecurity
   version: 1.0.0

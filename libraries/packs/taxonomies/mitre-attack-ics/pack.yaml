@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: mitre-attack-ics
   name: MITRE ATT&CK for ICS
   description: Curated subset of MITRE ATT&CK for Industrial Control Systems techniques covering adversary behaviors targeting

@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: mini-attack
   name: Mini ATT&CK
   description: Curated subset of MITRE ATT&CK Enterprise techniques covering the most common adversary behaviors in cloud

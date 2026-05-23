@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: ot-ics
   name: OT/ICS Industrial Control Systems
   version: 1.0.0
@@ -11,20 +12,20 @@ pack:
     oil and gas, chemical, and manufacturing sectors.
   author: Precogly
   depends_on:
-  - taxonomies/stride-taxonomy
-  - taxonomies/mini-cwe
-  - taxonomies/mitre-attack-ics
+    - taxonomies/stride-taxonomy
+    - taxonomies/mini-cwe
+    - taxonomies/mitre-attack-ics
   tags:
-  - ics
-  - ot-security
-  - scada
-  - dcs
-  - plc
-  - industrial
-  - critical-infrastructure
-  - safety
-  - energy
-  - oil-gas
-  - manufacturing
-  - utilities
-  - chemicals
+    - ics
+    - ot-security
+    - scada
+    - dcs
+    - plc
+    - industrial
+    - critical-infrastructure
+    - safety
+    - energy
+    - oil-gas
+    - manufacturing
+    - utilities
+    - chemicals

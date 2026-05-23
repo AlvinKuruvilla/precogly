@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: iec-81001
   name: IEC 81001-5-1 Health Software Security
   version: 1.0.0

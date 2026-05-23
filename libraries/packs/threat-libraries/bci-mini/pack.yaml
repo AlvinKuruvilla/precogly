@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: bci-mini
   name: BCI Mini
   version: 1.0.0

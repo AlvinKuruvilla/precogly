@@ -58,6 +58,7 @@ Pack metadata. This is the only required file.
 
 ```yaml
 pack:
+  schema_version: 1
   slug: aws-mini
   name: AWS Mini
   version: 1.1.0
@@ -83,6 +84,7 @@ pack:
 
 | Field | Required | Description |
 |---|---|---|
+| `schema_version` | yes | Pack format version. Must be `1`. See [Pack format versioning](#pack-format-versioning). |
 | `slug` | yes | Unique identifier. Lowercase alphanumeric + hyphens. |
 | `name` | yes | Display name. |
 | `version` | yes | Semantic version (`X.Y.Z`). |
@@ -103,6 +105,16 @@ depends_on:
 ```
 
 The slug is extracted from the last path segment (e.g., `taxonomies/stride-taxonomy` resolves to slug `stride-taxonomy`). Plain slugs (without `/`) also work for backward compatibility.
+
+### Pack format versioning
+
+`schema_version` declares which version of the pack format a pack uses. This is separate from the pack's content `version` (which tracks changes to threats, countermeasures, etc.).
+
+- **`schema_version: 1`** — The current and only format version.
+- When the app loads a pack, it checks `schema_version` against its set of supported versions. If the version is unsupported, the pack is rejected with a validation error.
+- If `schema_version` is missing, a validation warning is emitted (the pack can still be imported). This allows backwards compatibility for external packs that haven't adopted the field yet.
+
+When we change the pack structure in the future (rename folders, add required fields, change YAML layout), we will bump the schema version. This lets the app know whether it can read a given pack.
 
 ---
 
@@ -542,6 +554,7 @@ Validation catches this automatically on import and suggests the fix.
 ```yaml
 # standards/nist-csf/pack.yaml
 pack:
+  schema_version: 1
   slug: nist-csf
   name: "NIST CSF 2.0"
   version: "1.0.0"
@@ -608,6 +621,8 @@ POST /api/packs/validate/
 | Check | Severity | What it catches |
 |---|---|---|
 | Required metadata (`slug`, `name`, `version`, `pack_type`) | Error | Missing pack identity fields |
+| Missing `schema_version` | Warning | Pack format version not declared |
+| Unsupported `schema_version` | Error | Pack uses a format version the app cannot read |
 | Valid `pack_type` enum | Warning | Typos in pack type |
 | Framework entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
 | Taxonomy entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
@@ -624,6 +639,7 @@ POST /api/packs/validate/
 
 Before submitting a pack, verify:
 
+- [ ] `pack.yaml` has `schema_version: 1` as the first field in the `pack:` section
 - [ ] `pack.yaml` has all required fields (`slug`, `name`, `version`, `pack_type`, `description`)
 - [ ] All `id` / `slug` values are unique within their file
 - [ ] All `id` values are lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`)

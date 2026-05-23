@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: gcp
   name: GCP Technologies
   description: Google Cloud Platform components for threat modeling diagrams

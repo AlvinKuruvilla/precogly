@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: owasp-top-10
   name: OWASP Top 10 2021
   version: 1.0.0

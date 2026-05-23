@@ -53,6 +53,7 @@ demo/aws-mini/
 
 ```yaml
 pack:
+  schema_version: 1
   slug: aws-mini
   name: AWS Mini
   version: 1.1.0
@@ -72,6 +73,8 @@ pack:
     - demo
     - mini
 ```
+
+`schema_version` declares which version of the pack format this pack uses. The app checks this at import time and rejects packs with an unsupported version. This is separate from `version`, which tracks changes to the pack's content.
 
 Here's how the YAML maps to what you see in the UI when previewing a pack:
 

@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: stride-taxonomy
   name: STRIDE Taxonomy
   description: Microsoft STRIDE threat classification model

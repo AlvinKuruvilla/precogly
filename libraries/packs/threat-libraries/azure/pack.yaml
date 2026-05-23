@@ -1,4 +1,5 @@
 pack:
+  schema_version: 1
   slug: azure
   name: Azure Technologies
   description: Microsoft Azure cloud components for threat modeling diagrams
