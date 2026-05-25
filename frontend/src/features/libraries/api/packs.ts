@@ -250,15 +250,18 @@ export function useImportSinglePack() {
       slug,
       force = false,
       selectedOverlays,
+      skipValidation = false,
     }: {
       slug: string
       force?: boolean
       selectedOverlays?: string[] | null
+      skipValidation?: boolean
     }) =>
       api.post<ImportResult>('/packs/import_single/', {
         slug,
         force,
         selectedOverlays,
+        skipValidation,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packKeys.all })

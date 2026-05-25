@@ -184,6 +184,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         slug = request.data.get("slug")
         force = request.data.get("force", False)
         selected_overlays = request.data.get("selected_overlays")  # camelCase auto-converted by middleware
+        skip_validation = request.data.get("skip_validation", False)
 
         if not slug:
             return Response(
@@ -206,6 +207,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             Path(pack_info.path),
             force=force,
             selected_overlays=selected_overlays,
+            skip_validation=skip_validation,
         )
 
         # Handle ValidationResult (returned when validation finds issues)

@@ -336,9 +336,35 @@ export function CatalogView() {
           if (!open) {
             setValidationResult(null)
             setValidationPackSlug(null)
-
           }
         }}
+        onImportAnyway={
+          validationPackSlug
+            ? async () => {
+                try {
+                  const result = await importMutation.mutateAsync({
+                    slug: validationPackSlug,
+                    force: true,
+                    skipValidation: true,
+                  })
+                  setValidationDialogOpen(false)
+                  setValidationResult(null)
+                  setValidationPackSlug(null)
+                  if (result.warnings && result.warnings.length > 0) {
+                    toast.warning(
+                      `Imported with ${result.warnings.length} warning(s)`,
+                      { description: result.warnings[0] }
+                    )
+                  } else {
+                    toast.success(`Successfully imported ${result.packName}`)
+                  }
+                } catch {
+                  toast.error('Import failed')
+                }
+              }
+            : undefined
+        }
+        isImporting={importMutation.isPending}
       />
     </div>
   )

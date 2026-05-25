@@ -2262,8 +2262,18 @@ def _load_framework_overlay(library_pack: LibraryPack, file_path: Path, import_w
         )
         return 0
 
-    # Framework exists - remove any pending overlay and apply
-    PendingFrameworkOverlay.objects.filter(pack=library_pack, framework_slug=framework_id).delete()
+    # Framework exists - ensure pending overlay is stored for future re-activation
+    # (e.g. if the framework is unimported then re-imported later)
+    mapping_count = len(data.get("mappings", []))
+    PendingFrameworkOverlay.objects.update_or_create(
+        pack=library_pack,
+        framework_slug=framework_id,
+        defaults={
+            "overlay_file_name": file_path.name,
+            "overlay_data": data,
+            "mapping_count": mapping_count,
+        },
+    )
 
     count = 0
     for mapping in data.get("mappings", []):
@@ -2368,12 +2378,19 @@ def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path, import
         )
         return 0
 
-    # Both frameworks exist. Remove any pending overlay and apply.
-    PendingRequirementOverlay.objects.filter(
+    # Both frameworks exist - ensure pending overlay is stored for future re-activation
+    # (e.g. if either framework is unimported then re-imported later)
+    mapping_count = len(data.get("mappings", []))
+    PendingRequirementOverlay.objects.update_or_create(
         pack=library_pack,
         source_framework_slug=source_framework_slug,
         target_framework_slug=target_framework_slug,
-    ).delete()
+        defaults={
+            "overlay_file_name": file_path.name,
+            "overlay_data": data,
+            "mapping_count": mapping_count,
+        },
+    )
 
     count = 0
     for mapping in data.get("mappings", []):
@@ -2492,8 +2509,8 @@ def activate_pending_overlays_for_framework(framework_slug: str) -> dict:
         })
         results["total_mappings"] += mappings_applied
 
-        # Remove the pending overlay
-        pending.delete()
+        # Keep pending overlay for future re-activation (e.g. framework unimport/re-import).
+        # CASCADE on pack FK handles cleanup when the source pack is unimported.
 
     logger.info(
         f"Activated {len(results['packs_activated'])} pending overlays for framework '{framework_slug}' "
@@ -2601,8 +2618,8 @@ def activate_pending_requirement_overlays_for_framework(framework_slug: str) -> 
         })
         results["total_mappings"] += mappings_applied
 
-        # Remove the pending overlay now that both frameworks exist
-        pending.delete()
+        # Keep pending overlay for future re-activation (e.g. framework unimport/re-import).
+        # CASCADE on pack FK handles cleanup when the source pack is unimported.
 
     logger.info(
         f"Activated {len(results['packs_activated'])} pending requirement overlays "
