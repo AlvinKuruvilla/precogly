@@ -29,10 +29,10 @@ When you add a component from a library pack to your threat model, its associate
 
 ## YAML structure
 
-Every pack is a directory under `libraries/packs/`, organized by category (`taxonomies/`, `standards/`, `threat-libraries/`, `demo/`). Only `pack.yaml` is required — other files depend on the pack type.
+Every pack is a directory under `libraries/packs/`, organized by category (`taxonomies/`, `standards/`, `threat-libraries/`). Only `pack.yaml` is required — other files depend on the pack type.
 
 ```
-demo/aws-mini/
+threat-libraries/aws-mini/
 ├── pack.yaml                    # Pack metadata (required)
 ├── components.yaml              # Component definitions
 ├── threats.yaml                 # Threat definitions

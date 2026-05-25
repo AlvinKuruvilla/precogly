@@ -4,7 +4,7 @@ Library packs are modular bundles of threat-modeling content: components, threat
 
 For background on what library packs are and how they work in the UI, see [Library Packs (Concepts)](../concepts/library-packs.md). For the complete field-level YAML reference, see [`libraries/README.md`](https://github.com/precogly/precogly/blob/main/libraries/README.md).
 
-The canonical reference pack is **`aws-mini`** (`libraries/packs/demo/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
+The canonical reference pack is **`aws-mini`** (`libraries/packs/threat-libraries/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
 
 ---
 
@@ -48,7 +48,7 @@ The `aws-mini` pack is a `full` pack that demonstrates every file type. Use it a
 ### Directory layout
 
 ```
-libraries/packs/demo/aws-mini/
+libraries/packs/threat-libraries/aws-mini/
 ├── pack.yaml                              # Pack metadata
 ├── components.yaml                        # 4 components (S3, Lambda, API Gateway, DynamoDB)
 ├── threats.yaml                           # ~15 threats across all components

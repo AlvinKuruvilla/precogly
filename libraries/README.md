@@ -24,14 +24,13 @@ Every pack is a directory under one of the category folders in `libraries/packs/
 libraries/packs/
 ├── taxonomies/          # Classification systems (STRIDE, CWE, CAPEC, ATT&CK)
 ├── standards/           # Compliance frameworks (NIST CSF, OWASP, SOC 2, etc.)
-├── threat-libraries/    # Technology-specific threats (AWS, Azure, GCP, etc.)
-└── demo/                # Demonstration / mini packs
+└── threat-libraries/    # Technology-specific threats (AWS, Azure, GCP, etc.)
 ```
 
 Only `pack.yaml` is required; all other files are optional depending on pack type.
 
 ```
-demo/aws-mini/
+threat-libraries/aws-mini/
 ├── pack.yaml                              # Pack metadata (required)
 ├── components.yaml                        # Component definitions
 ├── threats.yaml                           # Threat definitions
