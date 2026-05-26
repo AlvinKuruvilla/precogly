@@ -19,13 +19,13 @@ When you add a component from a library pack to your threat model, its associate
 
 ## Pack types
 
-| Type | Contains | Example |
-|------|----------|---------|
-| `technology` | Components only | `aws`, `azure`, `gcp` |
-| `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
-| `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
-| `taxonomy` | External threat classification taxonomies | `stride-taxonomy`, `mini-capec` |
-| `template` | DFD templates only | — |
+| Type         | Contains                                                   | Example                         |
+| ------------ | ---------------------------------------------------------- | ------------------------------- |
+| `technology` | Components only                                            | `aws`, `azure`, `gcp`           |
+| `full`       | Components + threats + countermeasures + joins + templates | `aws-mini`                      |
+| `compliance` | Framework definitions with requirements                    | `nist-csf`, `pci-dss`           |
+| `taxonomy`   | External threat classification taxonomies                  | `stride-taxonomy`, `mini-capec` |
+| `template`   | DFD templates only                                         | —                               |
 
 ## YAML structure
 
@@ -94,7 +94,7 @@ Here's how the YAML maps to what you see in the UI when previewing a pack:
 components:
   - id: s3
     name: Amazon S3
-    category: datastore          # process | datastore | external_human_actor | external_system_actor
+    category: datastore # process | datastore | external_human_actor | external_system_actor
     type: Object Storage
     provider: aws
     description: |
@@ -119,8 +119,8 @@ countermeasures:
     name: S3 Block Public Access
     description: |
       Enable S3 Block Public Access at account and bucket level.
-    control_type: preventive     # preventive | detective | corrective | deterrent | recovery | compensating | procedural
-    cost: low                    # low | medium | high
+    control_type: preventive # preventive | detective | corrective | deterrent | recovery | compensating | procedural
+    cost: low # low | medium | high
 ```
 
 ### Join files
@@ -134,7 +134,7 @@ mappings:
   - component: s3
     threats:
       - threat: s3-public-exposure
-        applies_to: component    # component | flow | both
+        applies_to: component # component | flow | both
 ```
 
 **threats-countermeasures.yaml** — which countermeasures mitigate which threats:
@@ -166,13 +166,13 @@ mappings:
   - countermeasure: s3-bucket-policy
     requirements:
       - "PR.AC-4"
-    sufficiency: full            # full | partial
+    sufficiency: full # full | partial
 ```
 
 ## How to import a library pack
 
 !!! note "Import requires Security Team role"
-    The **Import** button is only visible to users with the **Security Team** organization role. If you don't see the Import button, ask your organization admin to update your role from **Member** to **Security Team** in the organization settings.
+The **Import** button is only visible to users with the **Security Team** organization role. If you don't see the Import button, ask your organization admin to update your role from **Member** to **Security Team** in the organization settings.
 
 1. Navigate to the **Library Packs** section from the sidebar
 2. Browse available packs — you can filter by type, tag, or search by name
@@ -184,7 +184,7 @@ Packs with dependencies (e.g., `aws-mini` depends on `stride-taxonomy`, `mini-ca
 ![Import dialog with dependency checks and compliance overlay selection](../assets/images/library-packs-import-dialog.png)
 
 !!! info "Compliance overlay selection"
-    When importing a pack, you can choose which compliance framework mappings to include. For example, import only NIST CSF mappings without SOC 2 if that's all you need.
+When importing a pack, you can choose which compliance framework mappings to include. For example, import only NIST CSF mappings without SOC 2 if that's all you need. You will get warnings if packs that are depended upon by the importing pack have not yet been imported.
 
 ## How to unimport a library pack
 
@@ -197,7 +197,7 @@ Packs with dependencies (e.g., `aws-mini` depends on `stride-taxonomy`, `mini-ca
 Unimporting removes the library definitions (components, threats, countermeasures) but **does not delete** any threat model data you've already created using that pack. Your existing threat models keep their data — they just lose the link back to the library definition.
 
 !!! warning
-    You cannot unimport a pack if other imported packs depend on it. Unimport the dependent packs first.
+You cannot unimport a pack if other imported packs depend on it. Unimport the dependent packs first.
 
 **Taxonomy packs vs. compliance packs:** Taxonomy packs (STRIDE, CAPEC, CWE, etc.) cannot be unimported while content packs that reference them are still imported — taxonomies directly enrich threat data. Compliance packs (NIST CSF, ASVS, etc.) can be unimported independently since compliance mappings are optional and degrade gracefully.
 

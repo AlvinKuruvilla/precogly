@@ -3,7 +3,7 @@
 A walkthrough of Precogly's core workflow using the sample threat model that ships with the demo data.
 
 !!! info "Prerequisites"
-    Make sure Precogly is running locally. See [Installation](installation.md) if you haven't set it up yet.
+Make sure Precogly is running locally. See [Installation](installation.md) if you haven't set it up yet.
 
 ## 0. Log in to Django as Super Admin
 
@@ -15,7 +15,7 @@ When the system first gets seeded with data, it creates a superuser with which y
 ![Django Admin Panel](../assets/images/django-admin.png)
 
 !!! warning
-    Make sure to change this username and password in a production environment.
+Make sure to change this username and password in a production environment.
 
 ## 1. Log in
 
@@ -48,7 +48,7 @@ Click on the sample threat model to open it.
 
 ## 5. Review the overview screen
 
-The overview screen gives you a summary of the threat model and a **completion checklist** that tracks your progress. Notice that **Data Assets** is not yet checked.
+The overview screen gives you a summary of the threat model and a **completion checklist** that tracks your progress. Notice that **Primary assets defined** shows 0 Assets. Also, notice that **Owners assigned** shows 0 out of 110 Owners assigned. This means that countermeasures (or mitigations) to the threats have been allocated but owners to ensure that those countermeasures are implemented have not yet been identified.
 
 ![Overview screen with completion checklist](../assets/images/quickstart-overview-before.png)
 
@@ -83,18 +83,18 @@ Navigate to the threat analysis workspace screen. This is where you review the t
 The three columns map to the core threat modeling questions:
 
 - **Column 1** — "What are we working on?" (components)
-- **Column 2** — "What can go wrong?" (threats, with taxonomy links like CAPEC)
+- **Column 2** — "What can go wrong?" (threats, with taxonomy links like CAPEC) along with severity assessment and a field to enter threat actor details
 - **Column 3** — "What can we do about it?" (countermeasures, with compliance mappings)
 
 Taxonomy mappings come with hyperlinks to their entries, and compliance mappings are viewable on each countermeasure.
 
 ![Threat analysis screen](../assets/images/quickstart-threat-analysis-workspace.png)
 
-Select a countermeasure and assign it to a team member. In the demo environment, the only available user is `admin@precogly.dev`. You'll see that the countermeasure color turns from red (gap) to yellow (planned). Assigning all items under a countermeasure to team members causes the threat to move from "exposed" (red) to "addressable" (yellow).
+Select a countermeasure and assign it to a team member. In the demo environment, the only available user is `admin@precogly.dev`. You'll see that the countermeasure color turns from red (gap) to yellow (planned). Assigning all items under a countermeasure to team members causes the threat to move from "exposed" (red) to "addressable" (yellow). Do this for a few threats.
 
 ## 9. Check your progress
 
-Go back to the overview screen. The **Owners Assigned** item in the completion checklist is now checked, reflecting the assignment you just made. You may need to refresh the page again in case you don't see the assignment to owners.
+Go back to the overview screen. The **Owners assigned** item in the completion checklist is now updated, reflecting the assignment you just made. You may need to refresh the page again in case you don't see the assignment to owners.
 
 ![Updated completion checklist](../assets/images/quickstart-overview-after-allocating.png)
 

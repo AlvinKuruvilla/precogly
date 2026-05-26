@@ -1,10 +1,10 @@
 # Threat Analysis
 
-The threat analysis view is the three-panel workspace where you review components, assess threats, and track countermeasures. Each panel answers one question: *what are we working on?*, *what can go wrong?*, and *what can we do about it?*
+The threat analysis view is the three-panel workspace where you review components, assess threats, and track countermeasures. Each panel answers one question: _what are we working on?_, _what can go wrong?_, and _what can we do about it?_
 
 ![Three-panel threat analysis view — components on the left, threats in the center, countermeasures on the right](../assets/images/threat-analysis-overview.png)
 
-Select a component in the left panel to see its threats. Select a threat to see its countermeasures. Each threat shows a severity assessment (likelihood, impact, rationale) and a status badge — exposed, addressable, or mitigated.
+Select a component in the left panel to see its threats. Select a threat to see its countermeasures. Each threat shows a severity assessment (likelihood, impact, rationale) and a status badge — exposed, addressable, or mitigated. There is also a section where you can assign an attacker persona to the threat.
 
 Threats carry taxonomy tags from your imported [library packs](library-packs.md) — STRIDE categories, CAPEC attack patterns, CWE weaknesses, and MITRE ATT&CK techniques — so you can trace each threat back to established frameworks.
 
