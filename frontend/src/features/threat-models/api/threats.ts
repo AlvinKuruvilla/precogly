@@ -8,7 +8,7 @@ import type { ComponentThreat, ComponentThreatCountermeasure, CountermeasureStat
 import type { TaxonomyEntry } from '@/types/domain'
 
 // Backend countermeasure status (aligned with frontend CountermeasureStatus)
-type BackendCountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
+type BackendCountermeasureStatus = 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived'
 
 // Types
 export interface ComponentInstanceThreat {
@@ -61,6 +61,8 @@ export interface ComponentInstanceCountermeasure {
   countermeasureName: string
   status: BackendCountermeasureStatus
   priority: string
+  dueDate?: string | null
+  externalTicketUrl?: string
   verifiedBy: number | null
   verifiedByEmail: string | null
   evidenceUrl: string
@@ -679,6 +681,8 @@ export interface BackendCountermeasure {
   controlType: string | null
   status: BackendCountermeasureStatus
   priority: string
+  dueDate?: string | null
+  externalTicketUrl?: string
   evidenceUrl: string
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
@@ -709,11 +713,12 @@ export function transformBackendThreatsToComponentThreats(
       componentThreatId,
       status: cm.status as CountermeasureStatus,
       priority: (cm.priority || 'none') as ComponentThreatCountermeasure['priority'],
+      dueDate: cm.dueDate ?? null,
+      externalTicketUrl: cm.externalTicketUrl || undefined,
       owner: cm.assignedOwnerEmail || undefined,
       notes: cm.evidenceUrl || undefined,
       createdAt: now,
       updatedAt: now,
-      // Countermeasure metadata from backend (eliminates need for frontend registry lookup)
       countermeasureName: cm.countermeasureName || undefined,
       controlType: cm.controlType || undefined,
       standardMappings: cm.standardMappings || [],

@@ -155,6 +155,8 @@ export function ThreatModelDetail() {
     revertInheritedCountermeasure,
     updateCountermeasureStatus,
     updateCountermeasurePriority,
+    updateCountermeasureDueDate,
+    updateCountermeasureExternalTicket,
     assignOwner,
     dismissThreat,
     restoreThreat,
@@ -740,6 +742,8 @@ export function ThreatModelDetail() {
                     onRestoreThreat={restoreThreat}
                     onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
                     onCountermeasurePriorityChange={updateCountermeasurePriority}
+                    onCountermeasureDueDateChange={updateCountermeasureDueDate}
+                    onCountermeasureExternalTicketChange={updateCountermeasureExternalTicket}
                     onRevertCountermeasure={revertInheritedCountermeasure}
                     onReorderThreats={reorderThreats}
                     onReorderCountermeasures={reorderCountermeasures}

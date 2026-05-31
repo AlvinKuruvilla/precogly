@@ -10,6 +10,9 @@ import type {
   CreateRiskInput,
   UpdateRiskInput,
   AddRemoveThreatsInput,
+  BulkUpdateRisksInput,
+  CountermeasureComment,
+  AutoPopulateResult,
 } from '@/types/risk'
 
 // Query keys
@@ -152,6 +155,102 @@ export function useRemoveRiskThreats(threatModelId: string) {
     onSuccess: (_, { riskId }) => {
       queryClient.invalidateQueries({ queryKey: riskKeys.list(threatModelId) })
       queryClient.invalidateQueries({ queryKey: riskKeys.detail(threatModelId, riskId) })
+    },
+  })
+}
+
+/**
+ * Auto-populate risk register from exposed threats.
+ */
+export function useAutoPopulateRisks(threatModelId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      api.post<AutoPopulateResult>(`/threat-models/${threatModelId}/risks/auto-populate/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: riskKeys.list(threatModelId) })
+    },
+  })
+}
+
+/**
+ * Bulk update status/owner/due_date on multiple risks.
+ */
+export function useBulkUpdateRisks(threatModelId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: BulkUpdateRisksInput) =>
+      api.post<{ updated: number }>(`/threat-models/${threatModelId}/risks/bulk-update/`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: riskKeys.list(threatModelId) })
+    },
+  })
+}
+
+// Query keys for comments
+export const commentKeys = {
+  forComponent: (cmId: number) => ['countermeasure-comments', 'component', cmId] as const,
+  forFlow: (cmId: number) => ['countermeasure-comments', 'flow', cmId] as const,
+}
+
+/**
+ * Fetch comments for a component countermeasure.
+ */
+export function useCountermeasureComments(componentCmId: number | null) {
+  return useQuery({
+    queryKey: commentKeys.forComponent(componentCmId!),
+    queryFn: componentCmId
+      ? async () => {
+          const res = await api.get<{ results: CountermeasureComment[] } | CountermeasureComment[]>(
+            `/countermeasure-comments/?component_countermeasure=${componentCmId}`
+          )
+          return Array.isArray(res) ? res : res.results
+        }
+      : undefined,
+    enabled: componentCmId !== null,
+  })
+}
+
+/**
+ * Fetch comments for a flow countermeasure.
+ */
+export function useFlowCountermeasureComments(flowCmId: number | null) {
+  return useQuery({
+    queryKey: commentKeys.forFlow(flowCmId!),
+    queryFn: flowCmId
+      ? async () => {
+          const res = await api.get<{ results: CountermeasureComment[] } | CountermeasureComment[]>(
+            `/countermeasure-comments/?flow_countermeasure=${flowCmId}`
+          )
+          return Array.isArray(res) ? res : res.results
+        }
+      : undefined,
+    enabled: flowCmId !== null,
+  })
+}
+
+/**
+ * Add a comment to a countermeasure.
+ */
+export function useAddCountermeasureComment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: {
+      body: string
+      changeSummary?: string
+      componentCountermeasure?: number
+      flowCountermeasure?: number
+    }) => api.post<CountermeasureComment>('/countermeasure-comments/', data),
+    onSuccess: (_, vars) => {
+      if (vars.componentCountermeasure) {
+        queryClient.invalidateQueries({ queryKey: commentKeys.forComponent(vars.componentCountermeasure) })
+      }
+      if (vars.flowCountermeasure) {
+        queryClient.invalidateQueries({ queryKey: commentKeys.forFlow(vars.flowCountermeasure) })
+      }
     },
   })
 }

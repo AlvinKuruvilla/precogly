@@ -10,6 +10,7 @@ from .views import (
     ComponentInstanceCountermeasureViewSet,
     ComponentInstanceThreatViewSet,
     ComponentLibraryThreatViewSet,
+    CountermeasureCommentViewSet,
     CountermeasureLibraryViewSet,
     DataFlowInstanceThreatViewSet,
     ExternalTaxonomyViewSet,
@@ -76,6 +77,12 @@ router.register(
     r"flow-instance-countermeasure-standards",
     FlowInstanceCountermeasureStandardViewSet,
     basename="flow-instance-countermeasure-standard",
+)
+
+router.register(
+    r"countermeasure-comments",
+    CountermeasureCommentViewSet,
+    basename="countermeasure-comment",
 )
 
 router.register(r"taxonomies", ExternalTaxonomyViewSet, basename="taxonomy")

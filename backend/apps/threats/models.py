@@ -467,6 +467,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
     class Status(models.TextChoices):
         GAP = "gap", "Gap"
         PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In Progress"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
         PLATFORM = "platform", "Platform"
@@ -524,6 +525,10 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
+    due_date = models.DateField(null=True, blank=True, help_text="Target completion date")
+    external_ticket_url = models.URLField(
+        blank=True, help_text="Link to Jira/GitHub/etc. ticket"
+    )
     format_metadata = models.JSONField(default=dict, blank=True)
     display_order = models.PositiveIntegerField(default=0)
 
@@ -546,6 +551,7 @@ class FlowInstanceCountermeasure(TimestampedModel):
     class Status(models.TextChoices):
         GAP = "gap", "Gap"
         PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In Progress"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
         PLATFORM = "platform", "Platform"
@@ -603,6 +609,10 @@ class FlowInstanceCountermeasure(TimestampedModel):
         help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
+    due_date = models.DateField(null=True, blank=True, help_text="Target completion date")
+    external_ticket_url = models.URLField(
+        blank=True, help_text="Link to Jira/GitHub/etc. ticket"
+    )
     format_metadata = models.JSONField(default=dict, blank=True)
     display_order = models.PositiveIntegerField(default=0)
 
@@ -684,6 +694,52 @@ class FlowInstanceCountermeasureTest(TimestampedModel):
 
     def __str__(self):
         return f"{self.flow_countermeasure} - {self.verification_test}"
+
+
+class CountermeasureComment(TimestampedModel):
+    """Comment/history log entry for a countermeasure instance."""
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="countermeasure_comments",
+    )
+    # Exactly one of these must be set
+    component_countermeasure = models.ForeignKey(
+        ComponentInstanceCountermeasure,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    flow_countermeasure = models.ForeignKey(
+        FlowInstanceCountermeasure,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    body = models.TextField()
+    # Optional: record what changed (e.g., "status: gap → planned")
+    change_summary = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_countermeasure__isnull=False, flow_countermeasure__isnull=True)
+                    | models.Q(component_countermeasure__isnull=True, flow_countermeasure__isnull=False)
+                ),
+                name="countermeasure_comment_exactly_one_fk",
+            ),
+        ]
+
+    def __str__(self):
+        cm = self.component_countermeasure or self.flow_countermeasure
+        return f"Comment on {cm} by {self.author}"
 
 
 class PentestFinding(TimestampedModel):
@@ -846,6 +902,13 @@ class Risk(TimestampedModel):
         HIGH = "high", "High"
         CRITICAL = "critical", "Critical"
 
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in_progress", "In Progress"
+        MITIGATED = "mitigated", "Mitigated"
+        ACCEPTED = "accepted", "Accepted"
+        CLOSED = "closed", "Closed"
+
     threat_model = models.ForeignKey(
         "threat_models.ThreatModel",
         on_delete=models.CASCADE,
@@ -867,6 +930,34 @@ class Risk(TimestampedModel):
         max_length=10,
         choices=Level.choices,
         blank=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+        help_text="Explicit lifecycle status of this risk",
+    )
+    due_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Target date for risk resolution",
+    )
+    likelihood = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Likelihood score 1-5",
+    )
+    impact = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Impact score 1-5",
+    )
+    # Flag for auto-populated risks (from exposed threats)
+    auto_populated = models.BooleanField(
+        default=False,
+        help_text="True if this risk was auto-populated from an exposed threat",
     )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
