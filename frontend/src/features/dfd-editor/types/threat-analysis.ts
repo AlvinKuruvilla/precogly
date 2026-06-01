@@ -18,7 +18,7 @@ export interface ComplianceStandardMapping {
 /**
  * Status of a countermeasure for a specific component-threat
  */
-export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
+export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived'
 
 export const COUNTERMEASURE_STATUS_CONFIG: Record<
   CountermeasureStatus,
@@ -41,6 +41,12 @@ export const COUNTERMEASURE_STATUS_CONFIG: Record<
     color: '#eab308', // yellow
     bgColor: 'bg-yellow-500',
     description: 'Implementation planned or in progress',
+  },
+  in_progress: {
+    label: 'In Progress',
+    color: '#f97316', // orange
+    bgColor: 'bg-orange-500',
+    description: 'Implementation in progress',
   },
   verified: {
     label: 'Verified',
@@ -115,6 +121,10 @@ export interface ComponentThreatCountermeasure {
   standardMappings?: ComplianceStandardMapping[]
   // Priority level
   priority?: 'none' | 'low' | 'medium' | 'high' | 'critical'
+  // Due date (ISO date string)
+  dueDate?: string | null
+  // External ticket link (Jira/GitHub/etc.)
+  externalTicketUrl?: string
   // Display order for drag-and-drop reordering
   displayOrder?: number
   // Zone inheritance tracking

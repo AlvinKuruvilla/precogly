@@ -1,5 +1,5 @@
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
-export type RiskStatus = 'open' | 'mitigated' | 'accepted'
+export type RiskStatus = 'open' | 'in_progress' | 'mitigated' | 'accepted' | 'closed'
 export type ScoringMethodKey = 'tm_library' | 'fair' | 'owasp_rr' | 'mozilla_rra' | 'custom'
 
 export interface Risk {
@@ -13,6 +13,11 @@ export interface Risk {
   residualScore: number | null
   residualLevel: RiskLevel | null
   status: RiskStatus
+  dueDate: string | null
+  likelihood: number | null
+  impact: number | null
+  autoPopulated: boolean
+  isOverdue: boolean
   threatCount: number
   threats?: RiskThreatEntry[]
   owner: number | null
@@ -54,6 +59,10 @@ export interface CreateRiskInput {
   description?: string
   scoringMetadata: Record<string, unknown>
   inherentScore?: number
+  status?: RiskStatus
+  dueDate?: string | null
+  likelihood?: number | null
+  impact?: number | null
   owner?: number | null
   assignedTo?: number | null
   componentThreatIds?: number[]
@@ -65,6 +74,10 @@ export interface UpdateRiskInput {
   description?: string
   scoringMetadata?: Record<string, unknown>
   inherentScore?: number
+  status?: RiskStatus
+  dueDate?: string | null
+  likelihood?: number | null
+  impact?: number | null
   owner?: number | null
   assignedTo?: number | null
 }
@@ -72,4 +85,29 @@ export interface UpdateRiskInput {
 export interface AddRemoveThreatsInput {
   componentThreatIds?: number[]
   flowThreatIds?: number[]
+}
+
+export interface BulkUpdateRisksInput {
+  riskIds: number[]
+  status?: RiskStatus
+  owner?: number | null
+  dueDate?: string | null
+}
+
+export interface CountermeasureComment {
+  id: number
+  author: number | null
+  authorEmail: string | null
+  componentCountermeasure: number | null
+  flowCountermeasure: number | null
+  body: string
+  changeSummary: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AutoPopulateResult {
+  created: number
+  skipped: number
+  message: string
 }

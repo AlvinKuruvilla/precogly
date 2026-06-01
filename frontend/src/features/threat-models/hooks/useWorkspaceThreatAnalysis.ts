@@ -166,7 +166,7 @@ export function useWorkspaceThreatAnalysis(
         updateCountermeasureMutation.mutate({
           countermeasureId: parsed.id,
           data: {
-            status: status as 'platform' | 'gap' | 'planned' | 'verified' | 'waived',
+            status: status as 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived',
             ...(notes !== undefined && { evidenceUrl: notes }),
           },
         })
@@ -174,7 +174,7 @@ export function useWorkspaceThreatAnalysis(
         updateFlowCountermeasureMutation.mutate({
           countermeasureId: parsed.id,
           data: {
-            status: status as 'platform' | 'gap' | 'planned' | 'verified' | 'waived',
+            status: status as 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived',
             ...(notes !== undefined && { evidenceUrl: notes }),
           },
         })
@@ -297,6 +297,86 @@ export function useWorkspaceThreatAnalysis(
                 priority,
                 updatedAt: new Date().toISOString(),
               }
+            }),
+          }
+        }),
+      }))
+    },
+    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+  )
+
+  // Update countermeasure due date
+  const updateCountermeasureDueDate = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string, dueDate: string | null) => {
+      const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+      const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
+
+      if (countermeasure) {
+        const parsed = parseCountermeasureId(countermeasure.id)
+
+        if (parsed.type === 'component' && parsed.id !== null) {
+          updateCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { dueDate },
+          })
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          updateFlowCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { dueDate },
+          })
+        }
+      }
+
+      setState((prev) => ({
+        ...prev,
+        componentThreats: prev.componentThreats.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            updatedAt: new Date().toISOString(),
+            countermeasures: ct.countermeasures.map((cm) => {
+              if (cm.id !== countermeasureInstanceId) return cm
+              return { ...cm, dueDate, updatedAt: new Date().toISOString() }
+            }),
+          }
+        }),
+      }))
+    },
+    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+  )
+
+  // Update countermeasure external ticket URL
+  const updateCountermeasureExternalTicket = useCallback(
+    (componentThreatId: string, countermeasureInstanceId: string, externalTicketUrl: string) => {
+      const threat = state.componentThreats.find((ct) => ct.id === componentThreatId)
+      const countermeasure = threat?.countermeasures.find((cm) => cm.id === countermeasureInstanceId)
+
+      if (countermeasure) {
+        const parsed = parseCountermeasureId(countermeasure.id)
+
+        if (parsed.type === 'component' && parsed.id !== null) {
+          updateCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { externalTicketUrl },
+          })
+        } else if (parsed.type === 'flow' && parsed.id !== null) {
+          updateFlowCountermeasureMutation.mutate({
+            countermeasureId: parsed.id,
+            data: { externalTicketUrl },
+          })
+        }
+      }
+
+      setState((prev) => ({
+        ...prev,
+        componentThreats: prev.componentThreats.map((ct) => {
+          if (ct.id !== componentThreatId) return ct
+          return {
+            ...ct,
+            updatedAt: new Date().toISOString(),
+            countermeasures: ct.countermeasures.map((cm) => {
+              if (cm.id !== countermeasureInstanceId) return cm
+              return { ...cm, externalTicketUrl, updatedAt: new Date().toISOString() }
             }),
           }
         }),
@@ -539,6 +619,8 @@ export function useWorkspaceThreatAnalysis(
     revertInheritedCountermeasure,
     updateCountermeasureStatus,
     updateCountermeasurePriority,
+    updateCountermeasureDueDate,
+    updateCountermeasureExternalTicket,
     assignOwner,
     dismissThreat,
     restoreThreat,

@@ -23,8 +23,8 @@ export function CountermeasureStatusButtons({
   onWaivedWithoutReason: () => void
 }) {
   const statuses: CountermeasureStatus[] = isSecurityTeam
-    ? ['platform', 'gap', 'planned', 'verified', 'waived']
-    : ['gap', 'planned', 'verified', 'waived']
+    ? ['platform', 'gap', 'planned', 'in_progress', 'verified', 'waived']
+    : ['gap', 'planned', 'in_progress', 'verified', 'waived']
 
   const handleStatusClick = (newStatus: CountermeasureStatus) => {
     // If clicking "Planned" and no owner assigned, trigger owner assignment first
@@ -65,6 +65,7 @@ export function CountermeasureStatusButtons({
               isActive && s === 'platform' && 'bg-green-600 hover:bg-green-700',
               isActive && s === 'gap' && 'bg-red-500 hover:bg-red-600',
               isActive && s === 'planned' && 'bg-yellow-500 hover:bg-yellow-600 text-black',
+              isActive && s === 'in_progress' && 'bg-orange-500 hover:bg-orange-600 text-white',
               isActive && s === 'verified' && 'bg-green-500 hover:bg-green-600',
               isActive && s === 'waived' && 'bg-blue-500 hover:bg-blue-600'
             )}

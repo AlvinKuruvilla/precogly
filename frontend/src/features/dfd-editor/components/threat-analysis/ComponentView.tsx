@@ -113,6 +113,16 @@ interface ComponentViewProps {
     countermeasureInstanceId: string,
     priority: ComponentThreatCountermeasure['priority']
   ) => void
+  onCountermeasureDueDateChange: (
+    componentThreatId: string,
+    countermeasureInstanceId: string,
+    dueDate: string | null
+  ) => void
+  onCountermeasureExternalTicketChange: (
+    componentThreatId: string,
+    countermeasureInstanceId: string,
+    externalTicketUrl: string
+  ) => void
   onRevertCountermeasure?: (componentThreatId: string, countermeasureInstanceId: string) => void
   onReorderThreats?: (componentId: string, reorderedThreats: ComponentThreat[]) => void
   onReorderCountermeasures?: (componentThreatId: string, reorderedCountermeasures: ComponentThreatCountermeasure[]) => void
@@ -177,6 +187,8 @@ export function ComponentView({
   onRestoreThreat,
   onAddCustomCountermeasure,
   onCountermeasurePriorityChange,
+  onCountermeasureDueDateChange,
+  onCountermeasureExternalTicketChange,
   onRevertCountermeasure,
   onReorderThreats,
   onReorderCountermeasures,
@@ -1234,6 +1246,45 @@ export function ComponentView({
                           <span>{cm.owner}</span>
                         </div>
                       )}
+
+                      {/* Due date and external ticket URL */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Due:</span>
+                        <input
+                          type="date"
+                          value={cm.dueDate || ''}
+                          onChange={(e) => {
+                            const newDueDate = e.target.value ? e.target.value : null
+                            onCountermeasureDueDateChange(
+                              selectedComponentThreat.id,
+                              cm.id,
+                              newDueDate
+                            )
+                          }}
+                          className={cn(
+                            'h-7 px-2 text-xs border rounded bg-background w-auto',
+                            cm.dueDate && cm.dueDate < new Date().toISOString().split('T')[0]
+                              ? 'border-red-500 text-red-600 bg-red-50'
+                              : ''
+                          )}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Ticket:</span>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={cm.externalTicketUrl || ''}
+                          onChange={(e) => {
+                            onCountermeasureExternalTicketChange(
+                              selectedComponentThreat.id,
+                              cm.id,
+                              e.target.value
+                            )
+                          }}
+                          className="h-7 px-2 text-xs border rounded bg-background w-full min-w-0"
+                        />
+                      </div>
 
                       {/* Provided by boundary badge */}
                       {cm.providedByBoundaryId && (

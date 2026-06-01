@@ -10,6 +10,7 @@ from .models import (
     ComponentInstanceCountermeasureStandard,
     ComponentInstanceThreat,
     ComponentLibraryThreat,
+    CountermeasureComment,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
     ExternalTaxonomy,
@@ -376,6 +377,8 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "effectiveness",
             "status",
             "priority",
+            "due_date",
+            "external_ticket_url",
             "verified_by",
             "verified_by_email",
             "evidence_url",
@@ -449,6 +452,8 @@ class FlowInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "effectiveness",
             "status",
             "priority",
+            "due_date",
+            "external_ticket_url",
             "verified_by",
             "verified_by_email",
             "evidence_url",
@@ -655,14 +660,40 @@ class FlowInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class CountermeasureCommentSerializer(serializers.ModelSerializer):
+    """Serializer for CountermeasureComment."""
+
+    author_email = serializers.EmailField(source="author.email", read_only=True, default=None)
+
+    class Meta:
+        model = CountermeasureComment
+        fields = [
+            "id",
+            "author",
+            "author_email",
+            "component_countermeasure",
+            "flow_countermeasure",
+            "body",
+            "change_summary",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "author", "author_email", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        validated_data["author"] = self.context["request"].user
+        return super().create(validated_data)
+
+
 class RiskListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for risk listing."""
 
     scoring_method = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
+    status = serializers.CharField(required=False)
     threat_count = serializers.SerializerMethodField()
     owner_email = serializers.EmailField(source="owner.email", read_only=True, default=None)
     assigned_to_email = serializers.EmailField(source="assigned_to.email", read_only=True, default=None)
+    is_overdue = serializers.SerializerMethodField()
 
     class Meta:
         model = Risk
@@ -676,6 +707,11 @@ class RiskListSerializer(serializers.ModelSerializer):
             "residual_score",
             "residual_level",
             "status",
+            "due_date",
+            "likelihood",
+            "impact",
+            "auto_populated",
+            "is_overdue",
             "threat_count",
             "owner",
             "owner_email",
@@ -688,21 +724,24 @@ class RiskListSerializer(serializers.ModelSerializer):
     def get_scoring_method(self, obj):
         return obj.threat_model.risk_scoring_method
 
-    def get_status(self, obj):
-        return derive_risk_status(obj)
-
     def get_threat_count(self, obj):
         return obj.risk_threats.count()
+
+    def get_is_overdue(self, obj):
+        from django.utils import timezone
+        if obj.due_date and obj.status not in (Risk.Status.MITIGATED, Risk.Status.CLOSED, Risk.Status.ACCEPTED):
+            return obj.due_date < timezone.now().date()
+        return False
 
 
 class RiskDetailSerializer(serializers.ModelSerializer):
     """Full serializer for risk detail/create/update."""
 
     scoring_method = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
     owner_email = serializers.EmailField(source="owner.email", read_only=True, default=None)
     assigned_to_email = serializers.EmailField(source="assigned_to.email", read_only=True, default=None)
     threats = serializers.SerializerMethodField()
+    is_overdue = serializers.SerializerMethodField()
 
     # Write-only fields for inline threat linking
     component_threat_ids = serializers.ListField(
@@ -725,6 +764,11 @@ class RiskDetailSerializer(serializers.ModelSerializer):
             "residual_score",
             "residual_level",
             "status",
+            "due_date",
+            "likelihood",
+            "impact",
+            "auto_populated",
+            "is_overdue",
             "threats",
             "owner",
             "owner_email",
@@ -742,6 +786,7 @@ class RiskDetailSerializer(serializers.ModelSerializer):
             "inherent_level",
             "residual_score",
             "residual_level",
+            "auto_populated",
             "created_at",
             "updated_at",
         ]
@@ -756,8 +801,11 @@ class RiskDetailSerializer(serializers.ModelSerializer):
     def get_scoring_method(self, obj):
         return obj.threat_model.risk_scoring_method
 
-    def get_status(self, obj):
-        return derive_risk_status(obj)
+    def get_is_overdue(self, obj):
+        from django.utils import timezone
+        if obj.due_date and obj.status not in (Risk.Status.MITIGATED, Risk.Status.CLOSED, Risk.Status.ACCEPTED):
+            return obj.due_date < timezone.now().date()
+        return False
 
     def get_threats(self, obj):
         """Return linked threats with basic info."""
