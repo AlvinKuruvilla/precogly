@@ -9,6 +9,7 @@ import {
   useReactFlow,
   useViewport,
   type Connection,
+  type XYPosition,
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -127,6 +128,15 @@ function DFDEditorContent() {
     },
     [setConnectionMode, setBoundaryMode]
   )
+
+  const getCanvasCenterPosition = useCallback((): XYPosition => {
+    const bounds = reactFlowWrapper.current?.getBoundingClientRect()
+
+    return screenToFlowPosition({
+      x: bounds ? bounds.left + bounds.width / 2 : window.innerWidth / 2,
+      y: bounds ? bounds.top + bounds.height / 2 : window.innerHeight / 2,
+    })
+  }, [screenToFlowPosition])
 
   // Handle node click - delegates to mode hooks then falls through to selection
   const handleNodeClick = useCallback(
@@ -449,6 +459,7 @@ function DFDEditorContent() {
         onConnectionModeChange={handleConnectionModeChange}
         boundaryMode={boundaryMode}
         onBoundaryModeChange={handleBoundaryModeChange}
+        getCanvasCenterPosition={getCanvasCenterPosition}
         onOpenTemplates={() => setShowTemplates(true)}
         onOpenThreatAnalysis={async () => {
           if (hasUnsavedChanges) {
