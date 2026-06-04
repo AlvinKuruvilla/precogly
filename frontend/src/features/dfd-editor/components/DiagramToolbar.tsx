@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { useReactFlow } from '@xyflow/react'
+import { useReactFlow, type XYPosition } from '@xyflow/react'
 import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -17,6 +17,7 @@ interface DiagramToolbarProps {
   onConnectionModeChange: (enabled: boolean) => void
   boundaryMode: boolean
   onBoundaryModeChange: (enabled: boolean) => void
+  getCanvasCenterPosition: () => XYPosition
   onOpenTemplates: () => void
   onOpenThreatAnalysis: () => void
 }
@@ -74,22 +75,33 @@ const nodeButtons: ToolbarButtonConfig[] = [
   },
 ]
 
+const DEFAULT_NODE_SIZES: Record<DiagramNodeType, { width: number; height: number }> = {
+  humanActor: { width: 100, height: 100 },
+  systemActor: { width: 100, height: 90 },
+  process: { width: 120, height: 60 },
+  datastore: { width: 120, height: 80 },
+  trustZone: { width: 300, height: 200 },
+  systemScope: { width: 300, height: 200 },
+}
+
 export const DiagramToolbar = memo(function DiagramToolbar({
   connectionMode,
   onConnectionModeChange,
   boundaryMode,
   onBoundaryModeChange,
+  getCanvasCenterPosition,
   onOpenTemplates,
   onOpenThreatAnalysis,
 }: DiagramToolbarProps) {
   const { addNodes, getNodes } = useReactFlow()
 
   const handleAddNode = (type: DiagramNodeType) => {
-    const nodes = getNodes()
-
-    // Calculate position for new node (offset from existing nodes)
-    const baseX = 100 + (nodes.length % 5) * 150
-    const baseY = 100 + Math.floor(nodes.length / 5) * 150
+    const center = getCanvasCenterPosition()
+    const nodeSize = DEFAULT_NODE_SIZES[type]
+    const position = {
+      x: center.x - nodeSize.width / 2,
+      y: center.y - nodeSize.height / 2,
+    }
 
     // Generate unique ID
     const id = `${type}-${Date.now()}`
@@ -112,7 +124,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
     addNodes({
       id,
       type,
-      position: { x: baseX, y: baseY },
+      position,
       data: { ...defaultData[type], isNewlyInserted: true },
       style: defaultStyle,
     })
