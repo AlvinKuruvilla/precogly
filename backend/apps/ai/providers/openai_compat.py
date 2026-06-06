@@ -1,0 +1,180 @@
+"""Adapter for any OpenAI-compatible chat-completions endpoint.
+
+Every mainstream local runner (LM Studio, Ollama, llama.cpp, vLLM) and most
+hosted providers speak the OpenAI ``/chat/completions`` protocol, so this single
+adapter covers all of them — "adding LM Studio" or "adding vLLM" is just a
+different ``base_url`` in a :class:`~apps.ai.providers.base.ResolvedConfig`, not
+new code.
+
+Errors are turned into :class:`AIProviderError` with actionable messages: an
+operator who hasn't started their local model should see "model unreachable at
+<url>", not a generic 500.
+"""
+
+import requests
+
+from .base import AIProviderError, ChatProvider, ProviderHealth
+
+
+class OpenAICompatProvider(ChatProvider):
+    """Talk to an OpenAI-compatible server described by ``self.config``."""
+
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float = 0.2,
+        force_json: bool = True,
+    ) -> str:
+        # Default to a low temperature because this is a selection-and-explanation
+        # task, not creative writing — we want stable, repeatable output. When
+        # ``force_json`` is set we ask the server for JSON-object output;
+        # compliant servers honor it, and callers additionally instruct the model
+        # in the prompt so non-strict servers still cooperate.
+        payload: dict = {
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if force_json:
+            payload["response_format"] = {"type": "json_object"}
+
+        response = self._post("/chat/completions", payload)
+
+        # Not every OpenAI-compatible server supports response_format=json_object
+        # (e.g. gpt-oss via LM Studio accepts only "json_schema" or "text"). When
+        # a server rejects it, drop the hint and retry once: the prompt already
+        # asks for a JSON object and our callers parse leniently, so plain output
+        # still works. We only do this for that specific complaint, so genuine
+        # bad requests (auth, quota, malformed) still surface immediately.
+        if (
+            force_json
+            and response.status_code == 400
+            and _is_response_format_error(response)
+        ):
+            payload.pop("response_format", None)
+            response = self._post("/chat/completions", payload)
+
+        if response.status_code != 200:
+            # Surface the provider's own error body when present — for a hosted
+            # provider this is usually the most useful thing (bad key, no quota).
+            detail = _safe_error_detail(response)
+            raise AIProviderError(
+                f"The AI model returned HTTP {response.status_code}: {detail}"
+            )
+
+        try:
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError) as err:
+            raise AIProviderError(
+                "The AI model returned a response in an unexpected shape. The "
+                "endpoint may not be OpenAI-compatible."
+            ) from err
+
+    def test_connection(self) -> ProviderHealth:
+        """Probe ``GET /models``, the OpenAI-standard listing endpoint.
+
+        It's cheap, needs no model to be loaded, and every compatible server
+        exposes it, which makes it a better health check than spending a real
+        completion. Connectivity problems are reported, not raised, so a UI can
+        render the reason next to a "Test connection" button.
+        """
+        url = self._url("/models")
+        try:
+            response = requests.get(
+                url, headers=self._headers(), timeout=self.config.request_timeout
+            )
+        except requests.exceptions.ConnectionError:
+            return ProviderHealth(
+                ok=False,
+                detail=(
+                    f"Could not reach {self.config.base_url}. Is the server "
+                    "running and the base URL correct?"
+                ),
+            )
+        except requests.exceptions.Timeout:
+            return ProviderHealth(
+                ok=False, detail=f"{self.config.base_url} did not respond in time."
+            )
+
+        if response.status_code != 200:
+            return ProviderHealth(
+                ok=False,
+                detail=(
+                    f"{self.config.base_url} returned HTTP {response.status_code}: "
+                    f"{_safe_error_detail(response)}"
+                ),
+            )
+
+        # A 200 means reachable and authenticated; include the model count when
+        # the body is the standard ``{"data": [...]}`` list as a useful signal.
+        count = _model_count(response)
+        suffix = f", {count} model(s) available" if count is not None else ""
+        return ProviderHealth(ok=True, detail=f"Reachable{suffix}.")
+
+    def _post(self, path: str, payload: dict) -> requests.Response:
+        """POST JSON to ``path``, mapping transport failures to typed errors."""
+        try:
+            return requests.post(
+                self._url(path),
+                json=payload,
+                headers=self._headers(),
+                timeout=self.config.request_timeout,
+            )
+        except requests.exceptions.ConnectionError as err:
+            raise AIProviderError(
+                f"Could not reach the AI model at {self.config.base_url}. "
+                "Is the model server running and the base URL correct?"
+            ) from err
+        except requests.exceptions.Timeout as err:
+            raise AIProviderError(
+                f"The AI model at {self.config.base_url} did not respond within "
+                f"{self.config.request_timeout}s. Try a smaller/faster model or "
+                "raise the request timeout."
+            ) from err
+
+    def _url(self, path: str) -> str:
+        return f"{self.config.base_url.rstrip('/')}{path}"
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        # Local servers usually need no auth; only send a bearer token if one is set.
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        return headers
+
+
+def _safe_error_detail(response: requests.Response) -> str:
+    """Best-effort extraction of a provider error message for logging/display."""
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict):
+                return str(error.get("message", body))
+            return str(error or body)
+    except ValueError:
+        pass
+    # Avoid dumping an unbounded HTML error page into the message.
+    return response.text[:200]
+
+
+def _is_response_format_error(response: requests.Response) -> bool:
+    """Whether a 400 is the server objecting to ``response_format``.
+
+    Kept to that one signal so we only retry when dropping the JSON hint can
+    actually help — any other 400 (bad key, bad model name) should not be
+    silently retried.
+    """
+    return "response_format" in _safe_error_detail(response).lower()
+
+
+def _model_count(response: requests.Response) -> int | None:
+    """Number of models in a standard ``/models`` listing, or None if unknown."""
+    try:
+        body = response.json()
+        data = body.get("data") if isinstance(body, dict) else None
+        return len(data) if isinstance(data, list) else None
+    except ValueError:
+        return None

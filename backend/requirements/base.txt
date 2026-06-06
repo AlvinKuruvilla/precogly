@@ -31,3 +31,6 @@ python-dateutil>=2.9,<3.0
 
 # Image processing
 Pillow>=11.0,<12.0
+
+# Symmetric encryption for per-tenant AI provider API keys at rest (Fernet)
+cryptography>=44.0,<45.0
