@@ -25,28 +25,38 @@ class DashboardStatsView(APIView):
         # Get organizations the user belongs to
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
 
-        # Get teams the user belongs to
-        user_team_ids = TeamMembership.objects.filter(
-            user=user
-        ).values_list("team_id", flat=True)
+        # Security team sees all threat models in their orgs
+        is_security_team = user.organization_memberships.filter(
+            role="security_team"
+        ).exists()
 
-        # Threat models: user's teams + unassigned, within user's orgs
-        threat_models = ThreatModel.objects.filter(
-            organization_id__in=org_ids
-        ).filter(
-            Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
-        )
+        if is_security_team:
+            threat_models = ThreatModel.objects.filter(
+                organization_id__in=org_ids
+            )
+            risks = Risk.objects.filter(
+                threat_model__organization_id__in=org_ids
+            ).prefetch_related("risk_threats__component_threat", "risk_threats__flow_threat")
+        else:
+            # Get teams the user belongs to
+            user_team_ids = TeamMembership.objects.filter(
+                user=user
+            ).values_list("team_id", flat=True)
+
+            threat_models = ThreatModel.objects.filter(
+                organization_id__in=org_ids
+            ).filter(
+                Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
+            )
+            risks = Risk.objects.filter(
+                threat_model__organization_id__in=org_ids
+            ).filter(
+                Q(threat_model__owning_team_id__in=user_team_ids)
+                | Q(threat_model__owning_team__isnull=True)
+            ).prefetch_related("risk_threats__component_threat", "risk_threats__flow_threat")
 
         # Calculate threat model stats
         total_count = threat_models.count()
-
-        # Calculate risk stats
-        risks = Risk.objects.filter(
-            threat_model__organization_id__in=org_ids
-        ).filter(
-            Q(threat_model__owning_team_id__in=user_team_ids)
-            | Q(threat_model__owning_team__isnull=True)
-        ).prefetch_related("risk_threats__component_threat", "risk_threats__flow_threat")
 
         risk_level_counts = risks.values("inherent_level").annotate(
             count=Count("id")
