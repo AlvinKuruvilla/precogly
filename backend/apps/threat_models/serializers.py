@@ -218,6 +218,14 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
         ]
         read_only_fields = ["id", "created_at", "updated_at", "created_by_email", "owner", "organization_name", "owning_team_name", "business_unit_name"]
 
+    def validate_owning_team(self, value):
+        """Validate owning_team belongs to the same organization as the threat model."""
+        if value and self.instance and value.organization_id != self.instance.organization_id:
+            raise serializers.ValidationError(
+                "Team does not belong to the selected organization."
+            )
+        return value
+
     def validate_assumptions(self, value):
         """Validate assumptions list structure."""
         if not isinstance(value, list):
