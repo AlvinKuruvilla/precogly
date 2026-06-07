@@ -57,7 +57,7 @@ class OrganizationListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ["id", "name", "plan", "my_role"]
+        fields = ["id", "name", "plan", "business_unit_label", "my_role"]
 
     def get_my_role(self, obj):
         """Return the current user's role in this organization."""
