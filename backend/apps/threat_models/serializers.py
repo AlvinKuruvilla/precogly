@@ -835,6 +835,13 @@ class ThreatModelCreateSerializer(serializers.ModelSerializer):
             if user_team_memberships.count() == 1:
                 validated_data["owning_team"] = user_team_memberships.first().team
 
+        # Validate owning_team belongs to the same organization
+        owning_team = validated_data.get("owning_team")
+        if owning_team and owning_team.organization_id != validated_data["organization"].id:
+            raise serializers.ValidationError(
+                {"owning_team": "Team does not belong to the selected organization."}
+            )
+
         # Initialize workspace_data — only progressChecklist remains here;
         # status, description, scope_locked, assets, out_of_scope_items
         # are now managed via dedicated model fields and API endpoints.
