@@ -19,6 +19,7 @@ import {
   MemberManagement,
   TeamManagement,
   BusinessUnitsSettings,
+  AIProviderSettings,
 } from '@/pages'
 
 export const router = createBrowserRouter([
@@ -82,6 +83,7 @@ export const router = createBrowserRouter([
           { path: 'members', element: <MemberManagement /> },
           { path: 'teams', element: <TeamManagement /> },
           { path: 'business-units', element: <BusinessUnitsSettings /> },
+          { path: 'ai-providers', element: <AIProviderSettings /> },
         ],
       },
     ],
