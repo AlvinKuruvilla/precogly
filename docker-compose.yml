@@ -37,6 +37,20 @@ services:
       db:
         condition: service_healthy
 
+  # Dev-only forwarder so the backend container can reach a model server
+  # (e.g. LM Studio) running on the host via plain http://localhost:1234.
+  # It shares the backend's network namespace, so its listen on :1234 IS
+  # the backend's loopback, and forwards to the host. This keeps stored
+  # provider base URLs portable (http://localhost:1234/v1) instead of
+  # baking in the Docker-only host.docker.internal hostname.
+  lmstudio-proxy:
+    image: alpine/socat
+    container_name: precogly-lmstudio-proxy
+    network_mode: "service:backend"
+    command: TCP-LISTEN:1234,fork,reuseaddr TCP:host.docker.internal:1234
+    depends_on:
+      - backend
+
   frontend:
     build:
       context: ./frontend
