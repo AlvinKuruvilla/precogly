@@ -3,7 +3,7 @@
  */
 
 import { NavLink, Outlet } from 'react-router-dom'
-import { User, Building2, Users, UsersRound, Layers } from 'lucide-react'
+import { User, Building2, Users, UsersRound, Layers, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 
@@ -36,6 +36,11 @@ function useSettingsNavItems() {
       to: '/settings/business-units',
       label: businessUnitLabel,
       icon: Layers,
+    },
+    {
+      to: '/settings/ai-providers',
+      label: 'AI Providers',
+      icon: Bot,
     },
   ]
 }
