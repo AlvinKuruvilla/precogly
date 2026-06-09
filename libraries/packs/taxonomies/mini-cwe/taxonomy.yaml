@@ -120,3 +120,11 @@ taxonomies:
         title: Allocation of Resources Without Limits or Throttling
         description: "The product allocates a reusable resource or group of resources on behalf of an actor without imposing any restrictions on the size or number of resources that can be allocated."
         reference_url: "https://cwe.mitre.org/data/definitions/770.html"
+      - external_id: CWE-522
+        title: Insufficiently Protected Credentials
+        description: "The product transmits or stores authentication credentials, but it uses an insecure method that is susceptible to unauthorized interception and/or retrieval."
+        reference_url: "https://cwe.mitre.org/data/definitions/522.html"
+      - external_id: CWE-778
+        title: Insufficient Logging
+        description: "When a security-critical event occurs, the product either does not record the event or omits important details about the event when logging it."
+        reference_url: "https://cwe.mitre.org/data/definitions/778.html"

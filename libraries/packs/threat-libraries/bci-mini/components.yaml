@@ -2,7 +2,7 @@ components:
   # Neural Signal Acquisition
   - id: neural-headset
     name: Neural Signal Headset
-    category: external
+    category: external_system_actor
     type: EEG/ECoG Sensor Array
     provider: generic
     description: |

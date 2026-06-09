@@ -64,3 +64,31 @@ taxonomies:
         title: Data Encrypted for Impact
         description: "An adversary encrypts data on target systems to interrupt availability and hold data for ransom."
         reference_url: "https://attack.mitre.org/techniques/T1486/"
+      - external_id: T1557
+        title: Adversary-in-the-Middle
+        description: "An adversary positions between two communicating systems to intercept and potentially alter communications."
+        reference_url: "https://attack.mitre.org/techniques/T1557/"
+      - external_id: T1040
+        title: Network Sniffing
+        description: "An adversary sniffs network traffic to capture information passed over the network, including authentication credentials."
+        reference_url: "https://attack.mitre.org/techniques/T1040/"
+      - external_id: T1542
+        title: Pre-OS Boot
+        description: "An adversary abuses pre-OS boot mechanisms to persist on a system, executing before the operating system loads."
+        reference_url: "https://attack.mitre.org/techniques/T1542/"
+      - external_id: T1195
+        title: Supply Chain Compromise
+        description: "An adversary manipulates products or delivery mechanisms prior to receipt by the end consumer to enable data or system compromise."
+        reference_url: "https://attack.mitre.org/techniques/T1195/"
+      - external_id: T1005
+        title: Data from Local System
+        description: "An adversary searches local system sources such as file systems and databases to find files of interest and sensitive data."
+        reference_url: "https://attack.mitre.org/techniques/T1005/"
+      - external_id: T1565
+        title: Data Manipulation
+        description: "An adversary inserts, deletes, or manipulates data to influence external outcomes or hide activity, threatening data integrity."
+        reference_url: "https://attack.mitre.org/techniques/T1565/"
+      - external_id: T1530
+        title: Data from Cloud Storage
+        description: "An adversary accesses data from improperly secured cloud storage, such as publicly readable S3 buckets or blob storage."
+        reference_url: "https://attack.mitre.org/techniques/T1530/"
