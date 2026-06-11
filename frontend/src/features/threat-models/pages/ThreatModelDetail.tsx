@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, Trash2, BarChart3, FileText, Share2, Download, Pencil } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, Trash2, BarChart3, FileText, Share2, Download, Pencil, Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -23,6 +23,7 @@ import {
 import { OverviewTab } from '@/features/threat-models/components/OverviewTab'
 import { MagicLinkDialog } from '@/features/threat-models/components/MagicLinkDialog'
 import { ReportView } from '@/features/reports/ReportView'
+import { PentestView } from '@/features/pentests/PentestView'
 import { useWorkspaceThreatAnalysis } from '@/features/threat-models/hooks'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/ComponentView'
@@ -596,6 +597,13 @@ export function ThreatModelDetail() {
               Risk Analysis
             </TabsTrigger>
             <TabsTrigger
+              value="pentests"
+              className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
+            >
+              <Crosshair className="h-4 w-4" />
+              Pentests
+            </TabsTrigger>
+            <TabsTrigger
               value="reports"
               className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
             >
@@ -774,6 +782,11 @@ export function ThreatModelDetail() {
             riskScoringMethod={threatModel.riskScoringMethod ?? 'tm_library'}
             onScoringMethodChange={handleScoringMethodChange}
           />
+        </TabsContent>
+
+        {/* Pentests Tab */}
+        <TabsContent value="pentests" className="flex-1 flex flex-col m-0 overflow-hidden">
+          <PentestView threatModelId={id!} />
         </TabsContent>
 
         {/* Reports Tab */}

@@ -131,11 +131,19 @@ export interface ReportCountermeasure {
   inheritedFromZoneName: string | null
 }
 
+export interface ReportThreatTaxonomyEntry {
+  taxonomySlug: string
+  externalId: string
+  title: string
+  referenceUrl?: string
+}
+
 export interface ReportThreat {
   id: number
   threatName: string
   threatDescription: string
   strideCategory: string | null
+  taxonomyEntries?: ReportThreatTaxonomyEntry[]
   inherentSeverity: string
   residualSeverity: string
   status: string
