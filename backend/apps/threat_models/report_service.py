@@ -297,6 +297,23 @@ def _get_stride_category(threat_library):
     return "unknown"
 
 
+def _get_taxonomy_entries(threat_library, taxonomy_snapshot=None):
+    """Return all taxonomy entries for a threat, falling back to snapshot."""
+    if threat_library:
+        entries = []
+        for join in threat_library.taxonomy_entries.all():
+            entry = join.taxonomy_entry
+            if entry.taxonomy:
+                entries.append({
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url or "",
+                })
+        return entries
+    return taxonomy_snapshot or []
+
+
 def _serialize_countermeasure(cm):
     """Serialize a countermeasure (component or flow) to dict."""
     return {
@@ -380,6 +397,9 @@ def _build_threat_analysis(component_ids, dataflow_ids):
                 threat.threat_library.description if threat.threat_library else None
             ) or threat.threat_description,
             "stride_category": _get_stride_category(threat.threat_library),
+            "taxonomy_entries": _get_taxonomy_entries(
+                threat.threat_library, threat.taxonomy_snapshot
+            ),
             "inherent_severity": threat.inherent_severity,
             "residual_severity": threat.residual_severity,
             "status": threat.status,
@@ -404,6 +424,9 @@ def _build_threat_analysis(component_ids, dataflow_ids):
                 threat.threat_library.description if threat.threat_library else None
             ) or threat.threat_description,
             "stride_category": _get_stride_category(threat.threat_library),
+            "taxonomy_entries": _get_taxonomy_entries(
+                threat.threat_library, threat.taxonomy_snapshot
+            ),
             "inherent_severity": threat.inherent_severity,
             "residual_severity": threat.residual_severity,
             "status": threat.status,
