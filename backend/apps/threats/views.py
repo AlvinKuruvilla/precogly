@@ -793,13 +793,12 @@ class RiskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], url_path="bulk-update")
     def bulk_update(self, request, threat_model_pk=None):
         """
-        Bulk update status, owner, or due_date on multiple risks.
+        Bulk update response or owner on multiple risks.
 
         Request body:
             risk_ids: list of risk IDs
-            status: optional new status
+            response: optional risk response strategy (accept/mitigate/transfer/avoid, null to clear)
             owner: optional owner user ID (null to clear)
-            due_date: optional due date (ISO format, null to clear)
         """
         risk_ids = request.data.get("risk_ids", [])
         if not risk_ids:
@@ -810,12 +809,10 @@ class RiskViewSet(viewsets.ModelViewSet):
             return Response({"error": "Some risk IDs not found"}, status=status.HTTP_400_BAD_REQUEST)
 
         update_fields = {}
-        if "status" in request.data:
-            update_fields["status"] = request.data["status"]
+        if "response" in request.data:
+            update_fields["response"] = request.data["response"] or None
         if "owner" in request.data:
             update_fields["owner_id"] = request.data["owner"]
-        if "due_date" in request.data:
-            update_fields["due_date"] = request.data["due_date"] or None
 
         if not update_fields:
             return Response({"error": "No fields to update"}, status=status.HTTP_400_BAD_REQUEST)

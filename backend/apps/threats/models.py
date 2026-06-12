@@ -902,12 +902,11 @@ class Risk(TimestampedModel):
         HIGH = "high", "High"
         CRITICAL = "critical", "Critical"
 
-    class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        IN_PROGRESS = "in_progress", "In Progress"
-        MITIGATED = "mitigated", "Mitigated"
-        ACCEPTED = "accepted", "Accepted"
-        CLOSED = "closed", "Closed"
+    class Response(models.TextChoices):
+        ACCEPT = "accept", "Accept"
+        MITIGATE = "mitigate", "Mitigate"
+        TRANSFER = "transfer", "Transfer"
+        AVOID = "avoid", "Avoid"
 
     threat_model = models.ForeignKey(
         "threat_models.ThreatModel",
@@ -931,28 +930,12 @@ class Risk(TimestampedModel):
         choices=Level.choices,
         blank=True,
     )
-    status = models.CharField(
+    response = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.OPEN,
-        help_text="Explicit lifecycle status of this risk",
-    )
-    due_date = models.DateField(
+        choices=Response.choices,
         null=True,
         blank=True,
-        help_text="Target date for risk resolution",
-    )
-    likelihood = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Likelihood score 1-5",
-    )
-    impact = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Impact score 1-5",
+        help_text="Risk response strategy per NIST IR 8286",
     )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

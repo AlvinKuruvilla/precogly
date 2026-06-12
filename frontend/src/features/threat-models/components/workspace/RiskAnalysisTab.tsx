@@ -7,7 +7,6 @@ import {
   Loader2,
   LayoutGrid,
   Table2,
-  AlertTriangle,
   CheckSquare,
   Square,
 } from 'lucide-react'
@@ -63,12 +62,14 @@ import {
 import type {
   Risk,
   RiskLevel,
-  RiskStatus,
+  RiskResponse,
   ScoringMethodKey,
   CreateRiskInput,
   ScoringMethod,
 } from '@/types/risk'
 import type { ComponentThreat } from '@/features/dfd-editor/types/threat-analysis'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
+import { useOrganizationMembers } from '@/features/organization/api/organizations'
 
 interface RiskAnalysisTabProps {
   threatModelId: string
@@ -79,12 +80,12 @@ interface RiskAnalysisTabProps {
 
 type ViewMode = 'table' | 'kanban'
 
-const KANBAN_COLUMNS: { status: RiskStatus; label: string; color: string }[] = [
-  { status: 'open', label: 'Open', color: 'border-red-300 bg-red-50' },
-  { status: 'in_progress', label: 'In Progress', color: 'border-blue-300 bg-blue-50' },
-  { status: 'mitigated', label: 'Mitigated', color: 'border-green-300 bg-green-50' },
-  { status: 'accepted', label: 'Accepted', color: 'border-purple-300 bg-purple-50' },
-  { status: 'closed', label: 'Closed', color: 'border-gray-300 bg-gray-50' },
+const KANBAN_COLUMNS: { response: RiskResponse | null; label: string; color: string }[] = [
+  { response: null, label: 'Unresponded', color: 'border-gray-300 bg-gray-50' },
+  { response: 'mitigate', label: 'Mitigate', color: 'border-blue-300 bg-blue-50' },
+  { response: 'transfer', label: 'Transfer', color: 'border-yellow-300 bg-yellow-50' },
+  { response: 'accept', label: 'Accept', color: 'border-purple-300 bg-purple-50' },
+  { response: 'avoid', label: 'Avoid', color: 'border-green-300 bg-green-50' },
 ]
 
 const LEVEL_COLORS: Record<RiskLevel, string> = {
@@ -94,20 +95,18 @@ const LEVEL_COLORS: Record<RiskLevel, string> = {
   low: 'bg-green-100 text-green-800 border-green-200',
 }
 
-const STATUS_COLORS: Record<RiskStatus, string> = {
-  open: 'bg-red-100 text-red-800 border-red-200',
-  in_progress: 'bg-blue-100 text-blue-800 border-blue-200',
-  mitigated: 'bg-green-100 text-green-800 border-green-200',
-  accepted: 'bg-purple-100 text-purple-800 border-purple-200',
-  closed: 'bg-gray-100 text-gray-700 border-gray-200',
+const RESPONSE_COLORS: Record<string, string> = {
+  accept: 'bg-purple-100 text-purple-800 border-purple-200',
+  mitigate: 'bg-blue-100 text-blue-800 border-blue-200',
+  transfer: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  avoid: 'bg-green-100 text-green-800 border-green-200',
 }
 
-const STATUS_LABELS: Record<RiskStatus, string> = {
-  open: 'Open',
-  in_progress: 'In Progress',
-  mitigated: 'Mitigated',
-  accepted: 'Accepted',
-  closed: 'Closed',
+const RESPONSE_LABELS: Record<string, string> = {
+  accept: 'Accept',
+  mitigate: 'Mitigate',
+  transfer: 'Transfer',
+  avoid: 'Avoid',
 }
 
 function LevelBadge({ level }: { level: RiskLevel | null }) {
@@ -119,10 +118,13 @@ function LevelBadge({ level }: { level: RiskLevel | null }) {
   )
 }
 
-function StatusBadge({ status }: { status: RiskStatus }) {
+function ResponseBadge({ response }: { response: RiskResponse | null }) {
+  if (!response) {
+    return <span className="text-muted-foreground text-sm">—</span>
+  }
   return (
-    <Badge variant="outline" className={STATUS_COLORS[status]}>
-      {STATUS_LABELS[status]}
+    <Badge variant="outline" className={RESPONSE_COLORS[response]}>
+      {RESPONSE_LABELS[response]}
     </Badge>
   )
 }
@@ -134,15 +136,6 @@ function ScoreDisplay({ score, level }: { score: number | null; level: RiskLevel
       <span className="font-mono text-sm font-medium">{score}</span>
       <LevelBadge level={level} />
     </div>
-  )
-}
-
-function OverdueBadge() {
-  return (
-    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300 gap-1">
-      <AlertTriangle className="h-3 w-3" />
-      Overdue
-    </Badge>
   )
 }
 
@@ -283,16 +276,16 @@ function AddRiskDialog({
 }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [riskStatus, setRiskStatus] = useState<RiskStatus>('open')
-  const [dueDate, setDueDate] = useState('')
-  const [likelihood, setLikelihood] = useState<number | ''>('')
-  const [impact, setImpact] = useState<number | ''>('')
+  const [riskResponse, setRiskResponse] = useState<RiskResponse | null>(null)
+  const [owner, setOwner] = useState<number | null>(null)
   const [scoringMetadata, setScoringMetadata] = useState<Record<string, unknown>>({})
   const [inherentScore, setInherentScore] = useState<number | ''>('')
   const [selectedComponentThreatIds, setSelectedComponentThreatIds] = useState<number[]>([])
   const [selectedFlowThreatIds, setSelectedFlowThreatIds] = useState<number[]>([])
 
   const createRisk = useCreateRisk(threatModelId)
+  const { currentOrganization } = useWorkspace()
+  const { data: orgMembers = [] } = useOrganizationMembers(currentOrganization?.id ?? 0)
   const isCustom = scoringMethod === 'custom' || !activeScoringMethod?.available
 
   const handleToggleThreat = (backendId: number, threatType: 'component' | 'dataflow') => {
@@ -310,10 +303,8 @@ function AddRiskDialog({
   const resetForm = () => {
     setName('')
     setDescription('')
-    setRiskStatus('open')
-    setDueDate('')
-    setLikelihood('')
-    setImpact('')
+    setRiskResponse(null)
+    setOwner(null)
     setScoringMetadata({})
     setInherentScore('')
     setSelectedComponentThreatIds([])
@@ -325,10 +316,8 @@ function AddRiskDialog({
       name,
       description,
       scoringMetadata,
-      status: riskStatus,
-      dueDate: dueDate || null,
-      likelihood: likelihood !== '' ? Number(likelihood) : null,
-      impact: impact !== '' ? Number(impact) : null,
+      response: riskResponse,
+      owner,
       componentThreatIds: selectedComponentThreatIds,
       flowThreatIds: selectedFlowThreatIds,
     }
@@ -357,29 +346,34 @@ function AddRiskDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Status</Label>
-              <Select value={riskStatus} onValueChange={(v) => setRiskStatus(v as RiskStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label>Response</Label>
+              <Select value={riskResponse ?? '_none'} onValueChange={(v) => setRiskResponse(v === '_none' ? null : v as RiskResponse)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select response…" />
+                </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                  <SelectItem value="_none">None</SelectItem>
+                  {Object.entries(RESPONSE_LABELS).map(([val, label]) => (
                     <SelectItem key={val} value={val}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Due Date</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Likelihood (1–5)</Label>
-              <Input type="number" min={1} max={5} value={likelihood} onChange={(e) => setLikelihood(e.target.value ? Number(e.target.value) : '')} />
-            </div>
-            <div className="space-y-1">
-              <Label>Impact (1–5)</Label>
-              <Input type="number" min={1} max={5} value={impact} onChange={(e) => setImpact(e.target.value ? Number(e.target.value) : '')} />
+              <Label>Owner</Label>
+              <Select value={owner?.toString() ?? '_none'} onValueChange={(v) => setOwner(v === '_none' ? null : Number(v))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">No owner</SelectItem>
+                  {orgMembers.map((member) => (
+                    <SelectItem key={member.user} value={member.user.toString()}>
+                      {member.userEmail}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           {isCustom ? (
@@ -432,8 +426,8 @@ function RiskDetailPanel({
     scoringMethods?.find((m) => m.key === displayRisk.scoringMethod)?.label ??
     displayRisk.scoringMethod.replace(/_/g, ' ')
 
-  const handleStatusChange = (newStatus: RiskStatus) => {
-    updateRisk.mutate({ riskId: risk.id, data: { status: newStatus } })
+  const handleResponseChange = (newResponse: string) => {
+    updateRisk.mutate({ riskId: risk.id, data: { response: newResponse as RiskResponse } })
   }
 
   return (
@@ -459,32 +453,16 @@ function RiskDetailPanel({
           </div>
         </div>
 
-        {(displayRisk.likelihood !== null || displayRisk.impact !== null) && (
-          <div className="grid grid-cols-2 gap-4">
-            {displayRisk.likelihood !== null && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Likelihood</p>
-                <span className="text-sm font-medium">{displayRisk.likelihood}/5</span>
-              </div>
-            )}
-            {displayRisk.impact !== null && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Impact</p>
-                <span className="text-sm font-medium">{displayRisk.impact}/5</span>
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Status</p>
+          <p className="text-xs text-muted-foreground">Response</p>
           <div className="flex items-center gap-2">
-            <Select value={displayRisk.status} onValueChange={handleStatusChange}>
+            <Select value={displayRisk.response ?? '_none'} onValueChange={(v) => handleResponseChange(v === '_none' ? '' : v)}>
               <SelectTrigger className="h-8 w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                <SelectItem value="_none">Unresponded</SelectItem>
+                {Object.entries(RESPONSE_LABELS).map(([val, label]) => (
                   <SelectItem key={val} value={val}>{label}</SelectItem>
                 ))}
               </SelectContent>
@@ -494,16 +472,6 @@ function RiskDetailPanel({
             </Button>
           </div>
         </div>
-
-        {displayRisk.dueDate && (
-          <div>
-            <p className="text-xs text-muted-foreground">Due Date</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm">{new Date(displayRisk.dueDate).toLocaleDateString()}</span>
-              {displayRisk.isOverdue && <OverdueBadge />}
-            </div>
-          </div>
-        )}
 
         {displayRisk.ownerEmail && (
           <div>
@@ -573,13 +541,7 @@ function KanbanCard({
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
         <LevelBadge level={risk.inherentLevel} />
-        {risk.isOverdue && <OverdueBadge />}
       </div>
-      {risk.dueDate && !risk.isOverdue && (
-        <p className="text-xs text-muted-foreground mt-1.5">
-          Due {new Date(risk.dueDate).toLocaleDateString()}
-        </p>
-      )}
       {risk.ownerEmail && (
         <p className="text-xs text-muted-foreground mt-1 truncate">{risk.ownerEmail}</p>
       )}
@@ -602,22 +564,22 @@ function KanbanBoard({
 }) {
   const updateRisk = useUpdateRisk(threatModelId)
 
-  const handleDrop = (e: React.DragEvent, targetStatus: RiskStatus) => {
+  const handleDrop = (e: React.DragEvent, targetResponse: RiskResponse | null) => {
     e.preventDefault()
     const riskId = Number(e.dataTransfer.getData('riskId'))
-    if (riskId) updateRisk.mutate({ riskId, data: { status: targetStatus } })
+    if (riskId) updateRisk.mutate({ riskId, data: { response: targetResponse } })
   }
 
   return (
     <div className="grid grid-cols-5 items-start gap-4">
       {KANBAN_COLUMNS.map((col) => {
-        const colRisks = risks.filter((r) => r.status === col.status)
+        const colRisks = risks.filter((r) => r.response === col.response)
         return (
           <div
-            key={col.status}
+            key={col.response ?? '_none'}
             className={`rounded-lg border-2 ${col.color} p-3`}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, col.status)}
+            onDrop={(e) => handleDrop(e, col.response)}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold">{col.label}</span>
@@ -663,16 +625,14 @@ function BulkActionBar({
   onClear: () => void
 }) {
   const bulkUpdate = useBulkUpdateRisks(threatModelId)
-  const [bulkStatus, setBulkStatus] = useState<RiskStatus | ''>('')
-  const [bulkDueDate, setBulkDueDate] = useState('')
+  const [bulkResponse, setBulkResponse] = useState<RiskResponse | ''>('')
 
   const handleApply = () => {
-    if (!bulkStatus && !bulkDueDate) return
+    if (!bulkResponse) return
     bulkUpdate.mutate(
       {
         riskIds: selectedIds,
-        ...(bulkStatus ? { status: bulkStatus } : {}),
-        ...(bulkDueDate ? { dueDate: bulkDueDate } : {}),
+        response: bulkResponse,
       },
       { onSuccess: onClear }
     )
@@ -681,24 +641,17 @@ function BulkActionBar({
   return (
     <div className="flex items-center gap-3 p-3 bg-muted/60 border rounded-lg">
       <span className="text-sm font-medium">{selectedIds.length} selected</span>
-      <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as RiskStatus)}>
+      <Select value={bulkResponse} onValueChange={(v) => setBulkResponse(v as RiskResponse)}>
         <SelectTrigger className="h-8 w-[150px]">
-          <SelectValue placeholder="Set status…" />
+          <SelectValue placeholder="Set response…" />
         </SelectTrigger>
         <SelectContent>
-          {Object.entries(STATUS_LABELS).map(([val, label]) => (
+          {Object.entries(RESPONSE_LABELS).map(([val, label]) => (
             <SelectItem key={val} value={val}>{label}</SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Input
-        type="date"
-        className="h-8 w-[160px]"
-        value={bulkDueDate}
-        onChange={(e) => setBulkDueDate(e.target.value)}
-        placeholder="Set due date…"
-      />
-      <Button size="sm" onClick={handleApply} disabled={(!bulkStatus && !bulkDueDate) || bulkUpdate.isPending}>
+      <Button size="sm" onClick={handleApply} disabled={!bulkResponse || bulkUpdate.isPending}>
         {bulkUpdate.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
         Apply
       </Button>
@@ -744,8 +697,8 @@ function TableView({
             <TableHead>Name</TableHead>
             <TableHead className="w-[140px]">Inherent</TableHead>
             <TableHead className="w-[140px]">Residual</TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
-            <TableHead className="w-[110px]">Due Date</TableHead>
+            <TableHead className="w-[120px]">Response</TableHead>
+            <TableHead className="w-[140px]">Owner</TableHead>
             <TableHead className="w-[80px]">Threats</TableHead>
             <TableHead className="w-[60px]" />
           </TableRow>
@@ -766,7 +719,6 @@ function TableView({
               <TableCell>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{risk.name}</span>
-                  {risk.isOverdue && <OverdueBadge />}
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 </div>
               </TableCell>
@@ -777,10 +729,10 @@ function TableView({
                 <ScoreDisplay score={risk.residualScore} level={risk.residualLevel} />
               </TableCell>
               <TableCell>
-                <StatusBadge status={risk.status} />
+                <ResponseBadge response={risk.response} />
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {risk.dueDate ? new Date(risk.dueDate).toLocaleDateString() : '—'}
+              <TableCell className="text-sm text-muted-foreground truncate">
+                {risk.ownerEmail ?? '—'}
               </TableCell>
               <TableCell className="text-center text-sm text-muted-foreground">
                 {risk.threatCount}
@@ -822,7 +774,6 @@ export function RiskAnalysisTab({
 
   const selectedRisk = risks?.find((r) => r.id === selectedRiskId)
   const activeScoringMethod = scoringMethods?.find((m) => m.key === riskScoringMethod)
-  const overdueCount = risks?.filter((r) => r.isOverdue).length ?? 0
 
   const handleDelete = () => {
     if (deleteRiskId === null) return
@@ -860,9 +811,6 @@ export function RiskAnalysisTab({
           <h2 className="text-lg font-semibold">Risk Register</h2>
           <p className="text-sm text-muted-foreground">
             {risks?.length ?? 0} risk{(risks?.length ?? 0) !== 1 ? 's' : ''}
-            {overdueCount > 0 && (
-              <span className="ml-2 text-red-600 font-medium">· {overdueCount} overdue</span>
-            )}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
