@@ -954,11 +954,6 @@ class Risk(TimestampedModel):
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         help_text="Impact score 1-5",
     )
-    # Flag for auto-populated risks (from exposed threats)
-    auto_populated = models.BooleanField(
-        default=False,
-        help_text="True if this risk was auto-populated from an exposed threat",
-    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

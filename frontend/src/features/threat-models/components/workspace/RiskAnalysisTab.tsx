@@ -5,7 +5,6 @@ import {
   Trash2,
   ChevronRight,
   Loader2,
-  Zap,
   LayoutGrid,
   Table2,
   AlertTriangle,
@@ -59,7 +58,6 @@ import {
   useDeleteRisk,
   useRecalculateRisk,
   useScoringMethods,
-  useAutoPopulateRisks,
   useBulkUpdateRisks,
 } from '@/features/threat-models/api/risks'
 import type {
@@ -535,12 +533,6 @@ function RiskDetailPanel({
           </div>
         )}
 
-        {displayRisk.autoPopulated && (
-          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-            Auto-populated
-          </Badge>
-        )}
-
         <div className="text-xs text-muted-foreground pt-2 border-t">
           <p>Method: {scoringMethodLabel}</p>
           <p>Created: {new Date(displayRisk.createdAt).toLocaleDateString()}</p>
@@ -582,9 +574,6 @@ function KanbanCard({
       <div className="flex items-center gap-1.5 flex-wrap">
         <LevelBadge level={risk.inherentLevel} />
         {risk.isOverdue && <OverdueBadge />}
-        {risk.autoPopulated && (
-          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Auto</Badge>
-        )}
       </div>
       {risk.dueDate && !risk.isOverdue && (
         <p className="text-xs text-muted-foreground mt-1.5">
@@ -778,9 +767,6 @@ function TableView({
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{risk.name}</span>
                   {risk.isOverdue && <OverdueBadge />}
-                  {risk.autoPopulated && (
-                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Auto</Badge>
-                  )}
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 </div>
               </TableCell>
@@ -833,7 +819,6 @@ export function RiskAnalysisTab({
   const { data: risks, isLoading } = useRisks(threatModelId)
   const { data: scoringMethods } = useScoringMethods()
   const deleteRisk = useDeleteRisk(threatModelId)
-  const autoPopulate = useAutoPopulateRisks(threatModelId)
 
   const selectedRisk = risks?.find((r) => r.id === selectedRiskId)
   const activeScoringMethod = scoringMethods?.find((m) => m.key === riskScoringMethod)
@@ -916,19 +901,6 @@ export function RiskAnalysisTab({
               <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
-          {/* Auto-populate */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => autoPopulate.mutate()}
-            disabled={autoPopulate.isPending}
-          >
-            {autoPopulate.isPending
-              ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              : <Zap className="h-4 w-4 mr-2" />
-            }
-            Auto-populate
-          </Button>
           <Button onClick={() => setAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Risk
@@ -949,16 +921,12 @@ export function RiskAnalysisTab({
       {!risks || risks.length === 0 ? (
         <Card className="p-12 text-center">
           <p className="text-muted-foreground mb-4">
-            No risks defined yet. Use Auto-populate to pull in exposed threats, or add one manually.
+            No risks defined yet. Add a risk manually to get started.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Button variant="outline" onClick={() => autoPopulate.mutate()} disabled={autoPopulate.isPending}>
-              <Zap className="h-4 w-4 mr-2" />
-              Auto-populate from Threats
-            </Button>
             <Button onClick={() => setAddDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Manually
+              Add Risk
             </Button>
           </div>
         </Card>

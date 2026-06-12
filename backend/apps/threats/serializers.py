@@ -710,7 +710,6 @@ class RiskListSerializer(serializers.ModelSerializer):
             "due_date",
             "likelihood",
             "impact",
-            "auto_populated",
             "is_overdue",
             "threat_count",
             "owner",
@@ -767,7 +766,6 @@ class RiskDetailSerializer(serializers.ModelSerializer):
             "due_date",
             "likelihood",
             "impact",
-            "auto_populated",
             "is_overdue",
             "threats",
             "owner",
@@ -786,7 +784,6 @@ class RiskDetailSerializer(serializers.ModelSerializer):
             "inherent_level",
             "residual_score",
             "residual_level",
-            "auto_populated",
             "created_at",
             "updated_at",
         ]

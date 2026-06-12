@@ -16,7 +16,6 @@ export interface Risk {
   dueDate: string | null
   likelihood: number | null
   impact: number | null
-  autoPopulated: boolean
   isOverdue: boolean
   threatCount: number
   threats?: RiskThreatEntry[]
@@ -104,10 +103,4 @@ export interface CountermeasureComment {
   changeSummary: string
   createdAt: string
   updatedAt: string
-}
-
-export interface AutoPopulateResult {
-  created: number
-  skipped: number
-  message: string
 }
