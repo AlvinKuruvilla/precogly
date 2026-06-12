@@ -12,7 +12,6 @@ import type {
   AddRemoveThreatsInput,
   BulkUpdateRisksInput,
   CountermeasureComment,
-  AutoPopulateResult,
 } from '@/types/risk'
 
 // Query keys
@@ -155,21 +154,6 @@ export function useRemoveRiskThreats(threatModelId: string) {
     onSuccess: (_, { riskId }) => {
       queryClient.invalidateQueries({ queryKey: riskKeys.list(threatModelId) })
       queryClient.invalidateQueries({ queryKey: riskKeys.detail(threatModelId, riskId) })
-    },
-  })
-}
-
-/**
- * Auto-populate risk register from exposed threats.
- */
-export function useAutoPopulateRisks(threatModelId: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: () =>
-      api.post<AutoPopulateResult>(`/threat-models/${threatModelId}/risks/auto-populate/`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: riskKeys.list(threatModelId) })
     },
   })
 }

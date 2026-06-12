@@ -790,109 +790,15 @@ class RiskViewSet(viewsets.ModelViewSet):
         serializer = RiskDetailSerializer(risk, context=self.get_serializer_context())
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"], url_path="auto-populate")
-    def auto_populate(self, request, threat_model_pk=None):
-        """
-        Auto-populate the risk register from exposed threats.
-
-        Creates one Risk per exposed threat that doesn't already have a linked risk.
-        Skips threats that are dismissed or already linked to a risk.
-        Returns counts of created vs skipped.
-        """
-        from apps.threat_models.models import ThreatModel
-        from .services import calculate_inherent_score
-        from .scoring.registry import score_to_level
-
-        try:
-            threat_model = ThreatModel.objects.get(pk=threat_model_pk)
-        except ThreatModel.DoesNotExist:
-            return Response({"error": "Threat model not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        org_ids = request.user.organization_memberships.values_list("organization_id", flat=True)
-        if threat_model.organization_id not in list(org_ids):
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        scoring_method = threat_model.risk_scoring_method
-
-        # Collect exposed component threats not already linked to a risk
-        linked_component_ids = set(
-            RiskThreat.objects.filter(
-                risk__threat_model=threat_model,
-                component_threat__isnull=False,
-            ).values_list("component_threat_id", flat=True)
-        )
-        linked_flow_ids = set(
-            RiskThreat.objects.filter(
-                risk__threat_model=threat_model,
-                flow_threat__isnull=False,
-            ).values_list("flow_threat_id", flat=True)
-        )
-
-        exposed_component_threats = ComponentInstanceThreat.objects.filter(
-            component__threat_model=threat_model,
-            status="exposed",
-            is_dismissed=False,
-        ).exclude(id__in=linked_component_ids)
-
-        exposed_flow_threats = DataFlowInstanceThreat.objects.filter(
-            data_flow__source_component__threat_model=threat_model,
-            status="exposed",
-            is_dismissed=False,
-        ).exclude(id__in=linked_flow_ids)
-
-        created_count = 0
-        skipped_count = 0
-
-        for threat in list(exposed_component_threats) + list(exposed_flow_threats):
-            threat_name = threat.threat_name or "Unnamed Threat"
-            risk_name = f"Risk: {threat_name}"
-
-            # Skip if a risk with this name already exists
-            if Risk.objects.filter(threat_model=threat_model, name=risk_name).exists():
-                skipped_count += 1
-                continue
-
-            # Derive inherent score from threat severity
-            severity_map = {"low": 25, "medium": 50, "high": 75, "critical": 100}
-            inherent_score = severity_map.get(threat.inherent_severity, 50)
-            inherent_level = score_to_level(inherent_score)
-
-            risk = Risk.objects.create(
-                threat_model=threat_model,
-                name=risk_name,
-                description=threat.threat_description or "",
-                scoring_metadata={},
-                inherent_score=inherent_score,
-                inherent_level=inherent_level,
-                status=Risk.Status.OPEN,
-                auto_populated=True,
-            )
-
-            is_flow = hasattr(threat, "data_flow")
-            if is_flow:
-                RiskThreat.objects.create(risk=risk, flow_threat=threat)
-            else:
-                RiskThreat.objects.create(risk=risk, component_threat=threat)
-
-            recalculate_risk(risk)
-            created_count += 1
-
-        return Response({
-            "created": created_count,
-            "skipped": skipped_count,
-            "message": f"Created {created_count} risks from exposed threats ({skipped_count} skipped).",
-        }, status=status.HTTP_201_CREATED)
-
     @action(detail=False, methods=["post"], url_path="bulk-update")
     def bulk_update(self, request, threat_model_pk=None):
         """
-        Bulk update status, owner, or due_date on multiple risks.
+        Bulk update response or owner on multiple risks.
 
         Request body:
             risk_ids: list of risk IDs
-            status: optional new status
+            response: optional risk response strategy (accept/mitigate/transfer/avoid, null to clear)
             owner: optional owner user ID (null to clear)
-            due_date: optional due date (ISO format, null to clear)
         """
         risk_ids = request.data.get("risk_ids", [])
         if not risk_ids:
@@ -903,12 +809,10 @@ class RiskViewSet(viewsets.ModelViewSet):
             return Response({"error": "Some risk IDs not found"}, status=status.HTTP_400_BAD_REQUEST)
 
         update_fields = {}
-        if "status" in request.data:
-            update_fields["status"] = request.data["status"]
+        if "response" in request.data:
+            update_fields["response"] = request.data["response"] or None
         if "owner" in request.data:
             update_fields["owner_id"] = request.data["owner"]
-        if "due_date" in request.data:
-            update_fields["due_date"] = request.data["due_date"] or None
 
         if not update_fields:
             return Response({"error": "No fields to update"}, status=status.HTTP_400_BAD_REQUEST)
