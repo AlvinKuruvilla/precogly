@@ -70,10 +70,18 @@ export function ComponentTreeItem({
 
   return (
     <>
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelectComponent(node.id)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onSelectComponent(node.id)
+          }
+        }}
         className={cn(
-          'group w-full text-left p-2 rounded-md transition-colors',
+          'group w-full text-left p-2 rounded-md transition-colors cursor-pointer',
           isSelected
             ? 'bg-slate-100 border border-slate-300'
             : 'hover:bg-slate-50'
@@ -84,13 +92,14 @@ export function ComponentTreeItem({
           <div className="flex items-center gap-1.5 min-w-0">
             {/* Chevron for parents, spacer for leaves */}
             {hasChildren ? (
-              <span
-                role="button"
+              <button
+                type="button"
                 className="flex-shrink-0 p-0.5 rounded hover:bg-slate-200 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation()
                   onToggleCollapsed(node.id)
                 }}
+                aria-label={isCollapsed ? `Expand ${displayName}` : `Collapse ${displayName}`}
               >
                 <ChevronRight
                   className={cn(
@@ -98,7 +107,7 @@ export function ComponentTreeItem({
                     !isCollapsed && 'rotate-90'
                   )}
                 />
-              </span>
+              </button>
             ) : (
               <span className="w-4 flex-shrink-0" />
             )}
@@ -158,7 +167,7 @@ export function ComponentTreeItem({
             </span>
           </div>
         )}
-      </button>
+      </div>
       {/* Data assets inline under selected component */}
       {isSelected && (
         <ComponentDataAssetsDisplay
