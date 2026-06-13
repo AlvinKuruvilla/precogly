@@ -220,6 +220,7 @@ REST_AUTH = {
     "JWT_AUTH_REFRESH_COOKIE": None,
     "JWT_AUTH_HTTPONLY": False,
     "JWT_AUTH_RETURN_EXPIRATION": True,
+    "OLD_PASSWORD_FIELD_ENABLED": True,
     # Use custom serializer that generates frontend URLs for password reset
     "PASSWORD_RESET_SERIALIZER": "apps.core.serializers.CustomPasswordResetSerializer",
 }

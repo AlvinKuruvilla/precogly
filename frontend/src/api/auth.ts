@@ -3,7 +3,7 @@
  */
 
 import { useMutation } from '@tanstack/react-query'
-import { ApiError, API_BASE } from '@/lib/api'
+import { apiFetch, ApiError, API_BASE } from '@/lib/api'
 
 interface ChangePasswordInput {
   oldPassword: string
@@ -17,23 +17,14 @@ interface ChangePasswordInput {
 export function useChangePassword() {
   return useMutation({
     mutationFn: async ({ oldPassword, newPassword1, newPassword2 }: ChangePasswordInput) => {
-      const response = await fetch(`${API_BASE}/auth/password/change/`, {
+      return apiFetch('/auth/password/change/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           old_password: oldPassword,
           new_password1: newPassword1,
           new_password2: newPassword2,
         }),
       })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new ApiError('Failed to change password', response.status, error)
-      }
-
-      return response.json()
     },
   })
 }
