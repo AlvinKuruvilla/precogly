@@ -58,6 +58,12 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 - **AI-agent ready architecture** — A clean REST API with full OpenAPI docs, designed to be a foundation for AI-powered threat modeling assistants.
 - **Pack ecosystem** — Community and official packs for AWS, Azure, GCP, banking, and compliance frameworks. Extend or create your own.
 
+### Our AI Philosophy
+
+1. **AI agents need CRUD scaffolding** — Before AI generates a single threat, the platform must let you create, store, update, and track its core objects.
+2. **Ahead-of-time AI > just-in-time AI** — You can point AI at a system during threat modeling, or use it ahead of time to build curated threat libraries linked to standards. The second wins. Fewer hallucinations, more consistency.
+3. **The journey of understanding is the threat model** — The value of the threat model lives in the shared comprehension that humans build along the way. That needs a common interface where humans and agents work from the same picture.
+
 ### Tech Stack
 
 - **Frontend:** React 19, TypeScript, Tailwind CSS, shadcn/ui, React Flow
