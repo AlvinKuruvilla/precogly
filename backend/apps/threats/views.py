@@ -15,6 +15,9 @@ from rest_framework.exceptions import PermissionDenied
 from apps.core.permissions import CanWrite, IsSecurityTeam
 from apps.systems.models import OrgsystemComponent
 from apps.threat_models.models import ThreatModel
+from apps.ai import AIDisabledError, AIProviderError
+from apps.ai.resolver import organization_for_component, resolve_config
+from apps.threats.ai.suggest import suggest_component_threats
 
 from .models import (
     ComponentInstanceThreat,
@@ -383,6 +386,112 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             instances.append(ComponentInstanceThreat(id=threat_id, display_order=position))
         ComponentInstanceThreat.objects.bulk_update(instances, ["display_order"])
         return Response({"status": "ok", "updated": len(ordered_ids)})
+
+    @action(detail=False, methods=["post"])
+    def suggest(self, request):
+        """Return AI-ranked, grounded threat candidates for a component.
+
+        Unlike ``generate_threats`` (which mechanically attaches every library
+        threat for the component's type), this ranks the most relevant ones,
+        explains why each applies, and proposes a per-component severity. It
+        persists nothing — the caller reviews the candidates and accepts them
+        through the normal create path. Suggestions are grounded in installed
+        packs, so the model can only select real threats, never invent them.
+        """
+        component_id = request.data.get("component_id")
+        if not component_id:
+            return Response(
+                {"error": "component_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Scope the component to the requesting user's organizations, mirroring
+        # this viewset's own queryset (org-owned components, plus unassigned
+        # components reachable through their threat model).
+        org_ids = request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        component = (
+            OrgsystemComponent.objects.filter(
+                Q(orgsystem__organization_id__in=org_ids)
+                | Q(
+                    orgsystem__isnull=True,
+                    threat_model__organization_id__in=org_ids,
+                ),
+                id=component_id,
+            )
+            .select_related("component_library")
+            .first()
+        )
+        if component is None:
+            return Response(
+                {"error": "Component not found or not accessible"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            suggestions = suggest_component_threats(component)
+        except AIDisabledError as err:
+            return Response(
+                {"error": str(err)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except AIProviderError as err:
+            # The model is enabled but unreachable/misbehaving; 503 signals a
+            # transient/operational problem the user can act on (start the
+            # model, fix the URL) rather than a bug in their request.
+            return Response(
+                {"error": str(err)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({"component": component.id, "suggestions": suggestions})
+
+    @action(detail=False, methods=["get"])
+    def ai_availability(self, request):
+        """Report whether AI suggestions are available for a component's org.
+
+        The "suggest threats" affordance has to render its enabled/disabled
+        state *before* the user clicks, so an unconfigured tenant can be routed
+        to the provider settings instead of firing a request that would only
+        return a 400. This is a cheap config lookup — it never builds a provider
+        or probes the network; an enabled-but-unreachable model still surfaces
+        later as a 503 from ``suggest``.
+        """
+        component_id = request.query_params.get("component_id")
+        if not component_id:
+            return Response(
+                {"error": "component_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Same org scoping as ``suggest`` so availability can't leak across
+        # tenants: a user only learns about components their orgs can reach.
+        org_ids = request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        component = OrgsystemComponent.objects.filter(
+            Q(orgsystem__organization_id__in=org_ids)
+            | Q(
+                orgsystem__isnull=True,
+                threat_model__organization_id__in=org_ids,
+            ),
+            id=component_id,
+        ).first()
+        if component is None:
+            return Response(
+                {"error": "Component not found or not accessible"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ``resolve_config`` applies the org -> settings-fallback -> off
+        # precedence and raises when nothing serves this org; that exception is
+        # exactly the "AI is off here" signal the owl needs.
+        try:
+            resolve_config(organization_for_component(component))
+        except AIDisabledError as err:
+            return Response({"available": False, "reason": str(err)})
+        return Response({"available": True, "reason": None})
 
 
 class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
