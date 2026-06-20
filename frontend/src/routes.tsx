@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { Layout } from '@/components/layout'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { RootRoute } from '@/components/RootRoute'
 import {
   Dashboard,
   ThreatModels,
@@ -21,40 +20,39 @@ import {
   BusinessUnitsSettings,
 } from '@/pages'
 
+// When VITE_GUEST_ONLY is set, auth pages redirect to the guest editor
+const isGuestOnly = import.meta.env.VITE_GUEST_ONLY === 'true'
+
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: <Login />,
+    element: isGuestOnly ? <Navigate to="/" replace /> : <Login />,
   },
   {
     path: '/signup',
-    element: <Signup />,
+    element: isGuestOnly ? <Navigate to="/" replace /> : <Signup />,
   },
   {
     path: '/forgot-password',
-    element: <ForgotPassword />,
+    element: isGuestOnly ? <Navigate to="/" replace /> : <ForgotPassword />,
   },
   {
     path: '/reset-password/:uid/:token',
-    element: <ResetPassword />,
+    element: isGuestOnly ? <Navigate to="/" replace /> : <ResetPassword />,
   },
   // Public magic link route (no auth required)
   {
     path: '/share/:token',
-    element: <SharedThreatModelView />,
+    element: isGuestOnly ? <Navigate to="/" replace /> : <SharedThreatModelView />,
   },
   // Team invitation route (works for both logged-in and logged-out users)
   {
     path: '/invite/:token',
-    element: <AcceptInvitation />,
+    element: isGuestOnly ? <Navigate to="/" replace /> : <AcceptInvitation />,
   },
   {
     path: '/',
-    element: (
-      <ProtectedRoute>
-        <Layout />
-      </ProtectedRoute>
-    ),
+    element: <RootRoute />,
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'threat-models', element: <ThreatModels /> },

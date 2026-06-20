@@ -54,6 +54,7 @@ interface NodeEditPanelProps {
   node: DiagramNode
   onClose: () => void
   threatModelId?: string
+  renderExtra?: React.ReactNode
 }
 
 const nodeTypeConfig: Record<
@@ -234,6 +235,7 @@ export const NodeEditPanel = memo(function NodeEditPanel({
   node,
   onClose,
   threatModelId,
+  renderExtra,
 }: NodeEditPanelProps) {
   const { setNodes, getNodes, getEdges, setEdges } = useReactFlow()
 
@@ -806,6 +808,14 @@ export const NodeEditPanel = memo(function NodeEditPanel({
                 <span className="text-sm font-medium">{parentNode.data.label}</span>
               </div>
             </div>
+          </>
+        )}
+
+        {/* Extra content (e.g. guest threat section) */}
+        {renderExtra && (
+          <>
+            <Separator />
+            {renderExtra}
           </>
         )}
 

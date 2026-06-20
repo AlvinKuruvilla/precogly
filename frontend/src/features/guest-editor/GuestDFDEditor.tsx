@@ -1,0 +1,330 @@
+import { useCallback, useState, useRef } from 'react'
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  ReactFlowProvider,
+  ConnectionMode,
+  useReactFlow,
+  useViewport,
+  type Connection,
+  type XYPosition,
+  addEdge,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import { CanvasOverlays } from '@/features/dfd-editor/components/CanvasOverlays'
+import { DiagramToolbar } from '@/features/dfd-editor/components/DiagramToolbar'
+import { NodeEditPanel } from '@/features/dfd-editor/components/panels/NodeEditPanel'
+import { EdgeEditPanel } from '@/features/dfd-editor/components/panels/EdgeEditPanel'
+import { TrustBoundaryEdgeEditPanel } from '@/features/dfd-editor/components/panels/TrustBoundaryEdgeEditPanel'
+import { useParentRelationships } from '@/features/dfd-editor/hooks/useParentRelationships'
+import { useKeyboardShortcuts } from '@/features/dfd-editor/hooks/useKeyboardShortcuts'
+import { useConnectionMode } from '@/features/dfd-editor/hooks/useConnectionMode'
+import { useBoundaryMode } from '@/features/dfd-editor/hooks/useBoundaryMode'
+import type {
+  DiagramNode,
+  DiagramEdge,
+  DataFlowEdge,
+  TrustBoundaryEdge,
+} from '@/features/dfd-editor/types'
+import { useGuestDiagramState } from './hooks/useGuestDiagramState'
+import { useGuestThreats } from './hooks/useGuestThreats'
+import { GuestEditorProvider } from './context/GuestEditorContext'
+import { GuestEditorHeader } from './components/GuestEditorHeader'
+import { GuestThreatSection } from './components/GuestThreatSection'
+import { guestNodeTypes, guestEdgeTypes } from './components/GuestNodeWrapper'
+
+function GuestDFDEditorContent() {
+  const reactFlowWrapper = useRef<HTMLDivElement>(null)
+
+  // State for UI
+  const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
+  const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
+
+  // ReactFlow instance
+  const { screenToFlowPosition, getEdges } = useReactFlow()
+  const { x: viewportX, y: viewportY, zoom } = useViewport()
+
+  // Guest diagram state (in-memory, no backend)
+  const {
+    title,
+    setTitle,
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    onNodesChange,
+    onEdgesChange,
+    undo,
+    hasUnsavedChanges,
+    markSaved,
+    loadFromFile,
+  } = useGuestDiagramState()
+
+  // Guest threats
+  const threatOps = useGuestThreats()
+
+  // Parent relationship detection
+  const { updateParentRelationships } = useParentRelationships()
+
+  // Connection mode hook
+  const {
+    connectionMode,
+    setConnectionMode,
+    connectionSourceId,
+    connectionSourcePosition,
+    mousePosition,
+    getAbsolutePosition,
+    handleNodeClickForConnection,
+    handleMouseMove,
+    handlePaneClickForConnection,
+  } = useConnectionMode({ nodes, edges, setEdges, screenToFlowPosition })
+
+  // Boundary mode hook
+  const {
+    boundaryMode,
+    setBoundaryMode,
+    boundarySourceId,
+    boundarySourceZoneInfo,
+    handleNodeClickForBoundary,
+    cancelBoundaryMode,
+  } = useBoundaryMode({ nodes, setEdges, getEdges: getEdges as () => DiagramEdge[], getAbsolutePosition })
+
+  // Mutual exclusion
+  const handleConnectionModeChange = useCallback(
+    (enabled: boolean) => {
+      if (enabled) setBoundaryMode(false)
+      setConnectionMode(enabled)
+    },
+    [setBoundaryMode, setConnectionMode]
+  )
+
+  const handleBoundaryModeChange = useCallback(
+    (enabled: boolean) => {
+      if (enabled) setConnectionMode(false)
+      setBoundaryMode(enabled)
+    },
+    [setConnectionMode, setBoundaryMode]
+  )
+
+  const getCanvasCenterPosition = useCallback((): XYPosition => {
+    const bounds = reactFlowWrapper.current?.getBoundingClientRect()
+    return screenToFlowPosition({
+      x: bounds ? bounds.left + bounds.width / 2 : window.innerWidth / 2,
+      y: bounds ? bounds.top + bounds.height / 2 : window.innerHeight / 2,
+    })
+  }, [screenToFlowPosition])
+
+  // Handle node click
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: DiagramNode) => {
+      const boundaryResult = handleNodeClickForBoundary(node)
+      if (boundaryResult.consumed) {
+        if (boundaryResult.selectedEdge) {
+          setSelectedEdge(boundaryResult.selectedEdge)
+          setSelectedNode(null)
+        }
+        return
+      }
+      if (handleNodeClickForConnection(node)) return
+      setSelectedNode(node)
+      setSelectedEdge(null)
+    },
+    [handleNodeClickForBoundary, handleNodeClickForConnection]
+  )
+
+  const handleEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: DiagramEdge) => {
+      setSelectedEdge(edge)
+      setSelectedNode(null)
+    },
+    []
+  )
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedNode(null)
+    setSelectedEdge(null)
+    handlePaneClickForConnection()
+  }, [handlePaneClickForConnection])
+
+  const handleNodeDragStop = useCallback(() => {
+    requestAnimationFrame(() => {
+      updateParentRelationships(nodes, setNodes)
+    })
+  }, [nodes, setNodes, updateParentRelationships])
+
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return
+      const sourceNode = nodes.find((n) => n.id === connection.source)
+      const targetNode = nodes.find((n) => n.id === connection.target)
+      if (sourceNode?.type === 'trustZone' && targetNode?.type === 'trustZone') return
+
+      const newEdge: DataFlowEdge = {
+        id: `edge-${Date.now()}`,
+        source: connection.source,
+        target: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+        type: 'dataFlow',
+        animated: true,
+        data: {
+          label: '',
+          encrypted: false,
+          authenticated: false,
+        },
+      }
+      setEdges((eds) => addEdge(newEdge, eds) as DiagramEdge[])
+    },
+    [nodes, setEdges]
+  )
+
+  // Sync selected node/edge with current data
+  const currentSelectedNode = selectedNode
+    ? (nodes.find((n) => n.id === selectedNode.id) as DiagramNode | undefined)
+    : null
+
+  const currentSelectedEdge = selectedEdge
+    ? (edges.find((e) => e.id === selectedEdge.id) as DiagramEdge | undefined)
+    : null
+
+  const handleDeselect = useCallback(() => {
+    setSelectedNode(null)
+    setSelectedEdge(null)
+    if (boundaryMode) {
+      cancelBoundaryMode()
+    }
+  }, [boundaryMode, cancelBoundaryMode])
+
+  // Keyboard shortcuts (save is a no-op in guest — handled by header download)
+  useKeyboardShortcuts({
+    onUndo: undo,
+    onDeselect: handleDeselect,
+    enabled: true,
+  })
+
+  // Determine guest threat target type for the selected node
+  const getNodeTargetType = (node: DiagramNode): 'component' | 'systemScope' => {
+    if (node.type === 'systemScope') return 'systemScope'
+    return 'component'
+  }
+
+  return (
+    <GuestEditorProvider value={threatOps}>
+      <div className="flex flex-col h-screen">
+        {/* Guest Header */}
+        <GuestEditorHeader
+          title={title}
+          onTitleChange={setTitle}
+          nodes={nodes}
+          edges={edges}
+          hasUnsavedChanges={hasUnsavedChanges}
+          onMarkSaved={markSaved}
+          onLoadFromFile={loadFromFile}
+        />
+
+        {/* Toolbar */}
+        <DiagramToolbar
+          connectionMode={connectionMode}
+          onConnectionModeChange={handleConnectionModeChange}
+          boundaryMode={boundaryMode}
+          onBoundaryModeChange={handleBoundaryModeChange}
+          getCanvasCenterPosition={getCanvasCenterPosition}
+          onOpenTemplates={() => {}}
+          onOpenThreatAnalysis={() => {}}
+          hideTemplates
+          hideAnalyzeThreats
+        />
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Canvas */}
+          <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={handleConnect}
+              onNodeClick={handleNodeClick}
+              onEdgeClick={handleEdgeClick}
+              onPaneClick={handlePaneClick}
+              onNodeDragStop={handleNodeDragStop}
+              nodeTypes={guestNodeTypes}
+              edgeTypes={guestEdgeTypes}
+              connectionMode={ConnectionMode.Loose}
+              defaultEdgeOptions={{
+                type: 'dataFlow',
+                animated: true,
+              }}
+              fitView
+              snapToGrid
+              snapGrid={[15, 15]}
+              minZoom={0.1}
+              maxZoom={4}
+              deleteKeyCode={null}
+            >
+              <CanvasOverlays
+                viewportX={viewportX}
+                viewportY={viewportY}
+                zoom={zoom}
+                connectionMode={connectionMode}
+                connectionSourceId={connectionSourceId}
+                connectionSourcePosition={connectionSourcePosition}
+                mousePosition={mousePosition}
+                boundaryMode={boundaryMode}
+                boundarySourceId={boundarySourceId}
+                boundarySourceZoneInfo={boundarySourceZoneInfo}
+              />
+              <Background gap={15} size={1} />
+              <Controls />
+            </ReactFlow>
+          </div>
+
+          {/* Edit Panels */}
+          {currentSelectedNode && (
+            <NodeEditPanel
+              node={currentSelectedNode}
+              onClose={() => setSelectedNode(null)}
+              renderExtra={
+                currentSelectedNode.type !== 'trustZone' ? (
+                  <GuestThreatSection
+                    targetId={currentSelectedNode.id}
+                    targetType={getNodeTargetType(currentSelectedNode)}
+                    targetName={currentSelectedNode.data.label || currentSelectedNode.type || 'Node'}
+                  />
+                ) : undefined
+              }
+            />
+          )}
+          {currentSelectedEdge?.type === 'dataFlow' && (
+            <EdgeEditPanel
+              edge={currentSelectedEdge as DataFlowEdge}
+              onClose={() => setSelectedEdge(null)}
+              renderExtra={
+                <GuestThreatSection
+                  targetId={currentSelectedEdge.id}
+                  targetType="dataflow"
+                  targetName={currentSelectedEdge.data?.label || 'Data Flow'}
+                />
+              }
+            />
+          )}
+          {currentSelectedEdge?.type === 'trustBoundary' && (
+            <TrustBoundaryEdgeEditPanel
+              edge={currentSelectedEdge as TrustBoundaryEdge}
+              onClose={() => setSelectedEdge(null)}
+            />
+          )}
+        </div>
+      </div>
+    </GuestEditorProvider>
+  )
+}
+
+export function GuestDFDEditor() {
+  return (
+    <ReactFlowProvider>
+      <GuestDFDEditorContent />
+    </ReactFlowProvider>
+  )
+}
