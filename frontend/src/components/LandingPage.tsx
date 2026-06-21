@@ -23,10 +23,13 @@ export function LandingPage() {
         <div className="flex flex-col gap-3 w-full">
           <Link to="/guest" className="w-full">
             <Button size="lg" className="w-full gap-2">
-              Start in Guest Mode
+              Start Threat Modeling
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
+          <p className="text-xs text-muted-foreground">
+            No sign-up required. Your work saves locally as JSON.
+          </p>
 
           {!isGuestOnly && (
             <Link to="/login" className="w-full">
