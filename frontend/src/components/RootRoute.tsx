@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout'
-import { GuestDFDEditor } from '@/features/guest-editor'
+import { LandingPage } from '@/components/LandingPage'
 
 export function RootRoute() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -15,7 +15,7 @@ export function RootRoute() {
   }
 
   if (!isAuthenticated) {
-    return <GuestDFDEditor />
+    return <LandingPage />
   }
 
   return <Layout />

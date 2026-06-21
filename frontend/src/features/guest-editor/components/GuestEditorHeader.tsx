@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
-import { Download, FolderOpen, Pencil, Github } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Download, FolderOpen, Pencil, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,10 +18,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 import { useGuestEditor } from '../context/GuestEditorContext'
-import { serializePrecoglyFile, downloadPrecoglyFile, openPrecoglyFile } from '../lib/precogly-file'
-import type { PrecoglyFile } from '../types'
+import { serializeToTmLibrary, downloadTmLibraryFile, openTmLibraryFile } from '../lib/precogly-file'
 
 function titleToFilename(title: string): string {
   return title.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '-').toLowerCase() || 'diagram'
@@ -29,22 +28,19 @@ function titleToFilename(title: string): string {
 interface GuestEditorHeaderProps {
   title: string
   onTitleChange: (title: string) => void
-  nodes: DiagramNode[]
-  edges: DiagramEdge[]
   hasUnsavedChanges: boolean
   onMarkSaved: () => void
-  onLoadFromFile: (data: PrecoglyFile) => void
+  onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[] }) => void
 }
 
 export function GuestEditorHeader({
   title,
   onTitleChange,
-  nodes,
-  edges,
   hasUnsavedChanges,
   onMarkSaved,
   onLoadFromFile,
 }: GuestEditorHeaderProps) {
+  const navigate = useNavigate()
   const guestEditor = useGuestEditor()
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
@@ -87,20 +83,29 @@ export function GuestEditorHeader({
   }, [title])
 
   const handleConfirmSave = useCallback(() => {
+    if (!guestEditor) return
     const filename = saveFilename.trim() || titleToFilename(title)
-    const threats = guestEditor?.getAllThreats() ?? []
-    const content = serializePrecoglyFile(title, nodes, edges, threats)
-    downloadPrecoglyFile(filename, content)
+    const threats = guestEditor.getAllThreats()
+    const countermeasures = guestEditor.getAllCountermeasures()
+    const content = serializeToTmLibrary(
+      title,
+      guestEditor.nodes,
+      guestEditor.edges,
+      threats,
+      countermeasures
+    )
+    downloadTmLibraryFile(filename, content)
     onMarkSaved()
     setShowSaveDialog(false)
-  }, [saveFilename, title, nodes, edges, guestEditor, onMarkSaved])
+  }, [saveFilename, title, guestEditor, onMarkSaved])
 
   const handleOpen = useCallback(async () => {
     try {
-      const data = await openPrecoglyFile()
-      onLoadFromFile(data)
+      const data = await openTmLibraryFile()
+      onLoadFromFile({ title: data.title, nodes: data.nodes, edges: data.edges })
       if (guestEditor) {
         guestEditor.loadThreats(data.threats)
+        guestEditor.loadCountermeasures(data.countermeasures)
       }
     } catch {
       // User cancelled or invalid file - silently ignore
@@ -111,9 +116,17 @@ export function GuestEditorHeader({
     <>
       <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <button
+            onClick={() => {
+              if (!hasUnsavedChanges || window.confirm('Changes that you made may not be saved.')) {
+                navigate('/')
+              }
+            }}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
             <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Guest</span>
-          </div>
+          </button>
           <div>
             {isEditingTitle ? (
               <input
@@ -156,7 +169,7 @@ export function GuestEditorHeader({
                   Open
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open a .precogly file</TooltipContent>
+              <TooltipContent>Open a threat model JSON file</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -166,18 +179,9 @@ export function GuestEditorHeader({
                   Save
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Download as .precogly file</TooltipContent>
+              <TooltipContent>Download as JSON file</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-          <div className="h-6 w-px bg-border mx-1" />
-
-          <a href="https://github.com/precogly/precogly" target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="sm" className="text-muted-foreground">
-              <Github className="h-4 w-4 mr-2" />
-              GitHub
-            </Button>
-          </a>
         </div>
       </div>
 
@@ -201,7 +205,7 @@ export function GuestEditorHeader({
                 }}
                 className="flex-1"
               />
-              <span className="text-sm text-muted-foreground shrink-0">.precogly</span>
+              <span className="text-sm text-muted-foreground shrink-0">.json</span>
             </div>
           </div>
           <DialogFooter>

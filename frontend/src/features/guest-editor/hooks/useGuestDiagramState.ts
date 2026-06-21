@@ -3,7 +3,12 @@ import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 import { useUndoHistory } from '@/features/dfd-editor/hooks/useUndoHistory'
-import type { PrecoglyFile } from '../types'
+
+interface LoadFromFileData {
+  title: string
+  nodes: DiagramNode[]
+  edges: DiagramEdge[]
+}
 
 interface UseGuestDiagramStateReturn {
   title: string
@@ -18,7 +23,7 @@ interface UseGuestDiagramStateReturn {
   canUndo: boolean
   hasUnsavedChanges: boolean
   markSaved: () => void
-  loadFromFile: (data: PrecoglyFile) => void
+  loadFromFile: (data: LoadFromFileData) => void
 }
 
 export function useGuestDiagramState(): UseGuestDiagramStateReturn {
@@ -99,10 +104,10 @@ export function useGuestDiagramState(): UseGuestDiagramStateReturn {
     setHasUnsavedChanges(false)
   }, [])
 
-  const loadFromFile = useCallback((data: PrecoglyFile) => {
-    setTitleInternal(data.diagram.title)
-    setNodesInternal(data.diagram.nodes)
-    setEdgesInternal(data.diagram.edges)
+  const loadFromFile = useCallback((data: LoadFromFileData) => {
+    setTitleInternal(data.title)
+    setNodesInternal(data.nodes)
+    setEdgesInternal(data.edges)
     setHasUnsavedChanges(false)
   }, [])
 

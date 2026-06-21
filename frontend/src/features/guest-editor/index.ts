@@ -1,1 +1,2 @@
-export { GuestDFDEditor } from './GuestDFDEditor'
+export { GuestLayout } from './GuestLayout'
+export { GuestDFDEditorPage } from './GuestDFDEditor'
