@@ -28,7 +28,27 @@ export function LandingPage() {
             </Button>
           </Link>
           <p className="text-xs text-muted-foreground">
-            No sign-up required. Your work saves locally as JSON.
+            Try the editor — no sign-up required. Draw DFDs, identify threats, and add countermeasures. Your work saves locally as JSON.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Want the full platform?</span>{' '}
+            Threat libraries, risk management, AI-assisted analysis, compliance tracking, reporting, pentest scoping, and more.{' '}
+            <a
+              href="https://precogly.github.io/precogly/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Self-host with Docker
+            </a>{' '}
+            or{' '}
+            <a
+              href="mailto:vikramsnarayan@gmail.com"
+              className="text-primary hover:underline"
+            >
+              contact the maintainer
+            </a>
+            .
           </p>
 
           {!isGuestOnly && (
