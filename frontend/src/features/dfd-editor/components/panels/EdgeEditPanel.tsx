@@ -212,12 +212,14 @@ interface EdgeEditPanelProps {
   edge: DataFlowEdge
   onClose: () => void
   threatModelId?: string
+  renderExtra?: React.ReactNode
 }
 
 export const EdgeEditPanel = memo(function EdgeEditPanel({
   edge,
   onClose,
   threatModelId,
+  renderExtra,
 }: EdgeEditPanelProps) {
   const { setEdges, getNodes } = useReactFlow()
 
@@ -487,6 +489,14 @@ export const EdgeEditPanel = memo(function EdgeEditPanel({
             </div>
           )
         })()}
+
+        {/* Extra content (e.g. guest threat section) */}
+        {renderExtra && (
+          <>
+            <Separator />
+            {renderExtra}
+          </>
+        )}
 
         {/* Edge info */}
         <Separator />

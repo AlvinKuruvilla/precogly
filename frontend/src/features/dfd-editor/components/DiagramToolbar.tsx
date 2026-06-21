@@ -20,6 +20,8 @@ interface DiagramToolbarProps {
   getCanvasCenterPosition: () => XYPosition
   onOpenTemplates: () => void
   onOpenThreatAnalysis: () => void
+  hideTemplates?: boolean
+  hideAnalyzeThreats?: boolean
 }
 
 interface ToolbarButtonConfig {
@@ -92,6 +94,8 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   getCanvasCenterPosition,
   onOpenTemplates,
   onOpenThreatAnalysis,
+  hideTemplates,
+  hideAnalyzeThreats,
 }: DiagramToolbarProps) {
   const { addNodes, getNodes } = useReactFlow()
 
@@ -211,51 +215,59 @@ export const DiagramToolbar = memo(function DiagramToolbar({
           </TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        {!hideTemplates && (
+          <>
+            <Separator orientation="vertical" className="h-8 mx-2" />
 
-        {/* Templates button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={onOpenTemplates}
-            >
-              <LayoutTemplate className="h-4 w-4" />
-              <span className="hidden sm:inline">Templates</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="font-medium">DFD Templates</p>
-            <p className="text-xs text-muted-foreground">
-              Browse and insert pre-built diagram templates
-            </p>
-          </TooltipContent>
-        </Tooltip>
+            {/* Templates button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={onOpenTemplates}
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                  <span className="hidden sm:inline">Templates</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-medium">DFD Templates</p>
+                <p className="text-xs text-muted-foreground">
+                  Browse and insert pre-built diagram templates
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
 
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        {!hideAnalyzeThreats && (
+          <>
+            <Separator orientation="vertical" className="h-8 mx-2" />
 
-        {/* Threat Analysis button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-2"
-              onClick={onOpenThreatAnalysis}
-            >
-              <ShieldAlert className="h-4 w-4" />
-              <span className="hidden sm:inline">Analyze Threats</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="font-medium">Analyze Threats & Countermeasures</p>
-            <p className="text-xs text-muted-foreground">
-              Review and manage threats based on your diagram components
-            </p>
-          </TooltipContent>
-        </Tooltip>
+            {/* Threat Analysis button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                  onClick={onOpenThreatAnalysis}
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  <span className="hidden sm:inline">Analyze Threats</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-medium">Analyze Threats & Countermeasures</p>
+                <p className="text-xs text-muted-foreground">
+                  Review and manage threats based on your diagram components
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
       </div>
     </TooltipProvider>
   )
