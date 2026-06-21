@@ -404,13 +404,7 @@ export function ThreatModelDetail() {
     createDiagramMutation.mutate(title)
   }
 
-  const handleDeleteDFD = (diagramId: string) => {
-    const diagram = diagrams.find((d) => String(d.id) === String(diagramId))
-    if (diagram) {
-      setDfdToDelete({ id: String(diagram.id), name: diagram.name || 'Untitled DFD' })
-      setDeleteDFDDialogOpen(true)
-    }
-  }
+
 
   const handleConfirmDeleteDFD = (deleteOrphanedComponents: boolean) => {
     if (dfdToDelete) {

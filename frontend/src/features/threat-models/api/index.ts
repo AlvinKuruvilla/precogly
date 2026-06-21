@@ -1,6 +1,17 @@
 export * from './threat-models'
 export * from './threats'
-export * from './components'
+export {
+  type ComponentLibraryItem,
+  type TrustZone,
+  type OrgsystemComponent,
+  componentKeys,
+  useComponentLibrary,
+  useAnalysisComponents,
+  useTrustZones,
+  useCreateAnalysisComponent,
+  // useDeleteComponent is intentionally omitted — it conflicts with the
+  // same-named export from ./threats. Import directly from ./components if needed.
+} from './components'
 export * from './data-assets'
 export * from './data-flow-assets'
 export * from './component-data-assets'

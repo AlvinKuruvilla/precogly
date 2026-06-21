@@ -83,14 +83,15 @@ export function serializeToTmLibrary(
 
   // Data flows
   const dataFlows: TmLibraryDataFlow[] = edges
-    .filter((e) => e.type === 'dataFlow')
+    .filter((e): e is DiagramEdge & { type: 'dataFlow' } => e.type === 'dataFlow')
     .map((e) => {
       const sourceNode = nodeMap.get(e.source)
       const targetNode = nodeMap.get(e.target)
+      const data = e.data as Record<string, unknown> | undefined
       return {
         symbolic_name: e.id,
-        name: e.data?.label || '',
-        description: e.data?.description || '',
+        name: (data?.label as string) || '',
+        description: (data?.description as string) || '',
         source: {
           type: sourceNode ? getEntityTypeForNode(sourceNode) : 'unknown',
           name: sourceNode?.data.label || e.source,
