@@ -185,6 +185,7 @@ export function ComponentTreeItem({
           onSelectComponent={onSelectComponent}
           onToggleCollapsed={onToggleCollapsed}
           resolveTechName={resolveTechName}
+          onRequestDeleteComponent={onRequestDeleteComponent}
         />
       ))}
     </>

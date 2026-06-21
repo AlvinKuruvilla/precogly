@@ -50,7 +50,7 @@ interface OverviewTabProps {
   onSelectDiagram: (id: string | null) => void
   onEditDiagram: (diagramId: string) => void
   onCreateDiagram: () => void
-  onUploadImage: (file: File, description: string) => Promise<void>
+  onUploadImage: (file: File, description?: string) => Promise<void>
   onDeleteImage: (imageId: number) => Promise<void>
   onImageClick: (index: number) => void
   onManageSystems: () => void

@@ -2,7 +2,7 @@
  * Organization and Team types for user management.
  */
 
-import type { TaxonomyEntry } from './domain'
+import type { TaxonomyEntry } from '@/types/domain'
 
 // Role types
 export type OrganizationRole = 'security_team' | 'member'

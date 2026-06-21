@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { Diagram, ThreatModel } from '@/types'
+import type { Diagram } from '@/types'
 import type {
   CompletionStatus,
   ComponentThreat,
