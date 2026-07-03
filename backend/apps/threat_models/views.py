@@ -107,10 +107,10 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         """
         from apps.systems.models import DataFlow, OrgsystemComponent
         from apps.threats.models import (
-            ComponentInstanceCountermeasure,
             ComponentInstanceThreat,
+            CountermeasureThreatLink,
             DataFlowInstanceThreat,
-            FlowInstanceCountermeasure,
+            InstanceCountermeasure,
         )
 
         threat_model = self.get_object()
@@ -151,18 +151,16 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         component_threat_count = ComponentInstanceThreat.objects.filter(
             component_id__in=component_ids_to_delete
         ).count()
-        component_countermeasure_count = ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component_id__in=component_ids_to_delete
-        ).count()
 
         # Count flow threats and countermeasures
         flow_threat_count = DataFlowInstanceThreat.objects.filter(
             Q(data_flow__source_component_id__in=component_ids_to_delete) |
             Q(data_flow__dest_component_id__in=component_ids_to_delete)
         ).count()
-        flow_countermeasure_count = FlowInstanceCountermeasure.objects.filter(
-            Q(flow_threat__data_flow__source_component_id__in=component_ids_to_delete) |
-            Q(flow_threat__data_flow__dest_component_id__in=component_ids_to_delete)
+
+        # Count all countermeasures in this threat model
+        countermeasure_count = InstanceCountermeasure.objects.filter(
+            threat_model=threat_model
         ).count()
 
         return Response({
@@ -175,7 +173,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             "components_to_delete": len(component_ids_to_delete),
             "dataflows_to_delete": dataflow_count,
             "threats_to_delete": component_threat_count + flow_threat_count,
-            "countermeasures_to_delete": component_countermeasure_count + flow_countermeasure_count,
+            "countermeasures_to_delete": countermeasure_count,
         })
 
     @action(detail=True, methods=["post"])
@@ -495,6 +493,132 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 })
         return mappings
 
+    def _serialize_countermeasures_from_links(self, links, current_threat):
+        """Serialize countermeasures from junction table links, including also_mitigates."""
+        from apps.threats.models import CountermeasureThreatLink
+
+        result = []
+        for link in links:
+            cm = link.countermeasure
+            # Find other threats this countermeasure also mitigates (across both types)
+            other_links = CountermeasureThreatLink.objects.filter(
+                countermeasure=cm
+            ).exclude(
+                id=link.id
+            ).select_related(
+                "component_threat__component",
+                "component_threat__threat_library",
+                "flow_threat__data_flow__source_component",
+                "flow_threat__data_flow__dest_component",
+                "flow_threat__threat_library",
+            )
+
+            also_mitigates = []
+            for other_link in other_links:
+                other_threat = other_link.component_threat or other_link.flow_threat
+                if not other_threat:
+                    continue
+
+                # Build display name: component name for component threats,
+                # flow label (or "source → dest" fallback) for flow threats
+                if hasattr(other_threat, "component") and other_threat.component:
+                    display_name = other_threat.component.name
+                elif hasattr(other_threat, "data_flow") and other_threat.data_flow:
+                    df = other_threat.data_flow
+                    if df.label:
+                        display_name = df.label
+                    else:
+                        source = df.source_component.name if df.source_component else "?"
+                        dest = df.dest_component.name if df.dest_component else "?"
+                        display_name = f"{source} \u2192 {dest}"
+                else:
+                    display_name = None
+
+                also_mitigates.append({
+                    "threat_id": other_threat.id,
+                    "threat_type": "component" if other_link.component_threat else "flow",
+                    "threat_name": other_threat.threat_name or (
+                        other_threat.threat_library.name if other_threat.threat_library else None
+                    ),
+                    "component_name": display_name,
+                })
+
+            result.append({
+                "id": cm.id,
+                "countermeasure_library_id": cm.countermeasure_library_id,
+                "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
+                "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
+                "status": cm.status,
+                "priority": cm.priority,
+                "due_date": cm.due_date,
+                "external_ticket_url": cm.external_ticket_url,
+                "evidence_url": cm.evidence_url,
+                "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                "verified_by_email": cm.verified_by.email if cm.verified_by else None,
+                "standard_mappings": self._serialize_standard_mappings(cm),
+                "display_order": link.display_order,
+                "is_inherited": cm.is_inherited,
+                "inherited_from_component_name": cm.inherited_from_component_name,
+                "inherited_from_zone_name": cm.inherited_from_zone_name,
+                "also_mitigates": also_mitigates,
+            })
+        return result
+
+    @action(detail=True, methods=["get"], url_path="countermeasures-in-use")
+    def countermeasures_in_use(self, request, pk=None):
+        """List all countermeasure instances active in this threat model."""
+        from apps.threats.models import InstanceCountermeasure
+
+        threat_model = self.get_object()
+        countermeasures = InstanceCountermeasure.objects.filter(
+            threat_model=threat_model
+        ).select_related(
+            "countermeasure_library", "assigned_owner"
+        ).prefetch_related(
+            "threat_links__component_threat__component",
+            "threat_links__component_threat__threat_library",
+            "threat_links__flow_threat__data_flow",
+            "threat_links__flow_threat__threat_library",
+        )
+
+        result = []
+        for cm in countermeasures:
+            linked_threats = []
+            for link in cm.threat_links.all():
+                threat = link.component_threat or link.flow_threat
+                if not threat:
+                    continue
+                linked_threats.append({
+                    "threat_id": threat.id,
+                    "threat_name": threat.threat_name or (
+                        threat.threat_library.name if threat.threat_library else None
+                    ),
+                    "component_name": (
+                        threat.component.name
+                        if hasattr(threat, "component") and threat.component
+                        else None
+                    ),
+                    "flow_label": (
+                        threat.data_flow.label
+                        if hasattr(threat, "data_flow") and threat.data_flow
+                        else None
+                    ),
+                })
+            result.append({
+                "id": cm.id,
+                "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
+                "countermeasure_library_id": cm.countermeasure_library_id,
+                "status": cm.status,
+                "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
+                "linked_threats": linked_threats,
+            })
+
+        return Response({
+            "threat_model_id": str(threat_model.id),
+            "countermeasures": result,
+            "total_count": len(result),
+        })
+
     @action(detail=True, methods=["get"])
     def threats(self, request, pk=None):
         """
@@ -504,8 +628,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         """
         from apps.systems.models import DataFlow, OrgsystemComponent
         from apps.threats.models import (
-            ComponentInstanceCountermeasure,
             ComponentInstanceThreat,
+            CountermeasureThreatLink,
             DataFlowInstanceThreat,
         )
 
@@ -582,32 +706,39 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             }
             dataflow_ids.append(flow.id)
 
-        # Fetch all component threats
+        from django.db.models import Prefetch
+
+        countermeasure_links_prefetch = Prefetch(
+            "countermeasure_links",
+            queryset=CountermeasureThreatLink.objects.select_related(
+                "countermeasure",
+                "countermeasure__countermeasure_library",
+                "countermeasure__assigned_owner",
+                "countermeasure__verified_by",
+            ).prefetch_related(
+                "countermeasure__countermeasure_library__standard_mappings__requirement__framework",
+                "countermeasure__instance_standard_mappings__requirement__framework",
+            ).order_by("display_order"),
+        )
+
+        # Fetch all component threats with countermeasures via junction table
         component_threats = ComponentInstanceThreat.objects.filter(
             component_id__in=component_ids
         ).select_related(
             "component", "threat_library"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
-            "countermeasures__countermeasure_library",
-            "countermeasures__countermeasure_library__standard_mappings__requirement__framework",
-            "countermeasures__instance_standard_mappings__requirement__framework",
-            "countermeasures__assigned_owner",
-            "countermeasures__verified_by",
+            countermeasure_links_prefetch,
         )
 
-        # Fetch all data flow threats
+        # Fetch all data flow threats with countermeasures via junction table
         flow_threats = DataFlowInstanceThreat.objects.filter(
             data_flow_id__in=dataflow_ids
         ).select_related(
             "data_flow", "threat_library"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
-            "countermeasures__countermeasure_library",
-            "countermeasures__countermeasure_library__standard_mappings__requirement__framework",
-            "countermeasures__instance_standard_mappings__requirement__framework",
-            "countermeasures__assigned_owner",
-            "countermeasures__verified_by",
+            countermeasure_links_prefetch,
         )
 
         # Build response with component threats
@@ -641,27 +772,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "display_order": threat.display_order,
                 "impact_description": threat.impact_description,
                 "threat_actor_text": threat.threat_actor_text,
-                "countermeasures": [
-                    {
-                        "id": cm.id,
-                        "countermeasure_library_id": cm.countermeasure_library_id,
-                        "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
-                        "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
-                        "status": cm.status,
-                        "priority": cm.priority,
-                        "due_date": cm.due_date,
-                        "external_ticket_url": cm.external_ticket_url,
-                        "evidence_url": cm.evidence_url,
-                        "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-                        "verified_by_email": cm.verified_by.email if cm.verified_by else None,
-                        "standard_mappings": self._serialize_standard_mappings(cm),
-                        "display_order": cm.display_order,
-                        "is_inherited": cm.is_inherited,
-                        "inherited_from_component_name": cm.inherited_from_component_name,
-                        "inherited_from_zone_name": cm.inherited_from_zone_name,
-                    }
-                    for cm in threat.countermeasures.all()
-                ],
+                "countermeasures": self._serialize_countermeasures_from_links(
+                    threat.countermeasure_links.all(), threat
+                ),
             }
             result.append(threat_data)
 
@@ -697,27 +810,9 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "display_order": threat.display_order,
                 "impact_description": threat.impact_description,
                 "threat_actor_text": threat.threat_actor_text,
-                "countermeasures": [
-                    {
-                        "id": cm.id,
-                        "countermeasure_library_id": cm.countermeasure_library_id,
-                        "countermeasure_name": (cm.countermeasure_library.name if cm.countermeasure_library else None) or cm.countermeasure_name,
-                        "control_type": (cm.countermeasure_library.control_type if cm.countermeasure_library else None) or cm.control_type,
-                        "status": cm.status,
-                        "priority": cm.priority,
-                        "due_date": cm.due_date,
-                        "external_ticket_url": cm.external_ticket_url,
-                        "evidence_url": cm.evidence_url,
-                        "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-                        "verified_by_email": cm.verified_by.email if cm.verified_by else None,
-                        "standard_mappings": self._serialize_standard_mappings(cm),
-                        "display_order": cm.display_order,
-                        "is_inherited": cm.is_inherited,
-                        "inherited_from_component_name": cm.inherited_from_component_name,
-                        "inherited_from_zone_name": cm.inherited_from_zone_name,
-                    }
-                    for cm in threat.countermeasures.all()
-                ],
+                "countermeasures": self._serialize_countermeasures_from_links(
+                    threat.countermeasure_links.all(), threat
+                ),
             }
             result.append(threat_data)
 

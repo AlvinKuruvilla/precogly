@@ -23,10 +23,8 @@ import { cn } from '@/lib/utils'
 import {
   useFrameworks,
   useFrameworkRequirements,
-  useComponentInstanceMappings,
-  useFlowInstanceMappings,
-  useCreateComponentInstanceMapping,
-  useCreateFlowInstanceMapping,
+  useInstanceMappings,
+  useCreateInstanceMapping,
   useUpdateInstanceMapping,
   useDeleteInstanceMapping,
 } from '@/features/compliance/api/compliance'
@@ -36,7 +34,6 @@ interface EditComplianceMappingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   countermeasureId: number
-  countermeasureType: 'component' | 'flow'
   countermeasureName: string
   // Library-level mappings (from the countermeasure library)
   libraryMappings: ComplianceStandardMapping[]
@@ -47,7 +44,6 @@ export function EditComplianceMappingsDialog({
   open,
   onOpenChange,
   countermeasureId,
-  countermeasureType,
   countermeasureName,
   libraryMappings,
   onSuccess,
@@ -66,15 +62,12 @@ export function EditComplianceMappingsDialog({
 
   // Fetch instance-level mappings
   const { data: instanceMappings, isLoading: instanceMappingsLoading } =
-    countermeasureType === 'component'
-      ? useComponentInstanceMappings(countermeasureId)
-      : useFlowInstanceMappings(countermeasureId)
+    useInstanceMappings(countermeasureId)
 
   // Mutations
-  const createComponentMapping = useCreateComponentInstanceMapping()
-  const createFlowMapping = useCreateFlowInstanceMapping()
-  const updateMapping = useUpdateInstanceMapping(countermeasureType)
-  const deleteMapping = useDeleteInstanceMapping(countermeasureType)
+  const createMapping = useCreateInstanceMapping()
+  const updateMapping = useUpdateInstanceMapping()
+  const deleteMapping = useDeleteInstanceMapping()
 
   // Merge library and instance mappings
   const mergedMappings = useMemo(() => {
@@ -150,17 +143,10 @@ export function EditComplianceMappingsDialog({
       onSuccess?.()
     }
 
-    if (countermeasureType === 'component') {
-      createComponentMapping.mutate(
-        { componentCountermeasure: countermeasureId, requirement: selectedRequirementId, sufficiency: selectedSufficiency },
-        { onSuccess: onMutationSuccess }
-      )
-    } else {
-      createFlowMapping.mutate(
-        { flowCountermeasure: countermeasureId, requirement: selectedRequirementId, sufficiency: selectedSufficiency },
-        { onSuccess: onMutationSuccess }
-      )
-    }
+    createMapping.mutate(
+      { countermeasure: countermeasureId, requirement: selectedRequirementId, sufficiency: selectedSufficiency },
+      { onSuccess: onMutationSuccess }
+    )
   }
 
   const handleUpdateSufficiency = (mappingId: number, newSufficiency: 'full' | 'partial') => {
@@ -365,7 +351,7 @@ export function EditComplianceMappingsDialog({
 
               <Button
                 onClick={handleAddMapping}
-                disabled={!selectedRequirementId || createComponentMapping.isPending || createFlowMapping.isPending}
+                disabled={!selectedRequirementId || createMapping.isPending}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />

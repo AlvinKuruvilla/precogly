@@ -11,7 +11,6 @@ import { deriveThreatStatus } from '@/features/dfd-editor/types/threat-analysis'
 import {
   useThreatModelThreats,
   useUpdateCountermeasure,
-  useUpdateFlowCountermeasure,
   useDismissThreat,
   useRestoreThreat,
   useDismissFlowThreat,
@@ -20,8 +19,7 @@ import {
   parseThreatId,
   useReorderComponentThreats,
   useReorderFlowThreats,
-  useReorderComponentCountermeasures,
-  useReorderFlowCountermeasures,
+  useReorderCountermeasures,
 } from '@/features/threat-models/api/threats'
 import { useThreatModel } from '@/features/threat-models/api/threat-models'
 
@@ -57,15 +55,13 @@ export function useWorkspaceThreatAnalysis(
 
   // Backend API mutations
   const updateCountermeasureMutation = useUpdateCountermeasure()
-  const updateFlowCountermeasureMutation = useUpdateFlowCountermeasure()
   const dismissThreatMutation = useDismissThreat()
   const restoreThreatMutation = useRestoreThreat()
   const dismissFlowThreatMutation = useDismissFlowThreat()
   const restoreFlowThreatMutation = useRestoreFlowThreat()
   const reorderComponentThreatsMutation = useReorderComponentThreats()
   const reorderFlowThreatsMutation = useReorderFlowThreats()
-  const reorderComponentCountermeasuresMutation = useReorderComponentCountermeasures()
-  const reorderFlowCountermeasuresMutation = useReorderFlowCountermeasures()
+  const reorderCountermeasuresMutation = useReorderCountermeasures()
 
   // Use backend threats directly - no local threat generation
   useEffect(() => {
@@ -116,7 +112,7 @@ export function useWorkspaceThreatAnalysis(
   const revertInheritedCountermeasure = useCallback(
     (componentThreatId: string, countermeasureInstanceId: string) => {
       const parsed = parseCountermeasureId(countermeasureInstanceId)
-      if (parsed.type === 'component' && parsed.id !== null) {
+      if (parsed.type === 'backend' && parsed.id !== null) {
         updateCountermeasureMutation.mutate({
           countermeasureId: parsed.id,
           data: {
@@ -154,7 +150,7 @@ export function useWorkspaceThreatAnalysis(
   // Update countermeasure status
   const updateCountermeasureStatus = useCallback(
     (
-      componentThreatId: string,
+      _componentThreatId: string,
       countermeasureInstanceId: string,
       status: CountermeasureStatus,
       notes?: string
@@ -162,29 +158,23 @@ export function useWorkspaceThreatAnalysis(
       // Use the instance ID directly for the API call (always unique)
       const parsed = parseCountermeasureId(countermeasureInstanceId)
 
-      if (parsed.type === 'component' && parsed.id !== null) {
+      if (parsed.type === 'backend' && parsed.id !== null) {
         updateCountermeasureMutation.mutate({
           countermeasureId: parsed.id,
           data: {
-            status: status as 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived',
-            ...(notes !== undefined && { evidenceUrl: notes }),
-          },
-        })
-      } else if (parsed.type === 'flow' && parsed.id !== null) {
-        updateFlowCountermeasureMutation.mutate({
-          countermeasureId: parsed.id,
-          data: {
-            status: status as 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived',
+            status: status as 'platform' | 'gap' | 'planned' | 'verified' | 'waived',
             ...(notes !== undefined && { evidenceUrl: notes }),
           },
         })
       }
 
       // Update local state immediately for responsiveness
+      // For shared countermeasures, update across ALL threats that share this CM
       setState((prev) => ({
         ...prev,
         componentThreats: prev.componentThreats.map((ct) => {
-          if (ct.id !== componentThreatId) return ct
+          const hasCm = ct.countermeasures.some((cm) => cm.id === countermeasureInstanceId)
+          if (!hasCm) return ct
           return {
             ...ct,
             updatedAt: new Date().toISOString(),
@@ -201,7 +191,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [updateCountermeasureMutation, updateFlowCountermeasureMutation]
+    [updateCountermeasureMutation]
   )
 
   // Assign owner to countermeasure
@@ -223,13 +213,8 @@ export function useWorkspaceThreatAnalysis(
           data.status = newStatus
         }
 
-        if (parsed.type === 'component' && parsed.id !== null) {
+        if (parsed.type === 'backend' && parsed.id !== null) {
           updateCountermeasureMutation.mutate({
-            countermeasureId: parsed.id,
-            data,
-          })
-        } else if (parsed.type === 'flow' && parsed.id !== null) {
-          updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data,
           })
@@ -257,7 +242,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+    [state.componentThreats, updateCountermeasureMutation]
   )
 
   // Update countermeasure priority
@@ -269,13 +254,8 @@ export function useWorkspaceThreatAnalysis(
       if (countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
-        if (parsed.type === 'component' && parsed.id !== null) {
+        if (parsed.type === 'backend' && parsed.id !== null) {
           updateCountermeasureMutation.mutate({
-            countermeasureId: parsed.id,
-            data: { priority },
-          })
-        } else if (parsed.type === 'flow' && parsed.id !== null) {
-          updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data: { priority },
           })
@@ -302,7 +282,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+    [state.componentThreats, updateCountermeasureMutation]
   )
 
   // Update countermeasure due date
@@ -314,13 +294,8 @@ export function useWorkspaceThreatAnalysis(
       if (countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
-        if (parsed.type === 'component' && parsed.id !== null) {
+        if (parsed.type === 'backend' && parsed.id !== null) {
           updateCountermeasureMutation.mutate({
-            countermeasureId: parsed.id,
-            data: { dueDate },
-          })
-        } else if (parsed.type === 'flow' && parsed.id !== null) {
-          updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data: { dueDate },
           })
@@ -342,7 +317,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+    [state.componentThreats, updateCountermeasureMutation]
   )
 
   // Update countermeasure external ticket URL
@@ -354,13 +329,8 @@ export function useWorkspaceThreatAnalysis(
       if (countermeasure) {
         const parsed = parseCountermeasureId(countermeasure.id)
 
-        if (parsed.type === 'component' && parsed.id !== null) {
+        if (parsed.type === 'backend' && parsed.id !== null) {
           updateCountermeasureMutation.mutate({
-            countermeasureId: parsed.id,
-            data: { externalTicketUrl },
-          })
-        } else if (parsed.type === 'flow' && parsed.id !== null) {
-          updateFlowCountermeasureMutation.mutate({
             countermeasureId: parsed.id,
             data: { externalTicketUrl },
           })
@@ -382,7 +352,7 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
     },
-    [state.componentThreats, updateCountermeasureMutation, updateFlowCountermeasureMutation]
+    [state.componentThreats, updateCountermeasureMutation]
   )
 
   // Dismiss threat
@@ -508,25 +478,19 @@ export function useWorkspaceThreatAnalysis(
         }),
       }))
 
-      // Split IDs by type and fire mutations
-      const componentCmIds: number[] = []
-      const flowCmIds: number[] = []
+      // Collect all backend CM IDs and fire single mutation
+      const backendCmIds: number[] = []
       for (const cm of reorderedCountermeasures) {
         const parsed = parseCountermeasureId(cm.id)
-        if (parsed.type === 'component' && parsed.id !== null) {
-          componentCmIds.push(parsed.id)
-        } else if (parsed.type === 'flow' && parsed.id !== null) {
-          flowCmIds.push(parsed.id)
+        if (parsed.type === 'backend' && parsed.id !== null) {
+          backendCmIds.push(parsed.id)
         }
       }
-      if (componentCmIds.length > 0) {
-        reorderComponentCountermeasuresMutation.mutate(componentCmIds)
-      }
-      if (flowCmIds.length > 0) {
-        reorderFlowCountermeasuresMutation.mutate(flowCmIds)
+      if (backendCmIds.length > 0) {
+        reorderCountermeasuresMutation.mutate(backendCmIds)
       }
     },
-    [reorderComponentCountermeasuresMutation, reorderFlowCountermeasuresMutation]
+    [reorderCountermeasuresMutation]
   )
 
   // Toggle checklist item — no-op since all items are now auto-computed by the backend

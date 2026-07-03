@@ -461,19 +461,18 @@ class DataFlowInstanceThreat(TimestampedModel):
         return f"{self.data_flow} - {self.threat_library}"
 
 
-class ComponentInstanceCountermeasure(TimestampedModel):
-    """Countermeasure instance for a component threat."""
+class InstanceCountermeasure(TimestampedModel):
+    """Unified countermeasure instance scoped to a threat model, linked to threats via junction table."""
 
     class Status(models.TextChoices):
         GAP = "gap", "Gap"
         PLANNED = "planned", "Planned"
-        IN_PROGRESS = "in_progress", "In Progress"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
         PLATFORM = "platform", "Platform"
 
-    instance_threat = models.ForeignKey(
-        ComponentInstanceThreat,
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         related_name="countermeasures",
     )
@@ -482,7 +481,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="component_instances",
+        related_name="instances",
         help_text="Null means orphaned/custom countermeasure (library item was removed)",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.GAP)
@@ -491,7 +490,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="verified_component_countermeasures",
+        related_name="verified_countermeasures",
     )
     evidence_url = models.URLField(blank=True)
     required_for_release = models.BooleanField(default=False)
@@ -500,7 +499,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="assigned_component_countermeasures",
+        related_name="assigned_countermeasures",
     )
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
@@ -530,7 +529,6 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         blank=True, help_text="Link to Jira/GitHub/etc. ticket"
     )
     format_metadata = models.JSONField(default=dict, blank=True)
-    display_order = models.PositiveIntegerField(default=0)
 
     # Zone inheritance tracking
     is_inherited = models.BooleanField(default=False)
@@ -538,95 +536,61 @@ class ComponentInstanceCountermeasure(TimestampedModel):
     inherited_from_zone_name = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        unique_together = ["instance_threat", "countermeasure_library"]
-        ordering = ["instance_threat", "display_order", "created_at"]
+        ordering = ["created_at"]
 
     def __str__(self):
-        return f"{self.instance_threat} - {self.countermeasure_library}"
+        return f"CM:{self.countermeasure_name or self.countermeasure_library}"
 
 
-class FlowInstanceCountermeasure(TimestampedModel):
-    """Countermeasure instance for a data flow threat."""
+class CountermeasureThreatLink(TimestampedModel):
+    """Polymorphic junction table linking a countermeasure to component and/or flow threats."""
 
-    class Status(models.TextChoices):
-        GAP = "gap", "Gap"
-        PLANNED = "planned", "Planned"
-        IN_PROGRESS = "in_progress", "In Progress"
-        VERIFIED = "verified", "Verified"
-        WAIVED = "waived", "Waived"
-        PLATFORM = "platform", "Platform"
-
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
+        on_delete=models.CASCADE,
+        related_name="threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="countermeasure_links",
+    )
     flow_threat = models.ForeignKey(
         DataFlowInstanceThreat,
         on_delete=models.CASCADE,
-        related_name="countermeasures",
-    )
-    countermeasure_library = models.ForeignKey(
-        CountermeasureLibrary,
-        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="flow_instances",
-        help_text="Null means orphaned/custom countermeasure (library item was removed)",
+        related_name="countermeasure_links",
     )
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.GAP)
-    verified_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="verified_flow_countermeasures",
-    )
-    evidence_url = models.URLField(blank=True)
-    required_for_release = models.BooleanField(default=False)
-    assigned_owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="assigned_flow_countermeasures",
-    )
-
-    # Metadata copied from library on creation (for self-sufficiency if orphaned)
-    countermeasure_name = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Copied from CountermeasureLibrary.name on creation",
-    )
-    countermeasure_description = models.TextField(
-        blank=True,
-        help_text="Copied from CountermeasureLibrary.description on creation",
-    )
-    control_type = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="Copied from CountermeasureLibrary.control_type on creation",
-    )
-    effectiveness = models.FloatField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-        help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
-    )
-    priority = models.CharField(max_length=10, default="none", blank=True)
-    due_date = models.DateField(null=True, blank=True, help_text="Target completion date")
-    external_ticket_url = models.URLField(
-        blank=True, help_text="Link to Jira/GitHub/etc. ticket"
-    )
-    format_metadata = models.JSONField(default=dict, blank=True)
     display_order = models.PositiveIntegerField(default=0)
 
-    # Zone inheritance tracking
-    is_inherited = models.BooleanField(default=False)
-    inherited_from_component_name = models.CharField(max_length=255, blank=True)
-    inherited_from_zone_name = models.CharField(max_length=255, blank=True)
-
     class Meta:
-        unique_together = ["flow_threat", "countermeasure_library"]
-        ordering = ["flow_threat", "display_order", "created_at"]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="cm_link_exactly_one_threat_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["countermeasure", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_cm_component_threat_link",
+            ),
+            models.UniqueConstraint(
+                fields=["countermeasure", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_cm_flow_threat_link",
+            ),
+        ]
+        ordering = ["display_order", "created_at"]
 
     def __str__(self):
-        return f"{self.flow_threat} - {self.countermeasure_library}"
+        threat = self.component_threat or self.flow_threat
+        return f"{self.countermeasure} -> {threat}"
 
 
 class VerificationTest(TimestampedModel):
@@ -650,50 +614,27 @@ class VerificationTest(TimestampedModel):
         return self.name
 
 
-class ComponentInstanceCountermeasureTest(TimestampedModel):
-    """Association between component countermeasure and verification test."""
+class InstanceCountermeasureTest(TimestampedModel):
+    """Association between countermeasure and verification test."""
 
-    component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.CASCADE,
         related_name="tests",
     )
     verification_test = models.ForeignKey(
         VerificationTest,
         on_delete=models.CASCADE,
-        related_name="component_countermeasure_tests",
+        related_name="countermeasure_tests",
     )
     tested_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ["component_countermeasure", "verification_test"]
+        unique_together = ["countermeasure", "verification_test"]
         ordering = ["-tested_at"]
 
     def __str__(self):
-        return f"{self.component_countermeasure} - {self.verification_test}"
-
-
-class FlowInstanceCountermeasureTest(TimestampedModel):
-    """Association between flow countermeasure and verification test."""
-
-    flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
-        on_delete=models.CASCADE,
-        related_name="tests",
-    )
-    verification_test = models.ForeignKey(
-        VerificationTest,
-        on_delete=models.CASCADE,
-        related_name="flow_countermeasure_tests",
-    )
-    tested_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ["flow_countermeasure", "verification_test"]
-        ordering = ["-tested_at"]
-
-    def __str__(self):
-        return f"{self.flow_countermeasure} - {self.verification_test}"
+        return f"{self.countermeasure} - {self.verification_test}"
 
 
 class CountermeasureComment(TimestampedModel):
@@ -706,19 +647,9 @@ class CountermeasureComment(TimestampedModel):
         blank=True,
         related_name="countermeasure_comments",
     )
-    # Exactly one of these must be set
-    component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="comments",
-    )
-    flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
         related_name="comments",
     )
     body = models.TextField()
@@ -727,19 +658,9 @@ class CountermeasureComment(TimestampedModel):
 
     class Meta:
         ordering = ["created_at"]
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    models.Q(component_countermeasure__isnull=False, flow_countermeasure__isnull=True)
-                    | models.Q(component_countermeasure__isnull=True, flow_countermeasure__isnull=False)
-                ),
-                name="countermeasure_comment_exactly_one_fk",
-            ),
-        ]
 
     def __str__(self):
-        cm = self.component_countermeasure or self.flow_countermeasure
-        return f"Comment on {cm} by {self.author}"
+        return f"Comment on {self.countermeasure} by {self.author}"
 
 
 class PentestFinding(TimestampedModel):
@@ -764,15 +685,8 @@ class PentestFinding(TimestampedModel):
         blank=True,
         related_name="matched_pentest_findings",
     )
-    matched_component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="pentest_findings",
-    )
-    matched_flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
+    matched_countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -791,8 +705,8 @@ class PentestFinding(TimestampedModel):
         return f"Finding: {self.finding_description[:50]}..."
 
 
-class ComponentInstanceCountermeasureStandard(TimestampedModel):
-    """Instance-level compliance mapping for component countermeasures.
+class InstanceCountermeasureStandard(TimestampedModel):
+    """Instance-level compliance mapping for countermeasures.
 
     Allows overriding library-level compliance mappings for specific countermeasure instances.
     Instance mappings take precedence over library mappings for the same requirement.
@@ -802,8 +716,8 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
         FULL = "full", "Full"
         PARTIAL = "partial", "Partial"
 
-    component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.CASCADE,
         related_name="instance_standard_mappings",
     )
@@ -812,7 +726,7 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="component_instance_countermeasure_mappings",
+        related_name="instance_countermeasure_mappings",
     )
     sufficiency = models.CharField(
         max_length=10,
@@ -826,55 +740,12 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
     requirement_description = models.TextField(blank=True, default="")
 
     class Meta:
-        unique_together = ["component_countermeasure", "requirement"]
-        verbose_name = "Component countermeasure compliance mapping"
-        verbose_name_plural = "Component countermeasure compliance mappings"
+        unique_together = ["countermeasure", "requirement"]
+        verbose_name = "Countermeasure compliance mapping"
+        verbose_name_plural = "Countermeasure compliance mappings"
 
     def __str__(self):
-        return f"{self.component_countermeasure} - {self.requirement} ({self.sufficiency})"
-
-
-class FlowInstanceCountermeasureStandard(TimestampedModel):
-    """Instance-level compliance mapping for flow countermeasures.
-
-    Allows overriding library-level compliance mappings for specific countermeasure instances.
-    Instance mappings take precedence over library mappings for the same requirement.
-    """
-
-    class Sufficiency(models.TextChoices):
-        FULL = "full", "Full"
-        PARTIAL = "partial", "Partial"
-
-    flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
-        on_delete=models.CASCADE,
-        related_name="instance_standard_mappings",
-    )
-    requirement = models.ForeignKey(
-        "compliance.StandardRequirement",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="flow_instance_countermeasure_mappings",
-    )
-    sufficiency = models.CharField(
-        max_length=10,
-        choices=Sufficiency.choices,
-        default=Sufficiency.PARTIAL,
-    )
-
-    # Snapshot fields — populated on creation, used as fallback when requirement is NULL
-    section_code = models.CharField(max_length=50, blank=True, default="")
-    framework_name = models.CharField(max_length=255, blank=True, default="")
-    requirement_description = models.TextField(blank=True, default="")
-
-    class Meta:
-        unique_together = ["flow_countermeasure", "requirement"]
-        verbose_name = "Flow countermeasure compliance mapping"
-        verbose_name_plural = "Flow countermeasure compliance mappings"
-
-    def __str__(self):
-        return f"{self.flow_countermeasure} - {self.requirement} ({self.sufficiency})"
+        return f"{self.countermeasure} - {self.requirement} ({self.sufficiency})"
 
 
 def build_taxonomy_snapshot(threat_library):

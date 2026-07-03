@@ -343,11 +343,11 @@ class TmLibraryAdapter(BaseAdapter):
             TrustZone,
         )
         from apps.threats.models import (
-            ComponentInstanceCountermeasure,
             ComponentInstanceThreat,
             CountermeasureLibrary,
+            CountermeasureThreatLink,
             DataFlowInstanceThreat,
-            FlowInstanceCountermeasure,
+            InstanceCountermeasure,
             Risk,
             RiskThreat,
             ThreatLibrary,
@@ -844,6 +844,9 @@ class TmLibraryAdapter(BaseAdapter):
                 )
 
                 referenced_threats = ctrl_data.get("threats", [])
+                # Create one countermeasure instance per library item (shared across threats)
+                cm_instance = None
+                cm_created = False
                 for threat_ref in referenced_threats:
                     instances = threat_component_map.get(threat_ref, [])
                     for threat_type, threat_instance in instances:
@@ -853,38 +856,33 @@ class TmLibraryAdapter(BaseAdapter):
                                 "original_status": original_status,
                             }
                         }
+                        if cm_instance is None:
+                            # Create one unified countermeasure instance, scoped to threat_model
+                            cm_instance, cm_created = InstanceCountermeasure.objects.get_or_create(
+                                threat_model=threat_model,
+                                countermeasure_name=title,
+                                countermeasure_library=cm_lib,
+                                defaults={
+                                    "countermeasure_description": description,
+                                    "status": mapped_status,
+                                    "priority": priority,
+                                    "format_metadata": format_meta_cm,
+                                },
+                            )
+                            if cm_created:
+                                summary["controls"] += 1
+
+                        # Create junction link for each threat
                         if threat_type == "component":
-                            cm_instance, cm_created = ComponentInstanceCountermeasure.objects.get_or_create(
-                                instance_threat=threat_instance,
-                                countermeasure_name=title,
-                                defaults={
-                                    "countermeasure_library": cm_lib,
-                                    "countermeasure_description": description,
-                                    "status": mapped_status,
-                                    "priority": priority,
-                                    "format_metadata": format_meta_cm,
-                                },
+                            CountermeasureThreatLink.objects.get_or_create(
+                                countermeasure=cm_instance,
+                                component_threat=threat_instance,
                             )
-                            if not cm_created and not cm_instance.countermeasure_library:
-                                cm_instance.countermeasure_library = cm_lib
-                                cm_instance.save(update_fields=["countermeasure_library"])
                         elif threat_type == "flow":
-                            cm_instance, cm_created = FlowInstanceCountermeasure.objects.get_or_create(
+                            CountermeasureThreatLink.objects.get_or_create(
+                                countermeasure=cm_instance,
                                 flow_threat=threat_instance,
-                                countermeasure_name=title,
-                                defaults={
-                                    "countermeasure_library": cm_lib,
-                                    "countermeasure_description": description,
-                                    "status": mapped_status,
-                                    "priority": priority,
-                                    "format_metadata": format_meta_cm,
-                                },
                             )
-                            if not cm_created and not cm_instance.countermeasure_library:
-                                cm_instance.countermeasure_library = cm_lib
-                                cm_instance.save(update_fields=["countermeasure_library"])
-                        if cm_created:
-                            summary["controls"] += 1
 
                 resolver.register("control", symbolic_name, cm_lib)
 
@@ -987,10 +985,7 @@ class TmLibraryAdapter(BaseAdapter):
                                 )
 
             # 14c. precogly.org/compliance-mappings → restore instance standards
-            from apps.threats.models import (
-                ComponentInstanceCountermeasureStandard,
-                FlowInstanceCountermeasureStandard,
-            )
+            from apps.threats.models import InstanceCountermeasureStandard
             from apps.compliance.models import StandardRequirement
             compliance_ext = extensions.get("precogly.org/compliance-mappings", {})
             if compliance_ext:
@@ -1013,23 +1008,13 @@ class TmLibraryAdapter(BaseAdapter):
                             )
                             continue
                         # Find countermeasure instances matching this control sym
-                        comp_cms = ComponentInstanceCountermeasure.objects.filter(
-                            instance_threat__component__threat_model=threat_model,
+                        countermeasure_instances = InstanceCountermeasure.objects.filter(
+                            threat_model=threat_model,
                             format_metadata__tm_library__symbolic_name=ctrl_sym,
                         )
-                        for cm in comp_cms:
-                            ComponentInstanceCountermeasureStandard.objects.get_or_create(
-                                component_countermeasure=cm,
-                                requirement=requirement,
-                                defaults={"sufficiency": sufficiency},
-                            )
-                        flow_cms = FlowInstanceCountermeasure.objects.filter(
-                            flow_threat__data_flow__source_component__threat_model=threat_model,
-                            format_metadata__tm_library__symbolic_name=ctrl_sym,
-                        )
-                        for cm in flow_cms:
-                            FlowInstanceCountermeasureStandard.objects.get_or_create(
-                                flow_countermeasure=cm,
+                        for cm in countermeasure_instances:
+                            InstanceCountermeasureStandard.objects.get_or_create(
+                                countermeasure=cm,
                                 requirement=requirement,
                                 defaults={"sufficiency": sufficiency},
                             )
@@ -1083,10 +1068,9 @@ class TmLibraryAdapter(BaseAdapter):
             TrustZone,
         )
         from apps.threats.models import (
-            ComponentInstanceCountermeasure,
             ComponentInstanceThreat,
             DataFlowInstanceThreat,
-            FlowInstanceCountermeasure,
+            InstanceCountermeasure,
             Risk,
             ThreatLibraryTaxonomyEntry,
             ThreatPersona,
@@ -1311,7 +1295,7 @@ class TmLibraryAdapter(BaseAdapter):
         component_threat_ids = set(components.values_list("id", flat=True))
         comp_threats = ComponentInstanceThreat.objects.filter(
             component_id__in=component_threat_ids
-        ).select_related("threat_library").prefetch_related("countermeasures")
+        ).select_related("threat_library").prefetch_related("countermeasure_links__countermeasure")
 
         flow_ids = set(DataFlow.objects.filter(
             source_component__in=components
@@ -1320,7 +1304,7 @@ class TmLibraryAdapter(BaseAdapter):
         ).values_list("id", flat=True))
         flow_threats = DataFlowInstanceThreat.objects.filter(
             data_flow_id__in=flow_ids
-        ).select_related("threat_library").prefetch_related("countermeasures")
+        ).select_related("threat_library").prefetch_related("countermeasure_links__countermeasure")
 
         # Build flow reverse lookup for data_flows_affected
         flow_reverse = {}
@@ -1518,9 +1502,10 @@ class TmLibraryAdapter(BaseAdapter):
 
             result["threats"].append(threat_entry)
 
-            # Collect countermeasures from all instances in the group
+            # Collect countermeasures from all instances in the group (via junction table)
             for threat_type, threat_instance in group["instances"]:
-                countermeasures = threat_instance.countermeasures.all()
+                from apps.threats.services import get_countermeasures_for_threat
+                countermeasures = get_countermeasures_for_threat(threat_instance)
                 for cm in countermeasures:
                     cm_fm = (cm.format_metadata or {}).get("tm_library", {})
                     cm_sym = cm_fm.get("symbolic_name") or f"control_{cm.pk}"
@@ -1579,32 +1564,15 @@ class TmLibraryAdapter(BaseAdapter):
             result["risks"].append(risk_entry)
 
         # Compliance mappings extension
-        from apps.threats.models import (
-            ComponentInstanceCountermeasureStandard,
-            FlowInstanceCountermeasureStandard,
-        )
+        from apps.threats.models import InstanceCountermeasureStandard
         compliance_data = {}
-        comp_standards = ComponentInstanceCountermeasureStandard.objects.filter(
-            component_countermeasure__instance_threat__component__threat_model=threat_model,
+        countermeasure_standards = InstanceCountermeasureStandard.objects.filter(
+            countermeasure__threat_model=threat_model,
         ).select_related(
-            "component_countermeasure", "requirement", "requirement__framework",
+            "countermeasure", "requirement", "requirement__framework",
         )
-        for standard in comp_standards:
-            cm = standard.component_countermeasure
-            cm_fm = (cm.format_metadata or {}).get("tm_library", {})
-            cm_sym = cm_fm.get("symbolic_name") or f"control_{cm.pk}"
-            compliance_data.setdefault(cm_sym, []).append({
-                "framework": standard.requirement.framework.name if standard.requirement.framework else "",
-                "requirement_id": standard.requirement.section_code if standard.requirement else "",
-                "sufficiency": standard.sufficiency,
-            })
-        flow_standards = FlowInstanceCountermeasureStandard.objects.filter(
-            flow_countermeasure__flow_threat__data_flow__source_component__threat_model=threat_model,
-        ).select_related(
-            "flow_countermeasure", "requirement", "requirement__framework",
-        )
-        for standard in flow_standards:
-            cm = standard.flow_countermeasure
+        for standard in countermeasure_standards:
+            cm = standard.countermeasure
             cm_fm = (cm.format_metadata or {}).get("tm_library", {})
             cm_sym = cm_fm.get("symbolic_name") or f"control_{cm.pk}"
             compliance_data.setdefault(cm_sym, []).append({

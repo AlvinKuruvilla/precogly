@@ -2,7 +2,9 @@
 
 from .models import (
     ComponentInstanceThreat,
+    CountermeasureThreatLink,
     DataFlowInstanceThreat,
+    InstanceCountermeasure,
     Risk,
     RiskThreat,
 )
@@ -17,8 +19,20 @@ STATUS_EFFECTIVENESS_FALLBACK = {
 }
 
 
+def get_countermeasures_for_threat(threat):
+    """Return countermeasures linked to a threat via the junction table."""
+    if isinstance(threat, ComponentInstanceThreat):
+        return InstanceCountermeasure.objects.filter(
+            threat_links__component_threat=threat
+        )
+    else:
+        return InstanceCountermeasure.objects.filter(
+            threat_links__flow_threat=threat
+        )
+
+
 def recalculate_threat_status(instance_threat):
-    """Derive threat status from countermeasures.
+    """Derive threat status from countermeasures via junction table.
 
     Works for both ComponentInstanceThreat and DataFlowInstanceThreat.
 
@@ -27,7 +41,7 @@ def recalculate_threat_status(instance_threat):
         - ADDRESSABLE: Some countermeasures are planned/waived (none are gaps)
         - MITIGATED: All countermeasures are verified or platform
     """
-    countermeasures = instance_threat.countermeasures.all()
+    countermeasures = get_countermeasures_for_threat(instance_threat)
 
     if not countermeasures.exists():
         new_status = "exposed"
@@ -81,16 +95,25 @@ def derive_risk_status(risk):
 def compute_residual_score(risk):
     """Compute residual score from inherent score and countermeasure effectiveness.
 
+    Deduplicates shared countermeasures — each countermeasure instance is counted
+    only once even if it mitigates multiple threats within the same risk.
+
     Effectiveness comes from:
       1. User-entered value on the countermeasure (if set)
       2. Status-derived fallback: verified=1.0, planned=0.5, gap=0.0, waived=0.0
     """
     all_effectiveness = []
+    seen_countermeasure_ids = set()
+
     for risk_threat in risk.risk_threats.all():
         threat = risk_threat.component_threat or risk_threat.flow_threat
         if not threat or threat.is_dismissed:
             continue
-        for countermeasure in threat.countermeasures.all():
+        for countermeasure in get_countermeasures_for_threat(threat):
+            if countermeasure.id in seen_countermeasure_ids:
+                continue
+            seen_countermeasure_ids.add(countermeasure.id)
+
             if countermeasure.effectiveness is not None:
                 all_effectiveness.append(countermeasure.effectiveness)
             else:
@@ -150,3 +173,16 @@ def recalculate_risks_for_threat(threat_instance, threat_type="component"):
 
     for risk in Risk.objects.filter(id__in=risk_ids):
         recalculate_risk(risk)
+
+
+def recalculate_all_threats_for_countermeasure(countermeasure):
+    """Recalculate status for all threats linked to this countermeasure.
+
+    Used when a shared countermeasure's status or effectiveness changes.
+    Handles both component and flow threats via the polymorphic junction table.
+    """
+    for link in CountermeasureThreatLink.objects.filter(countermeasure=countermeasure):
+        threat = link.component_threat or link.flow_threat
+        threat_type = "component" if link.component_threat else "flow"
+        recalculate_threat_status(threat)
+        recalculate_risks_for_threat(threat, threat_type=threat_type)

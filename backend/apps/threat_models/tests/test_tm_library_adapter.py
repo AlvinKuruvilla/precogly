@@ -8,7 +8,7 @@ from django.test import TestCase
 from apps.organizations.models import Organization, OrganizationMember, Team, TeamMembership
 from apps.systems.models import DataAsset, DataFlow, OrgsystemComponent, TrustZone
 from apps.threats.models import (
-    ComponentInstanceCountermeasure,
+    InstanceCountermeasure,
     ComponentInstanceThreat,
     Risk,
     RiskThreat,
@@ -110,11 +110,11 @@ class TestMultiThreatControl(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
 
-        # Should have 2 countermeasure instances (one per threat)
-        cm_count = ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component__threat_model=threat_model
+        # Should have 1 shared countermeasure instance linked to 2 threats
+        cm_count = InstanceCountermeasure.objects.filter(
+            threat_model=threat_model
         ).count()
-        self.assertEqual(cm_count, 2)
+        self.assertEqual(cm_count, 1)
 
         # Export → should re-merge into single control
         exported = self.adapter.export_data(threat_model)
