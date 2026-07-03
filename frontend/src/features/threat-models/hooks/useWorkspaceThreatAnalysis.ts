@@ -150,7 +150,7 @@ export function useWorkspaceThreatAnalysis(
   // Update countermeasure status
   const updateCountermeasureStatus = useCallback(
     (
-      componentThreatId: string,
+      _componentThreatId: string,
       countermeasureInstanceId: string,
       status: CountermeasureStatus,
       notes?: string
