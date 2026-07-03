@@ -85,14 +85,11 @@ class CanWrite(permissions.BasePermission):
             component = obj.component
             if component and hasattr(component, "orgsystem") and component.orgsystem:
                 orgsystem = component.orgsystem
-        elif hasattr(obj, "instance_threat_id") and obj.instance_threat_id:
-            component = obj.instance_threat.component
-            if component and hasattr(component, "orgsystem") and component.orgsystem:
-                orgsystem = component.orgsystem
-        elif hasattr(obj, "flow_threat_id") and obj.flow_threat_id:
-            flow_threat = obj.flow_threat
-            if flow_threat and flow_threat.data_flow and flow_threat.data_flow.source_component:
-                orgsystem = flow_threat.data_flow.source_component.orgsystem
+        elif hasattr(obj, "threat_model_id") and obj.threat_model_id and hasattr(obj, "countermeasure_library"):
+            # Countermeasure models have a direct threat_model FK
+            threat_model = obj.threat_model
+            if threat_model and hasattr(threat_model, "owning_team"):
+                return threat_model.owning_team
 
         if orgsystem:
             # Primary path: orgsystem -> ThreatModelOrgsystem association
@@ -129,22 +126,6 @@ class CanWrite(permissions.BasePermission):
             component = obj.component
             if component and hasattr(component, "orgsystem") and component.orgsystem:
                 return component.orgsystem.organization
-
-        # instance_threat -> component -> orgsystem -> organization
-        if hasattr(obj, "instance_threat_id"):
-            instance_threat = obj.instance_threat
-            if instance_threat and instance_threat.component:
-                orgsystem = instance_threat.component.orgsystem
-                if orgsystem:
-                    return orgsystem.organization
-
-        # flow_threat -> data_flow -> source_component -> orgsystem -> organization
-        if hasattr(obj, "flow_threat_id"):
-            flow_threat = obj.flow_threat
-            if flow_threat and flow_threat.data_flow:
-                source = flow_threat.data_flow.source_component
-                if source and source.orgsystem:
-                    return source.orgsystem.organization
 
         # data_flow -> source_component -> orgsystem -> organization
         if hasattr(obj, "source_component_id"):

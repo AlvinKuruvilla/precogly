@@ -6,16 +6,15 @@ from django.db import transaction
 from rest_framework import serializers
 
 from .models import (
-    ComponentInstanceCountermeasure,
-    ComponentInstanceCountermeasureStandard,
     ComponentInstanceThreat,
     ComponentLibraryThreat,
     CountermeasureComment,
     CountermeasureLibrary,
+    CountermeasureThreatLink,
     DataFlowInstanceThreat,
     ExternalTaxonomy,
-    FlowInstanceCountermeasure,
-    FlowInstanceCountermeasureStandard,
+    InstanceCountermeasure,
+    InstanceCountermeasureStandard,
     PentestFinding,
     Risk,
     RiskThreat,
@@ -345,8 +344,42 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
-    """Serializer for ComponentInstanceCountermeasure."""
+class CountermeasureThreatLinkSerializer(serializers.ModelSerializer):
+    """Read-only serializer for linked threats on a countermeasure."""
+
+    threat_id = serializers.SerializerMethodField()
+    threat_name = serializers.SerializerMethodField()
+    component_name = serializers.SerializerMethodField()
+    flow_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CountermeasureThreatLink
+        fields = ["id", "threat_id", "threat_name", "component_name", "flow_label", "display_order"]
+        read_only_fields = fields
+
+    def get_threat_id(self, obj):
+        threat = obj.component_threat or obj.flow_threat
+        return threat.id if threat else None
+
+    def get_threat_name(self, obj):
+        threat = obj.component_threat or obj.flow_threat
+        if not threat:
+            return None
+        return threat.threat_name or (threat.threat_library.name if threat.threat_library else None)
+
+    def get_component_name(self, obj):
+        if obj.component_threat:
+            return obj.component_threat.component.name if obj.component_threat.component else None
+        return None
+
+    def get_flow_label(self, obj):
+        if obj.flow_threat:
+            return obj.flow_threat.data_flow.label if obj.flow_threat.data_flow else None
+        return None
+
+
+class InstanceCountermeasureSerializer(serializers.ModelSerializer):
+    """Serializer for InstanceCountermeasure."""
 
     # Read fields - prefer model's own fields, fallback to countermeasure_library
     countermeasure_name_display = serializers.SerializerMethodField()
@@ -357,17 +390,22 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
     assigned_owner_email = serializers.EmailField(
         source="assigned_owner.email", read_only=True
     )
+    threat_links = CountermeasureThreatLinkSerializer(many=True, read_only=True)
 
     # Write fields - accept custom countermeasure data
     countermeasure_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     countermeasure_description = serializers.CharField(required=False, allow_blank=True, write_only=True)
     control_type = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    threat_id = serializers.IntegerField(write_only=True, required=False)
+    threat_type = serializers.ChoiceField(
+        choices=["component", "flow", "dataflow"], write_only=True, required=False,
+    )
 
     class Meta:
-        model = ComponentInstanceCountermeasure
+        model = InstanceCountermeasure
         fields = [
             "id",
-            "instance_threat",
+            "threat_model",
             "countermeasure_library",
             "countermeasure_name",
             "countermeasure_name_display",
@@ -386,7 +424,9 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "assigned_owner",
             "assigned_owner_email",
             "format_metadata",
-            "display_order",
+            "threat_links",
+            "threat_id",
+            "threat_type",
             "is_inherited",
             "inherited_from_component_name",
             "inherited_from_zone_name",
@@ -401,6 +441,7 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             "control_type_display",
             "verified_by_email",
             "assigned_owner_email",
+            "threat_links",
         ]
 
     def get_countermeasure_name_display(self, obj):
@@ -419,80 +460,18 @@ class ComponentInstanceCountermeasureSerializer(serializers.ModelSerializer):
             return obj.countermeasure_library.control_type
         return None
 
-
-class FlowInstanceCountermeasureSerializer(serializers.ModelSerializer):
-    """Serializer for FlowInstanceCountermeasure."""
-
-    # Read fields - prefer model's own fields, fallback to countermeasure_library
-    countermeasure_name_display = serializers.SerializerMethodField()
-    control_type_display = serializers.SerializerMethodField()
-    verified_by_email = serializers.EmailField(
-        source="verified_by.email", read_only=True
-    )
-    assigned_owner_email = serializers.EmailField(
-        source="assigned_owner.email", read_only=True
-    )
-
-    # Write fields - accept custom countermeasure data
-    countermeasure_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    countermeasure_description = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    control_type = serializers.CharField(required=False, allow_blank=True, write_only=True)
-
-    class Meta:
-        model = FlowInstanceCountermeasure
-        fields = [
-            "id",
-            "flow_threat",
-            "countermeasure_library",
-            "countermeasure_name",
-            "countermeasure_name_display",
-            "countermeasure_description",
-            "control_type",
-            "control_type_display",
-            "effectiveness",
-            "status",
-            "priority",
-            "due_date",
-            "external_ticket_url",
-            "verified_by",
-            "verified_by_email",
-            "evidence_url",
-            "required_for_release",
-            "assigned_owner",
-            "assigned_owner_email",
-            "format_metadata",
-            "display_order",
-            "is_inherited",
-            "inherited_from_component_name",
-            "inherited_from_zone_name",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = [
-            "id",
-            "created_at",
-            "updated_at",
-            "countermeasure_name_display",
-            "control_type_display",
-            "verified_by_email",
-            "assigned_owner_email",
-        ]
-
-    def get_countermeasure_name_display(self, obj):
-        """Return countermeasure name from model field or countermeasure_library."""
-        if obj.countermeasure_name:
-            return obj.countermeasure_name
-        if obj.countermeasure_library:
-            return obj.countermeasure_library.name
-        return None
-
-    def get_control_type_display(self, obj):
-        """Return control type from model field or countermeasure_library."""
-        if obj.control_type:
-            return obj.control_type
-        if obj.countermeasure_library:
-            return obj.countermeasure_library.control_type
-        return None
+    def create(self, validated_data):
+        threat_id = validated_data.pop("threat_id", None)
+        threat_type = validated_data.pop("threat_type", "component")
+        instance = super().create(validated_data)
+        if threat_id:
+            link_kwargs = {"countermeasure": instance}
+            if threat_type in ("flow", "dataflow"):
+                link_kwargs["flow_threat_id"] = threat_id
+            else:
+                link_kwargs["component_threat_id"] = threat_id
+            CountermeasureThreatLink.objects.get_or_create(**link_kwargs)
+        return instance
 
 
 class VerificationTestSerializer(serializers.ModelSerializer):
@@ -529,8 +508,7 @@ class PentestFindingSerializer(serializers.ModelSerializer):
             "severity",
             "matched_threat_library",
             "matched_threat_name",
-            "matched_component_countermeasure",
-            "matched_flow_countermeasure",
+            "matched_countermeasure",
             "reconciliation_status",
             "created_at",
             "updated_at",
@@ -538,8 +516,8 @@ class PentestFindingSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "matched_threat_name"]
 
 
-class ComponentInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
-    """Serializer for ComponentInstanceCountermeasureStandard (instance-level compliance mappings)."""
+class InstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
+    """Serializer for InstanceCountermeasureStandard (instance-level compliance mappings)."""
 
     framework_name = serializers.SerializerMethodField()
     framework_slug = serializers.SerializerMethodField()
@@ -547,71 +525,10 @@ class ComponentInstanceCountermeasureStandardSerializer(serializers.ModelSeriali
     requirement_description = serializers.SerializerMethodField()
 
     class Meta:
-        model = ComponentInstanceCountermeasureStandard
+        model = InstanceCountermeasureStandard
         fields = [
             "id",
-            "component_countermeasure",
-            "requirement",
-            "framework_name",
-            "framework_slug",
-            "section_code",
-            "requirement_description",
-            "sufficiency",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = [
-            "id",
-            "created_at",
-            "updated_at",
-            "framework_name",
-            "framework_slug",
-            "section_code",
-            "requirement_description",
-        ]
-
-    def get_framework_name(self, obj):
-        if obj.requirement and obj.requirement.framework:
-            return obj.requirement.framework.name
-        return obj.framework_name
-
-    def get_framework_slug(self, obj):
-        if obj.requirement and obj.requirement.framework:
-            return obj.requirement.framework.slug
-        return ""
-
-    def get_section_code(self, obj):
-        if obj.requirement:
-            return obj.requirement.section_code
-        return obj.section_code
-
-    def get_requirement_description(self, obj):
-        if obj.requirement:
-            return obj.requirement.description
-        return obj.requirement_description
-
-    def create(self, validated_data):
-        requirement = validated_data.get("requirement")
-        if requirement:
-            validated_data["section_code"] = requirement.section_code
-            validated_data["framework_name"] = requirement.framework.name
-            validated_data["requirement_description"] = requirement.description
-        return super().create(validated_data)
-
-
-class FlowInstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
-    """Serializer for FlowInstanceCountermeasureStandard (instance-level compliance mappings)."""
-
-    framework_name = serializers.SerializerMethodField()
-    framework_slug = serializers.SerializerMethodField()
-    section_code = serializers.SerializerMethodField()
-    requirement_description = serializers.SerializerMethodField()
-
-    class Meta:
-        model = FlowInstanceCountermeasureStandard
-        fields = [
-            "id",
-            "flow_countermeasure",
+            "countermeasure",
             "requirement",
             "framework_name",
             "framework_slug",
@@ -671,8 +588,7 @@ class CountermeasureCommentSerializer(serializers.ModelSerializer):
             "id",
             "author",
             "author_email",
-            "component_countermeasure",
-            "flow_countermeasure",
+            "countermeasure",
             "body",
             "change_summary",
             "created_at",

@@ -75,37 +75,12 @@ class ThreatModelFieldsMixin:
         requirement -> framework. Returns unique frameworks.
         """
         from apps.compliance.models import StandardFramework
-        from apps.systems.models import OrgsystemComponent
-        from apps.threats.models import (
-            ComponentInstanceCountermeasure,
-            DataFlowInstanceThreat,
-            FlowInstanceCountermeasure,
-        )
+        from apps.threats.models import InstanceCountermeasure
 
-        # Gather component IDs from DFDs + analysis-only components
-        component_ids = set()
-        dataflow_ids = set()
-        for dfd in obj.dfds.all():
-            canvas_data = dfd.canvas_data or {}
-            for node in canvas_data.get("nodes", []):
-                component_id = node.get("data", {}).get("component_id")
-                if component_id:
-                    component_ids.add(component_id)
-            for edge in canvas_data.get("edges", []):
-                dataflow_id = edge.get("data", {}).get("dataflow_id")
-                if dataflow_id:
-                    dataflow_ids.add(dataflow_id)
-
-        # Analysis-only components
-        analysis_ids = OrgsystemComponent.objects.filter(
-            threat_model=obj
-        ).exclude(id__in=component_ids).values_list("id", flat=True)
-        component_ids.update(analysis_ids)
-
-        # Component path: library-level mappings
-        component_library_fw_ids = set(
-            ComponentInstanceCountermeasure.objects.filter(
-                instance_threat__component_id__in=component_ids,
+        # Library-level mappings (using threat_model FK)
+        library_fw_ids = set(
+            InstanceCountermeasure.objects.filter(
+                threat_model=obj,
                 countermeasure_library__standard_mappings__requirement__framework__isnull=False,
             ).values_list(
                 "countermeasure_library__standard_mappings__requirement__framework_id",
@@ -113,10 +88,10 @@ class ThreatModelFieldsMixin:
             )
         )
 
-        # Component path: instance-level mappings
-        component_instance_fw_ids = set(
-            ComponentInstanceCountermeasure.objects.filter(
-                instance_threat__component_id__in=component_ids,
+        # Instance-level mappings
+        instance_fw_ids = set(
+            InstanceCountermeasure.objects.filter(
+                threat_model=obj,
                 instance_standard_mappings__requirement__framework__isnull=False,
             ).values_list(
                 "instance_standard_mappings__requirement__framework_id",
@@ -124,34 +99,7 @@ class ThreatModelFieldsMixin:
             )
         )
 
-        # Dataflow path: library-level mappings
-        flow_library_fw_ids = set(
-            FlowInstanceCountermeasure.objects.filter(
-                flow_threat__data_flow_id__in=dataflow_ids,
-                countermeasure_library__standard_mappings__requirement__framework__isnull=False,
-            ).values_list(
-                "countermeasure_library__standard_mappings__requirement__framework_id",
-                flat=True,
-            )
-        )
-
-        # Dataflow path: instance-level mappings
-        flow_instance_fw_ids = set(
-            FlowInstanceCountermeasure.objects.filter(
-                flow_threat__data_flow_id__in=dataflow_ids,
-                instance_standard_mappings__requirement__framework__isnull=False,
-            ).values_list(
-                "instance_standard_mappings__requirement__framework_id",
-                flat=True,
-            )
-        )
-
-        all_framework_ids = (
-            component_library_fw_ids
-            | component_instance_fw_ids
-            | flow_library_fw_ids
-            | flow_instance_fw_ids
-        )
+        all_framework_ids = library_fw_ids | instance_fw_ids
 
         if not all_framework_ids:
             return []
@@ -341,10 +289,9 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
     def _compute_completion_status(self, instance):
         """Compute enhanced completion status with system definition, coverage, and quality signals."""
         from apps.threats.models import (
-            ComponentInstanceCountermeasure,
             ComponentInstanceThreat,
             DataFlowInstanceThreat,
-            FlowInstanceCountermeasure,
+            InstanceCountermeasure,
         )
 
         scope = self._extract_scope_ids(instance)
@@ -420,53 +367,32 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
         )
         total_threats = component_threat_count + flow_threat_count
 
-        # Threats with >= 1 countermeasure
+        # Threats with >= 1 countermeasure (via junction table)
         component_threats_with_cm = (
             ComponentInstanceThreat.objects.filter(
                 component_id__in=component_ids, is_dismissed=False,
-                countermeasures__isnull=False,
+                countermeasure_links__isnull=False,
             ).distinct().count()
             if component_ids else 0
         )
         flow_threats_with_cm = (
             DataFlowInstanceThreat.objects.filter(
                 data_flow_id__in=dataflow_ids, is_dismissed=False,
-                countermeasures__isnull=False,
+                countermeasure_links__isnull=False,
             ).distinct().count()
             if dataflow_ids else 0
         )
         threats_with_cm = component_threats_with_cm + flow_threats_with_cm
 
-        # Countermeasures with owners
-        total_component_cm = (
-            ComponentInstanceCountermeasure.objects.filter(
-                instance_threat__component_id__in=component_ids
-            ).count()
-            if component_ids else 0
-        )
-        total_flow_cm = (
-            FlowInstanceCountermeasure.objects.filter(
-                flow_threat__data_flow_id__in=dataflow_ids
-            ).count()
-            if dataflow_ids else 0
-        )
-        total_countermeasures = total_component_cm + total_flow_cm
+        # Countermeasures with owners (using threat_model FK on unified model)
+        total_countermeasures = InstanceCountermeasure.objects.filter(
+            threat_model=instance
+        ).count()
 
-        component_cm_with_owner = (
-            ComponentInstanceCountermeasure.objects.filter(
-                instance_threat__component_id__in=component_ids,
-                assigned_owner__isnull=False,
-            ).count()
-            if component_ids else 0
-        )
-        flow_cm_with_owner = (
-            FlowInstanceCountermeasure.objects.filter(
-                flow_threat__data_flow_id__in=dataflow_ids,
-                assigned_owner__isnull=False,
-            ).count()
-            if dataflow_ids else 0
-        )
-        cm_with_owner = component_cm_with_owner + flow_cm_with_owner
+        cm_with_owner = InstanceCountermeasure.objects.filter(
+            threat_model=instance,
+            assigned_owner__isnull=False,
+        ).count()
 
         coverage = [
             {
@@ -512,12 +438,11 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
         """Compute quality signals by cross-checking entries against installed library packs."""
         from apps.systems.models import OrgsystemComponent
         from apps.threats.models import (
-            ComponentInstanceCountermeasure,
             ComponentInstanceThreat,
             ComponentLibraryThreat,
             CountermeasureLibrary,
+            CountermeasureThreatLink,
             DataFlowInstanceThreat,
-            FlowInstanceCountermeasure,
         )
 
         # Only compute when the threat model has connected packs
@@ -661,43 +586,49 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
 
         flagged_countermeasures = []
 
-        # Component countermeasures
-        component_cms = ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component_id__in=component_ids
-        ).select_related("instance_threat__threat_library", "countermeasure_library")
+        # Component countermeasures (via unified junction table)
+        component_cm_links = CountermeasureThreatLink.objects.filter(
+            component_threat__component_id__in=component_ids
+        ).select_related(
+            "component_threat__threat_library",
+            "countermeasure__countermeasure_library",
+        )
 
-        for cm in component_cms:
-            threat_lib_id = cm.instance_threat.threat_library_id
-            cm_lib_id = cm.countermeasure_library_id
+        for link in component_cm_links:
+            threat_lib_id = link.component_threat.threat_library_id
+            cm_lib_id = link.countermeasure.countermeasure_library_id
             if threat_lib_id and cm_lib_id:
                 if (threat_lib_id, cm_lib_id) not in valid_cm_pairs:
                     threat_name = (
-                        cm.instance_threat.threat_name
-                        or (cm.instance_threat.threat_library.name if cm.instance_threat.threat_library else "Unknown")
+                        link.component_threat.threat_name
+                        or (link.component_threat.threat_library.name if link.component_threat.threat_library else "Unknown")
                     )
                     flagged_countermeasures.append({
-                        "id": cm.id,
-                        "name": cm.countermeasure_library.name if cm.countermeasure_library else "Unknown",
+                        "id": link.countermeasure.id,
+                        "name": link.countermeasure.countermeasure_library.name if link.countermeasure.countermeasure_library else "Unknown",
                         "detail": f"Threat: {threat_name}",
                     })
 
-        # Flow countermeasures
-        flow_cms = FlowInstanceCountermeasure.objects.filter(
+        # Flow countermeasures (via unified junction table)
+        flow_cm_links = CountermeasureThreatLink.objects.filter(
             flow_threat__data_flow_id__in=dataflow_ids
-        ).select_related("flow_threat__threat_library", "countermeasure_library")
+        ).select_related(
+            "flow_threat__threat_library",
+            "countermeasure__countermeasure_library",
+        )
 
-        for cm in flow_cms:
-            threat_lib_id = cm.flow_threat.threat_library_id
-            cm_lib_id = cm.countermeasure_library_id
+        for link in flow_cm_links:
+            threat_lib_id = link.flow_threat.threat_library_id
+            cm_lib_id = link.countermeasure.countermeasure_library_id
             if threat_lib_id and cm_lib_id:
                 if (threat_lib_id, cm_lib_id) not in valid_cm_pairs:
                     threat_name = (
-                        cm.flow_threat.threat_name
-                        or (cm.flow_threat.threat_library.name if cm.flow_threat.threat_library else "Unknown")
+                        link.flow_threat.threat_name
+                        or (link.flow_threat.threat_library.name if link.flow_threat.threat_library else "Unknown")
                     )
                     flagged_countermeasures.append({
-                        "id": cm.id,
-                        "name": cm.countermeasure_library.name if cm.countermeasure_library else "Unknown",
+                        "id": link.countermeasure.id,
+                        "name": link.countermeasure.countermeasure_library.name if link.countermeasure.countermeasure_library else "Unknown",
                         "detail": f"Threat: {threat_name}",
                     })
 

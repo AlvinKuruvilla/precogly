@@ -18,7 +18,7 @@ export interface ComplianceStandardMapping {
 /**
  * Status of a countermeasure for a specific component-threat
  */
-export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'in_progress' | 'verified' | 'waived'
+export type CountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
 
 export const COUNTERMEASURE_STATUS_CONFIG: Record<
   CountermeasureStatus,
@@ -41,12 +41,6 @@ export const COUNTERMEASURE_STATUS_CONFIG: Record<
     color: '#eab308', // yellow
     bgColor: 'bg-yellow-500',
     description: 'Implementation planned or in progress',
-  },
-  in_progress: {
-    label: 'In Progress',
-    color: '#f97316', // orange
-    bgColor: 'bg-orange-500',
-    description: 'Implementation in progress',
   },
   verified: {
     label: 'Verified',
@@ -131,6 +125,14 @@ export interface ComponentThreatCountermeasure {
   isInherited?: boolean
   inheritedFromComponentName?: string
   inheritedFromZoneName?: string
+  // Shared countermeasure M2M support
+  alsoMitigates?: Array<{
+    threatId: number
+    threatType: 'component' | 'flow'
+    threatName: string
+    componentName: string | null
+  }>
+  isShared?: boolean
 }
 
 /**

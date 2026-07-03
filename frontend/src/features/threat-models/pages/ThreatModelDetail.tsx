@@ -734,7 +734,12 @@ export function ThreatModelDetail() {
                     selectedComponentId={selectedComponentId}
                     selectedThreatId={selectedThreatId}
                     selectedComponentThreat={selectedComponentThreat}
-                    onSelectComponent={setSelectedComponentId}
+                    onSelectComponent={(id: string) => {
+                      if (id !== selectedComponentId) {
+                        setSelectedThreatId(null)
+                      }
+                      setSelectedComponentId(id)
+                    }}
                     onSelectThreat={setSelectedThreatId}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}

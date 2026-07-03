@@ -8,8 +8,11 @@ from outer (lower trust_level) zones to inner (higher trust_level) zones.
 from django.db.models import Q
 
 from apps.systems.models import TrustBoundary
-from apps.threats.models import ComponentInstanceCountermeasure
-from apps.threats.services import recalculate_threat_status
+from apps.threats.models import (
+    CountermeasureThreatLink,
+    InstanceCountermeasure,
+)
+from apps.threats.services import recalculate_all_threats_for_countermeasure
 
 
 def _get_all_outer_zones(zone, visited=None):
@@ -70,26 +73,28 @@ def analyze_zone_protections(threat_model):
         return []
 
     # Get all gap countermeasures that have a library link and whose
-    # component has a trust zone
-    gap_countermeasures = ComponentInstanceCountermeasure.objects.filter(
-        instance_threat__component_id__in=component_ids,
-        instance_threat__component__trust_zone__isnull=False,
-        countermeasure_library__isnull=False,
-        status="gap",
+    # linked threats' components have a trust zone
+    gap_links = CountermeasureThreatLink.objects.filter(
+        component_threat__component_id__in=component_ids,
+        component_threat__component__trust_zone__isnull=False,
+        countermeasure__countermeasure_library__isnull=False,
+        countermeasure__status="gap",
+        component_threat__isnull=False,
     ).select_related(
-        "instance_threat__component__trust_zone",
-        "countermeasure_library",
+        "component_threat__component__trust_zone",
+        "countermeasure__countermeasure_library",
     )
 
-    if not gap_countermeasures:
+    if not gap_links:
         return []
 
     # Cache outer zones per zone_id
     outer_zones_cache = {}
     suggestions = []
 
-    for gap_cm in gap_countermeasures:
-        component = gap_cm.instance_threat.component
+    for gap_link in gap_links:
+        gap_cm = gap_link.countermeasure
+        component = gap_link.component_threat.component
         zone = component.trust_zone
         zone_id = zone.id
 
@@ -101,23 +106,24 @@ def analyze_zone_protections(threat_model):
             continue
 
         # Find a matching platform countermeasure in outer zones (also in scope)
-        source_cm = ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component_id__in=component_ids,
-            instance_threat__component__trust_zone__in=outer_zones,
-            countermeasure_library=gap_cm.countermeasure_library,
-            status="platform",
+        source_link = CountermeasureThreatLink.objects.filter(
+            component_threat__component_id__in=component_ids,
+            component_threat__component__trust_zone__in=outer_zones,
+            countermeasure__countermeasure_library=gap_cm.countermeasure_library,
+            countermeasure__status="platform",
+            component_threat__isnull=False,
         ).select_related(
-            "instance_threat__component__trust_zone",
-            "countermeasure_library",
+            "component_threat__component__trust_zone",
+            "countermeasure__countermeasure_library",
         ).first()
 
-        if source_cm:
+        if source_link:
             suggestions.append({
                 "target_countermeasure_id": gap_cm.id,
                 "target_component_name": component.name,
                 "target_zone_name": zone.name,
-                "source_component_name": source_cm.instance_threat.component.name,
-                "source_zone_name": source_cm.instance_threat.component.trust_zone.name,
+                "source_component_name": source_link.component_threat.component.name,
+                "source_zone_name": source_link.component_threat.component.trust_zone.name,
                 "countermeasure_name": gap_cm.countermeasure_library.name,
                 "control_type": gap_cm.countermeasure_library.control_type,
             })
@@ -138,14 +144,14 @@ def apply_zone_protections(items):
         return {"updated_count": 0}
 
     updated_count = 0
-    affected_threats = set()
+    affected_countermeasures = set()
 
     for item in items:
         countermeasure_id = item.get("countermeasure_id")
         source_component_name = item.get("source_component_name", "")
         source_zone_name = item.get("source_zone_name", "")
 
-        count = ComponentInstanceCountermeasure.objects.filter(
+        count = InstanceCountermeasure.objects.filter(
             id=countermeasure_id,
             status="gap",
         ).update(
@@ -158,21 +164,17 @@ def apply_zone_protections(items):
 
         if count > 0:
             try:
-                cm = ComponentInstanceCountermeasure.objects.select_related(
-                    "instance_threat"
-                ).get(id=countermeasure_id)
-                affected_threats.add(cm.instance_threat_id)
-            except ComponentInstanceCountermeasure.DoesNotExist:
+                cm = InstanceCountermeasure.objects.get(id=countermeasure_id)
+                affected_countermeasures.add(cm.id)
+            except InstanceCountermeasure.DoesNotExist:
                 pass
 
-    # Recalculate threat statuses for all affected threats
-    from apps.threats.models import ComponentInstanceThreat
-
-    for threat_id in affected_threats:
+    # Recalculate threat statuses for all affected countermeasures (and their linked threats)
+    for cm_id in affected_countermeasures:
         try:
-            threat = ComponentInstanceThreat.objects.get(id=threat_id)
-            recalculate_threat_status(threat)
-        except ComponentInstanceThreat.DoesNotExist:
+            cm = InstanceCountermeasure.objects.get(id=cm_id)
+            recalculate_all_threats_for_countermeasure(cm)
+        except InstanceCountermeasure.DoesNotExist:
             pass
 
     return {"updated_count": updated_count}

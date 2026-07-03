@@ -42,7 +42,7 @@ import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import {
   parseCountermeasureId,
   useDeleteCountermeasure,
-  useDeleteFlowCountermeasure,
+  useUnlinkCountermeasure,
   useDeleteComponent,
   useUpdateThreat,
   useUpdateFlowThreat,
@@ -209,16 +209,17 @@ export function ComponentView({
   const [editingComplianceFor, setEditingComplianceFor] = useState<{
     id: string
     backendId: number
-    type: 'component' | 'flow'
     name: string
     mappings: ComplianceStandardMapping[]
   } | null>(null)
-  // Track which countermeasure is being deleted
+  // Track which countermeasure is being deleted/unlinked
   const [deleteCountermeasureConfirmFor, setDeleteCountermeasureConfirmFor] = useState<{
     id: string
     name: string
     backendId: number
-    type: 'component' | 'flow'
+    type: 'component' | 'dataflow'
+    isShared?: boolean
+    threatId?: number
   } | null>(null)
   // Track which component is being deleted
   const [deleteComponentConfirmFor, setDeleteComponentConfirmFor] = useState<{
@@ -243,7 +244,7 @@ export function ComponentView({
   const updateThreatMutation = useUpdateThreat()
   const updateFlowThreatMutation = useUpdateFlowThreat()
   const deleteCountermeasureMutation = useDeleteCountermeasure()
-  const deleteFlowCountermeasureMutation = useDeleteFlowCountermeasure()
+  const unlinkCountermeasureMutation = useUnlinkCountermeasure()
   const deleteComponentMutation = useDeleteComponent()
 
   // Refs to collect latest data from child panels
@@ -271,25 +272,31 @@ export function ComponentView({
     }
   }, [updateThreatMutation, updateFlowThreatMutation])
   
-  // Unified delete handler for countermeasures
+  // Unified delete/unlink handler for countermeasures
   const handleConfirmDeleteCountermeasure = useCallback(() => {
     if (!deleteCountermeasureConfirmFor) return
 
     const onSuccess = () => {
-      toast.success('Countermeasure deleted')
+      toast.success(deleteCountermeasureConfirmFor.isShared ? 'Countermeasure unlinked' : 'Countermeasure deleted')
       setDeleteCountermeasureConfirmFor(null)
     }
 
     const onError = () => {
-      toast.error('Failed to delete countermeasure')
+      toast.error(deleteCountermeasureConfirmFor.isShared ? 'Failed to unlink countermeasure' : 'Failed to delete countermeasure')
     }
 
-    if (deleteCountermeasureConfirmFor.type === 'flow') {
-      deleteFlowCountermeasureMutation.mutate(deleteCountermeasureConfirmFor.backendId, { onSuccess, onError })
+    // Use unlink which cascade-deletes if last link
+    if (deleteCountermeasureConfirmFor.threatId) {
+      const threatType = deleteCountermeasureConfirmFor.type === 'dataflow' ? 'dataflow' as const : 'component' as const
+      unlinkCountermeasureMutation.mutate(
+        { countermeasureId: deleteCountermeasureConfirmFor.backendId, threatId: deleteCountermeasureConfirmFor.threatId, threatType },
+        { onSuccess, onError }
+      )
     } else {
+      // Fallback: direct delete (shouldn't happen in normal flow)
       deleteCountermeasureMutation.mutate(deleteCountermeasureConfirmFor.backendId, { onSuccess, onError })
     }
-  }, [deleteCountermeasureConfirmFor, deleteCountermeasureMutation, deleteFlowCountermeasureMutation])
+  }, [deleteCountermeasureConfirmFor, deleteCountermeasureMutation, unlinkCountermeasureMutation])
 
   // Unified delete handler for components
   const handleConfirmDeleteComponent = useCallback(() => {
@@ -336,6 +343,16 @@ export function ComponentView({
   const { treeRoots, flatNonProcess } = useMemo(
     () => buildComponentTree(analyzableComponents, canvasData.nodes),
     [analyzableComponents, canvasData.nodes]
+  )
+
+  const dataStoreNodes = useMemo(
+    () => flatNonProcess.filter((n) => n.type === 'datastore'),
+    [flatNonProcess]
+  )
+
+  const actorNodes = useMemo(
+    () => flatNonProcess.filter((n) => n.type === 'humanActor' || n.type === 'systemActor'),
+    [flatNonProcess]
   )
 
   const toggleNodeCollapsed = useCallback((nodeId: string) => {
@@ -523,13 +540,16 @@ export function ComponentView({
               />
             ))}
 
-            {/* Data Stores & Actors separator + flat list */}
-            {flatNonProcess.length > 0 && (
-              <>
+            {/* Data Stores and Actors as separate sections */}
+            {[
+              { label: 'Data Stores', nodes: dataStoreNodes },
+              { label: 'Actors', nodes: actorNodes },
+            ].map(({ label, nodes }) => nodes.length > 0 && (
+              <Fragment key={label}>
                 <div className="pt-3 pb-1 px-2 border-t mt-2">
-                  <span className="text-xs font-medium text-muted-foreground">Data Stores & Actors</span>
+                  <span className="text-xs font-medium text-muted-foreground">{label}</span>
                 </div>
-                {flatNonProcess.map((node) => {
+                {nodes.map((node) => {
                   const Icon = nodeTypeIcons[node.type as string] || Cog
                   const summary = getComponentThreatSummary(node.id, componentThreats)
                   const isSelected = node.id === selectedComponentId
@@ -601,8 +621,8 @@ export function ComponentView({
                     </Fragment>
                   )
                 })}
-              </>
-            )}
+              </Fragment>
+            ))}
 
             {/* Trust Boundaries section */}
             {trustZones.length > 0 && (
@@ -1160,7 +1180,9 @@ export function ComponentView({
                                 id: cm.id,
                                 name: cmName,
                                 backendId: parsed.id,
-                                type: parsed.type,
+                                type: selectedComponentThreat?.threatType || 'component',
+                                isShared: cm.isShared,
+                                threatId: selectedComponentThreat?.backendThreatId,
                               })
                             }}
                             aria-label={`Delete ${cmName}`}
@@ -1183,7 +1205,6 @@ export function ComponentView({
                               setEditingComplianceFor({
                                 id: cm.id,
                                 backendId: parsed.id,
-                                type: parsed.type,
                                 name: cmName,
                                 mappings: cm.standardMappings || [],
                               })
@@ -1199,7 +1220,6 @@ export function ComponentView({
                               setEditingComplianceFor({
                                 id: cm.id,
                                 backendId: parsed.id,
-                                type: parsed.type,
                                 name: cmName,
                                 mappings: [],
                               })
@@ -1326,6 +1346,20 @@ export function ComponentView({
                         </div>
                       )}
 
+                      {/* Also mitigates indicator for shared countermeasures */}
+                      {cm.alsoMitigates && cm.alsoMitigates.length > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground bg-blue-50/50 px-2 py-1.5 rounded border border-blue-100">
+                          <span className="font-medium text-blue-600">Also mitigates:</span>
+                          {cm.alsoMitigates.map((target) => (
+                            <div key={target.threatId} className="ml-3 text-muted-foreground">
+                              {target.componentName
+                                ? <>{target.componentName} &rsaquo; {target.threatName}</>
+                                : target.threatName}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Waiver reason display */}
                       {cm.status === 'waived' && cm.notes && !isWaiving && (
                         <div className="mt-2 text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
@@ -1418,7 +1452,6 @@ export function ComponentView({
             if (!open) setEditingComplianceFor(null)
           }}
           countermeasureId={editingComplianceFor.backendId}
-          countermeasureType={editingComplianceFor.type}
           countermeasureName={editingComplianceFor.name}
           libraryMappings={editingComplianceFor.mappings}
         />
@@ -1432,10 +1465,14 @@ export function ComponentView({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete countermeasure?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteCountermeasureConfirmFor?.isShared ? 'Remove countermeasure from this threat?' : 'Delete countermeasure?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {deleteCountermeasureConfirmFor?.name || 'this countermeasure'}.
-              This action cannot be undone.
+              {deleteCountermeasureConfirmFor?.isShared
+                ? `This will remove "${deleteCountermeasureConfirmFor?.name || 'this countermeasure'}" from this threat. It will remain active for the other threats it mitigates.`
+                : `This will permanently delete ${deleteCountermeasureConfirmFor?.name || 'this countermeasure'}. This action cannot be undone.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

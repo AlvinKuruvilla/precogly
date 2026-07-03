@@ -1,13 +1,12 @@
 from django.contrib import admin
 
 from .models import (
-    ComponentInstanceCountermeasure,
     ComponentInstanceThreat,
     ComponentLibraryThreat,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
     ExternalTaxonomy,
-    FlowInstanceCountermeasure,
+    InstanceCountermeasure,
     PentestFinding,
     Risk,
     RiskThreat,
@@ -54,15 +53,9 @@ class DataFlowInstanceThreatAdmin(admin.ModelAdmin):
     list_filter = ["status", "inherent_severity"]
 
 
-@admin.register(ComponentInstanceCountermeasure)
-class ComponentInstanceCountermeasureAdmin(admin.ModelAdmin):
-    list_display = ["instance_threat", "countermeasure_library", "status", "assigned_owner"]
-    list_filter = ["status", "required_for_release"]
-
-
-@admin.register(FlowInstanceCountermeasure)
-class FlowInstanceCountermeasureAdmin(admin.ModelAdmin):
-    list_display = ["flow_threat", "countermeasure_library", "status", "assigned_owner"]
+@admin.register(InstanceCountermeasure)
+class InstanceCountermeasureAdmin(admin.ModelAdmin):
+    list_display = ["threat_model", "countermeasure_library", "status", "assigned_owner"]
     list_filter = ["status", "required_for_release"]
 
 

@@ -698,6 +698,9 @@ class MagicLinkAccessView(APIView):
 
         result = []
 
+        from django.db.models import Prefetch
+        from apps.threats.models import CountermeasureThreatLink
+
         # Fetch component threats
         if component_ids:
             component_threats = ComponentInstanceThreat.objects.filter(
@@ -705,10 +708,17 @@ class MagicLinkAccessView(APIView):
             ).select_related(
                 "component", "threat_library"
             ).prefetch_related(
-                "countermeasures__countermeasure_library",
-                "countermeasures__assigned_owner",
-                "countermeasures__verified_by",
-                "countermeasures__instance_standard_mappings__requirement__framework",
+                Prefetch(
+                    "countermeasure_links",
+                    queryset=CountermeasureThreatLink.objects.select_related(
+                        "countermeasure",
+                        "countermeasure__countermeasure_library",
+                        "countermeasure__assigned_owner",
+                        "countermeasure__verified_by",
+                    ).prefetch_related(
+                        "countermeasure__instance_standard_mappings__requirement__framework",
+                    ).order_by("display_order"),
+                ),
             )
 
             for threat in component_threats:
@@ -759,23 +769,23 @@ class MagicLinkAccessView(APIView):
                     "format_metadata": threat.format_metadata,
                     "countermeasures": [
                         {
-                            "id": cm.id,
-                            "countermeasure_library_id": cm.countermeasure_library_id,
-                            "countermeasure_name": cm.countermeasure_name or (
-                                cm.countermeasure_library.name if cm.countermeasure_library else None
+                            "id": link.countermeasure.id,
+                            "countermeasure_library_id": link.countermeasure.countermeasure_library_id,
+                            "countermeasure_name": link.countermeasure.countermeasure_name or (
+                                link.countermeasure.countermeasure_library.name if link.countermeasure.countermeasure_library else None
                             ),
-                            "countermeasure_description": cm.countermeasure_description or (
-                                cm.countermeasure_library.description if cm.countermeasure_library else None
+                            "countermeasure_description": link.countermeasure.countermeasure_description or (
+                                link.countermeasure.countermeasure_library.description if link.countermeasure.countermeasure_library else None
                             ),
-                            "control_type": cm.control_type or (
-                                cm.countermeasure_library.control_type if cm.countermeasure_library else None
+                            "control_type": link.countermeasure.control_type or (
+                                link.countermeasure.countermeasure_library.control_type if link.countermeasure.countermeasure_library else None
                             ),
-                            "status": cm.status,
-                            "priority": cm.priority,
-                            "evidence_url": cm.evidence_url,
-                            "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-                            "verified_by_email": cm.verified_by.email if cm.verified_by else None,
-                            "format_metadata": cm.format_metadata,
+                            "status": link.countermeasure.status,
+                            "priority": link.countermeasure.priority,
+                            "evidence_url": link.countermeasure.evidence_url,
+                            "assigned_owner_email": link.countermeasure.assigned_owner.email if link.countermeasure.assigned_owner else None,
+                            "verified_by_email": link.countermeasure.verified_by.email if link.countermeasure.verified_by else None,
+                            "format_metadata": link.countermeasure.format_metadata,
                             "compliance_standards": [
                                 {
                                     "id": std.id,
@@ -786,10 +796,10 @@ class MagicLinkAccessView(APIView):
                                     "requirement_description": std.requirement.description,
                                     "sufficiency": std.sufficiency,
                                 }
-                                for std in cm.instance_standard_mappings.all()
+                                for std in link.countermeasure.instance_standard_mappings.all()
                             ],
                         }
-                        for cm in threat.countermeasures.all()
+                        for link in threat.countermeasure_links.all()
                     ],
                 }
                 result.append(threat_data)
@@ -801,10 +811,17 @@ class MagicLinkAccessView(APIView):
             ).select_related(
                 "data_flow", "threat_library"
             ).prefetch_related(
-                "countermeasures__countermeasure_library",
-                "countermeasures__assigned_owner",
-                "countermeasures__verified_by",
-                "countermeasures__instance_standard_mappings__requirement__framework",
+                Prefetch(
+                    "countermeasure_links",
+                    queryset=CountermeasureThreatLink.objects.select_related(
+                        "countermeasure",
+                        "countermeasure__countermeasure_library",
+                        "countermeasure__assigned_owner",
+                        "countermeasure__verified_by",
+                    ).prefetch_related(
+                        "countermeasure__instance_standard_mappings__requirement__framework",
+                    ).order_by("display_order"),
+                ),
             )
 
             for threat in flow_threats:
@@ -843,23 +860,23 @@ class MagicLinkAccessView(APIView):
                     "format_metadata": threat.format_metadata,
                     "countermeasures": [
                         {
-                            "id": cm.id,
-                            "countermeasure_library_id": cm.countermeasure_library_id,
-                            "countermeasure_name": cm.countermeasure_name or (
-                                cm.countermeasure_library.name if cm.countermeasure_library else None
+                            "id": link.countermeasure.id,
+                            "countermeasure_library_id": link.countermeasure.countermeasure_library_id,
+                            "countermeasure_name": link.countermeasure.countermeasure_name or (
+                                link.countermeasure.countermeasure_library.name if link.countermeasure.countermeasure_library else None
                             ),
-                            "countermeasure_description": cm.countermeasure_description or (
-                                cm.countermeasure_library.description if cm.countermeasure_library else None
+                            "countermeasure_description": link.countermeasure.countermeasure_description or (
+                                link.countermeasure.countermeasure_library.description if link.countermeasure.countermeasure_library else None
                             ),
-                            "control_type": cm.control_type or (
-                                cm.countermeasure_library.control_type if cm.countermeasure_library else None
+                            "control_type": link.countermeasure.control_type or (
+                                link.countermeasure.countermeasure_library.control_type if link.countermeasure.countermeasure_library else None
                             ),
-                            "status": cm.status,
-                            "priority": cm.priority,
-                            "evidence_url": cm.evidence_url,
-                            "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-                            "verified_by_email": cm.verified_by.email if cm.verified_by else None,
-                            "format_metadata": cm.format_metadata,
+                            "status": link.countermeasure.status,
+                            "priority": link.countermeasure.priority,
+                            "evidence_url": link.countermeasure.evidence_url,
+                            "assigned_owner_email": link.countermeasure.assigned_owner.email if link.countermeasure.assigned_owner else None,
+                            "verified_by_email": link.countermeasure.verified_by.email if link.countermeasure.verified_by else None,
+                            "format_metadata": link.countermeasure.format_metadata,
                             "compliance_standards": [
                                 {
                                     "id": std.id,
@@ -870,10 +887,10 @@ class MagicLinkAccessView(APIView):
                                     "requirement_description": std.requirement.description,
                                     "sufficiency": std.sufficiency,
                                 }
-                                for std in cm.instance_standard_mappings.all()
+                                for std in link.countermeasure.instance_standard_mappings.all()
                             ],
                         }
-                        for cm in threat.countermeasures.all()
+                        for link in threat.countermeasure_links.all()
                     ],
                 }
                 result.append(threat_data)

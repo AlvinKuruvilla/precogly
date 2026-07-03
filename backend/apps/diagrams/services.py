@@ -17,8 +17,9 @@ from apps.threat_models.models import ThreatModelOrgsystem
 from apps.threats.models import (
     ComponentInstanceThreat,
     ComponentLibraryThreat,
+    CountermeasureThreatLink,
     DataFlowInstanceThreat,
-    FlowInstanceCountermeasure,
+    InstanceCountermeasure,
     Risk,
     RiskThreat,
     ThreatLibrary,
@@ -562,49 +563,77 @@ def _generate_countermeasures_for_threat(threat_instance):
     """
     Generate countermeasures for a threat based on applicable countermeasures.
 
+    Works for both ComponentInstanceThreat and DataFlowInstanceThreat.
+
     Args:
-        threat_instance: ComponentInstanceThreat instance
+        threat_instance: ComponentInstanceThreat or DataFlowInstanceThreat instance
 
     Returns:
         Number of countermeasures created
     """
-    from apps.threats.models import ComponentInstanceCountermeasure, ComponentInstanceCountermeasureStandard, CountermeasureLibrary
+    from apps.threats.models import CountermeasureLibrary, InstanceCountermeasureStandard
     from apps.compliance.models import CountermeasureLibraryStandard
+
+    is_component_threat = isinstance(threat_instance, ComponentInstanceThreat)
 
     # Find countermeasures that apply to this threat's library
     applicable_countermeasures = CountermeasureLibrary.objects.filter(
         applicable_threats=threat_instance.threat_library,
     )
 
-    # Filter by connected packs if the threat's component has a threat model.
-    # Allow countermeasures with no source_pack (custom/legacy) to always pass through.
-    if hasattr(threat_instance, 'component') and threat_instance.component and threat_instance.component.threat_model_id:
-        from apps.threat_models.models import ThreatModelLibraryPack
+    # Resolve threat_model_id
+    if is_component_threat:
+        threat_model_id = threat_instance.component.threat_model_id if threat_instance.component else None
+    else:
+        data_flow = threat_instance.data_flow
+        threat_model_id = None
+        if hasattr(data_flow, "source_component") and data_flow.source_component:
+            threat_model_id = data_flow.source_component.threat_model_id
+        if not threat_model_id and hasattr(data_flow, "dest_component") and data_flow.dest_component:
+            threat_model_id = data_flow.dest_component.threat_model_id
 
-        connected_pack_ids = ThreatModelLibraryPack.objects.filter(
-            threat_model_id=threat_instance.component.threat_model_id
-        ).values_list("library_pack_id", flat=True)
-        applicable_countermeasures = applicable_countermeasures.filter(
-            Q(source_pack_id__in=connected_pack_ids)
-            | Q(source_pack__isnull=True)
-        )
+    if not threat_model_id:
+        return 0
+
+    # Filter by connected packs.
+    # Allow countermeasures with no source_pack (custom/legacy) to always pass through.
+    from apps.threat_models.models import ThreatModel, ThreatModelLibraryPack
+
+    connected_pack_ids = ThreatModelLibraryPack.objects.filter(
+        threat_model_id=threat_model_id
+    ).values_list("library_pack_id", flat=True)
+    applicable_countermeasures = applicable_countermeasures.filter(
+        Q(source_pack_id__in=connected_pack_ids)
+        | Q(source_pack__isnull=True)
+    )
+
+    threat_model = ThreatModel.objects.get(id=threat_model_id)
 
     created_count = 0
     has_platform_countermeasure = False
     for countermeasure_library in applicable_countermeasures:
         countermeasure_status = countermeasure_library.default_status
-        cm_instance, created = ComponentInstanceCountermeasure.objects.get_or_create(
-            instance_threat=threat_instance,
+        # Find or create the countermeasure instance scoped to the threat model
+        cm_instance, created = InstanceCountermeasure.objects.get_or_create(
+            threat_model=threat_model,
             countermeasure_library=countermeasure_library,
             defaults={
                 "status": countermeasure_status,
-                # Copy metadata for self-sufficiency if library is later removed
                 "countermeasure_name": countermeasure_library.name if countermeasure_library else "",
                 "countermeasure_description": countermeasure_library.description if countermeasure_library else "",
                 "control_type": countermeasure_library.control_type if countermeasure_library else "",
             },
         )
-        if created:
+        # Always create the junction link (idempotent via unique constraint)
+        link_kwargs = {"countermeasure": cm_instance}
+        if is_component_threat:
+            link_kwargs["component_threat"] = threat_instance
+        else:
+            link_kwargs["flow_threat"] = threat_instance
+        _link_created = CountermeasureThreatLink.objects.get_or_create(
+            **link_kwargs
+        )[1]
+        if created or _link_created:
             created_count += 1
             if countermeasure_status == "platform":
                 has_platform_countermeasure = True
@@ -613,10 +642,10 @@ def _generate_countermeasures_for_threat(threat_instance):
                 countermeasure_library=countermeasure_library,
             ).select_related("requirement", "requirement__framework")
             if library_standards.exists():
-                ComponentInstanceCountermeasureStandard.objects.bulk_create(
+                InstanceCountermeasureStandard.objects.bulk_create(
                     [
-                        ComponentInstanceCountermeasureStandard(
-                            component_countermeasure=cm_instance,
+                        InstanceCountermeasureStandard(
+                            countermeasure=cm_instance,
                             requirement=ls.requirement,
                             sufficiency=ls.sufficiency,
                             section_code=ls.requirement.section_code,
@@ -904,91 +933,7 @@ def _generate_threats_for_dataflow(dataflow):
             if created:
                 created_count += 1
                 # Auto-generate countermeasures for this new threat
-                _generate_countermeasures_for_flow_threat(threat_instance)
-
-    return created_count
-
-
-def _generate_countermeasures_for_flow_threat(threat_instance):
-    """
-    Generate countermeasures for a data flow threat.
-
-    Args:
-        threat_instance: DataFlowInstanceThreat instance
-
-    Returns:
-        Number of countermeasures created
-    """
-    from apps.threats.models import CountermeasureLibrary, FlowInstanceCountermeasureStandard
-    from apps.compliance.models import CountermeasureLibraryStandard
-
-    # Find countermeasures that apply to this threat's library
-    applicable_countermeasures = CountermeasureLibrary.objects.filter(
-        applicable_threats=threat_instance.threat_library,
-    )
-
-    # Filter by connected packs if the flow's component has a threat model.
-    # Allow countermeasures with no source_pack (custom/legacy) to always pass through.
-    data_flow = threat_instance.data_flow
-    threat_model_id = None
-    if hasattr(data_flow, "source_component") and data_flow.source_component:
-        threat_model_id = data_flow.source_component.threat_model_id
-    if not threat_model_id and hasattr(data_flow, "dest_component") and data_flow.dest_component:
-        threat_model_id = data_flow.dest_component.threat_model_id
-    if threat_model_id:
-        from apps.threat_models.models import ThreatModelLibraryPack
-
-        connected_pack_ids = ThreatModelLibraryPack.objects.filter(
-            threat_model_id=threat_model_id
-        ).values_list("library_pack_id", flat=True)
-        applicable_countermeasures = applicable_countermeasures.filter(
-            Q(source_pack_id__in=connected_pack_ids)
-            | Q(source_pack__isnull=True)
-        )
-
-    created_count = 0
-    has_platform_countermeasure = False
-    for countermeasure_library in applicable_countermeasures:
-        countermeasure_status = countermeasure_library.default_status
-        cm_instance, created = FlowInstanceCountermeasure.objects.get_or_create(
-            flow_threat=threat_instance,
-            countermeasure_library=countermeasure_library,
-            defaults={
-                "status": countermeasure_status,
-                # Copy metadata for self-sufficiency if library is later removed
-                "countermeasure_name": countermeasure_library.name if countermeasure_library else "",
-                "countermeasure_description": countermeasure_library.description if countermeasure_library else "",
-                "control_type": countermeasure_library.control_type if countermeasure_library else "",
-            },
-        )
-        if created:
-            created_count += 1
-            if countermeasure_status == "platform":
-                has_platform_countermeasure = True
-            # Propagate library-level compliance mappings to instance level (#29)
-            library_standards = CountermeasureLibraryStandard.objects.filter(
-                countermeasure_library=countermeasure_library,
-            ).select_related("requirement", "requirement__framework")
-            if library_standards.exists():
-                FlowInstanceCountermeasureStandard.objects.bulk_create(
-                    [
-                        FlowInstanceCountermeasureStandard(
-                            flow_countermeasure=cm_instance,
-                            requirement=ls.requirement,
-                            sufficiency=ls.sufficiency,
-                            section_code=ls.requirement.section_code,
-                            framework_name=ls.requirement.framework.name,
-                            requirement_description=ls.requirement.description,
-                        )
-                        for ls in library_standards
-                    ],
-                    ignore_conflicts=True,
-                )
-
-    # Recalculate threat status if any platform countermeasures were created
-    if has_platform_countermeasure:
-        from apps.threats.services import recalculate_threat_status
-        recalculate_threat_status(threat_instance)
+                _generate_countermeasures_for_threat(threat_instance)
 
     return created_count
 
