@@ -10,6 +10,7 @@ The API key is encrypted on the way in and decrypted on the way out; callers use
 :meth:`set_api_key` and the :attr:`api_key` property and never see ciphertext.
 """
 
+from django.conf import settings
 from django.db import models
 
 from apps.core.models import TimestampedModel
@@ -99,4 +100,65 @@ class AIProviderConfig(TimestampedModel):
             model=self.model,
             api_key=self.api_key,
             request_timeout=self.request_timeout,
+            config_id=self.id,
         )
+
+
+class AIUsageRecord(TimestampedModel):
+    """One AI call's token usage (and cost, when the provider is priced).
+
+    Append-only: a row is written per completion by the metering layer
+    (:class:`apps.ai.resolver.MeteringProvider`). The org admin's usage report is
+    just aggregate queries over this table — ``SUM``/``GROUP BY`` on a relational
+    store, which is why this lives in Postgres rather than a separate metrics
+    system. ``model``/``provider_type`` are snapshots so history stays correct
+    when a config is later edited or deleted.
+    """
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="ai_usage_records",
+    )
+    # Which saved config served the call. SET_NULL (not CASCADE) so deleting a
+    # provider config never erases the spend it incurred; NULL also covers calls
+    # served by the operator-wide settings fallback, which has no DB row.
+    provider_config = models.ForeignKey(
+        AIProviderConfig,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="usage_records",
+    )
+    feature = models.CharField(
+        max_length=64,
+        help_text="Which AI feature spent the tokens, e.g. 'suggest_threats'.",
+    )
+    model = models.CharField(max_length=255, help_text="Model snapshot.")
+    provider_type = models.CharField(max_length=32, help_text="Provider snapshot.")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ai_usage_records",
+    )
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    total_tokens = models.PositiveIntegerField(default=0)
+    # NULL = self-hosted / unpriced (tokens still counted). Six decimal places
+    # so sub-cent per-call costs aren't rounded away.
+    cost_usd = models.DecimalField(
+        max_digits=12, decimal_places=6, null=True, blank=True
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            # The report always filters by org and a time window, so index that
+            # access path directly.
+            models.Index(fields=["organization", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.feature} · {self.total_tokens} tok · org {self.organization_id}"

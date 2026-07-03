@@ -388,7 +388,7 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            suggestions = suggest_component_threats(component)
+            suggestions = suggest_component_threats(component, user=request.user)
         except AIDisabledError as err:
             return Response(
                 {"error": str(err)},

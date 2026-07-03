@@ -13,7 +13,13 @@ operator who hasn't started their local model should see "model unreachable at
 
 import requests
 
-from .base import AIProviderError, ChatProvider, ProviderHealth
+from .base import (
+    AIProviderError,
+    ChatProvider,
+    Completion,
+    ProviderHealth,
+    TokenUsage,
+)
 
 
 class OpenAICompatProvider(ChatProvider):
@@ -25,7 +31,7 @@ class OpenAICompatProvider(ChatProvider):
         *,
         temperature: float = 0.2,
         force_json: bool = True,
-    ) -> str:
+    ) -> Completion:
         # Default to a low temperature because this is a selection-and-explanation
         # task, not creative writing — we want stable, repeatable output. When
         # ``force_json`` is set we ask the server for JSON-object output;
@@ -65,12 +71,16 @@ class OpenAICompatProvider(ChatProvider):
 
         try:
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
         except (ValueError, KeyError, IndexError, TypeError) as err:
             raise AIProviderError(
                 "The AI model returned a response in an unexpected shape. The "
                 "endpoint may not be OpenAI-compatible."
             ) from err
+
+        # Usage is best-effort: most servers report it, but a missing or
+        # malformed block must never fail a completion the caller otherwise got.
+        return Completion(content=content, usage=_parse_usage(data))
 
     def test_connection(self) -> ProviderHealth:
         """Probe ``GET /models``, the OpenAI-standard listing endpoint.
@@ -143,6 +153,27 @@ class OpenAICompatProvider(ChatProvider):
         if self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
         return headers
+
+
+def _parse_usage(data: dict) -> TokenUsage | None:
+    """Read the OpenAI-style ``usage`` block, or ``None`` if absent/malformed.
+
+    Total falls back to prompt+completion for servers that omit ``total_tokens``.
+    Any non-integer/garbage shape yields ``None`` rather than a bogus zero row —
+    "no usage reported" and "zero tokens" must not be confused downstream.
+    """
+    raw = data.get("usage") if isinstance(data, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    try:
+        prompt = int(raw.get("prompt_tokens") or 0)
+        completion = int(raw.get("completion_tokens") or 0)
+        total = int(raw.get("total_tokens") or (prompt + completion))
+    except (TypeError, ValueError):
+        return None
+    return TokenUsage(
+        prompt_tokens=prompt, completion_tokens=completion, total_tokens=total
+    )
 
 
 def _safe_error_detail(response: requests.Response) -> str:
