@@ -688,3 +688,27 @@ taxonomies:
         title: Exploitation for Defense Impairment
         description: "Adversaries may exploit vulnerabilities in security software, infrastructure, or defensive components to degrade, disable, or otherwise continue to impair their ability to prevent, detect, or respond to malicious activity. Adversaries may exploit a system or application vulnerability to directly interfere with defensive mechanisms."
         reference_url: "https://attack.mitre.org/techniques/T1687"
+      - external_id: T1005
+        title: Data from Local System
+        description: "Adversaries may search local system sources, such as file systems, configuration files, local databases, virtual machine files, or process memory, to find files of interest and sensitive data prior to Exfiltration."
+        reference_url: "https://attack.mitre.org/techniques/T1005"
+      - external_id: T1068
+        title: Exploitation for Privilege Escalation
+        description: "Adversaries may exploit software vulnerabilities in an attempt to elevate privileges. Exploitation of a software vulnerability occurs when an adversary takes advantage of a programming error in a program, service, or within the operating system software or kernel itself to execute adversary-controlled code."
+        reference_url: "https://attack.mitre.org/techniques/T1068"
+      - external_id: T1071
+        title: Application Layer Protocol
+        description: "Adversaries may communicate using OSI application layer protocols to avoid detection/network filtering by blending in with existing traffic."
+        reference_url: "https://attack.mitre.org/techniques/T1071"
+      - external_id: T1542
+        title: Pre-OS Boot
+        description: "Adversaries may abuse Pre-OS Boot mechanisms as a way to establish persistence on a system."
+        reference_url: "https://attack.mitre.org/techniques/T1542"
+      - external_id: T1557
+        title: Adversary-in-the-Middle
+        description: "Adversaries may attempt to position themselves between two or more networked devices using an adversary-in-the-middle technique to support follow-on behaviors such as Network Sniffing, Transmitted Data Manipulation, or replay attacks."
+        reference_url: "https://attack.mitre.org/techniques/T1557"
+      - external_id: T1565
+        title: Data Manipulation
+        description: "Adversaries may insert, delete, or manipulate data in order to influence external outcomes or hide activity, thus threatening the integrity of the data."
+        reference_url: "https://attack.mitre.org/techniques/T1565"
