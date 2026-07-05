@@ -2,14 +2,14 @@ taxonomy: capec
 
 mappings:
   - threat: headset-signal-spoofing
-    entries: ["586"]
+    entries: ["CAPEC-586"]
   - threat: sigproc-adversarial-noise
-    entries: ["88"]
+    entries: ["CAPEC-88"]
   - threat: decoder-model-inversion
-    entries: ["122"]
+    entries: ["CAPEC-122"]
   - threat: cloud-neural-data-breach
-    entries: ["122"]
+    entries: ["CAPEC-122"]
   - threat: dataflow-neural-mitm
-    entries: ["94"]
+    entries: ["CAPEC-94"]
   - threat: dataflow-replay
-    entries: ["60"]
+    entries: ["CAPEC-60"]

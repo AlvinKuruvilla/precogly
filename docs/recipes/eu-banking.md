@@ -45,9 +45,9 @@ Import these packs in order (dependencies first):
 | Pack | Purpose |
 |------|---------|
 | `stride-taxonomy` | STRIDE threat classification |
-| `mini-cwe` | CWE weakness enumeration |
-| `mini-capec` | CAPEC attack patterns |
-| `mini-attack` | MITRE ATT&CK Enterprise techniques |
+| `cwe` | CWE weakness enumeration |
+| `capec` | CAPEC attack patterns |
+| `mitre-attack` | MITRE ATT&CK Enterprise techniques |
 
 **Compliance packs:**
 

@@ -13,7 +13,7 @@ pack:
   author: Precogly
   depends_on:
     - taxonomies/stride-taxonomy
-    - taxonomies/mini-cwe
+    - taxonomies/cwe
     - taxonomies/mitre-attack-ics
   tags:
     - ics
