@@ -262,8 +262,8 @@ class TaxonomyReferenceValidationTests(SimpleTestCase):
             # Downstream pack references the dependency's taxonomy
             pack_dir = _write_pack(
                 base,
-                "mini-cwe",
-                slug="mini-cwe",
+                "cwe",
+                slug="cwe",
                 pack_type="threat",
                 depends_on=["cwe-taxonomy"],
             )

@@ -28,9 +28,9 @@ DEMO_ORG_NAME = "Demo Organization"
 # Import order matters: taxonomies first, then standards, then full packs
 TAXONOMY_PACKS = [
     "taxonomies/stride-taxonomy",
-    "taxonomies/mini-capec",
-    "taxonomies/mini-cwe",
-    "taxonomies/mini-attack",
+    "taxonomies/capec",
+    "taxonomies/cwe",
+    "taxonomies/mitre-attack",
 ]
 
 STANDARD_PACKS = [

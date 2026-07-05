@@ -24,7 +24,7 @@ When you add a component from a library pack to your threat model, its associate
 | `technology` | Components only                                            | `aws`, `azure`, `gcp`           |
 | `full`       | Components + threats + countermeasures + joins + templates | `aws-mini`                      |
 | `compliance` | Framework definitions with requirements                    | `nist-csf`, `pci-dss`           |
-| `taxonomy`   | External threat classification taxonomies                  | `stride-taxonomy`, `mini-capec` |
+| `taxonomy`   | External threat classification taxonomies                  | `stride-taxonomy`, `capec` |
 | `template`   | DFD templates only                                         | —                               |
 
 ## YAML structure
@@ -64,9 +64,9 @@ pack:
   author: Precogly
   depends_on:
     - taxonomies/stride-taxonomy
-    - taxonomies/mini-capec
-    - taxonomies/mini-cwe
-    - taxonomies/mini-attack
+    - taxonomies/capec
+    - taxonomies/cwe
+    - taxonomies/mitre-attack
   tags:
     - aws
     - cloud
@@ -179,7 +179,7 @@ The **Import** button is only visible to users with the **Security Team** organi
 3. Click on a pack to preview its components, threats, and countermeasures
 4. Click **Import** to add it to your organization
 
-Packs with dependencies (e.g., `aws-mini` depends on `stride-taxonomy`, `mini-capec`, etc.) will show which dependencies need to be imported. Dependencies are **not enforced** — you can import a pack without its taxonomy dependencies if you don't need taxonomy enrichment (STRIDE, CAPEC, CWE tags on threats). Import taxonomy packs first if you want full taxonomy linking.
+Packs with dependencies (e.g., `aws-mini` depends on `stride-taxonomy`, `capec`, etc.) will show which dependencies need to be imported. Dependencies are **not enforced** — you can import a pack without its taxonomy dependencies if you don't need taxonomy enrichment (STRIDE, CAPEC, CWE tags on threats). Import taxonomy packs first if you want full taxonomy linking.
 
 ![Import dialog with dependency checks and compliance overlay selection](../assets/images/library-packs-import-dialog.png)
 

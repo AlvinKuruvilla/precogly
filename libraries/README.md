@@ -11,7 +11,7 @@ Library packs are modular bundles of threat-modeling content (components, threat
 | `technology` | Components only | `aws`, `azure`, `gcp` |
 | `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
 | `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
-| `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `mini-cwe` |
+| `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `cwe` |
 | `template` | DFD templates only | — |
 
 ---
@@ -68,9 +68,9 @@ pack:
   author: Precogly
   depends_on:
     - taxonomies/stride-taxonomy
-    - taxonomies/mini-capec
-    - taxonomies/mini-cwe
-    - taxonomies/mini-attack
+    - taxonomies/capec
+    - taxonomies/cwe
+    - taxonomies/mitre-attack
   tags:
     - aws
     - cloud
@@ -100,7 +100,7 @@ Dependencies use path-format strings relative to the `libraries/packs/` root:
 ```yaml
 depends_on:
   - taxonomies/stride-taxonomy
-  - taxonomies/mini-cwe
+  - taxonomies/cwe
 ```
 
 The slug is extracted from the last path segment (e.g., `taxonomies/stride-taxonomy` resolves to slug `stride-taxonomy`). Plain slugs (without `/`) also work for backward compatibility.

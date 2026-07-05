@@ -10,9 +10,9 @@ pack:
   author: Precogly
   depends_on:
   - taxonomies/stride-taxonomy
-  - taxonomies/mini-capec
-  - taxonomies/mini-cwe
-  - taxonomies/mini-attack
+  - taxonomies/capec
+  - taxonomies/cwe
+  - taxonomies/mitre-attack
   tags:
   - aws
   - cloud

@@ -2,20 +2,20 @@ taxonomy: capec
 
 mappings:
   - threat: lambda-injection
-    entries: ["88"]
+    entries: ["CAPEC-88"]
   - threat: lambda-privilege-escalation
-    entries: ["122"]
+    entries: ["CAPEC-122"]
   - threat: apigw-injection
-    entries: ["66"]
+    entries: ["CAPEC-66"]
   - threat: dynamodb-unauthorized-access
-    entries: ["122"]
+    entries: ["CAPEC-122"]
   - threat: dynamodb-injection
-    entries: ["66"]
+    entries: ["CAPEC-66"]
   - threat: sqs-message-injection
-    entries: ["586"]
+    entries: ["CAPEC-586"]
   - threat: dataflow-mitm
-    entries: ["94"]
+    entries: ["CAPEC-94"]
   - threat: dataflow-eavesdropping
-    entries: ["94"]
+    entries: ["CAPEC-94"]
   - threat: dataflow-replay-attack
-    entries: ["60"]
+    entries: ["CAPEC-60"]
