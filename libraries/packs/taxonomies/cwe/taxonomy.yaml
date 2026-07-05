@@ -432,3 +432,39 @@ taxonomies:
         title: Binding to an Unrestricted IP Address
         description: "The product assigns the address 0.0.0.0 for a database server, a cloud service/instance, or any computing resource that communicates remotely."
         reference_url: "https://cwe.mitre.org/data/definitions/1327.html"
+      - external_id: CWE-16
+        title: Configuration
+        description: "Weaknesses in this category are typically introduced during the configuration of the software."
+        reference_url: "https://cwe.mitre.org/data/definitions/16.html"
+      - external_id: CWE-287
+        title: Improper Authentication
+        description: "The application does not sufficiently verify that a claim of identity is actually true."
+        reference_url: "https://cwe.mitre.org/data/definitions/287.html"
+      - external_id: CWE-300
+        title: Channel Accessible by Non-Endpoint
+        description: "The product does not adequately verify the identity of actors at both ends of a communication channel, or does not adequately ensure the integrity of the channel, allowing an entity to act as a man-in-the-middle."
+        reference_url: "https://cwe.mitre.org/data/definitions/300.html"
+      - external_id: CWE-311
+        title: Missing Encryption of Sensitive Data
+        description: "The product does not encrypt sensitive or critical information before storage or transmission."
+        reference_url: "https://cwe.mitre.org/data/definitions/311.html"
+      - external_id: CWE-345
+        title: Insufficient Verification of Data Authenticity
+        description: "The product does not sufficiently verify the origin or authenticity of data, in a way that causes it to accept invalid data."
+        reference_url: "https://cwe.mitre.org/data/definitions/345.html"
+      - external_id: CWE-400
+        title: Uncontrolled Resource Consumption
+        description: "The product does not properly control the allocation and maintenance of a limited resource, thereby enabling an actor to influence the amount of resources consumed, eventually leading to exhaustion."
+        reference_url: "https://cwe.mitre.org/data/definitions/400.html"
+      - external_id: CWE-426
+        title: Untrusted Search Path
+        description: "The product searches for critical resources using an externally-supplied search path that can point to resources that are not under the product's direct control."
+        reference_url: "https://cwe.mitre.org/data/definitions/426.html"
+      - external_id: CWE-441
+        title: Unintended Proxy or Intermediary
+        description: "The product receives a request, message, or directive from an upstream component, but the product does not sufficiently preserve the original source of the request before forwarding it to an external actor."
+        reference_url: "https://cwe.mitre.org/data/definitions/441.html"
+      - external_id: CWE-693
+        title: Protection Mechanism Failure
+        description: "The product does not use or incorrectly uses a protection mechanism that provides sufficient defense against directed attacks."
+        reference_url: "https://cwe.mitre.org/data/definitions/693.html"
