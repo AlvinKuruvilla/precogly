@@ -62,6 +62,7 @@ nav:
   - API:
       - Overview: api/overview.md
   - Contributing:
+      - Overview: contributing/index.md
       - Development Setup: contributing/development-setup.md
       - Creating Library Packs: contributing/creating-library-packs.md
 
