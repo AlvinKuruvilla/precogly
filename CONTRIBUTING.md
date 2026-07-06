@@ -3,7 +3,7 @@
 Thanks for wanting to help build Precogly! We're glad you're here. :)
 
 For detailed setup instructions and architecture docs, head over to our
-[full documentation site](https://precogly.github.io/precogly/contributing/development-setup/).
+[full documentation site](https://precogly.github.io/precogly/contributing/).
 
 ## 🦉 Owl's Orders\*
 
