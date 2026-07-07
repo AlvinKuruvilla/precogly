@@ -166,7 +166,12 @@ export function MemberManagement() {
                           <SelectTrigger className="w-36">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent
+                            position="popper"
+                            side="bottom"
+                            align="start"
+                            avoidCollisions={false}
+                          >
                             <SelectItem value="security_team">
                               <Badge className={roleColors.security_team}>
                                 Security Team
