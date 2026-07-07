@@ -3,6 +3,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import {
   useOrganizationMembers,
@@ -112,6 +113,16 @@ export function MemberManagement() {
         role: pendingRoleChange.newRole,
       },
       {
+        onSuccess: () => {
+          toast.success('Member role updated successfully.')
+        },
+        onError: (error) => {
+          const message =
+            (error as any)?.response?.data?.role?.[0] ||
+            (error as any)?.response?.data?.detail ||
+            'Failed to update member role.'
+          toast.error(message)
+        },
         onSettled: () => setPendingRoleChange(null),
       }
     )

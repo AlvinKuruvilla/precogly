@@ -105,11 +105,8 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
 
         new_role = attrs.get("role", self.instance.role)
         if (
-            self.instance.role == OrganizationMember.Role.SECURITY_TEAM
-            and new_role != OrganizationMember.Role.SECURITY_TEAM
-            and self.instance.organization.members.filter(
-                role=OrganizationMember.Role.SECURITY_TEAM
-            ).count() <= 1
+            new_role != OrganizationMember.Role.SECURITY_TEAM
+            and self.instance.is_last_security_team_member()
         ):
             raise serializers.ValidationError({
                 "role": "At least one organization member must remain on the security team."
