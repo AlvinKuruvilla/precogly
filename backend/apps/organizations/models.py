@@ -70,6 +70,15 @@ class OrganizationMember(TimestampedModel):
     def __str__(self):
         return f"{self.user} @ {self.organization} ({self.role})"
 
+    def is_last_security_team_member(self):
+        """Return True when demoting/removing this member would leave zero security team members."""
+        return (
+            self.role == self.Role.SECURITY_TEAM
+            and self.organization.members.filter(
+                role=self.Role.SECURITY_TEAM
+            ).count() <= 1
+        )
+
 
 class BusinessUnit(TimestampedModel):
     """

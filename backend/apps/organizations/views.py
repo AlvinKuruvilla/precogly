@@ -110,6 +110,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         user_id = request.data.get("user")
         try:
             member = org.members.get(user_id=user_id)
+            if member.is_last_security_team_member():
+                return Response(
+                    {"detail": "At least one organization member must remain on the security team."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             member.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except OrganizationMember.DoesNotExist:
@@ -134,6 +139,16 @@ class OrganizationMemberViewSet(viewsets.ModelViewSet):
         return OrganizationMember.objects.filter(
             organization_id__in=org_ids
         ).select_related("organization", "user")
+
+    def destroy(self, request, *args, **kwargs):
+        """Prevent deleting the final security-team member from an organization."""
+        member = self.get_object()
+        if member.is_last_security_team_member():
+            return Response(
+                {"detail": "At least one organization member must remain on the security team."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class BusinessUnitViewSet(viewsets.ModelViewSet):

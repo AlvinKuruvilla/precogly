@@ -361,7 +361,7 @@ export function useUpdateOrgMemberRole() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ membershipId, role }: { membershipId: number; role: string }) =>
-      api.patch<OrganizationMembership>(`/organization-members/${membershipId}/`, { role }),
+      api.patch<OrganizationMembership>(`/memberships/${membershipId}/`, { role }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.all })
     },
@@ -424,4 +424,3 @@ export function useDeleteBusinessUnit() {
     },
   })
 }
-
