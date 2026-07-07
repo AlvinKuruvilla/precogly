@@ -98,6 +98,25 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
             "organization_name",
         ]
 
+    def validate(self, attrs):
+        """Prevent removing the final security-team role from an organization."""
+        if not self.instance:
+            return attrs
+
+        new_role = attrs.get("role", self.instance.role)
+        if (
+            self.instance.role == OrganizationMember.Role.SECURITY_TEAM
+            and new_role != OrganizationMember.Role.SECURITY_TEAM
+            and self.instance.organization.members.filter(
+                role=OrganizationMember.Role.SECURITY_TEAM
+            ).count() <= 1
+        ):
+            raise serializers.ValidationError({
+                "role": "At least one organization member must remain on the security team."
+            })
+
+        return attrs
+
 
 class OrganizationMemberListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for member listing."""
