@@ -165,8 +165,8 @@ All endpoints require authentication by default. The only exceptions are magic l
 | `POST` | `/api/threat-models/{id}/remove_system/` | Unlink a system |
 | `POST` | `/api/threat-models/{id}/add_referenced_model/` | Add model relationship |
 | `POST` | `/api/threat-models/{id}/remove_referenced_model/` | Remove model relationship |
-| `POST` | `/api/threat-models/{id}/add_framework/` | Attach compliance framework |
-| `POST` | `/api/threat-models/{id}/remove_framework/` | Detach compliance framework |
+| `POST` | `/api/threat-models/{id}/add_pack/` | Attach a library pack |
+| `POST` | `/api/threat-models/{id}/remove_pack/` | Detach a library pack |
 | `POST` | `/api/threat-models/import/tm-library/` | Import from TM-Library JSON |
 | `GET` | `/api/threat-models/{id}/export/tm-library/` | Export as TM-Library JSON |
 
