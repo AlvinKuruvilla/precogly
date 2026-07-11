@@ -354,3 +354,48 @@ export async function exportTmLibrary(threatModelId: string): Promise<void> {
   document.body.removeChild(anchor)
   URL.revokeObjectURL(url)
 }
+
+// CycloneDX 2.0 TM-BOM Import/Export
+
+export function useImportCycloneDx() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (file: File) =>
+      api.uploadFile<ImportTmLibraryResponse>(
+        '/threat-models/import/cyclonedx/',
+        file,
+        undefined,
+        'file'
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] })
+    },
+  })
+}
+
+export async function exportCycloneDx(threatModelId: string): Promise<void> {
+  const token = getAccessToken()
+  const response = await fetch(`/api/threat-models/${threatModelId}/export/cyclonedx/`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const contentDisposition = response.headers.get('Content-Disposition')
+  const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+  const filename = filenameMatch?.[1] || 'threat-model-cyclonedx.json'
+
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
+}

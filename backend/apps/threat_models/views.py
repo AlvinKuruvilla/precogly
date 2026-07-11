@@ -953,6 +953,81 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import/cyclonedx",
+        parser_classes=[MultiPartParser, JSONParser],
+    )
+    def import_cyclonedx(self, request):
+        """Import a CycloneDX 2.0 TM-BOM JSON file as a new threat model."""
+        from .adapters import CycloneDxAdapter
+
+        first_membership = request.user.organization_memberships.first()
+        if not first_membership:
+            return Response(
+                {"detail": "User has no organization membership."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        organization = first_membership.organization
+
+        if "file" in request.FILES:
+            uploaded_file = request.FILES["file"]
+            try:
+                json_data = json.loads(uploaded_file.read().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                return Response(
+                    {"detail": f"Invalid JSON file: {e}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        elif request.content_type and "json" in request.content_type:
+            json_data = request.data
+        else:
+            return Response(
+                {"detail": "Provide a JSON file upload (field: 'file') or a JSON body."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        adapter = CycloneDxAdapter()
+        try:
+            threat_model, summary = adapter.import_data(
+                json_data, organization, request.user
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "threat_model": {
+                    "id": str(threat_model.id),
+                    "name": threat_model.name,
+                },
+                "summary": summary,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["get"], url_path="export/cyclonedx")
+    def export_cyclonedx(self, request, pk=None):
+        """Export a threat model as CycloneDX 2.0 TM-BOM JSON."""
+        from .adapters import CycloneDxAdapter
+
+        threat_model = self.get_object()
+        adapter = CycloneDxAdapter()
+        export_data = adapter.export_data(threat_model)
+
+        import re
+
+        response = JsonResponse(export_data, json_dumps_params={"indent": 2})
+        safe_name = re.sub(r"[^a-z0-9\-]", "-", threat_model.name.lower())
+        safe_name = re.sub(r"-{2,}", "-", safe_name).strip("-")
+        filename = f"{safe_name}-cyclonedx-tm-bom.json"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
 
 class ThreatModelReferenceImageViewSet(viewsets.ModelViewSet):
     """ViewSet for managing threat model reference images."""

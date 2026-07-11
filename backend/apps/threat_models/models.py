@@ -221,6 +221,31 @@ class OutOfScopeItem(TimestampedModel):
         return self.name
 
 
+class UseCase(TimestampedModel):
+    """Use case associated with a threat model (CycloneDX 2.0 TM-BOM)."""
+
+    threat_model = models.ForeignKey(
+        ThreatModel,
+        on_delete=models.CASCADE,
+        related_name="use_cases",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    flow_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Structured use case data: preconditions, postconditions, "
+        "success_criteria, main_flow, alternative_flows, exceptions",
+    )
+    format_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 @receiver(post_delete, sender=ThreatModelReferenceImage)
 def delete_reference_image_file(sender, instance, **kwargs):
     """

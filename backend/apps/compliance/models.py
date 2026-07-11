@@ -19,6 +19,15 @@ class StandardFramework(TimestampedModel):
         blank=True,
         related_name="frameworks",
     )
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="internal_frameworks",
+        help_text="Populated for user-created internal standards. "
+        "NULL for global pack-sourced frameworks.",
+    )
     name = models.CharField(max_length=255)
     version = models.CharField(max_length=50)
     issuer = models.CharField(max_length=255)
@@ -40,6 +49,7 @@ class StandardRequirement(TimestampedModel):
         related_name="requirements",
     )
     section_code = models.CharField(max_length=50)
+    name = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField()
     parent = models.ForeignKey(
         "self",
@@ -48,6 +58,11 @@ class StandardRequirement(TimestampedModel):
         blank=True,
         related_name="children",
     )
+    requirement_type = models.CharField(max_length=20, blank=True, default="")
+    status = models.CharField(max_length=20, blank=True, default="")
+    priority = models.CharField(max_length=20, blank=True, default="")
+    acceptance_criteria = models.JSONField(default=list, blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["framework", "section_code"]

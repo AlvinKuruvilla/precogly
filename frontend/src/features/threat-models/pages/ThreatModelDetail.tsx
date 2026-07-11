@@ -52,6 +52,7 @@ import {
   useRemoveThreatModelPack,
   useAddThreatModelPack,
   exportTmLibrary,
+  exportCycloneDx,
 } from '@/features/threat-models/api/threat-models'
 import { usePacks } from '@/features/libraries/api/packs'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/features/threat-models/components'
@@ -540,6 +541,12 @@ export function ThreatModelDetail() {
                   className="text-xs"
                 >
                   TM-Library (JSON)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => id && exportCycloneDx(id)}
+                  className="text-xs"
+                >
+                  CycloneDX 2.0 BOM
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
