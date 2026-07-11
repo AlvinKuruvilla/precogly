@@ -120,7 +120,6 @@ class CountermeasureLibrarySerializer(serializers.ModelSerializer):
         model = CountermeasureLibrary
         fields = [
             "id",
-            "organization",
             "name",
             "description",
             "control_type",
