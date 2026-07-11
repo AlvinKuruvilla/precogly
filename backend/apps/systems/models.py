@@ -138,6 +138,14 @@ class TrustBoundary(TimestampedModel):
         help_text="Auth methods, access control, token TTL, etc.",
     )
 
+    # Crossing requirements (CycloneDX 2.0 TM-BOM)
+    authentication = models.BooleanField(default=False)
+    authorization = models.BooleanField(default=False)
+    data_validation = models.BooleanField(default=False)
+    logging = models.BooleanField(default=False)
+    monitoring = models.BooleanField(default=False)
+    rate_limiting = models.BooleanField(default=False)
+
     class Meta:
         verbose_name_plural = "Trust boundaries"
         ordering = ["zone_a", "zone_b"]

@@ -281,6 +281,25 @@ class CountermeasureLibrary(TimestampedModel):
         super().save(*args, **kwargs)
 
 
+class ThreatIntent(models.TextChoices):
+    """Attacker intent classification (CycloneDX 2.0 TM-BOM)."""
+
+    ACCIDENTAL = "accidental", "Accidental"
+    OPPORTUNISTIC = "opportunistic", "Opportunistic"
+    TARGETED = "targeted", "Targeted"
+    PERSISTENT = "persistent", "Persistent"
+
+
+class ThreatAccessLevel(models.TextChoices):
+    """Access level required for threat (CycloneDX 2.0 TM-BOM)."""
+
+    NONE = "none", "None"
+    EXTERNAL = "external", "External"
+    INTERNAL = "internal", "Internal"
+    PRIVILEGED = "privileged", "Privileged"
+    PHYSICAL = "physical", "Physical"
+
+
 class ComponentInstanceThreat(TimestampedModel):
     """Threat instance for a specific component."""
 
@@ -361,6 +380,20 @@ class ComponentInstanceThreat(TimestampedModel):
         blank=True,
         default="",
         help_text="Free-text threat actor (e.g. 'state actor', 'hacktivist')",
+    )
+    intent = models.CharField(
+        max_length=20,
+        choices=ThreatIntent.choices,
+        blank=True,
+        default="",
+        help_text="Attacker intent: accidental, opportunistic, targeted, or persistent",
+    )
+    access_level = models.CharField(
+        max_length=20,
+        choices=ThreatAccessLevel.choices,
+        blank=True,
+        default="",
+        help_text="Access level required: none, external, internal, privileged, or physical",
     )
 
     class Meta:
@@ -452,6 +485,20 @@ class DataFlowInstanceThreat(TimestampedModel):
         default="",
         help_text="Free-text threat actor (e.g. 'state actor', 'hacktivist')",
     )
+    intent = models.CharField(
+        max_length=20,
+        choices=ThreatIntent.choices,
+        blank=True,
+        default="",
+        help_text="Attacker intent: accidental, opportunistic, targeted, or persistent",
+    )
+    access_level = models.CharField(
+        max_length=20,
+        choices=ThreatAccessLevel.choices,
+        blank=True,
+        default="",
+        help_text="Access level required: none, external, internal, privileged, or physical",
+    )
 
     class Meta:
         unique_together = ["data_flow", "threat_library"]
@@ -467,9 +514,12 @@ class InstanceCountermeasure(TimestampedModel):
     class Status(models.TextChoices):
         GAP = "gap", "Gap"
         PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In Progress"
+        IMPLEMENTED = "implemented", "Implemented"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
         PLATFORM = "platform", "Platform"
+        DECOMMISSIONED = "decommissioned", "Decommissioned"
 
     threat_model = models.ForeignKey(
         "threat_models.ThreatModel",
@@ -808,6 +858,23 @@ class Risk(TimestampedModel):
         blank=True,
         help_text="Risk response strategy per NIST IR 8286",
     )
+    domains = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Risk domains, e.g. ['security', 'compliance']",
+    )
+    target_score = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Target risk score after planned mitigations",
+    )
+    target_level = models.CharField(
+        max_length=10,
+        choices=Level.choices,
+        blank=True,
+        help_text="Target risk level after planned mitigations",
+    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -986,6 +1053,57 @@ class ThreatSourceLink(TimestampedModel):
     def __str__(self):
         threat = self.component_threat or self.flow_threat
         return f"{self.source.name} -> {threat}"
+
+
+class RiskResponse(TimestampedModel):
+    """Structured risk response (CycloneDX 2.0 TM-BOM)."""
+
+    class Strategy(models.TextChoices):
+        AVOID = "avoid", "Avoid"
+        REDUCE = "reduce", "Reduce"
+        TRANSFER = "transfer", "Transfer"
+        ACCEPT = "accept", "Accept"
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In Progress"
+        IMPLEMENTED = "implemented", "Implemented"
+        VERIFIED = "verified", "Verified"
+
+    risk = models.ForeignKey(
+        Risk,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    strategy = models.CharField(max_length=20, choices=Strategy.choices)
+    description = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PLANNED,
+    )
+    effectiveness = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
+    cost = models.CharField(max_length=20, blank=True)
+    priority = models.CharField(max_length=20, blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_risk_responses",
+    )
+    target_date = models.DateTimeField(null=True, blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.risk.name} - {self.strategy}"
 
 
 class RiskThreat(TimestampedModel):
