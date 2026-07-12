@@ -62,6 +62,10 @@ export function MemberManagement() {
     newRole: string
     isLastSecurityTeam: boolean
   } | null>(null)
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    userId: number
+    userEmail: string
+  } | null>(null)
   const removeMemberMutation = useRemoveOrgMember()
   const updateRoleMutation = useUpdateOrgMemberRole()
 
@@ -78,12 +82,27 @@ export function MemberManagement() {
     return <div>No organization selected.</div>
   }
 
-  const handleRemove = (userId: number) => {
-    if (!confirm('Are you sure you want to remove this member?')) return
-    removeMemberMutation.mutate({
-      orgId: currentOrganization.id,
-      userId,
-    })
+  const handleRemove = (userId: number, userEmail: string) => {
+    setPendingRemoval({ userId, userEmail })
+  }
+
+  const confirmRemoval = () => {
+    if (!pendingRemoval) return
+    removeMemberMutation.mutate(
+      {
+        orgId: currentOrganization.id,
+        userId: pendingRemoval.userId,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Member removed successfully.')
+        },
+        onError: () => {
+          toast.error('Failed to remove member.')
+        },
+        onSettled: () => setPendingRemoval(null),
+      }
+    )
   }
 
   const handleRoleChange = (
@@ -210,7 +229,7 @@ export function MemberManagement() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleRemove(member.user)}
+                          onClick={() => handleRemove(member.user, member.userEmail)}
                           disabled={removeMemberMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -224,6 +243,29 @@ export function MemberManagement() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={pendingRemoval !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoval(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove {pendingRemoval?.userEmail} from {currentOrganization.name}. They
+              will lose access to all teams and threat models in this organization.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoval} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={pendingRoleChange !== null}
