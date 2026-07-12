@@ -115,6 +115,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     {"detail": "At least one organization member must remain on the security team."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            TeamMembership.objects.filter(
+                team__organization=org, user_id=user_id
+            ).delete()
             member.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except OrganizationMember.DoesNotExist:
