@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   login as apiLogin,
   logout as apiLogout,
@@ -31,6 +32,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -67,8 +69,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       // Ignore logout API errors - we still want to clear local state
     }
+    queryClient.clear()
+    localStorage.removeItem('precogly_current_org')
+    localStorage.removeItem('precogly_current_team')
     setUser(null)
-  }, [])
+  }, [queryClient])
 
   const value: AuthContextType = {
     user,
