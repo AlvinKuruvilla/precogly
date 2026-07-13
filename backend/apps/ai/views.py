@@ -17,16 +17,22 @@ reject with a 500:
   flipping the default is a clean, single API call.
 """
 
+from datetime import timedelta
+
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncMonth
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, serializers, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import AIProviderConfig
+from .models import AIProviderConfig, AIUsageRecord
 from .providers.base import AIProviderError
 from .providers.registry import build_provider
 from .serializers import AIProviderConfigSerializer
@@ -138,3 +144,175 @@ class AIProviderConfigViewSet(viewsets.ModelViewSet):
             # report the actionable message rather than 500-ing.
             return Response({"ok": False, "detail": str(err)})
         return Response({"ok": health.ok, "detail": health.detail})
+
+
+# The periods the usage report can be scoped to. Everything but the trend chart
+# is filtered to the selected window; "this month" is the default.
+USAGE_WINDOWS = ("this_month", "last_month", "last_30_days", "all_time")
+
+
+class AIUsageSummaryView(APIView):
+    """Aggregated AI token/cost usage for one organization.
+
+    Backs the admin "your org spent $X on AI" report. Returns period totals plus
+    the breakdowns the page shows (by feature, model, user) and a fixed 12-month
+    trend. It is read-only aggregation over :class:`AIUsageRecord` — the heavy
+    lifting is ``SUM``/``GROUP BY`` in Postgres, not application code.
+
+    Scope is one organization the caller belongs to, named by an ``organization``
+    query param (users can belong to several, so it can't be inferred). A
+    ``window`` query param selects the period; it defaults to ``this_month``.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org_id = self._required_org_id(request)
+        window = request.query_params.get("window", "this_month")
+        if window not in USAGE_WINDOWS:
+            raise ValidationError(
+                {"window": f"Must be one of: {', '.join(USAGE_WINDOWS)}."}
+            )
+
+        now = timezone.now()
+        start, end = _window_range(window, now)
+        scoped = AIUsageRecord.objects.filter(organization_id=org_id)
+        if start is not None:
+            scoped = scoped.filter(created_at__gte=start)
+        if end is not None:
+            scoped = scoped.filter(created_at__lt=end)
+
+        totals = scoped.aggregate(
+            tokens=Sum("total_tokens"), cost=Sum("cost_usd"), calls=Count("id")
+        )
+        tokens = totals["tokens"] or 0
+        calls = totals["calls"] or 0
+
+        return Response(
+            {
+                "window": window,
+                "totals": {
+                    "tokens": tokens,
+                    "cost": _money(totals["cost"]),
+                    "calls": calls,
+                    # Integer division is fine — this is a display figure, and
+                    # avoids implying false precision on a token count.
+                    "avg_tokens_per_call": (tokens // calls) if calls else 0,
+                },
+                "by_feature": [
+                    {
+                        "feature": row["feature"],
+                        "tokens": row["tokens"],
+                        "cost": _money(row["cost"]),
+                    }
+                    for row in scoped.values("feature")
+                    .annotate(tokens=Sum("total_tokens"), cost=Sum("cost_usd"))
+                    .order_by("-tokens")
+                ],
+                "by_model": [
+                    {
+                        "model": row["model"],
+                        "provider_type": row["provider_type"],
+                        "tokens": row["tokens"],
+                        "cost": _money(row["cost"]),
+                    }
+                    for row in scoped.values("model", "provider_type")
+                    .annotate(tokens=Sum("total_tokens"), cost=Sum("cost_usd"))
+                    .order_by("-tokens")
+                ],
+                "by_user": [
+                    {
+                        "user_id": row["user_id"],
+                        "email": row["user__email"],
+                        "tokens": row["tokens"],
+                        "cost": _money(row["cost"]),
+                    }
+                    for row in scoped.values("user_id", "user__email")
+                    .annotate(tokens=Sum("total_tokens"), cost=Sum("cost_usd"))
+                    .order_by("-tokens")
+                ],
+                "trend": self._trend(org_id, now),
+            }
+        )
+
+    def _required_org_id(self, request) -> int:
+        """The requested org id, validated to one the caller belongs to."""
+        raw = request.query_params.get("organization")
+        if not raw:
+            raise ValidationError(
+                {"organization": "This query parameter is required."}
+            )
+        try:
+            org_id = int(raw)
+        except (TypeError, ValueError) as err:
+            raise ValidationError(
+                {"organization": "Must be an integer id."}
+            ) from err
+        member_org_ids = request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        if org_id not in set(member_org_ids):
+            raise PermissionDenied(
+                "You can only view AI usage for organizations you belong to."
+            )
+        return org_id
+
+    @staticmethod
+    def _trend(org_id: int, now) -> list[dict]:
+        """Per-month tokens/cost for the last 12 months, ignoring the window.
+
+        The trend is deliberately independent of the summary period so picking
+        "this month" doesn't collapse the chart to a single bar.
+        """
+        # First day of the month 11 months back → 12 inclusive months.
+        month = now.month - 11
+        year = now.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        trend_start = now.replace(
+            year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        rows = (
+            AIUsageRecord.objects.filter(
+                organization_id=org_id, created_at__gte=trend_start
+            )
+            .annotate(month=TruncMonth("created_at"))
+            .values("month")
+            .annotate(tokens=Sum("total_tokens"), cost=Sum("cost_usd"))
+            .order_by("month")
+        )
+        return [
+            {
+                "month": row["month"].date().isoformat(),
+                "tokens": row["tokens"],
+                "cost": _money(row["cost"]),
+            }
+            for row in rows
+        ]
+
+
+def _window_range(window: str, now):
+    """Return ``(start, end)`` datetimes for ``window`` (``None`` = unbounded)."""
+    if window == "all_time":
+        return None, None
+    if window == "last_30_days":
+        return now - timedelta(days=30), None
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if window == "last_month":
+        prev_month_end = month_start
+        prev_month_start = (month_start - timedelta(days=1)).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        return prev_month_start, prev_month_end
+    # this_month
+    return month_start, None
+
+
+def _money(value):
+    """Render an aggregated ``cost_usd`` for JSON: float, or ``None`` if unpriced.
+
+    A ``NULL`` sum means every row in the group was self-hosted (unpriced), which
+    the UI shows as "—" rather than ``$0`` — distinct from a real zero cost.
+    """
+    return float(value) if value is not None else None

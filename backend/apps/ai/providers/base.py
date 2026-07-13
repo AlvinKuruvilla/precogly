@@ -16,6 +16,7 @@ key is plaintext and the only job left is to make the call.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from decimal import Decimal
 
 
 class AIProviderError(Exception):
@@ -51,6 +52,39 @@ class ResolvedConfig:
     model: str
     api_key: str = ""
     request_timeout: int = 60
+    # The id of the :class:`~apps.ai.models.AIProviderConfig` this snapshot came
+    # from, or ``None`` for the operator-wide settings fallback. Carried so usage
+    # records can link back to the saved config without re-resolving it. Adapters
+    # ignore it; only the metering layer reads it.
+    config_id: int | None = None
+
+
+@dataclass(frozen=True)
+class TokenUsage:
+    """Token counts a provider reports for one completion.
+
+    Mirrors the OpenAI ``usage`` block. ``None`` is used elsewhere (not zeros)
+    to mean "the server didn't report usage", so a present :class:`TokenUsage`
+    always carries real counts.
+    """
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+@dataclass(frozen=True)
+class Completion:
+    """The result of :meth:`ChatProvider.complete`.
+
+    ``content`` is the assistant's message text (what every caller wants).
+    ``usage`` is the token accounting when the provider reported it, else
+    ``None`` — kept alongside the content so the metering layer can record spend
+    without a second call, while callers that only need the text use ``content``.
+    """
+
+    content: str
+    usage: "TokenUsage | None" = None
 
 
 @dataclass(frozen=True)
@@ -85,13 +119,26 @@ class ChatProvider(ABC):
         *,
         temperature: float = 0.2,
         force_json: bool = True,
-    ) -> str:
-        """Run one chat completion and return the assistant's message content.
+    ) -> "Completion":
+        """Run one chat completion and return its content plus token usage.
 
         ``messages`` follows the OpenAI role/content shape. Raises
         :class:`AIProviderError` if the endpoint is unreachable, times out, or
-        returns a response the adapter cannot parse.
+        returns a response the adapter cannot parse. The returned
+        :class:`Completion` carries ``usage=None`` when the provider did not
+        report token counts.
         """
+
+    def price_for(self, usage: "TokenUsage") -> Decimal | None:
+        """USD cost for ``usage`` on this provider, or ``None`` when unpriced.
+
+        The default is ``None``: self-hosted models (LM Studio, Ollama) cost the
+        operator nothing measurable here, so we record tokens without a dollar
+        figure. Managed adapters (Bedrock, Anthropic, …) override this with a
+        model→price table — the adapter that knows the wire protocol is also the
+        one that knows the prices.
+        """
+        return None
 
     @abstractmethod
     def test_connection(self) -> ProviderHealth:

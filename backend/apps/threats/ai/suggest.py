@@ -77,13 +77,16 @@ def candidate_library_threats(component):
     return library_threats.exclude(threat_library_id__in=already_present)[:MAX_CANDIDATES]
 
 
-def suggest_component_threats(component) -> list[dict]:
+def suggest_component_threats(component, *, user=None) -> list[dict]:
     """Return ranked, grounded threat candidates for ``component``.
 
     Returns an empty list when there is nothing to ground on (no library type,
     or every applicable threat is already present). Raises ``AIProviderError``
     subclasses (``AIDisabledError`` when no model is configured for the
     component's organization, ``AIProviderError`` when the model is unreachable).
+
+    ``user`` (the requester) is recorded on the usage row this call meters, so
+    the org admin's report can attribute spend per person.
     """
     candidates = list(candidate_library_threats(component))
     if not candidates:
@@ -98,10 +101,12 @@ def suggest_component_threats(component) -> list[dict]:
     # brought one, else the operator-wide fallback). We do this only after
     # confirming there are candidates, so a component with nothing to suggest
     # never requires AI to be configured at all.
-    provider = resolve_provider_for_component(component)
+    provider = resolve_provider_for_component(
+        component, feature="suggest_threats", user=user
+    )
     messages = _build_messages(component, candidates)
-    raw = provider.complete(messages)
-    selections = _parse_selections(raw)
+    completion = provider.complete(messages)
+    selections = _parse_selections(completion.content)
 
     suggestions = []
     for selection in selections:

@@ -14,7 +14,7 @@ touches them.
 
 from django.conf import settings
 
-from .providers.base import AIDisabledError, ResolvedConfig
+from .providers.base import AIDisabledError, ChatProvider, Completion, ResolvedConfig
 from .providers.registry import build_provider
 
 
@@ -68,9 +68,77 @@ def resolve_config(organization) -> ResolvedConfig:
     )
 
 
-def resolve_provider(organization):
-    """Build a ready-to-call :class:`~apps.ai.providers.base.ChatProvider`."""
-    return build_provider(resolve_config(organization))
+class MeteringProvider(ChatProvider):
+    """Wraps a real provider and records token usage for every completion.
+
+    The wrapper is how usage tracking stays out of both the generic adapters
+    (which must not know about orgs or features) and the feature code (which
+    would otherwise have to remember to meter every call). A feature asks
+    :func:`resolve_provider` for "a provider for this org, for *this* feature"
+    and gets one of these; calling ``complete`` transparently appends an
+    :class:`~apps.ai.models.AIUsageRecord`. Health probes pass straight through.
+    """
+
+    def __init__(self, inner: ChatProvider, *, organization, feature, user=None):
+        super().__init__(inner.config)
+        self._inner = inner
+        self._organization = organization
+        self._feature = feature
+        self._user = user
+
+    def complete(self, messages, *, temperature=0.2, force_json=True) -> Completion:
+        completion = self._inner.complete(
+            messages, temperature=temperature, force_json=force_json
+        )
+        self._record(completion)
+        return completion
+
+    def test_connection(self):
+        return self._inner.test_connection()
+
+    def price_for(self, usage):
+        return self._inner.price_for(usage)
+
+    def _record(self, completion: Completion) -> None:
+        # No usage block means the server didn't report counts — there's nothing
+        # honest to record, so we skip rather than write a misleading zero row.
+        usage = completion.usage
+        if usage is None:
+            return
+
+        # Imported lazily so importing the resolver never requires the app
+        # registry, matching resolve_config's handling of the same model module.
+        from .models import AIUsageRecord
+
+        config = self.config
+        AIUsageRecord.objects.create(
+            organization=self._organization,
+            provider_config_id=config.config_id,
+            feature=self._feature,
+            model=config.model,
+            provider_type=config.provider_type,
+            user=self._user,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+            cost_usd=self._inner.price_for(usage),
+        )
+
+
+def resolve_provider(organization, *, feature=None, user=None):
+    """Build a ready-to-call :class:`~apps.ai.providers.base.ChatProvider`.
+
+    Pass ``feature`` (and optionally the ``user`` who triggered it) to get a
+    :class:`MeteringProvider` that records token usage per call. Without a
+    ``feature`` — or for an org-less context, where a per-tenant usage row would
+    be meaningless — the raw provider is returned unmetered.
+    """
+    provider = build_provider(resolve_config(organization))
+    if feature is None or organization is None:
+        return provider
+    return MeteringProvider(
+        provider, organization=organization, feature=feature, user=user
+    )
 
 
 def organization_for_component(component):
@@ -91,6 +159,12 @@ def organization_for_component(component):
     return None
 
 
-def resolve_provider_for_component(component):
-    """Convenience: resolve the provider for ``component``'s organization."""
-    return resolve_provider(organization_for_component(component))
+def resolve_provider_for_component(component, *, feature=None, user=None):
+    """Convenience: resolve the provider for ``component``'s organization.
+
+    Forwards ``feature``/``user`` so a feature call against a component is metered
+    under the component's owning organization.
+    """
+    return resolve_provider(
+        organization_for_component(component), feature=feature, user=user
+    )

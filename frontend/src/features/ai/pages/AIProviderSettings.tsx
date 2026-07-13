@@ -1,12 +1,12 @@
 /**
- * AI Providers settings page — manage an organization's "bring your own model"
- * endpoints.
- *
- * Each row is one configured model endpoint. The org's single *default* is the
- * one AI features use; the rest are kept as ready-to-switch alternatives. The API
- * key is write-only: the form never shows the stored key, only offers to replace
- * it, and "Test connection" probes the endpoint on the server so the secret never
- * comes back to the browser.
+ * AI settings page — two tabs for one organization's AI configuration:
+ *   - Providers: manage "bring your own model" endpoints (one default is used by
+ *     AI features; the rest are ready-to-switch alternatives). The API key is
+ *     write-only — the form never shows the stored key, only offers to replace
+ *     it, and "Test connection" probes the endpoint server-side so the secret
+ *     never comes back to the browser.
+ *   - Usage: token/cost usage across the org's AI features (the "you spent $X on
+ *     AI" report).
  */
 
 import { useState } from 'react'
@@ -20,6 +20,8 @@ import {
   useTestAIProviderConnection,
 } from '@/features/ai/api/aiProviders'
 import type { AIProviderConfig } from '@/features/ai/types/aiProvider'
+import { AIUsageReport } from '@/features/ai/components/AIUsageReport'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -190,7 +192,13 @@ export function AIProviderSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="providers" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="providers">Providers</TabsTrigger>
+        <TabsTrigger value="usage">Usage</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="providers" className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -405,6 +413,11 @@ export function AIProviderSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </TabsContent>
+
+      <TabsContent value="usage">
+        <AIUsageReport organizationId={currentOrganization.id} />
+      </TabsContent>
+    </Tabs>
   )
 }

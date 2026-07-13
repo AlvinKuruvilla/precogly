@@ -58,7 +58,34 @@ class OpenAICompatCompleteTests(SimpleTestCase):
     def test_returns_assistant_content(self, post):
         post.return_value = _response(json_body=self._ok_body("the answer"))
         self.assertEqual(
-            self.provider.complete([{"role": "user", "content": "hi"}]), "the answer"
+            self.provider.complete([{"role": "user", "content": "hi"}]).content,
+            "the answer",
+        )
+
+    @mock.patch.object(openai_compat.requests, "post")
+    def test_usage_block_is_captured(self, post):
+        body = self._ok_body("hi")
+        body["usage"] = {"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14}
+        post.return_value = _response(json_body=body)
+        usage = self.provider.complete([{"role": "user", "content": "hi"}]).usage
+        self.assertEqual(
+            (usage.prompt_tokens, usage.completion_tokens, usage.total_tokens),
+            (10, 4, 14),
+        )
+
+    @mock.patch.object(openai_compat.requests, "post")
+    def test_missing_usage_block_yields_none(self, post):
+        post.return_value = _response(json_body=self._ok_body("hi"))
+        self.assertIsNone(self.provider.complete([{"role": "user", "content": "hi"}]).usage)
+
+    @mock.patch.object(openai_compat.requests, "post")
+    def test_total_defaults_to_sum_when_server_omits_it(self, post):
+        body = self._ok_body("hi")
+        body["usage"] = {"prompt_tokens": 10, "completion_tokens": 4}
+        post.return_value = _response(json_body=body)
+        self.assertEqual(
+            self.provider.complete([{"role": "user", "content": "hi"}]).usage.total_tokens,
+            14,
         )
 
     @mock.patch.object(openai_compat.requests, "post")
@@ -149,7 +176,7 @@ class OpenAICompatCompleteTests(SimpleTestCase):
         result = self.provider.complete(
             [{"role": "user", "content": "hi"}], force_json=True
         )
-        self.assertEqual(result, "recovered")
+        self.assertEqual(result.content, "recovered")
         self.assertEqual(post.call_count, 2)
         # First attempt offers the JSON hint; the retry drops it.
         self.assertIn("response_format", sent_payloads[0])
