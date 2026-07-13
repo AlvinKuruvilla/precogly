@@ -1,0 +1,129 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight, Plus, ShieldAlert, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { useGuestEditor } from '../context/GuestEditorContext'
+import { GuestThreatDialog } from './GuestAddThreatDialog'
+import type { GuestThreat } from '../types'
+
+const SEVERITY_COLORS: Record<GuestThreat['severity'], string> = {
+  low: 'bg-blue-100 text-blue-800',
+  medium: 'bg-yellow-100 text-yellow-800',
+  high: 'bg-orange-100 text-orange-800',
+  critical: 'bg-red-100 text-red-800',
+}
+
+interface GuestThreatSectionProps {
+  targetId: string
+  targetType: GuestThreat['targetType']
+  targetName: string
+}
+
+export function GuestThreatSection({
+  targetId,
+  targetType,
+  targetName,
+}: GuestThreatSectionProps) {
+  const guestEditor = useGuestEditor()
+  const [isOpen, setIsOpen] = useState(true)
+  const [showDialog, setShowDialog] = useState(false)
+  const [editingThreat, setEditingThreat] = useState<GuestThreat | undefined>(undefined)
+
+  if (!guestEditor) return null
+
+  const threats = guestEditor.getThreatsForTarget(targetId)
+  const threatCount = threats.length
+
+  const handleAddNew = () => {
+    setEditingThreat(undefined)
+    setShowDialog(true)
+  }
+
+  const handleEdit = (threat: GuestThreat) => {
+    setEditingThreat(threat)
+    setShowDialog(true)
+  }
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full text-sm font-medium hover:text-foreground text-muted-foreground"
+      >
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+          <ShieldAlert className="h-4 w-4" />
+          <span>Threats</span>
+          {threatCount > 0 && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+              {threatCount}
+            </Badge>
+          )}
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="space-y-2 pl-6">
+          {threats.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No threats added yet.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {threats.map((threat) => (
+                <div
+                  key={threat.id}
+                  className="flex items-center justify-between gap-2 p-2 rounded-md border bg-card text-sm cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleEdit(threat)}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Badge
+                      variant="secondary"
+                      className={cn('shrink-0 text-xs', SEVERITY_COLORS[threat.severity])}
+                    >
+                      {threat.severity}
+                    </Badge>
+                    <span className="truncate">{threat.name}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-red-600"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      guestEditor.removeThreat(threat.id)
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1"
+            onClick={handleAddNew}
+          >
+            <Plus className="h-3 w-3" />
+            Add Threat
+          </Button>
+        </div>
+      )}
+
+      <GuestThreatDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        targetId={targetId}
+        targetType={targetType}
+        targetName={targetName}
+        editThreat={editingThreat}
+      />
+    </div>
+  )
+}

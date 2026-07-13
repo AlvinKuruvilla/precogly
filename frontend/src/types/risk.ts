@@ -1,5 +1,5 @@
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
-export type RiskStatus = 'open' | 'mitigated' | 'accepted'
+export type RiskResponse = 'accept' | 'mitigate' | 'transfer' | 'avoid'
 export type ScoringMethodKey = 'tm_library' | 'fair' | 'owasp_rr' | 'mozilla_rra' | 'custom'
 
 export interface Risk {
@@ -12,7 +12,7 @@ export interface Risk {
   inherentLevel: RiskLevel
   residualScore: number | null
   residualLevel: RiskLevel | null
-  status: RiskStatus
+  response: RiskResponse | null
   threatCount: number
   threats?: RiskThreatEntry[]
   owner: number | null
@@ -54,6 +54,7 @@ export interface CreateRiskInput {
   description?: string
   scoringMetadata: Record<string, unknown>
   inherentScore?: number
+  response?: RiskResponse | null
   owner?: number | null
   assignedTo?: number | null
   componentThreatIds?: number[]
@@ -65,6 +66,7 @@ export interface UpdateRiskInput {
   description?: string
   scoringMetadata?: Record<string, unknown>
   inherentScore?: number
+  response?: RiskResponse | null
   owner?: number | null
   assignedTo?: number | null
 }
@@ -72,4 +74,22 @@ export interface UpdateRiskInput {
 export interface AddRemoveThreatsInput {
   componentThreatIds?: number[]
   flowThreatIds?: number[]
+}
+
+export interface BulkUpdateRisksInput {
+  riskIds: number[]
+  response?: RiskResponse | null
+  owner?: number | null
+}
+
+export interface CountermeasureComment {
+  id: number
+  author: number | null
+  authorEmail: string | null
+  componentCountermeasure: number | null
+  flowCountermeasure: number | null
+  body: string
+  changeSummary: string
+  createdAt: string
+  updatedAt: string
 }

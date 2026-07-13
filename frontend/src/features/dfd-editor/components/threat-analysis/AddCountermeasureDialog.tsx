@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Search, FileText } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Search, FileText, Link2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,12 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import {
   useCountermeasureLibrary,
-  useCreateComponentCountermeasure,
-  useCreateFlowCountermeasure,
+  useCountermeasuresInUse,
+  useCreateCountermeasure,
+  useApplyCountermeasure,
 } from '@/features/threat-models/api/threats'
+import { COUNTERMEASURE_STATUS_CONFIG } from '@/features/dfd-editor/types/threat-analysis'
+import type { CountermeasureStatus } from '@/features/dfd-editor/types/threat-analysis'
 
 const CONTROL_TYPES = [
   { value: 'preventive', label: 'Preventive' },
@@ -35,6 +38,7 @@ const CONTROL_TYPES = [
   { value: 'deterrent', label: 'Deterrent' },
   { value: 'recovery', label: 'Recovery' },
   { value: 'compensating', label: 'Compensating' },
+  { value: 'procedural', label: 'Procedural' },
 ]
 
 interface AddCountermeasureDialogProps {
@@ -58,8 +62,9 @@ export function AddCountermeasureDialog({
   threatModelId,
   onSuccess,
 }: AddCountermeasureDialogProps) {
-  const [activeTab, setActiveTab] = useState<'library' | 'custom'>('library')
+  const [activeTab, setActiveTab] = useState<'in-use' | 'library' | 'custom'>('in-use')
   const [searchQuery, setSearchQuery] = useState('')
+  const [inUseSearchQuery, setInUseSearchQuery] = useState('')
   const [selectedCountermeasureId, setSelectedCountermeasureId] = useState<number | null>(null)
 
   // Custom countermeasure fields
@@ -69,8 +74,25 @@ export function AddCountermeasureDialog({
 
   // Fetch countermeasures - filter by applicable threats if we have a library threat
   const { data: countermeasureLibrary, isLoading } = useCountermeasureLibrary(threatLibraryId, threatModelId)
-  const createComponentCountermeasure = useCreateComponentCountermeasure()
-  const createFlowCountermeasure = useCreateFlowCountermeasure()
+  const { data: inUseData, isLoading: isLoadingInUse } = useCountermeasuresInUse(threatModelId)
+  const createCountermeasure = useCreateCountermeasure()
+  const applyCountermeasure = useApplyCountermeasure()
+
+  // Filter out countermeasures already linked to the current threat
+  const availableInUseCountermeasures = useMemo(() => {
+    if (!inUseData?.countermeasures) return []
+    return inUseData.countermeasures.filter((cm) => {
+      // Filter out already-linked
+      const isAlreadyLinked = cm.linkedThreats.some((lt) => lt.threatId === threatId)
+      if (isAlreadyLinked) return false
+      // Apply search filter
+      if (inUseSearchQuery) {
+        const query = inUseSearchQuery.toLowerCase()
+        return cm.countermeasureName.toLowerCase().includes(query)
+      }
+      return true
+    })
+  }, [inUseData, threatId, inUseSearchQuery])
 
   const filteredCountermeasures = countermeasureLibrary?.filter((cm) => {
     const query = searchQuery.toLowerCase()
@@ -83,6 +105,18 @@ export function AddCountermeasureDialog({
 
   const selectedCountermeasure = countermeasureLibrary?.find((cm) => cm.id === selectedCountermeasureId)
 
+  const handleLinkExisting = (countermeasureId: number) => {
+    const onMutationSuccess = () => {
+      onOpenChange(false)
+      resetForm()
+      onSuccess?.()
+    }
+    applyCountermeasure.mutate(
+      { threatId, threatType, existingCountermeasureId: countermeasureId },
+      { onSuccess: onMutationSuccess }
+    )
+  }
+
   const handleAddFromLibrary = () => {
     if (!selectedCountermeasureId) return
 
@@ -93,58 +127,47 @@ export function AddCountermeasureDialog({
       onSuccess?.()
     }
 
-    if (threatType === 'component') {
-      createComponentCountermeasure.mutate(
-        { instanceThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus },
-        { onSuccess: onMutationSuccess }
-      )
-    } else {
-      createFlowCountermeasure.mutate(
-        { flowThreat: threatId, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus },
-        { onSuccess: onMutationSuccess }
-      )
-    }
+    createCountermeasure.mutate(
+      { threatModel: threatModelId!, threatId, threatType, countermeasureLibrary: selectedCountermeasureId, status: countermeasureDefaultStatus },
+      { onSuccess: onMutationSuccess }
+    )
   }
 
   const handleAddCustom = () => {
     if (!customName.trim()) return
 
-    const baseData = {
-      countermeasureLibrary: null as null,
-      countermeasureName: customName,
-      countermeasureDescription: customDescription,
-      controlType: customControlType || undefined,
-      status: 'gap',
-    }
     const onMutationSuccess = () => {
       onOpenChange(false)
       resetForm()
       onSuccess?.()
     }
 
-    if (threatType === 'component') {
-      createComponentCountermeasure.mutate(
-        { instanceThreat: threatId, ...baseData },
-        { onSuccess: onMutationSuccess }
-      )
-    } else {
-      createFlowCountermeasure.mutate(
-        { flowThreat: threatId, ...baseData },
-        { onSuccess: onMutationSuccess }
-      )
-    }
+    createCountermeasure.mutate(
+      {
+        threatModel: threatModelId!,
+        threatId,
+        threatType,
+        countermeasureLibrary: null as null,
+        countermeasureName: customName,
+        countermeasureDescription: customDescription,
+        controlType: customControlType || undefined,
+        status: 'gap',
+      },
+      { onSuccess: onMutationSuccess }
+    )
   }
 
   const resetForm = () => {
     setSearchQuery('')
+    setInUseSearchQuery('')
     setSelectedCountermeasureId(null)
     setCustomName('')
     setCustomDescription('')
     setCustomControlType('')
-    setActiveTab('library')
+    setActiveTab('in-use')
   }
 
-  const isSubmitting = createComponentCountermeasure.isPending || createFlowCountermeasure.isPending
+  const isSubmitting = createCountermeasure.isPending || applyCountermeasure.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -156,11 +179,80 @@ export function AddCountermeasureDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'library' | 'custom')}>
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'in-use' | 'library' | 'custom')}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="in-use">In Use</TabsTrigger>
             <TabsTrigger value="library">From Library</TabsTrigger>
-            <TabsTrigger value="custom">Custom Countermeasure</TabsTrigger>
+            <TabsTrigger value="custom">Custom</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="in-use" className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search countermeasures in use..."
+                value={inUseSearchQuery}
+                onChange={(e) => setInUseSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Link an existing countermeasure from this threat model to share it across threats.
+            </p>
+
+            <ScrollArea className="h-[300px] border rounded-md">
+              {isLoadingInUse ? (
+                <div className="p-4 text-center text-muted-foreground">Loading countermeasures...</div>
+              ) : availableInUseCountermeasures.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  {inUseSearchQuery
+                    ? 'No countermeasures match your search'
+                    : 'No other countermeasures available to link'}
+                </div>
+              ) : (
+                <div className="p-2 space-y-1">
+                  {availableInUseCountermeasures.map((cm) => {
+                    const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status as CountermeasureStatus]
+                    return (
+                      <div
+                        key={cm.id}
+                        className="flex items-start justify-between gap-2 p-3 rounded-md hover:bg-muted"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{cm.countermeasureName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {statusConfig && (
+                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: statusConfig.color + '20', color: statusConfig.color }}>
+                                {statusConfig.label}
+                              </span>
+                            )}
+                            {cm.assignedOwnerEmail && (
+                              <span className="text-xs text-muted-foreground">{cm.assignedOwnerEmail}</span>
+                            )}
+                          </div>
+                          {cm.linkedThreats.length > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Applied to: {cm.linkedThreats.map((lt) => lt.threatName || lt.componentName || lt.flowLabel).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleLinkExisting(cm.id)}
+                          disabled={isSubmitting}
+                        >
+                          <Link2 className="h-3.5 w-3.5 mr-1" />
+                          Link
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
 
           <TabsContent value="library" className="space-y-4">
             <div className="relative">
@@ -286,7 +378,7 @@ export function AddCountermeasureDialog({
               <Plus className="h-4 w-4 mr-2" />
               Add Countermeasure
             </Button>
-          ) : (
+          ) : activeTab === 'custom' ? (
             <Button
               onClick={handleAddCustom}
               disabled={!customName.trim() || isSubmitting}
@@ -294,7 +386,7 @@ export function AddCountermeasureDialog({
               <Plus className="h-4 w-4 mr-2" />
               Add Custom Countermeasure
             </Button>
-          )}
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

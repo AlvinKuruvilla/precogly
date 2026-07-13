@@ -40,8 +40,6 @@ class LibraryPackDependencySerializer(serializers.ModelSerializer):
             "depends_on_pack",
             "depends_on_pack_name",
             "depends_on_pack_slug",
-            "version_constraint",
-            "is_optional",
         ]
         read_only_fields = ["id"]
 
@@ -60,11 +58,7 @@ class LibraryPackListSerializer(serializers.ModelSerializer):
             "description",
             "version",
             "pack_type",
-            "tier",
-            "source",
             "author",
-            "install_count",
-            "industries",
             "tags",
             "is_imported",
         ]
@@ -89,77 +83,25 @@ class LibraryPackDetailSerializer(serializers.ModelSerializer):
             "description",
             "version",
             "pack_type",
-            "tier",
-            "source",
             "author",
-            "repository_url",
-            "documentation_url",
-            "icon_url",
-            "industries",
             "tags",
-            "install_count",
-            "is_published",
-            "published_at",
             "dependencies",
             "content_summary",
             "is_imported",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "install_count"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_content_summary(self, obj):
-        """Return count of items in the pack.
-
-        First tries to count from database records. If no records exist,
-        falls back to counting from the pack.content field which stores
-        the original pack.yaml data.
-        """
-        # Try database counts first
-        db_counts = {
+        """Return count of items in the pack from database records."""
+        return {
             "components": ComponentLibrary.objects.filter(source_pack=obj).count(),
             "threats": ThreatLibrary.objects.filter(source_pack=obj).count(),
             "countermeasures": CountermeasureLibrary.objects.filter(source_pack=obj).count(),
             "templates": DFDTemplatesLibrary.objects.filter(source_pack=obj).count(),
             "taxonomies": ExternalTaxonomy.objects.filter(source_pack=obj).count(),
         }
-
-        # If all DB counts are 0 and pack has content, use content as fallback
-        if all(v == 0 for v in db_counts.values()) and obj.content:
-            content = obj.content
-
-            # Count components
-            components = content.get("components", [])
-            component_count = len(components)
-
-            # Count threats (standalone + nested in components)
-            threats = content.get("threats", [])
-            threat_count = len(threats)
-            for comp in components:
-                threat_count += len(comp.get("threats", []))
-
-            # Count countermeasures (standalone + nested in threats)
-            countermeasures = content.get("countermeasures", [])
-            cm_count = len(countermeasures)
-            for threat in threats:
-                cm_count += len(threat.get("countermeasures", []))
-            for comp in components:
-                for threat in comp.get("threats", []):
-                    cm_count += len(threat.get("countermeasures", []))
-
-            # Count taxonomies from pack content
-            taxonomies = content.get("taxonomies", [])
-            taxonomy_count = len(taxonomies)
-
-            return {
-                "components": component_count,
-                "threats": threat_count,
-                "countermeasures": cm_count,
-                "templates": db_counts["templates"],  # Keep DB count for templates
-                "taxonomies": taxonomy_count,
-            }
-
-        return db_counts
 
     def get_is_imported(self, obj):
         return _check_is_imported(obj)

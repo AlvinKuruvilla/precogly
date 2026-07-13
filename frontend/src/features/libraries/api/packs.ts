@@ -9,6 +9,7 @@ import type {
   LibraryPackListItem,
   PackDependencyCheck,
   PackFilters,
+  ValidationResult,
 } from '@/features/libraries/types/packs'
 
 // Query keys
@@ -31,10 +32,7 @@ export interface SourcePackInfo {
   description: string
   version: string
   packType: string
-  tier: string
-  source: string
   author: string
-  industries: string[]
   tags: string[]
   path: string
   relativePath: string
@@ -67,6 +65,7 @@ export interface ImportResult {
   templatesCreated: number
   taxonomiesCreated: number
   errors: string[]
+  warnings: string[]
 }
 
 export interface SyncFromSourceResponse {
@@ -132,10 +131,8 @@ export interface PackPreviewResponse {
     description: string
     version: string
     packType: string
-    tier: string
     author: string
     tags: string[]
-    industries: string[]
   }
   components: PackPreviewComponent[]
   threats: PackPreviewThreat[]
@@ -161,11 +158,6 @@ export interface AvailableOverlaysResponse {
 // Build query string from filters
 function buildQueryString(filters: PackFilters): string {
   const params = new URLSearchParams()
-  if (filters.packType) params.append('pack_type', filters.packType)
-  if (filters.tier) params.append('tier', filters.tier)
-  if (filters.source) params.append('source', filters.source)
-  if (filters.industry) params.append('industry', filters.industry)
-  if (filters.tag) params.append('tag', filters.tag)
   if (filters.search) params.append('search', filters.search)
   const query = params.toString()
   return query ? `?${query}` : ''
@@ -258,15 +250,18 @@ export function useImportSinglePack() {
       slug,
       force = false,
       selectedOverlays,
+      skipValidation = false,
     }: {
       slug: string
       force?: boolean
       selectedOverlays?: string[] | null
+      skipValidation?: boolean
     }) =>
       api.post<ImportResult>('/packs/import_single/', {
         slug,
         force,
         selectedOverlays,
+        skipValidation,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packKeys.all })
@@ -288,6 +283,20 @@ export function usePackOverlays(packPath: string | null) {
         `/packs/available_overlays/?path=${encodeURIComponent(packPath!)}`
       ),
     enabled: packPath !== null,
+  })
+}
+
+// =============================================================================
+// Pack Validation
+// =============================================================================
+
+/**
+ * Validate a pack's YAML references without importing (dry-run).
+ */
+export function useValidatePack() {
+  return useMutation({
+    mutationFn: ({ slug }: { slug: string }) =>
+      api.post<ValidationResult>('/packs/validate/', { slug }),
   })
 }
 

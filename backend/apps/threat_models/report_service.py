@@ -20,15 +20,15 @@ from apps.systems.models import (
     TrustZone,
 )
 from apps.threats.models import (
-    ComponentInstanceCountermeasure,
-    ComponentInstanceCountermeasureStandard,
     ComponentInstanceThreat,
+    CountermeasureThreatLink,
     DataFlowInstanceThreat,
-    FlowInstanceCountermeasure,
-    FlowInstanceCountermeasureStandard,
+    InstanceCountermeasure,
+    InstanceCountermeasureStandard,
     Risk,
     RiskThreat,
 )
+from apps.threats.services import get_countermeasures_for_threat
 
 
 def _get_scoped_ids(threat_model):
@@ -251,11 +251,11 @@ def _build_components(component_ids):
         category = comp.category or ""
         if category == "process":
             grouped["processes"].append(entry)
-        elif category == "dataStore":
+        elif category == "datastore":
             grouped["data_stores"].append(entry)
-        elif category == "humanActor":
+        elif category == "external_human_actor":
             grouped["human_actors"].append(entry)
-        elif category == "systemActor":
+        elif category == "external_system_actor":
             grouped["system_actors"].append(entry)
         else:
             grouped["processes"].append(entry)
@@ -297,8 +297,25 @@ def _get_stride_category(threat_library):
     return "unknown"
 
 
+def _get_taxonomy_entries(threat_library, taxonomy_snapshot=None):
+    """Return all taxonomy entries for a threat, falling back to snapshot."""
+    if threat_library:
+        entries = []
+        for join in threat_library.taxonomy_entries.all():
+            entry = join.taxonomy_entry
+            if entry.taxonomy:
+                entries.append({
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url or "",
+                })
+        return entries
+    return taxonomy_snapshot or []
+
+
 def _serialize_countermeasure(cm):
-    """Serialize a countermeasure (component or flow) to dict."""
+    """Serialize a countermeasure instance to dict."""
     return {
         "id": cm.id,
         "countermeasure_name": (
@@ -320,28 +337,36 @@ def _serialize_countermeasure(cm):
 
 def _build_threat_analysis(component_ids, dataflow_ids):
     """Build threat analysis section with STRIDE summary and detailed threats."""
+    from django.db.models import Prefetch
+
+    countermeasure_links_prefetch = Prefetch(
+        "countermeasure_links",
+        queryset=CountermeasureThreatLink.objects.select_related(
+            "countermeasure",
+            "countermeasure__countermeasure_library",
+            "countermeasure__assigned_owner",
+            "countermeasure__verified_by",
+        ).order_by("display_order"),
+    )
+
     # Component threats
     component_threats = ComponentInstanceThreat.objects.filter(
         component_id__in=component_ids
     ).select_related(
-        "component", "threat_library", "threat_actor"
+        "component", "threat_library"
     ).prefetch_related(
         "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
-        "countermeasures__countermeasure_library",
-        "countermeasures__assigned_owner",
-        "countermeasures__verified_by",
+        countermeasure_links_prefetch,
     )
 
     # Data flow threats
     flow_threats = DataFlowInstanceThreat.objects.filter(
         data_flow_id__in=dataflow_ids
     ).select_related(
-        "data_flow", "threat_library", "threat_actor"
+        "data_flow", "threat_library"
     ).prefetch_related(
         "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
-        "countermeasures__countermeasure_library",
-        "countermeasures__assigned_owner",
-        "countermeasures__verified_by",
+        countermeasure_links_prefetch,
     )
 
     # STRIDE category counts
@@ -380,15 +405,17 @@ def _build_threat_analysis(component_ids, dataflow_ids):
                 threat.threat_library.description if threat.threat_library else None
             ) or threat.threat_description,
             "stride_category": _get_stride_category(threat.threat_library),
+            "taxonomy_entries": _get_taxonomy_entries(
+                threat.threat_library, threat.taxonomy_snapshot
+            ),
             "inherent_severity": threat.inherent_severity,
             "residual_severity": threat.residual_severity,
             "status": threat.status,
             "impact_description": threat.impact_description,
-            "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
             "threat_actor_text": threat.threat_actor_text,
             "countermeasures": [
-                _serialize_countermeasure(cm)
-                for cm in threat.countermeasures.all()
+                _serialize_countermeasure(link.countermeasure)
+                for link in threat.countermeasure_links.all()
             ],
         })
 
@@ -405,15 +432,17 @@ def _build_threat_analysis(component_ids, dataflow_ids):
                 threat.threat_library.description if threat.threat_library else None
             ) or threat.threat_description,
             "stride_category": _get_stride_category(threat.threat_library),
+            "taxonomy_entries": _get_taxonomy_entries(
+                threat.threat_library, threat.taxonomy_snapshot
+            ),
             "inherent_severity": threat.inherent_severity,
             "residual_severity": threat.residual_severity,
             "status": threat.status,
             "impact_description": threat.impact_description,
-            "threat_actor_name": threat.threat_actor.name if threat.threat_actor else None,
             "threat_actor_text": threat.threat_actor_text,
             "countermeasures": [
-                _serialize_countermeasure(cm)
-                for cm in threat.countermeasures.all()
+                _serialize_countermeasure(link.countermeasure)
+                for link in threat.countermeasure_links.all()
             ],
         })
 
@@ -448,22 +477,19 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     }
 
 
-def _build_countermeasure_summary(component_ids, dataflow_ids):
-    """Build countermeasure summary with status breakdown."""
-    component_cms = ComponentInstanceCountermeasure.objects.filter(
-        instance_threat__component_id__in=component_ids
-    ).select_related(
-        "countermeasure_library",
-        "instance_threat__component",
-        "assigned_owner",
-    )
+def _build_countermeasure_summary(threat_model):
+    """Build countermeasure summary with status breakdown.
 
-    flow_cms = FlowInstanceCountermeasure.objects.filter(
-        flow_threat__data_flow_id__in=dataflow_ids
+    Uses direct threat_model FK — each countermeasure counted once even if shared.
+    """
+    all_countermeasures = InstanceCountermeasure.objects.filter(
+        threat_model=threat_model
     ).select_related(
         "countermeasure_library",
-        "flow_threat__data_flow",
         "assigned_owner",
+    ).prefetch_related(
+        "threat_links__component_threat__component",
+        "threat_links__flow_threat__data_flow",
     )
 
     status_counts = defaultdict(int)
@@ -471,57 +497,62 @@ def _build_countermeasure_summary(component_ids, dataflow_ids):
     waived = []
     inherited = []
 
-    for cm in component_cms:
+    for cm in all_countermeasures:
         status_counts[cm.status] += 1
         cm_name = (
             cm.countermeasure_library.name if cm.countermeasure_library else None
         ) or cm.countermeasure_name
-        component_name = cm.instance_threat.component.name if cm.instance_threat.component else None
+
+        # Determine the display context from the first threat link
+        first_link = cm.threat_links.all()[:1]
+        component_name = None
+        flow_label = None
+        if first_link:
+            link = first_link[0]
+            threat = link.component_threat or link.flow_threat
+            if link.component_threat and link.component_threat.component:
+                component_name = link.component_threat.component.name
+            elif link.flow_threat and link.flow_threat.data_flow:
+                flow_label = link.flow_threat.data_flow.label
+
+        entry_id = str(cm.id)
 
         if cm.status == "gap":
-            gaps.append({
-                "id": f"component-{cm.id}",
+            gap_entry = {
+                "id": entry_id,
                 "countermeasure_name": cm_name,
-                "component_name": component_name,
                 "priority": cm.priority,
                 "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-            })
+            }
+            if component_name:
+                gap_entry["component_name"] = component_name
+            if flow_label:
+                gap_entry["flow_label"] = flow_label
+            gaps.append(gap_entry)
+
         elif cm.status == "waived":
-            waived.append({
-                "id": f"component-{cm.id}",
+            waived_entry = {
+                "id": entry_id,
                 "countermeasure_name": cm_name,
-                "component_name": component_name,
-            })
+            }
+            if component_name:
+                waived_entry["component_name"] = component_name
+            if flow_label:
+                waived_entry["flow_label"] = flow_label
+            waived.append(waived_entry)
+
         if cm.is_inherited:
-            inherited.append({
-                "id": f"component-{cm.id}",
+            inherited_entry = {
+                "id": entry_id,
                 "countermeasure_name": cm_name,
-                "component_name": component_name,
                 "inherited_from_component_name": cm.inherited_from_component_name,
                 "inherited_from_zone_name": cm.inherited_from_zone_name,
-            })
-
-    for cm in flow_cms:
-        status_counts[cm.status] += 1
-        cm_name = (
-            cm.countermeasure_library.name if cm.countermeasure_library else None
-        ) or cm.countermeasure_name
-        flow_label = cm.flow_threat.data_flow.label if cm.flow_threat.data_flow else None
-
-        if cm.status == "gap":
-            gaps.append({
-                "id": f"flow-{cm.id}",
-                "countermeasure_name": cm_name,
-                "flow_label": flow_label,
-                "priority": cm.priority,
-                "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
-            })
-        elif cm.status == "waived":
-            waived.append({
-                "id": f"flow-{cm.id}",
-                "countermeasure_name": cm_name,
-                "flow_label": flow_label,
-            })
+            }
+            if component_name:
+                inherited_entry["component_name"] = component_name
+            if flow_label:
+                inherited_entry["flow_label"] = flow_label
+            inherited.append(inherited_entry)
 
     return {
         "status_breakdown": dict(status_counts),
@@ -594,30 +625,17 @@ def _build_compliance(threat_model, component_ids, dataflow_ids):
     framework_coverage = defaultdict(set)
     framework_satisfied = defaultdict(set)
 
-    # From component countermeasure instance mappings
-    component_standards = ComponentInstanceCountermeasureStandard.objects.filter(
-        component_countermeasure__instance_threat__component_id__in=component_ids,
+    # From unified countermeasure instance mappings (using threat_model FK)
+    instance_standards = InstanceCountermeasureStandard.objects.filter(
+        countermeasure__threat_model=threat_model,
         requirement__isnull=False,
-    ).select_related("requirement__framework", "component_countermeasure")
+    ).select_related("requirement__framework", "countermeasure")
 
-    for mapping in component_standards:
+    for mapping in instance_standards:
         fw_id = mapping.requirement.framework_id
         req_id = mapping.requirement_id
         framework_coverage[fw_id].add(req_id)
-        if mapping.component_countermeasure.status in satisfied_statuses:
-            framework_satisfied[fw_id].add(req_id)
-
-    # From flow countermeasure instance mappings
-    flow_standards = FlowInstanceCountermeasureStandard.objects.filter(
-        flow_countermeasure__flow_threat__data_flow_id__in=dataflow_ids,
-        requirement__isnull=False,
-    ).select_related("requirement__framework", "flow_countermeasure")
-
-    for mapping in flow_standards:
-        fw_id = mapping.requirement.framework_id
-        req_id = mapping.requirement_id
-        framework_coverage[fw_id].add(req_id)
-        if mapping.flow_countermeasure.status in satisfied_statuses:
+        if mapping.countermeasure.status in satisfied_statuses:
             framework_satisfied[fw_id].add(req_id)
 
     # Build framework summaries
@@ -744,15 +762,17 @@ def build_report_data(threat_model):
     components = _build_components(component_ids)
     data_flows = _build_data_flows(dataflow_ids)
     threat_analysis = _build_threat_analysis(component_ids, dataflow_ids)
-    countermeasure_summary = _build_countermeasure_summary(component_ids, dataflow_ids)
+    countermeasure_summary = _build_countermeasure_summary(threat_model)
     risks = _build_risks(threat_model)
     compliance = _build_compliance(threat_model, component_ids, dataflow_ids)
     summary_metrics = _build_summary_metrics(threat_analysis, countermeasure_summary, risks)
 
-    # Reuse progress checklist from serializer
+    # Reuse completion status from serializer
     from apps.threat_models.serializers import ThreatModelSerializer
 
-    progress_checklist = ThreatModelSerializer()._compute_progress_checklist(threat_model)
+    serializer = ThreatModelSerializer()
+    completion_status = serializer._compute_completion_status(threat_model)
+    progress_checklist = serializer._flatten_to_legacy_checklist(completion_status)
 
     return {
         "metadata": metadata,
@@ -767,4 +787,5 @@ def build_report_data(threat_model):
         "compliance": compliance,
         "summary_metrics": summary_metrics,
         "progress_checklist": progress_checklist,
+        "completion_status": completion_status,
     }

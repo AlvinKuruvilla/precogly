@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChangePassword } from '@/api/auth'
+import { ApiError } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,10 +20,12 @@ export function ProfileSettings() {
   const [newPassword1, setNewPassword1] = useState('')
   const [newPassword2, setNewPassword2] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setPasswordSuccess(false)
+    setPasswordError(null)
 
     changePasswordMutation.mutate(
       { oldPassword, newPassword1, newPassword2 },
@@ -33,13 +36,25 @@ export function ProfileSettings() {
           setNewPassword2('')
           setPasswordSuccess(true)
         },
+        onError: (error) => {
+          let message = 'Failed to change password. Please try again.'
+          if (error instanceof ApiError && error.data && typeof error.data === 'object') {
+            const data = error.data as Record<string, unknown>
+            if (data.old_password) {
+              const msgs = Array.isArray(data.old_password) ? data.old_password : [data.old_password]
+              message = `Current password is incorrect: ${msgs.join(', ')}`
+            } else {
+              const allMessages = Object.values(data).flat()
+              if (allMessages.length > 0) {
+                message = String(allMessages.join(', '))
+              }
+            }
+          }
+          setPasswordError(message)
+        },
       }
     )
   }
-
-  const passwordErrors = changePasswordMutation.error
-    ? (changePasswordMutation.error as { data?: Record<string, string[]> }).data
-    : null
 
   return (
     <div className="space-y-6">
@@ -85,12 +100,6 @@ export function ProfileSettings() {
                 onChange={(e) => setOldPassword(e.target.value)}
                 required
               />
-              {passwordErrors?.old_password && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {passwordErrors.old_password[0]}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -102,12 +111,6 @@ export function ProfileSettings() {
                 onChange={(e) => setNewPassword1(e.target.value)}
                 required
               />
-              {passwordErrors?.new_password1 && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {passwordErrors.new_password1[0]}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -119,13 +122,14 @@ export function ProfileSettings() {
                 onChange={(e) => setNewPassword2(e.target.value)}
                 required
               />
-              {passwordErrors?.new_password2 && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {passwordErrors.new_password2[0]}
-                </p>
-              )}
             </div>
+
+            {passwordError && (
+              <p className="text-sm text-destructive flex items-center gap-1">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {passwordError}
+              </p>
+            )}
 
             <div className="flex items-center gap-3">
               <Button

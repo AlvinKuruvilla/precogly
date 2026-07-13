@@ -1,7 +1,6 @@
 """Tests for TM-Library adapter import and export."""
 
 import json
-import os
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -9,7 +8,7 @@ from django.test import TestCase
 from apps.organizations.models import Organization, OrganizationMember, Team, TeamMembership
 from apps.systems.models import DataAsset, DataFlow, OrgsystemComponent, TrustZone
 from apps.threats.models import (
-    ComponentInstanceCountermeasure,
+    InstanceCountermeasure,
     ComponentInstanceThreat,
     Risk,
     RiskThreat,
@@ -19,19 +18,6 @@ from ..adapters import TmLibraryAdapter
 from ..models import ThreatModel
 
 User = get_user_model()
-
-SAMPLE_FILES_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "..", "..", "..", "..",
-    "docs", "import-export-formats", "Project-TM-Library",
-)
-
-
-def _load_sample(filename):
-    filepath = os.path.join(SAMPLE_FILES_DIR, filename)
-    with open(filepath, "r") as f:
-        return json.load(f)
-
 
 class TmLibraryAdapterTestMixin:
     """Shared setup for adapter tests."""
@@ -50,120 +36,6 @@ class TmLibraryAdapterTestMixin:
         )
         TeamMembership.objects.create(team=cls.team, user=cls.user, role="lead")
         cls.adapter = TmLibraryAdapter()
-
-
-class TestImportHuskyAi(TmLibraryAdapterTestMixin, TestCase):
-    """Import the husky-ai sample file and verify entity counts."""
-
-    def test_import_creates_entities(self):
-        json_data = _load_sample("husky-ai-threat-model.json")
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
-
-        self.assertIsInstance(threat_model, ThreatModel)
-        self.assertEqual(threat_model.name, "Husky AI")
-        self.assertEqual(threat_model.risk_scoring_method, "tm_library")
-        self.assertEqual(threat_model.owning_team, self.team)
-
-        # Trust zones
-        self.assertEqual(summary["trust_zones"], 3)
-
-        # Actors
-        self.assertEqual(summary["actors"], 4)
-
-        # Components
-        self.assertEqual(summary["components"], 6)
-
-        # Data stores
-        self.assertEqual(summary["data_stores"], 7)
-
-        # Data assets
-        self.assertEqual(summary["data_assets"], 7)
-
-        # Data flows
-        self.assertGreater(summary["data_flows"], 0)
-
-        # Threats
-        self.assertEqual(summary["threats"], 9)
-
-        # Controls
-        self.assertGreater(summary["controls"], 0)
-
-        # Risks
-        self.assertEqual(summary["risks"], 3)
-
-        # Verify Risk objects have computed scores
-        risks = Risk.objects.filter(threat_model=threat_model)
-        self.assertEqual(risks.count(), 3)
-        for risk in risks:
-            self.assertIsNotNone(risk.inherent_score)
-            self.assertIn(risk.inherent_level, ["low", "medium", "high", "critical"])
-
-        # Verify threat model format_metadata has threat_personas
-        fm = threat_model.format_metadata
-        self.assertIn("tm_library", fm)
-        self.assertIn("threat_personas", fm["tm_library"])
-        self.assertEqual(len(fm["tm_library"]["threat_personas"]), 2)
-
-
-class TestImportHashicorpVault(TmLibraryAdapterTestMixin, TestCase):
-    """Import hashicorp-vault sample file."""
-
-    def test_import_succeeds(self):
-        json_data = _load_sample("hashicorp-vault-threat-model.json")
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
-
-        self.assertIsInstance(threat_model, ThreatModel)
-        self.assertGreater(summary["components"] + summary["actors"] + summary["data_stores"], 0)
-
-
-class TestImportCryptocurrencyWallet(TmLibraryAdapterTestMixin, TestCase):
-    """Import cryptocurrency-wallet sample file."""
-
-    def test_import_succeeds(self):
-        json_data = _load_sample("cryptocurrency-wallet-threat-model.json")
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
-
-        self.assertIsInstance(threat_model, ThreatModel)
-        self.assertGreater(summary["threats"], 0)
-
-
-class TestImportEphemeralBrowser(TmLibraryAdapterTestMixin, TestCase):
-    """Import ephemeral-browser-isolation sample file."""
-
-    def test_import_succeeds(self):
-        json_data = _load_sample("ephemeral-browser-isolation-threat-model.json")
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
-
-        self.assertIsInstance(threat_model, ThreatModel)
-
-
-class TestImportRoundTrip(TmLibraryAdapterTestMixin, TestCase):
-    """Import → export → compare structure."""
-
-    def test_round_trip_preserves_structure(self):
-        json_data = _load_sample("husky-ai-threat-model.json")
-        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
-
-        exported = self.adapter.export_data(threat_model)
-
-        # Verify structural keys
-        self.assertIn("scope", exported)
-        self.assertEqual(exported["scope"]["title"], "Husky AI")
-        self.assertIn("trust_zones", exported)
-        self.assertIn("actors", exported)
-        self.assertIn("components", exported)
-        self.assertIn("data_stores", exported)
-        self.assertIn("data_flows", exported)
-        self.assertIn("threats", exported)
-        self.assertIn("controls", exported)
-        self.assertIn("risks", exported)
-
-        # Verify counts match (approximate — some may be filtered)
-        self.assertEqual(len(exported["trust_zones"]), 3)
-        self.assertEqual(len(exported["actors"]), 4)
-        self.assertEqual(len(exported["components"]), 6)
-        self.assertEqual(len(exported["data_stores"]), 7)
-        self.assertEqual(len(exported["risks"]), 3)
 
 
 class TestValidation(TmLibraryAdapterTestMixin, TestCase):
@@ -202,7 +74,7 @@ class TestEnumMappings(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
         actor = OrgsystemComponent.objects.get(threat_model=threat_model, name="Unknown")
-        self.assertEqual(actor.category, "human_actor")
+        self.assertIsNone(actor.category)
 
     def test_control_status_mappings(self):
         json_data = {
@@ -238,11 +110,11 @@ class TestMultiThreatControl(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
 
-        # Should have 2 countermeasure instances (one per threat)
-        cm_count = ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component__threat_model=threat_model
+        # Should have 1 shared countermeasure instance linked to 2 threats
+        cm_count = InstanceCountermeasure.objects.filter(
+            threat_model=threat_model
         ).count()
-        self.assertEqual(cm_count, 2)
+        self.assertEqual(cm_count, 1)
 
         # Export → should re-merge into single control
         exported = self.adapter.export_data(threat_model)

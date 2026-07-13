@@ -221,6 +221,7 @@ REST_AUTH = {
     "JWT_AUTH_REFRESH_COOKIE": None,
     "JWT_AUTH_HTTPONLY": False,
     "JWT_AUTH_RETURN_EXPIRATION": True,
+    "OLD_PASSWORD_FIELD_ENABLED": True,
     # Use custom serializer that generates frontend URLs for password reset
     "PASSWORD_RESET_SERIALIZER": "apps.core.serializers.CustomPasswordResetSerializer",
 }
@@ -244,7 +245,7 @@ AUTHENTICATION_BACKENDS = [
 SPECTACULAR_SETTINGS = {
     "TITLE": "Precogly API",
     "DESCRIPTION": "Threat Modeling Platform API",
-    "VERSION": "1.0.0",
+    "VERSION": "0.2.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
 

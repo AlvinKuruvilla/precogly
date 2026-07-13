@@ -4,7 +4,7 @@ Library packs are modular bundles of threat-modeling content: components, threat
 
 For background on what library packs are and how they work in the UI, see [Library Packs (Concepts)](../concepts/library-packs.md). For the complete field-level YAML reference, see [`libraries/README.md`](https://github.com/precogly/precogly/blob/main/libraries/README.md).
 
-The canonical reference pack is **`aws-mini`** (`libraries/packs/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
+The canonical reference pack is **`aws-mini`** (`libraries/packs/threat-libraries/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
 
 ---
 
@@ -48,7 +48,7 @@ The `aws-mini` pack is a `full` pack that demonstrates every file type. Use it a
 ### Directory layout
 
 ```
-libraries/packs/aws-mini/
+libraries/packs/threat-libraries/aws-mini/
 ├── pack.yaml                              # Pack metadata
 ├── components.yaml                        # 4 components (S3, Lambda, API Gateway, DynamoDB)
 ├── threats.yaml                           # ~15 threats across all components
@@ -75,6 +75,7 @@ libraries/packs/aws-mini/
 
 ```yaml
 pack:
+  schema_version: 1
   slug: aws-mini
   name: AWS Mini
   version: 1.1.0
@@ -82,24 +83,27 @@ pack:
   description: |
     A minimal AWS pack demonstrating core AWS services with associated
     threats and countermeasures.
-  tier: free
-  source: official
   author: Precogly
-  depends_on: [stride-taxonomy, mini-capec, mini-cwe, mini-attack]
-  industries:
-    - technology
-    - saas
+  depends_on:
+    - taxonomies/stride-taxonomy
+    - taxonomies/capec
+    - taxonomies/cwe
+    - taxonomies/mitre-attack
   tags:
     - aws
     - cloud
     - serverless
+    - technology
+    - saas
+    - demo
+    - mini
 ```
 
 Key points:
 
+- `schema_version` declares the pack format version. Always use `1` (the current version). This is checked at import time — packs with an unsupported version are rejected.
 - `slug` must be unique, lowercase, hyphens only.
-- `depends_on` lists taxonomy packs whose entries the join files reference. Without these, taxonomy mappings won't resolve on import.
-- `source` should be `community` for external contributions.
+- `depends_on` lists taxonomy packs (using path-format strings) whose entries the join files reference. Without these, taxonomy mappings won't resolve on import.
 
 **`components.yaml`** defines the technology building blocks:
 
@@ -185,7 +189,7 @@ Use these conventions:
 - All IDs: lowercase with hyphens (e.g., "s3-public-exposure")
 - Threat descriptions: explain what the threat is and how it occurs
 - Countermeasure descriptions: explain what the control does and how it helps
-- control_type: preventive, detective, corrective, or procedural
+- control_type: preventive, detective, corrective, deterrent, recovery, compensating, or procedural
 - cost: low, medium, or high
 - applies_to in component-threat joins: "component", "flow", or "both"
 
@@ -291,10 +295,12 @@ This endpoint requires **Security Team** role. It checks structural issues (meta
 |---|---|---|
 | Framework uses `id` instead of `slug` | "Framework uses 'id' instead of 'slug'" | Rename `id:` to `slug:` in the frameworks section of pack.yaml |
 | Taxonomy uses `id` instead of `slug` | "Taxonomy uses 'id' instead of 'slug'" | Rename `id:` to `slug:` in taxonomy.yaml |
-| Invalid `control_type` | "Unknown control_type" | Use `preventive`, `detective`, `corrective`, or `procedural` |
+| Invalid `control_type` | "Unknown control_type" | Use `preventive`, `detective`, `corrective`, `deterrent`, `recovery`, `compensating`, or `procedural` |
 | Invalid `cost` | "Unknown cost" | Use `low`, `medium`, or `high` |
-| Invalid `category` | "Unknown category" | Use `process`, `datastore`, `external`, `human_actor`, or `system_actor` |
+| Invalid `category` | "Unknown category" | Use `process`, `datastore`, `external_human_actor`, or `external_system_actor` |
 | Missing `pack_type` | "Missing required field: pack_type" | Add `pack_type` to the `pack:` section |
+| Missing `schema_version` | "Missing schema_version field" | Add `schema_version: 1` to the `pack:` section |
+| Unsupported `schema_version` | "Unsupported schema_version: N" | Use `schema_version: 1` (the only currently supported version) |
 | Missing component `id` | "Component at index N has no 'id' field" | Add `id:` to the component entry |
 
 ### Import and verify in the UI
@@ -328,13 +334,13 @@ Your `pack.yaml` must include:
 
 ```yaml
 pack:
+  schema_version: 1              # pack format version (always 1)
   slug: your-pack-slug          # unique, lowercase, hyphens only
   name: Your Pack Name
   version: 1.0.0                # start at 1.0.0 for new packs
   pack_type: full               # or technology, threat, etc.
   description: |
     Clear description of what this pack covers.
-  source: community             # use "community" for external contributions
   author: Your Name             # or your GitHub username
   tags:
     - relevant
@@ -373,7 +379,6 @@ All contributed packs are subject to the project's license. By submitting a pack
 Reviewers will check:
 
 - [ ] `pack.yaml` has all required fields
-- [ ] `source: community` is set (for external contributions)
 - [ ] All IDs are unique within their file and follow naming conventions
 - [ ] All join file references resolve to existing IDs
 - [ ] Threats are accurate and specific to the technology

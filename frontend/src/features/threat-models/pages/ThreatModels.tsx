@@ -13,17 +13,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ThreatModelsTable } from '@/features/threat-models/components'
-import { useThreatModels, useImportTmLibrary, type ImportTmLibraryResponse } from '@/features/threat-models/api/threat-models'
+import { useThreatModels, useImportTmLibrary, useImportCycloneDx, type ImportTmLibraryResponse } from '@/features/threat-models/api/threat-models'
 import { useSharedWithMe, useRemoveSharedWithMe } from '@/features/organization/api/organizations'
 
 export function ThreatModels() {
   const { data: threatModels, isLoading } = useThreatModels()
   const { data: sharedModels, isLoading: isLoadingShared } = useSharedWithMe()
   const removeSharedMutation = useRemoveSharedWithMe()
-  const importMutation = useImportTmLibrary()
+  const importTmLibraryMutation = useImportTmLibrary()
+  const importCycloneDxMutation = useImportCycloneDx()
   const navigate = useNavigate()
 
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importFormat, setImportFormat] = useState<'tm-library' | 'cyclonedx'>('tm-library')
   const [importResult, setImportResult] = useState<ImportTmLibraryResponse | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -37,6 +39,8 @@ export function ThreatModels() {
       year: 'numeric',
     })
   }
+
+  const importMutation = importFormat === 'cyclonedx' ? importCycloneDxMutation : importTmLibraryMutation
 
   const handleImportFile = useCallback((file: File) => {
     if (!file.name.endsWith('.json')) {
@@ -117,12 +121,32 @@ export function ThreatModels() {
           <DialogHeader>
             <DialogTitle>Import Threat Model</DialogTitle>
             <DialogDescription>
-              Import a threat model from TM-Library (JSON) format.
+              Import a threat model from a JSON file.
             </DialogDescription>
           </DialogHeader>
 
           {!importResult ? (
             <div className="space-y-4">
+              {/* Format selector */}
+              <div className="flex gap-2">
+                <Button
+                  variant={importFormat === 'tm-library' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setImportFormat('tm-library')}
+                >
+                  TM-Library
+                </Button>
+                <Button
+                  variant={importFormat === 'cyclonedx' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setImportFormat('cyclonedx')}
+                >
+                  CycloneDX 2.0 BOM
+                </Button>
+              </div>
+
               {/* Dropzone */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
@@ -178,7 +202,7 @@ export function ThreatModels() {
                   ))}
               </div>
 
-              {importResult.summary.warnings.length > 0 && (
+              {importResult.summary.warnings?.length > 0 && (
                 <div className="p-3 rounded-md bg-yellow-50 text-yellow-700 text-xs space-y-1">
                   <p className="font-medium">Warnings:</p>
                   {importResult.summary.warnings.map((w, i) => (

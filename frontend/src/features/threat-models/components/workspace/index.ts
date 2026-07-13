@@ -1,4 +1,4 @@
-export { ProgressChecklist } from './ProgressChecklist'
+export { CompletionStatusCard, CompletionStatusCard as ProgressChecklist } from './ProgressChecklist'
 export { RelationshipCards } from './RelationshipCards'
 export { DFDCarousel } from './DFDCarousel'
 export { SummaryCards } from './SummaryCards'

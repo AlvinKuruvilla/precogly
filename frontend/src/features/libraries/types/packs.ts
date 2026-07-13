@@ -3,16 +3,12 @@
  */
 
 export type PackType = 'technology' | 'threat' | 'countermeasure' | 'compliance' | 'template' | 'full' | 'taxonomy'
-export type PackTier = 'free' | 'premium' | 'enterprise'
-export type PackSource = 'official' | 'partner' | 'community' | 'private'
 
 export interface PackDependency {
   id: number
   dependsOnPack: number
   dependsOnPackName: string
   dependsOnPackSlug: string
-  versionConstraint: string
-  isOptional: boolean
 }
 
 export interface PackContentSummary {
@@ -30,17 +26,8 @@ export interface LibraryPack {
   description: string
   version: string
   packType: PackType
-  tier: PackTier
-  source: PackSource
   author: string
-  repositoryUrl?: string
-  documentationUrl?: string
-  iconUrl?: string
-  installCount: number
-  industries: string[]
   tags: string[]
-  isPublished: boolean
-  publishedAt?: string
   isImported: boolean
   dependencies?: PackDependency[]
   contentSummary?: PackContentSummary
@@ -55,11 +42,7 @@ export interface LibraryPackListItem {
   description: string
   version: string
   packType: PackType
-  tier: PackTier
-  source: PackSource
   author: string
-  installCount: number
-  industries: string[]
   tags: string[]
   isImported: boolean
 }
@@ -71,7 +54,6 @@ export interface PackDependencyCheck {
     slug: string
     name: string
     version: string
-    versionConstraint: string
     isImported: boolean
   }[]
   missingDependencies: string[]
@@ -79,10 +61,7 @@ export interface PackDependencyCheck {
 }
 
 export interface PackFilters {
-  packType?: PackType
-  tier?: PackTier
-  source?: PackSource
-  industry?: string
+  category?: string
   tag?: string
   search?: string
 }

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, LayoutDashboard, Shield, Trash2, BarChart3, FileText, Share2, Download, Pencil } from 'lucide-react'
+import { ChevronLeft, Loader2, LayoutDashboard, Shield, Trash2, BarChart3, FileText, Share2, Download, Pencil, Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -23,6 +23,7 @@ import {
 import { OverviewTab } from '@/features/threat-models/components/OverviewTab'
 import { MagicLinkDialog } from '@/features/threat-models/components/MagicLinkDialog'
 import { ReportView } from '@/features/reports/ReportView'
+import { PentestView } from '@/features/pentests/PentestView'
 import { useWorkspaceThreatAnalysis } from '@/features/threat-models/hooks'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/ComponentView'
@@ -51,6 +52,7 @@ import {
   useRemoveThreatModelPack,
   useAddThreatModelPack,
   exportTmLibrary,
+  exportCycloneDx,
 } from '@/features/threat-models/api/threat-models'
 import { usePacks } from '@/features/libraries/api/packs'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/features/threat-models/components'
@@ -149,15 +151,17 @@ export function ThreatModelDetail() {
   const {
     componentThreats,
     progressChecklist,
+    completionStatus,
     summaries,
     isLoadingThreats,
     revertInheritedCountermeasure,
     updateCountermeasureStatus,
     updateCountermeasurePriority,
+    updateCountermeasureDueDate,
+    updateCountermeasureExternalTicket,
     assignOwner,
     dismissThreat,
     restoreThreat,
-    toggleChecklistItem,
     reorderThreats,
     reorderCountermeasures,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
@@ -239,8 +243,8 @@ export function ThreatModelDetail() {
             id: `analysis-${comp.id}`,
             type: comp.category === 'process' ? 'process' :
                   comp.category === 'datastore' ? 'datastore' :
-                  comp.category === 'human_actor' ? 'humanActor' :
-                  comp.category === 'system_actor' ? 'systemActor' : 'process',
+                  comp.category === 'external_human_actor' ? 'humanActor' :
+                  comp.category === 'external_system_actor' ? 'systemActor' : 'process',
             position: { x: 0, y: 0 },
             data: {
               label: comp.name,
@@ -401,13 +405,7 @@ export function ThreatModelDetail() {
     createDiagramMutation.mutate(title)
   }
 
-  const handleDeleteDFD = (diagramId: string) => {
-    const diagram = diagrams.find((d) => String(d.id) === String(diagramId))
-    if (diagram) {
-      setDfdToDelete({ id: String(diagram.id), name: diagram.name || 'Untitled DFD' })
-      setDeleteDFDDialogOpen(true)
-    }
-  }
+
 
   const handleConfirmDeleteDFD = (deleteOrphanedComponents: boolean) => {
     if (dfdToDelete) {
@@ -544,6 +542,12 @@ export function ThreatModelDetail() {
                 >
                   TM-Library (JSON)
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => id && exportCycloneDx(id)}
+                  className="text-xs"
+                >
+                  CycloneDX 2.0 BOM
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -594,6 +598,13 @@ export function ThreatModelDetail() {
               Risk Analysis
             </TabsTrigger>
             <TabsTrigger
+              value="pentests"
+              className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
+            >
+              <Crosshair className="h-4 w-4" />
+              Pentests
+            </TabsTrigger>
+            <TabsTrigger
               value="reports"
               className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
             >
@@ -617,12 +628,12 @@ export function ThreatModelDetail() {
             threatModelId={id!}
             diagrams={diagrams}
             progressChecklist={progressChecklist}
+            completionStatus={completionStatus}
             summaries={summaries}
             selectedDiagramId={selectedDiagramId}
             referenceImages={referenceImages}
             isCreatingDiagram={createDiagramMutation.isPending}
             isUploadingImage={uploadImageMutation.isPending}
-            onToggleChecklistItem={toggleChecklistItem}
             onSelectDiagram={setSelectedDiagramId}
             onEditDiagram={(diagramId) => navigate(`/threat-models/${id}/diagrams/${diagramId}`)}
             onCreateDiagram={handleCreateDFD}
@@ -730,7 +741,12 @@ export function ThreatModelDetail() {
                     selectedComponentId={selectedComponentId}
                     selectedThreatId={selectedThreatId}
                     selectedComponentThreat={selectedComponentThreat}
-                    onSelectComponent={setSelectedComponentId}
+                    onSelectComponent={(id: string) => {
+                      if (id !== selectedComponentId) {
+                        setSelectedThreatId(null)
+                      }
+                      setSelectedComponentId(id)
+                    }}
                     onSelectThreat={setSelectedThreatId}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}
@@ -740,6 +756,8 @@ export function ThreatModelDetail() {
                     onRestoreThreat={restoreThreat}
                     onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
                     onCountermeasurePriorityChange={updateCountermeasurePriority}
+                    onCountermeasureDueDateChange={updateCountermeasureDueDate}
+                    onCountermeasureExternalTicketChange={updateCountermeasureExternalTicket}
                     onRevertCountermeasure={revertInheritedCountermeasure}
                     onReorderThreats={reorderThreats}
                     onReorderCountermeasures={reorderCountermeasures}
@@ -775,6 +793,11 @@ export function ThreatModelDetail() {
             riskScoringMethod={threatModel.riskScoringMethod ?? 'tm_library'}
             onScoringMethodChange={handleScoringMethodChange}
           />
+        </TabsContent>
+
+        {/* Pentests Tab */}
+        <TabsContent value="pentests" className="flex-1 flex flex-col m-0 overflow-hidden">
+          <PentestView threatModelId={id!} />
         </TabsContent>
 
         {/* Reports Tab */}

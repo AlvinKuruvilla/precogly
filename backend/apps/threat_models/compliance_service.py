@@ -9,46 +9,31 @@ from django.db import transaction
 
 from apps.compliance.models import CountermeasureLibraryStandard
 from apps.threats.models import (
-    ComponentInstanceCountermeasure,
-    ComponentInstanceCountermeasureStandard,
-    FlowInstanceCountermeasure,
-    FlowInstanceCountermeasureStandard,
+    InstanceCountermeasure,
+    InstanceCountermeasureStandard,
 )
-from apps.threat_models.report_service import _get_scoped_ids
 
 
 def _get_non_orphaned_countermeasures(threat_model):
     """
-    Return non-orphaned component and flow countermeasures scoped to this
-    threat model, with their library standards prefetched.
+    Return non-orphaned countermeasures scoped to this threat model,
+    with their library standards prefetched.
+
+    Uses direct threat_model FK for scoping. Each countermeasure instance
+    appears once even if shared across multiple threats.
     """
-    component_ids, dataflow_ids = _get_scoped_ids(threat_model)
-
-    component_countermeasures = (
-        ComponentInstanceCountermeasure.objects.filter(
-            instance_threat__component_id__in=component_ids,
+    return (
+        InstanceCountermeasure.objects.filter(
+            threat_model=threat_model,
             countermeasure_library__isnull=False,
         )
+        .distinct()
         .select_related("countermeasure_library")
         .prefetch_related(
             "instance_standard_mappings",
             "countermeasure_library__standard_mappings__requirement__framework",
         )
     )
-
-    flow_countermeasures = (
-        FlowInstanceCountermeasure.objects.filter(
-            flow_threat__data_flow_id__in=dataflow_ids,
-            countermeasure_library__isnull=False,
-        )
-        .select_related("countermeasure_library")
-        .prefetch_related(
-            "instance_standard_mappings",
-            "countermeasure_library__standard_mappings__requirement__framework",
-        )
-    )
-
-    return component_countermeasures, flow_countermeasures
 
 
 def _compute_drift_for_countermeasure(instance_mappings, library_standards):
@@ -94,26 +79,14 @@ def check_compliance_drift(threat_model):
 
     Returns a summary dict with drift statistics.
     """
-    component_cms, flow_cms = _get_non_orphaned_countermeasures(threat_model)
+    countermeasures = _get_non_orphaned_countermeasures(threat_model)
 
     total_additions = 0
     total_removals = 0
     total_updates = 0
     affected_countermeasures = 0
 
-    for cm in component_cms:
-        instance_mappings = cm.instance_standard_mappings.all()
-        library_standards = cm.countermeasure_library.standard_mappings.all()
-        additions, removals, updates = _compute_drift_for_countermeasure(
-            instance_mappings, library_standards
-        )
-        if additions or removals or updates:
-            affected_countermeasures += 1
-            total_additions += additions
-            total_removals += removals
-            total_updates += updates
-
-    for cm in flow_cms:
+    for cm in countermeasures:
         instance_mappings = cm.instance_standard_mappings.all()
         library_standards = cm.countermeasure_library.standard_mappings.all()
         additions, removals, updates = _compute_drift_for_countermeasure(
@@ -136,7 +109,7 @@ def check_compliance_drift(threat_model):
     }
 
 
-def _sync_instance_standards(countermeasure, instance_model_class, fk_field_name):
+def _sync_instance_standards(countermeasure):
     """
     Sync a single countermeasure's instance standards with its library source.
     Returns (added, removed, updated) counts.
@@ -167,8 +140,8 @@ def _sync_instance_standards(countermeasure, instance_model_class, fk_field_name
     for req_id, ls in library_by_req.items():
         if req_id not in instance_by_req:
             to_create.append(
-                instance_model_class(
-                    **{fk_field_name: countermeasure},
+                InstanceCountermeasureStandard(
+                    countermeasure=countermeasure,
                     requirement=ls.requirement,
                     sufficiency=ls.sufficiency,
                     section_code=ls.requirement.section_code,
@@ -184,7 +157,7 @@ def _sync_instance_standards(countermeasure, instance_model_class, fk_field_name
             updated += 1
 
     if to_create:
-        instance_model_class.objects.bulk_create(to_create, ignore_conflicts=True)
+        InstanceCountermeasureStandard.objects.bulk_create(to_create, ignore_conflicts=True)
         added = len(to_create)
 
     # Remove mappings no longer in library
@@ -207,31 +180,15 @@ def refresh_compliance_standards(threat_model):
     Adds missing mappings, removes deleted mappings, and updates changed
     sufficiency values. Returns a summary of changes made.
     """
-    component_cms, flow_cms = _get_non_orphaned_countermeasures(threat_model)
+    countermeasures = _get_non_orphaned_countermeasures(threat_model)
 
     total_added = 0
     total_removed = 0
     total_updated = 0
     countermeasures_affected = 0
 
-    for cm in component_cms:
-        added, removed, updated = _sync_instance_standards(
-            cm,
-            ComponentInstanceCountermeasureStandard,
-            "component_countermeasure",
-        )
-        if added or removed or updated:
-            countermeasures_affected += 1
-            total_added += added
-            total_removed += removed
-            total_updated += updated
-
-    for cm in flow_cms:
-        added, removed, updated = _sync_instance_standards(
-            cm,
-            FlowInstanceCountermeasureStandard,
-            "flow_countermeasure",
-        )
+    for cm in countermeasures:
+        added, removed, updated = _sync_instance_standards(cm)
         if added or removed or updated:
             countermeasures_affected += 1
             total_added += added

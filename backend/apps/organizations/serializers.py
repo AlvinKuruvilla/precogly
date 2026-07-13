@@ -57,7 +57,7 @@ class OrganizationListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ["id", "name", "plan", "my_role"]
+        fields = ["id", "name", "plan", "business_unit_label", "my_role"]
 
     def get_my_role(self, obj):
         """Return the current user's role in this organization."""
@@ -97,6 +97,22 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
             "user_email",
             "organization_name",
         ]
+
+    def validate(self, attrs):
+        """Prevent removing the final security-team role from an organization."""
+        if not self.instance:
+            return attrs
+
+        new_role = attrs.get("role", self.instance.role)
+        if (
+            new_role != OrganizationMember.Role.SECURITY_TEAM
+            and self.instance.is_last_security_team_member()
+        ):
+            raise serializers.ValidationError({
+                "role": "At least one organization member must remain on the security team."
+            })
+
+        return attrs
 
 
 class OrganizationMemberListSerializer(serializers.ModelSerializer):

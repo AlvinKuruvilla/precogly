@@ -45,19 +45,14 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["pack_type", "tier", "source"]
-    search_fields = ["name", "description", "author", "tags", "industries"]
-    ordering_fields = ["name", "install_count", "created_at", "published_at"]
-    ordering = ["-install_count", "name"]
+    filterset_fields = ["pack_type"]
+    search_fields = ["name", "description", "author", "tags"]
+    ordering_fields = ["name", "created_at"]
+    ordering = ["name"]
 
     def get_queryset(self):
-        """Return published packs, optionally filtered by industry."""
-        queryset = LibraryPack.objects.filter(is_published=True)
-
-        # Filter by industry if provided
-        industry = self.request.query_params.get("industry")
-        if industry:
-            queryset = queryset.filter(industries__contains=[industry])
+        """Return all packs, optionally filtered by tag."""
+        queryset = LibraryPack.objects.all()
 
         # Filter by tag if provided
         tag = self.request.query_params.get("tag")
@@ -87,7 +82,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         dependencies = []
         missing_dependencies = []
 
-        for dep in pack.dependencies.filter(is_optional=False):
+        for dep in pack.dependencies.all():
             dep_pack = dep.depends_on_pack
             is_imported = dep_pack.id in imported_pack_ids
 
@@ -97,7 +92,6 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
                     "slug": dep_pack.slug,
                     "name": dep_pack.name,
                     "version": dep_pack.version,
-                    "version_constraint": dep.version_constraint,
                     "is_imported": is_imported,
                 }
             )
@@ -190,6 +184,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
         slug = request.data.get("slug")
         force = request.data.get("force", False)
         selected_overlays = request.data.get("selected_overlays")  # camelCase auto-converted by middleware
+        skip_validation = request.data.get("skip_validation", False)
 
         if not slug:
             return Response(
@@ -212,6 +207,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
             Path(pack_info.path),
             force=force,
             selected_overlays=selected_overlays,
+            skip_validation=skip_validation,
         )
 
         # Handle ValidationResult (returned when validation finds issues)
@@ -260,7 +256,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         Query parameters:
             path: The pack's relative path from libraries/packs root
-                  (e.g. "aws-mini", "frameworks/nist-csf")
+                  (e.g. "demo/aws-mini", "standards/nist-csf")
 
         Returns pack metadata along with all components, threats, and countermeasures.
         """
@@ -289,7 +285,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         Query parameters:
             path: The pack's relative path from libraries/packs root
-                  (e.g. "aws-mini", "frameworks/nist-csf")
+                  (e.g. "demo/aws-mini", "standards/nist-csf")
 
         Returns list of overlays with framework_id, framework_name, mapping_count,
         and whether the framework is installed.
@@ -378,7 +374,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Check if any other packs depend on this pack
         dependent_packs = list(
-            pack.dependents.filter(is_optional=False)
+            pack.dependents.all()
             .select_related("pack")
             .values_list("pack__slug", flat=True)
         )

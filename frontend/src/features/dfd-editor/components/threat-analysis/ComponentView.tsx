@@ -1,9 +1,19 @@
 import { Fragment, useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical, Loader2 } from 'lucide-react'
+import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
@@ -29,7 +39,15 @@ import {
 } from '../../types/threat-analysis'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
-import { parseCountermeasureId, useUpdateThreat, useUpdateFlowThreat } from '@/features/threat-models/api/threats'
+import {
+  parseCountermeasureId,
+  useDeleteCountermeasure,
+  useUnlinkCountermeasure,
+  useDeleteComponent,
+  useUpdateThreat,
+  useUpdateFlowThreat,
+  useThreatPersonas,
+} from '@/features/threat-models/api/threats'
 import {
   buildComponentTree,
   buildNodesMap,
@@ -96,6 +114,16 @@ interface ComponentViewProps {
     countermeasureInstanceId: string,
     priority: ComponentThreatCountermeasure['priority']
   ) => void
+  onCountermeasureDueDateChange: (
+    componentThreatId: string,
+    countermeasureInstanceId: string,
+    dueDate: string | null
+  ) => void
+  onCountermeasureExternalTicketChange: (
+    componentThreatId: string,
+    countermeasureInstanceId: string,
+    externalTicketUrl: string
+  ) => void
   onRevertCountermeasure?: (componentThreatId: string, countermeasureInstanceId: string) => void
   onReorderThreats?: (componentId: string, reorderedThreats: ComponentThreat[]) => void
   onReorderCountermeasures?: (componentThreatId: string, reorderedCountermeasures: ComponentThreatCountermeasure[]) => void
@@ -142,7 +170,7 @@ function ThreatStatusBadge({ status }: { status: ThreatStatus }) {
 }
 
 export function ComponentView({
-  threatModelId: _threatModelId,
+  threatModelId,
   canvasData,
   analyzableComponents,
   trustZones,
@@ -162,6 +190,8 @@ export function ComponentView({
   onRestoreThreat,
   onAddCustomCountermeasure,
   onCountermeasurePriorityChange,
+  onCountermeasureDueDateChange,
+  onCountermeasureExternalTicketChange,
   onRevertCountermeasure,
   onReorderThreats,
   onReorderCountermeasures,
@@ -183,9 +213,22 @@ export function ComponentView({
   const [editingComplianceFor, setEditingComplianceFor] = useState<{
     id: string
     backendId: number
-    type: 'component' | 'flow'
     name: string
     mappings: ComplianceStandardMapping[]
+  } | null>(null)
+  // Track which countermeasure is being deleted/unlinked
+  const [deleteCountermeasureConfirmFor, setDeleteCountermeasureConfirmFor] = useState<{
+    id: string
+    name: string
+    backendId: number
+    type: 'component' | 'dataflow'
+    isShared?: boolean
+    threatId?: number
+  } | null>(null)
+  // Track which component is being deleted
+  const [deleteComponentConfirmFor, setDeleteComponentConfirmFor] = useState<{
+    id: number
+    name: string
   } | null>(null)
 
   // Resolve technology slugs to display names
@@ -204,6 +247,9 @@ export function ComponentView({
   // Threat update mutations
   const updateThreatMutation = useUpdateThreat()
   const updateFlowThreatMutation = useUpdateFlowThreat()
+  const deleteCountermeasureMutation = useDeleteCountermeasure()
+  const unlinkCountermeasureMutation = useUnlinkCountermeasure()
+  const deleteComponentMutation = useDeleteComponent()
 
   // Refs to collect latest data from child panels
   const severityDataRef = useRef<SeverityAssessmentData | null>(null)
@@ -219,7 +265,6 @@ export function ComponentView({
     }
     if (actorImpactDataRef.current) {
       data.impactDescription = actorImpactDataRef.current.impactDescription
-      data.threatActor = actorImpactDataRef.current.threatActor
       data.threatActorText = actorImpactDataRef.current.threatActorText
     }
     const onSuccess = () => { toast.success('Threat saved') }
@@ -230,18 +275,55 @@ export function ComponentView({
       updateThreatMutation.mutate({ threatId: threat.backendThreatId, data }, { onSuccess, onError })
     }
   }, [updateThreatMutation, updateFlowThreatMutation])
+  
+  // Unified delete/unlink handler for countermeasures
+  const handleConfirmDeleteCountermeasure = useCallback(() => {
+    if (!deleteCountermeasureConfirmFor) return
 
-  // Derive actor nodes from analyzableComponents
-  const actorNodes = useMemo(() => {
-    return analyzableComponents
-      .filter((node) => node.type === 'humanActor' || node.type === 'systemActor')
-      .map((node) => ({
-        nodeId: node.id,
-        componentId: (node.data as { componentId?: number }).componentId || 0,
-        name: String(node.data.label),
-      }))
-      .filter((actor) => actor.componentId > 0)
-  }, [analyzableComponents])
+    const onSuccess = () => {
+      toast.success(deleteCountermeasureConfirmFor.isShared ? 'Countermeasure unlinked' : 'Countermeasure deleted')
+      setDeleteCountermeasureConfirmFor(null)
+    }
+
+    const onError = () => {
+      toast.error(deleteCountermeasureConfirmFor.isShared ? 'Failed to unlink countermeasure' : 'Failed to delete countermeasure')
+    }
+
+    // Use unlink which cascade-deletes if last link
+    if (deleteCountermeasureConfirmFor.threatId) {
+      const threatType = deleteCountermeasureConfirmFor.type === 'dataflow' ? 'dataflow' as const : 'component' as const
+      unlinkCountermeasureMutation.mutate(
+        { countermeasureId: deleteCountermeasureConfirmFor.backendId, threatId: deleteCountermeasureConfirmFor.threatId, threatType },
+        { onSuccess, onError }
+      )
+    } else {
+      // Fallback: direct delete (shouldn't happen in normal flow)
+      deleteCountermeasureMutation.mutate(deleteCountermeasureConfirmFor.backendId, { onSuccess, onError })
+    }
+  }, [deleteCountermeasureConfirmFor, deleteCountermeasureMutation, unlinkCountermeasureMutation])
+
+  // Unified delete handler for components
+  const handleConfirmDeleteComponent = useCallback(() => {
+    if (!deleteComponentConfirmFor) return
+
+    const onSuccess = () => {
+      toast.success('Component deleted')
+      setDeleteComponentConfirmFor(null)
+    }
+
+    const onError = () => {
+      toast.error('Failed to delete component')
+    }
+
+    deleteComponentMutation.mutate(deleteComponentConfirmFor.id, { onSuccess, onError })
+  }, [deleteComponentConfirmFor, deleteComponentMutation])
+
+  // Fetch threat personas for the threat model
+  const { data: threatPersonas = [] } = useThreatPersonas(threatModelId)
+  const personas = useMemo(() =>
+    threatPersonas.map((p) => ({ id: p.id, name: p.name })),
+    [threatPersonas]
+  )
 
   const toggleComplianceExpanded = (cmId: string) => {
     setExpandedComplianceFor(prev => {
@@ -265,6 +347,16 @@ export function ComponentView({
   const { treeRoots, flatNonProcess } = useMemo(
     () => buildComponentTree(analyzableComponents, canvasData.nodes),
     [analyzableComponents, canvasData.nodes]
+  )
+
+  const dataStoreNodes = useMemo(
+    () => flatNonProcess.filter((n) => n.type === 'datastore'),
+    [flatNonProcess]
+  )
+
+  const actorNodes = useMemo(
+    () => flatNonProcess.filter((n) => n.type === 'humanActor' || n.type === 'systemActor'),
+    [flatNonProcess]
   )
 
   const toggleNodeCollapsed = useCallback((nodeId: string) => {
@@ -448,16 +540,20 @@ export function ComponentView({
                 onSelectComponent={onSelectComponent}
                 onToggleCollapsed={toggleNodeCollapsed}
                 resolveTechName={resolveTechName}
+                onRequestDeleteComponent={(component) => setDeleteComponentConfirmFor(component)}
               />
             ))}
 
-            {/* Data Stores & Actors separator + flat list */}
-            {flatNonProcess.length > 0 && (
-              <>
+            {/* Data Stores and Actors as separate sections */}
+            {[
+              { label: 'Data Stores', nodes: dataStoreNodes },
+              { label: 'Actors', nodes: actorNodes },
+            ].map(({ label, nodes }) => nodes.length > 0 && (
+              <Fragment key={label}>
                 <div className="pt-3 pb-1 px-2 border-t mt-2">
-                  <span className="text-xs font-medium text-muted-foreground">Data Stores & Actors</span>
+                  <span className="text-xs font-medium text-muted-foreground">{label}</span>
                 </div>
-                {flatNonProcess.map((node) => {
+                {nodes.map((node) => {
                   const Icon = nodeTypeIcons[node.type as string] || Cog
                   const summary = getComponentThreatSummary(node.id, componentThreats)
                   const isSelected = node.id === selectedComponentId
@@ -529,8 +625,8 @@ export function ComponentView({
                     </Fragment>
                   )
                 })}
-              </>
-            )}
+              </Fragment>
+            ))}
 
             {/* Trust Boundaries section */}
             {trustZones.length > 0 && (
@@ -873,7 +969,7 @@ export function ComponentView({
                             />
                             <ActorImpactPanel
                               threat={ct}
-                              actorNodes={actorNodes}
+                              personas={personas}
                               onChange={(data) => { actorImpactDataRef.current = data }}
                             />
                             <Button
@@ -949,14 +1045,16 @@ export function ComponentView({
                             </span>
                             <TaxonomyBadges entries={ct.taxonomyEntries} maxVisible={1} size="sm" />
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => onRestoreThreat(ct.id)}
-                          >
-                            Restore
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => onRestoreThreat(ct.id)}
+                            >
+                              Restore
+                            </Button>
+                          </div>
                         </div>
                       )
                     })}
@@ -1042,6 +1140,10 @@ export function ComponentView({
                 renderItem={(cm, dragHandleRef, _isDragging) => {
                   const cmName = cm.countermeasureName || cm.countermeasureId
                   const cmDescription = cm.countermeasureDescription
+                  const canDelete = (() => {
+                    const parsed = parseCountermeasureId(cm.id)
+                    return parsed.id !== null && parsed.type !== 'local'
+                  })()
 
                   const statusConfig = COUNTERMEASURE_STATUS_CONFIG[cm.status]
                   const isAssigning = assigningOwnerFor === cm.id
@@ -1070,6 +1172,30 @@ export function ComponentView({
                             )}
                           </div>
                         </div>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const parsed = parseCountermeasureId(cm.id)
+                              if (parsed.id === null || parsed.type === 'local') return
+                              setDeleteCountermeasureConfirmFor({
+                                id: cm.id,
+                                name: cmName,
+                                backendId: parsed.id,
+                                type: selectedComponentThreat?.threatType || 'component',
+                                isShared: cm.isShared,
+                                threatId: selectedComponentThreat?.backendThreatId,
+                              })
+                            }}
+                            aria-label={`Delete ${cmName}`}
+                            title="Delete countermeasure"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
 
                       {/* Compliance mappings - expandable detail */}
@@ -1084,7 +1210,6 @@ export function ComponentView({
                               setEditingComplianceFor({
                                 id: cm.id,
                                 backendId: parsed.id,
-                                type: parsed.type,
                                 name: cmName,
                                 mappings: cm.standardMappings || [],
                               })
@@ -1100,7 +1225,6 @@ export function ComponentView({
                               setEditingComplianceFor({
                                 id: cm.id,
                                 backendId: parsed.id,
-                                type: parsed.type,
                                 name: cmName,
                                 mappings: [],
                               })
@@ -1148,6 +1272,45 @@ export function ComponentView({
                         </div>
                       )}
 
+                      {/* Due date and external ticket URL */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Due:</span>
+                        <input
+                          type="date"
+                          value={cm.dueDate || ''}
+                          onChange={(e) => {
+                            const newDueDate = e.target.value ? e.target.value : null
+                            onCountermeasureDueDateChange(
+                              selectedComponentThreat.id,
+                              cm.id,
+                              newDueDate
+                            )
+                          }}
+                          className={cn(
+                            'h-7 px-2 text-xs border rounded bg-background w-auto',
+                            cm.dueDate && cm.dueDate < new Date().toISOString().split('T')[0]
+                              ? 'border-red-500 text-red-600 bg-red-50'
+                              : ''
+                          )}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Ticket:</span>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={cm.externalTicketUrl || ''}
+                          onChange={(e) => {
+                            onCountermeasureExternalTicketChange(
+                              selectedComponentThreat.id,
+                              cm.id,
+                              e.target.value
+                            )
+                          }}
+                          className="h-7 px-2 text-xs border rounded bg-background w-full min-w-0"
+                        />
+                      </div>
+
                       {/* Provided by boundary badge */}
                       {cm.providedByBoundaryId && (
                         <div className="mt-2 text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
@@ -1185,6 +1348,20 @@ export function ComponentView({
                               Revert
                             </button>
                           )}
+                        </div>
+                      )}
+
+                      {/* Also mitigates indicator for shared countermeasures */}
+                      {cm.alsoMitigates && cm.alsoMitigates.length > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground bg-blue-50/50 px-2 py-1.5 rounded border border-blue-100">
+                          <span className="font-medium text-blue-600">Also mitigates:</span>
+                          {cm.alsoMitigates.map((target) => (
+                            <div key={target.threatId} className="ml-3 text-muted-foreground">
+                              {target.componentName
+                                ? <>{target.componentName} &rsaquo; {target.threatName}</>
+                                : target.threatName}
+                            </div>
+                          ))}
                         </div>
                       )}
 
@@ -1280,11 +1457,72 @@ export function ComponentView({
             if (!open) setEditingComplianceFor(null)
           }}
           countermeasureId={editingComplianceFor.backendId}
-          countermeasureType={editingComplianceFor.type}
           countermeasureName={editingComplianceFor.name}
           libraryMappings={editingComplianceFor.mappings}
         />
       )}
+
+      <AlertDialog
+        open={!!deleteCountermeasureConfirmFor}
+        onOpenChange={(open) => {
+          if (!open) setDeleteCountermeasureConfirmFor(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteCountermeasureConfirmFor?.isShared ? 'Remove countermeasure from this threat?' : 'Delete countermeasure?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteCountermeasureConfirmFor?.isShared
+                ? `This will remove "${deleteCountermeasureConfirmFor?.name || 'this countermeasure'}" from this threat. It will remain active for the other threats it mitigates.`
+                : `This will permanently delete ${deleteCountermeasureConfirmFor?.name || 'this countermeasure'}. This action cannot be undone.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDeleteCountermeasure()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteComponentConfirmFor}
+        onOpenChange={(open) => {
+          if (!open) setDeleteComponentConfirmFor(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete component?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteComponentConfirmFor?.name || 'this component'} and all of its associated threats and countermeasures.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDeleteComponent()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

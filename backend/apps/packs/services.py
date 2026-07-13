@@ -8,6 +8,7 @@ This module provides services for:
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -15,7 +16,6 @@ from typing import Optional
 import yaml
 from django.conf import settings
 from django.db import transaction
-from django.utils import timezone
 
 from apps.diagrams.models import DFDTemplatesLibrary
 from apps.systems.models import ComponentLibrary
@@ -59,10 +59,8 @@ class PackInfo:
     description: str
     version: str
     pack_type: str
-    tier: str = "free"
-    source: str = "official"
+    schema_version: int = 1
     author: str = ""
-    industries: list = field(default_factory=list)
     tags: list = field(default_factory=list)
     # Absolute filesystem path to the pack directory (for callers that
     # need to load files from disk).
@@ -85,10 +83,8 @@ class PackInfo:
             "description": self.description,
             "version": self.version,
             "pack_type": self.pack_type,
-            "tier": self.tier,
-            "source": self.source,
+            "schema_version": self.schema_version,
             "author": self.author,
-            "industries": self.industries,
             "tags": self.tags,
             "path": self.path,
             "relative_path": self.relative_path,
@@ -118,6 +114,7 @@ class ImportResult:
     templates_created: int = 0
     taxonomies_created: int = 0
     errors: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -132,6 +129,7 @@ class ImportResult:
             "templates_created": self.templates_created,
             "taxonomies_created": self.taxonomies_created,
             "errors": self.errors,
+            "warnings": self.warnings,
         }
 
 
@@ -147,6 +145,16 @@ def get_libraries_path() -> Path:
         libraries_path = backend_dir / "libraries" / "packs"
 
     return libraries_path
+
+
+SUPPORTED_SCHEMA_VERSIONS = {1}
+
+_SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def _is_valid_slug(value: str) -> bool:
+    """Check if a value matches the slug format: lowercase alphanumeric with hyphens."""
+    return bool(_SLUG_RE.match(value))
 
 
 def _count_items_in_file(file_path: Path, key: str) -> int:
@@ -191,10 +199,8 @@ def _discover_pack(pack_dir: Path, libraries_path: Path, existing_packs: dict) -
             description=pack_meta.get("description", ""),
             version=pack_meta.get("version", "0.0.0"),
             pack_type=pack_meta.get("pack_type", "technology"),
-            tier=pack_meta.get("tier", "free"),
-            source=pack_meta.get("source", "official"),
+            schema_version=pack_meta.get("schema_version", 1),
             author=pack_meta.get("author", ""),
-            industries=pack_meta.get("industries", []),
             tags=pack_meta.get("tags", []),
             path=str(pack_dir),
             relative_path=relative_path,
@@ -265,8 +271,8 @@ def discover_packs_from_source() -> list[PackInfo]:
         resolved_dependencies = []
         for dep_entry in pack_info.depends_on:
             if isinstance(dep_entry, str):
-                dep_slug = dep_entry
-                dep_path = ""
+                dep_slug = dep_entry.split("/")[-1] if "/" in dep_entry else dep_entry
+                dep_path = dep_entry if "/" in dep_entry else ""
             else:
                 dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
                 dep_path = dep_entry.get("path", "")
@@ -292,8 +298,8 @@ def get_pack_preview_from_source(pack_relative_path: str) -> dict | None:
     libraries/packs root for O(1) directory lookup.
 
     Args:
-        pack_relative_path: Relative path from libraries/packs root (e.g. "aws-mini",
-            "frameworks/nist-csf")
+        pack_relative_path: Relative path from libraries/packs root (e.g. "demo/aws-mini",
+            "standards/nist-csf")
 
     Returns:
         Dictionary with pack metadata, components, threats, and countermeasures
@@ -491,10 +497,8 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
             "description": pack_meta.get("description", ""),
             "version": pack_meta.get("version", ""),
             "pack_type": pack_meta.get("pack_type", ""),
-            "tier": pack_meta.get("tier", ""),
             "author": pack_meta.get("author", ""),
             "tags": pack_meta.get("tags", []),
-            "industries": pack_meta.get("industries", []),
         },
         "components": components,
         "threats": threats,
@@ -639,6 +643,33 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                 message=f"Missing required field: {required_field}",
             ))
 
+    # Schema version check
+    schema_version = pack_meta.get("schema_version")
+    if schema_version is None:
+        warnings.append(ValidationWarning(
+            file="pack.yaml",
+            field="schema_version",
+            message="Missing schema_version field",
+            suggestion="Add 'schema_version: 1' to the pack section. This will be required in a future release.",
+        ))
+    elif schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        errors.append(ValidationError(
+            file="pack.yaml",
+            line=None,
+            ref_type="pack",
+            reference="schema_version",
+            message=f"Unsupported schema_version: {schema_version}. Supported versions: {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
+        ))
+
+    # Pack slug format
+    if slug and not _is_valid_slug(slug):
+        warnings.append(ValidationWarning(
+            file="pack.yaml",
+            field="slug",
+            message=f"Pack slug '{slug}' does not match expected format",
+            suggestion="Slugs should be lowercase alphanumeric with hyphens (e.g. 'my-pack-name').",
+        ))
+
     # Valid pack_type enum
     valid_pack_types = {"technology", "threat", "countermeasure", "compliance", "template", "full", "taxonomy"}
     pack_type_value = pack_meta.get("pack_type", "")
@@ -650,18 +681,34 @@ def validate_pack(pack_path: Path) -> ValidationResult:
             suggestion=f"Use one of: {', '.join(sorted(valid_pack_types))}",
         ))
 
-    # Valid tier enum (if present)
-    valid_tiers = {"free", "premium", "enterprise"}
-    tier_value = pack_meta.get("tier", "")
-    if tier_value and tier_value not in valid_tiers:
-        warnings.append(ValidationWarning(
-            file="pack.yaml",
-            field="tier",
-            message=f"Unknown tier: '{tier_value}'",
-            suggestion=f"Use one of: {', '.join(sorted(valid_tiers))}",
-        ))
+    # Validate depends_on entries exist on disk or in DB
+    depends_on_entries = pack_meta.get("depends_on", [])
+    if depends_on_entries:
+        libraries_path = get_libraries_path()
+        for dep_entry in depends_on_entries:
+            if isinstance(dep_entry, str):
+                dep_slug = dep_entry.split("/")[-1] if "/" in dep_entry else dep_entry
+                dep_path = dep_entry
+            else:
+                dep_slug = dep_entry.get("pack", dep_entry.get("slug", ""))
+                dep_path = dep_entry.get("path", dep_slug)
 
-    # Framework entries use 'slug' not 'id'
+            # Check on disk
+            dep_dir = _find_pack_dir(libraries_path, dep_path)
+            if not dep_dir and dep_path != dep_slug:
+                dep_dir = _find_pack_dir(libraries_path, dep_slug)
+            # Check in DB
+            dep_in_db = LibraryPack.objects.filter(slug=dep_slug).exists()
+
+            if not dep_dir and not dep_in_db:
+                warnings.append(ValidationWarning(
+                    file="pack.yaml",
+                    field="depends_on",
+                    message=f"Dependency '{dep_slug}' not found on disk or in database",
+                    suggestion="Import the dependency pack first or verify the slug/path is correct.",
+                ))
+
+    # Framework entries use 'slug' not 'id'; check for duplicate section_codes
     for framework_data in pack_data.get("frameworks", []):
         if "id" in framework_data and "slug" not in framework_data:
             warnings.append(ValidationWarning(
@@ -670,8 +717,30 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                 message=f"Framework uses 'id' instead of 'slug' (id: '{framework_data['id']}')",
                 suggestion="Rename 'id' to 'slug'. Frameworks use 'slug' because they are shared across packs.",
             ))
+        fw_slug = framework_data.get("slug", framework_data.get("id", ""))
+        if fw_slug and not _is_valid_slug(fw_slug):
+            warnings.append(ValidationWarning(
+                file="pack.yaml",
+                field="frameworks[].slug",
+                message=f"Framework slug '{fw_slug}' does not match slug format",
+                suggestion="Slugs should be lowercase alphanumeric with hyphens (e.g. 'my-framework').",
+            ))
+        seen_section_codes: set[str] = set()
+        for req in framework_data.get("requirements", []):
+            section_code = req.get("section_code", "")
+            if section_code:
+                if section_code in seen_section_codes:
+                    errors.append(ValidationError(
+                        file="pack.yaml",
+                        line=None,
+                        ref_type="framework",
+                        reference=section_code,
+                        message=f"Duplicate section_code '{section_code}' in framework '{fw_slug}'",
+                    ))
+                else:
+                    seen_section_codes.add(section_code)
 
-    # Taxonomy entries use 'slug' not 'id'
+    # Taxonomy entries use 'slug' not 'id'; check for duplicate external_ids
     taxonomy_file = pack_path / "taxonomy.yaml"
     if taxonomy_file.exists():
         try:
@@ -685,16 +754,39 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                         message=f"Taxonomy uses 'id' instead of 'slug' (id: '{taxonomy_data['id']}')",
                         suggestion="Rename 'id' to 'slug'. Taxonomies use 'slug' because they are shared across packs.",
                     ))
+                tax_slug = taxonomy_data.get("slug", taxonomy_data.get("id", ""))
+                if tax_slug and not _is_valid_slug(tax_slug):
+                    warnings.append(ValidationWarning(
+                        file="taxonomy.yaml",
+                        field="taxonomies[].slug",
+                        message=f"Taxonomy slug '{tax_slug}' does not match slug format",
+                        suggestion="Slugs should be lowercase alphanumeric with hyphens (e.g. 'my-taxonomy').",
+                    ))
+                seen_external_ids: set[str] = set()
+                for entry in taxonomy_data.get("entries", []):
+                    external_id = str(entry.get("external_id", ""))
+                    if external_id:
+                        if external_id in seen_external_ids:
+                            errors.append(ValidationError(
+                                file="taxonomy.yaml",
+                                line=None,
+                                ref_type="taxonomy",
+                                reference=external_id,
+                                message=f"Duplicate external_id '{external_id}' in taxonomy '{tax_slug}'",
+                            ))
+                        else:
+                            seen_external_ids.add(external_id)
         except Exception:
             pass  # Parse errors are caught in reference checks below
 
-    # Components must have 'id'
+    # Components must have 'id', check for duplicates
     components_file = pack_path / "components.yaml"
     if components_file.exists():
         try:
             with open(components_file) as f:
                 comp_data = yaml.safe_load(f) or {}
-            valid_categories = {"process", "datastore", "external", "human_actor", "system_actor"}
+            valid_categories = {"process", "datastore", "external_human_actor", "external_system_actor"}
+            seen_component_ids: set[str] = set()
             for i, comp in enumerate(comp_data.get("components", [])):
                 if "id" not in comp and "slug" not in comp:
                     errors.append(ValidationError(
@@ -704,6 +796,25 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                         reference=f"components[{i}]",
                         message=f"Component at index {i} has no 'id' field",
                     ))
+                else:
+                    comp_id = comp.get("id", comp.get("slug", ""))
+                    if comp_id in seen_component_ids:
+                        errors.append(ValidationError(
+                            file="components.yaml",
+                            line=None,
+                            ref_type="component",
+                            reference=comp_id,
+                            message=f"Duplicate component id '{comp_id}' at index {i}",
+                        ))
+                    else:
+                        seen_component_ids.add(comp_id)
+                    if comp_id and not _is_valid_slug(comp_id):
+                        warnings.append(ValidationWarning(
+                            file="components.yaml",
+                            field="id",
+                            message=f"Component id '{comp_id}' does not match slug format",
+                            suggestion="Slugs should be lowercase alphanumeric with hyphens (e.g. 'my-component').",
+                        ))
                 category_value = comp.get("category", "")
                 if category_value and category_value not in valid_categories:
                     warnings.append(ValidationWarning(
@@ -715,12 +826,13 @@ def validate_pack(pack_path: Path) -> ValidationResult:
         except Exception:
             pass
 
-    # Threats must have 'id'
+    # Threats must have 'id', check for duplicates
     threats_file = pack_path / "threats.yaml"
     if threats_file.exists():
         try:
             with open(threats_file) as f:
                 threat_data = yaml.safe_load(f) or {}
+            seen_threat_ids: set[str] = set()
             for i, threat in enumerate(threat_data.get("threats", [])):
                 if "id" not in threat and "slug" not in threat:
                     errors.append(ValidationError(
@@ -730,17 +842,37 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                         reference=f"threats[{i}]",
                         message=f"Threat at index {i} has no 'id' field",
                     ))
+                else:
+                    threat_id = threat.get("id", threat.get("slug", ""))
+                    if threat_id in seen_threat_ids:
+                        errors.append(ValidationError(
+                            file="threats.yaml",
+                            line=None,
+                            ref_type="threat",
+                            reference=threat_id,
+                            message=f"Duplicate threat id '{threat_id}' at index {i}",
+                        ))
+                    else:
+                        seen_threat_ids.add(threat_id)
+                    if threat_id and not _is_valid_slug(threat_id):
+                        warnings.append(ValidationWarning(
+                            file="threats.yaml",
+                            field="id",
+                            message=f"Threat id '{threat_id}' does not match slug format",
+                            suggestion="Slugs should be lowercase alphanumeric with hyphens (e.g. 'my-threat').",
+                        ))
         except Exception:
             pass
 
-    # Countermeasures must have 'id', and validate control_type/cost enums
-    valid_control_types = {"preventive", "detective", "corrective", "procedural"}
+    # Countermeasures must have 'id', check for duplicates, and validate control_type/cost enums
+    valid_control_types = {"preventive", "detective", "corrective", "deterrent", "recovery", "compensating", "procedural"}
     valid_costs = {"low", "medium", "high"}
     cm_file = pack_path / "countermeasures.yaml"
     if cm_file.exists():
         try:
             with open(cm_file) as f:
                 cm_data_raw = yaml.safe_load(f) or {}
+            seen_cm_ids: set[str] = set()
             for i, cm in enumerate(cm_data_raw.get("countermeasures", [])):
                 cm_id = cm.get("id", cm.get("slug", ""))
                 if "id" not in cm and "slug" not in cm:
@@ -751,6 +883,24 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                         reference=f"countermeasures[{i}]",
                         message=f"Countermeasure at index {i} has no 'id' field",
                     ))
+                elif cm_id:
+                    if cm_id in seen_cm_ids:
+                        errors.append(ValidationError(
+                            file="countermeasures.yaml",
+                            line=None,
+                            ref_type="countermeasure",
+                            reference=cm_id,
+                            message=f"Duplicate countermeasure id '{cm_id}' at index {i}",
+                        ))
+                    else:
+                        seen_cm_ids.add(cm_id)
+                    if not _is_valid_slug(cm_id):
+                        warnings.append(ValidationWarning(
+                            file="countermeasures.yaml",
+                            field="id",
+                            message=f"Countermeasure id '{cm_id}' does not match slug format",
+                            suggestion="Slugs should be lowercase alphanumeric with hyphens (e.g. 'my-countermeasure').",
+                        ))
                 control_type_value = cm.get("control_type", "")
                 if control_type_value and control_type_value not in valid_control_types:
                     warnings.append(ValidationWarning(
@@ -1030,6 +1180,54 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                     message=f"Failed to parse: {e}",
                 ))
 
+    # Validate overlay section_codes against frameworks in the DB
+    if joins_dir.exists():
+        from apps.compliance.models import StandardFramework, StandardRequirement
+
+        for overlay_file in joins_dir.glob("countermeasures-*.yaml"):
+            if "threats" in overlay_file.name:
+                continue
+            try:
+                with open(overlay_file) as f:
+                    overlay_data = yaml.safe_load(f) or {}
+                framework_slug = overlay_data.get("framework", "")
+                if not framework_slug:
+                    continue
+
+                framework = StandardFramework.objects.filter(slug=framework_slug).first()
+                if not framework:
+                    warnings.append(ValidationWarning(
+                        file=f"joins/{overlay_file.name}",
+                        field="framework",
+                        message=f"Framework '{framework_slug}' not found in database (overlay will be stored as pending)",
+                        suggestion="Import the framework pack first, or the overlay will activate automatically when the framework is imported.",
+                    ))
+                    continue
+
+                # Framework exists — validate each section_code
+                framework_section_codes = set(
+                    StandardRequirement.objects.filter(framework=framework)
+                    .values_list("section_code", flat=True)
+                )
+                for mapping in overlay_data.get("mappings", []):
+                    for req_code in mapping.get("requirements", []):
+                        if str(req_code) not in framework_section_codes:
+                            errors.append(ValidationError(
+                                file=f"joins/{overlay_file.name}",
+                                line=None,
+                                ref_type="framework",
+                                reference=str(req_code),
+                                message=f"section_code '{req_code}' not found in framework '{framework_slug}'",
+                            ))
+            except Exception as e:
+                errors.append(ValidationError(
+                    file=f"joins/{overlay_file.name}",
+                    line=None,
+                    ref_type="overlay",
+                    reference="",
+                    message=f"Failed to parse: {e}",
+                ))
+
     # Validate DFD templates
     templates_dir = pack_path / "dfd-templates"
 
@@ -1156,6 +1354,7 @@ def _import_pack(
                           If None, all overlays are loaded. If empty list, no overlays.
         skip_validation: If True, skip pre-import validation
     """
+    import_warnings: list[str] = []
     # Run validation before import unless skipped
     if not skip_validation:
         validation_result = validate_pack(pack_path)
@@ -1257,31 +1456,31 @@ def _import_pack(
 
             # Load taxonomies (before threats, since threats reference taxonomy entries)
             taxonomy_file = pack_path / "taxonomy.yaml"
-            taxonomies_count = _load_taxonomy(library_pack, taxonomy_file)
+            taxonomies_count = _load_taxonomy(library_pack, taxonomy_file, import_warnings)
 
             # Load components
             components_file = pack_path / "components.yaml"
-            components_count = _load_components(library_pack, components_file)
+            components_count = _load_components(library_pack, components_file, import_warnings)
 
             # Load threats
             threats_file = pack_path / "threats.yaml"
-            threats_count = _load_threats(library_pack, threats_file)
+            threats_count = _load_threats(library_pack, threats_file, import_warnings)
 
             # Load countermeasures
             cm_file = pack_path / "countermeasures.yaml"
-            countermeasures_count = _load_countermeasures(library_pack, cm_file)
+            countermeasures_count = _load_countermeasures(library_pack, cm_file, import_warnings)
 
             # Phase 2: Load join files
             joins_dir = pack_path / "joins"
             if joins_dir.exists():
-                _load_component_threat_joins(library_pack, joins_dir / "components-threats.yaml")
-                _load_threat_countermeasure_joins(library_pack, joins_dir / "threats-countermeasures.yaml")
+                _load_component_threat_joins(library_pack, joins_dir / "components-threats.yaml", import_warnings)
+                _load_threat_countermeasure_joins(library_pack, joins_dir / "threats-countermeasures.yaml", import_warnings)
 
                 # Load threat-taxonomy joins
                 for join_file in joins_dir.glob("threats-*.yaml"):
                     if join_file.name == "threats-countermeasures.yaml":
                         continue
-                    _load_threat_taxonomy_joins(library_pack, join_file)
+                    _load_threat_taxonomy_joins(library_pack, join_file, import_warnings)
 
                 # Phase 3: Load framework overlays
                 for join_file in joins_dir.glob("countermeasures-*.yaml"):
@@ -1301,23 +1500,23 @@ def _import_pack(
                                 logger.error(f"Error reading overlay file {join_file.name}: {e}")
                                 continue
                         logger.info(f"Loading framework overlay: {join_file.name}")
-                        mappings_count = _load_framework_overlay(library_pack, join_file)
+                        mappings_count = _load_framework_overlay(library_pack, join_file, import_warnings)
                         logger.info(f"Loaded {mappings_count} mappings from {join_file.name}")
 
                 # Phase 3b: Load requirement overlays
                 for join_file in joins_dir.glob("requirements-*.yaml"):
                     logger.info(f"Loading requirement overlay: {join_file.name}")
-                    req_mappings_count = _load_requirement_overlay(library_pack, join_file)
+                    req_mappings_count = _load_requirement_overlay(library_pack, join_file, import_warnings)
                     logger.info(
                         f"Loaded {req_mappings_count} requirement mappings "
                         f"from {join_file.name}"
                     )
 
             # Phase 4: Load DFD templates
-            templates_count = _load_templates(library_pack, pack_path / "dfd-templates")
+            templates_count = _load_templates(library_pack, pack_path / "dfd-templates", import_warnings)
 
             # Phase 5: Load frameworks and requirements (for compliance packs)
-            frameworks_count = _load_frameworks(library_pack, pack_data)
+            frameworks_count = _load_frameworks(library_pack, pack_data, import_warnings)
 
             return ImportResult(
                 success=True,
@@ -1330,6 +1529,7 @@ def _import_pack(
                 countermeasures_created=countermeasures_count,
                 templates_created=templates_count,
                 taxonomies_created=taxonomies_count,
+                warnings=import_warnings,
             )
 
     except Exception as e:
@@ -1445,16 +1645,8 @@ def _create_or_update_pack(pack_data: dict) -> LibraryPack:
             "description": pack.get("description", ""),
             "version": pack["version"],
             "pack_type": pack["pack_type"],
-            "tier": pack.get("tier", "free"),
-            "source": pack.get("source", "official"),
             "author": pack.get("author", ""),
-            "repository_url": pack.get("repository_url", ""),
-            "documentation_url": pack.get("documentation_url", ""),
-            "industries": pack.get("industries", []),
             "tags": pack.get("tags", []),
-            "content": pack_data,
-            "is_published": True,
-            "published_at": timezone.now(),
         },
     )
 
@@ -1479,13 +1671,9 @@ def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
 
     for dep in depends_on:
         if isinstance(dep, str):
-            dep_slug = dep
-            version_constraint = ""
-            is_optional = False
+            dep_slug = dep.split("/")[-1] if "/" in dep else dep
         else:
             dep_slug = dep.get("pack", dep.get("slug", ""))
-            version_constraint = dep.get("version", "")
-            is_optional = dep.get("optional", False)
 
         # Find the dependency pack (may not exist yet). Slug uniqueness
         # in the DB makes the lookup unambiguous regardless of how many
@@ -1495,8 +1683,6 @@ def _process_dependencies(library_pack: LibraryPack, pack_data: dict):
             LibraryPackDependency.objects.create(
                 pack=library_pack,
                 depends_on_pack=dep_pack,
-                version_constraint=version_constraint,
-                is_optional=is_optional,
             )
 
 
@@ -1523,8 +1709,10 @@ def _resolve_threat_reference(library_pack: LibraryPack, threat_ref: str) -> Opt
 # =============================================================================
 
 
-def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load threat-taxonomy mappings from joins/threats-{taxonomy}.yaml."""
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1537,7 +1725,9 @@ def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> i
 
     taxonomy_slug = data.get("taxonomy", "")
     if not taxonomy_slug:
-        logger.warning(f"No taxonomy specified in {file_path}")
+        msg = f"No taxonomy specified in {file_path}"
+        logger.warning(msg)
+        import_warnings.append(msg)
         return 0
 
     if not ExternalTaxonomy.objects.filter(slug=taxonomy_slug).exists():
@@ -1556,7 +1746,9 @@ def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> i
 
         threat_obj = _resolve_threat_reference(library_pack, threat_ref)
         if not threat_obj:
-            logger.warning(f"Threat not found: {threat_ref}")
+            msg = f"Threat not found: {threat_ref}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         for external_id in mapping.get("entries", []):
@@ -1571,17 +1763,21 @@ def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path) -> i
                 )
                 count += 1
             except TaxonomyEntry.DoesNotExist:
-                logger.warning(
+                msg = (
                     f"Taxonomy entry {taxonomy_slug}:{external_id} not found. "
                     f"Check that '{taxonomy_slug}' matches the slug in taxonomy.yaml "
                     f"(not the pack slug). Import the taxonomy pack first if not yet imported."
                 )
+                logger.warning(msg)
+                import_warnings.append(msg)
 
     return count
 
 
-def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_taxonomy(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load taxonomies and entries from taxonomy.yaml."""
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1596,15 +1792,16 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
     for taxonomy_data in data.get("taxonomies", []):
         slug = taxonomy_data.get("slug", "")
         if not slug:
-            logger.warning("Skipping taxonomy without slug")
+            msg = "Skipping taxonomy without slug"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         existing_taxonomy = ExternalTaxonomy.objects.filter(slug=slug).first()
         if existing_taxonomy and existing_taxonomy.source_pack and existing_taxonomy.source_pack != library_pack:
-            logger.warning(
-                "Taxonomy '%s' source_pack changing from '%s' to '%s'",
-                slug, existing_taxonomy.source_pack.slug, library_pack.slug,
-            )
+            msg = f"Taxonomy '{slug}' source_pack changing from '{existing_taxonomy.source_pack.slug}' to '{library_pack.slug}'"
+            logger.warning(msg)
+            import_warnings.append(msg)
 
         taxonomy_obj, _ = ExternalTaxonomy.objects.update_or_create(
             slug=slug,
@@ -1636,13 +1833,15 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path) -> int:
     return count
 
 
-def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_components(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load components from components.yaml.
 
     Uses a two-pass approach to handle parent references:
       Pass 1: Create/update all ComponentLibrary records with parent=None.
       Pass 2: Resolve parent slug references and set the FK.
     """
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1661,7 +1860,9 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
     for comp in components_list:
         comp_id = comp.get("id", comp.get("slug", ""))
         if not comp_id:
-            logger.warning(f"Skipping component without id: {comp}")
+            msg = f"Skipping component without id: {comp}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         qualified_slug = f"{library_pack.slug}/{comp_id}"
@@ -1693,24 +1894,30 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
         parent_instance = slug_to_instance.get(parent_slug)
 
         if not child_instance or not parent_instance:
-            logger.warning(
+            msg = (
                 f"Cannot resolve parent '{parent_slug}' for component "
                 f"'{comp_id}' — skipping parent assignment."
             )
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         if child_instance.category != ComponentLibrary.Category.PROCESS:
-            logger.warning(
+            msg = (
                 f"Component '{comp_id}' has category '{child_instance.category}' "
                 f"but only process components can have a parent — skipping."
             )
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         if parent_instance.category != ComponentLibrary.Category.PROCESS:
-            logger.warning(
+            msg = (
                 f"Parent '{parent_slug}' has category '{parent_instance.category}' "
                 f"but only process components can be parents — skipping."
             )
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         child_instance.parent = parent_instance
@@ -1718,17 +1925,19 @@ def _load_components(library_pack: LibraryPack, file_path: Path) -> int:
             child_instance.full_clean()
             child_instance.save(update_fields=["parent"])
         except Exception as e:
-            logger.warning(
-                f"Invalid parent assignment '{parent_slug}' -> '{comp_id}': {e}"
-            )
+            msg = f"Invalid parent assignment '{parent_slug}' -> '{comp_id}': {e}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             child_instance.parent = None
             child_instance.save(update_fields=["parent"])
 
     return count
 
 
-def _load_threats(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_threats(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load threats from threats.yaml (v2 format)."""
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1743,7 +1952,9 @@ def _load_threats(library_pack: LibraryPack, file_path: Path) -> int:
     for threat in data.get("threats", []):
         threat_id = threat.get("id", threat.get("slug", ""))
         if not threat_id:
-            logger.warning(f"Skipping threat without id: {threat}")
+            msg = f"Skipping threat without id: {threat}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         qualified_slug = f"{library_pack.slug}/{threat_id}"
@@ -1764,8 +1975,10 @@ def _load_threats(library_pack: LibraryPack, file_path: Path) -> int:
     return count
 
 
-def _load_countermeasures(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_countermeasures(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load countermeasures from countermeasures.yaml (v2 format)."""
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1780,7 +1993,9 @@ def _load_countermeasures(library_pack: LibraryPack, file_path: Path) -> int:
     for cm in data.get("countermeasures", []):
         cm_id = cm.get("id", cm.get("slug", ""))
         if not cm_id:
-            logger.warning(f"Skipping countermeasure without id: {cm}")
+            msg = f"Skipping countermeasure without id: {cm}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         qualified_slug = f"{library_pack.slug}/{cm_id}"
@@ -1803,7 +2018,7 @@ def _load_countermeasures(library_pack: LibraryPack, file_path: Path) -> int:
     return count
 
 
-def _load_frameworks(library_pack: LibraryPack, pack_data: dict) -> int:
+def _load_frameworks(library_pack: LibraryPack, pack_data: dict, import_warnings: list[str] | None = None) -> int:
     """
     Load frameworks and requirements from pack.yaml.
 
@@ -1813,6 +2028,8 @@ def _load_frameworks(library_pack: LibraryPack, pack_data: dict) -> int:
     After creating a framework, activates any pending overlays that were
     waiting for this framework.
     """
+    if import_warnings is None:
+        import_warnings = []
     from apps.compliance.models import StandardFramework, StandardRequirement
 
     frameworks = pack_data.get("frameworks", [])
@@ -1825,7 +2042,9 @@ def _load_frameworks(library_pack: LibraryPack, pack_data: dict) -> int:
     for framework_data in frameworks:
         framework_slug = framework_data.get("slug", "")
         if not framework_slug:
-            logger.warning(f"Skipping framework without slug: {framework_data}")
+            msg = f"Skipping framework without slug: {framework_data}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         # Check if this is a new framework
@@ -1898,8 +2117,10 @@ def _load_frameworks(library_pack: LibraryPack, pack_data: dict) -> int:
     return count
 
 
-def _load_component_threat_joins(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_component_threat_joins(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load component-threat mappings from joins/components-threats.yaml."""
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1918,13 +2139,17 @@ def _load_component_threat_joins(library_pack: LibraryPack, file_path: Path) -> 
 
         component = _resolve_component_reference(library_pack, component_ref)
         if not component:
-            logger.warning(f"Component not found: {component_ref}")
+            msg = f"Component not found: {component_ref}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         for threat_entry in mapping.get("threats", []):
             # Expect dict format: {threat: "threat-id", applies_to: "component|flow|both"}
             if not isinstance(threat_entry, dict):
-                logger.warning(f"Invalid threat entry format (expected dict): {threat_entry}")
+                msg = f"Invalid threat entry format (expected dict): {threat_entry}"
+                logger.warning(msg)
+                import_warnings.append(msg)
                 continue
 
             threat_ref = threat_entry.get("threat", "")
@@ -1932,7 +2157,9 @@ def _load_component_threat_joins(library_pack: LibraryPack, file_path: Path) -> 
 
             threat = _resolve_threat_reference(library_pack, threat_ref)
             if not threat:
-                logger.warning(f"Threat not found: {threat_ref}")
+                msg = f"Threat not found: {threat_ref}"
+                logger.warning(msg)
+                import_warnings.append(msg)
                 continue
 
             ComponentLibraryThreat.objects.update_or_create(
@@ -1948,8 +2175,10 @@ def _load_component_threat_joins(library_pack: LibraryPack, file_path: Path) -> 
     return count
 
 
-def _load_threat_countermeasure_joins(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_threat_countermeasure_joins(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """Load threat-countermeasure mappings from joins/threats-countermeasures.yaml."""
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -1968,13 +2197,17 @@ def _load_threat_countermeasure_joins(library_pack: LibraryPack, file_path: Path
 
         threat = _resolve_threat_reference(library_pack, threat_ref)
         if not threat:
-            logger.warning(f"Threat not found: {threat_ref}")
+            msg = f"Threat not found: {threat_ref}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         for cm_ref in mapping.get("countermeasures", []):
             countermeasure = _resolve_countermeasure_reference(library_pack, cm_ref)
             if not countermeasure:
-                logger.warning(f"Countermeasure not found: {cm_ref}")
+                msg = f"Countermeasure not found: {cm_ref}"
+                logger.warning(msg)
+                import_warnings.append(msg)
                 continue
 
             countermeasure.applicable_threats.add(threat)
@@ -1983,13 +2216,15 @@ def _load_threat_countermeasure_joins(library_pack: LibraryPack, file_path: Path
     return count
 
 
-def _load_framework_overlay(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_framework_overlay(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """
     Load framework overlay from joins/countermeasures-{framework}.yaml.
 
     Framework overlays map countermeasures to framework requirements.
     If the framework doesn't exist, stores the overlay as pending for later activation.
     """
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -2002,7 +2237,9 @@ def _load_framework_overlay(library_pack: LibraryPack, file_path: Path) -> int:
 
     framework_id = data.get("framework", "")
     if not framework_id:
-        logger.warning(f"No framework specified in {file_path}")
+        msg = f"No framework specified in {file_path}"
+        logger.warning(msg)
+        import_warnings.append(msg)
         return 0
 
     # Import here to avoid circular imports
@@ -2025,8 +2262,18 @@ def _load_framework_overlay(library_pack: LibraryPack, file_path: Path) -> int:
         )
         return 0
 
-    # Framework exists - remove any pending overlay and apply
-    PendingFrameworkOverlay.objects.filter(pack=library_pack, framework_slug=framework_id).delete()
+    # Framework exists - ensure pending overlay is stored for future re-activation
+    # (e.g. if the framework is unimported then re-imported later)
+    mapping_count = len(data.get("mappings", []))
+    PendingFrameworkOverlay.objects.update_or_create(
+        pack=library_pack,
+        framework_slug=framework_id,
+        defaults={
+            "overlay_file_name": file_path.name,
+            "overlay_data": data,
+            "mapping_count": mapping_count,
+        },
+    )
 
     count = 0
     for mapping in data.get("mappings", []):
@@ -2036,7 +2283,9 @@ def _load_framework_overlay(library_pack: LibraryPack, file_path: Path) -> int:
 
         countermeasure = _resolve_countermeasure_reference(library_pack, cm_ref)
         if not countermeasure:
-            logger.warning(f"Countermeasure not found: {cm_ref}")
+            msg = f"Countermeasure not found: {cm_ref}"
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         for req_code in mapping.get("requirements", []):
@@ -2057,12 +2306,14 @@ def _load_framework_overlay(library_pack: LibraryPack, file_path: Path) -> int:
                 )
                 count += 1
             else:
-                logger.warning(f"Requirement '{req_code}' not found in framework '{framework_id}'")
+                msg = f"Requirement '{req_code}' not found in framework '{framework_id}'"
+                logger.warning(msg)
+                import_warnings.append(msg)
 
     return count
 
 
-def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int:
+def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
     """
     Load requirement overlay from joins/requirements-{target-framework}.yaml.
 
@@ -2079,6 +2330,8 @@ def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int
               - "9.2"
             sufficiency: partial
     """
+    if import_warnings is None:
+        import_warnings = []
     if not file_path.exists():
         return 0
 
@@ -2092,9 +2345,9 @@ def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int
     target_framework_slug = data.get("framework", "")
     source_framework_slug = data.get("source_framework", "")
     if not target_framework_slug or not source_framework_slug:
-        logger.warning(
-            f"Missing 'framework' or 'source_framework' in {file_path}"
-        )
+        msg = f"Missing 'framework' or 'source_framework' in {file_path}"
+        logger.warning(msg)
+        import_warnings.append(msg)
         return 0
 
     from apps.compliance.models import StandardFramework, StandardRequirement, StandardRequirementMapping
@@ -2125,12 +2378,19 @@ def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int
         )
         return 0
 
-    # Both frameworks exist. Remove any pending overlay and apply.
-    PendingRequirementOverlay.objects.filter(
+    # Both frameworks exist - ensure pending overlay is stored for future re-activation
+    # (e.g. if either framework is unimported then re-imported later)
+    mapping_count = len(data.get("mappings", []))
+    PendingRequirementOverlay.objects.update_or_create(
         pack=library_pack,
         source_framework_slug=source_framework_slug,
         target_framework_slug=target_framework_slug,
-    ).delete()
+        defaults={
+            "overlay_file_name": file_path.name,
+            "overlay_data": data,
+            "mapping_count": mapping_count,
+        },
+    )
 
     count = 0
     for mapping in data.get("mappings", []):
@@ -2144,10 +2404,12 @@ def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int
         ).first()
 
         if not from_requirement:
-            logger.warning(
+            msg = (
                 f"Source requirement '{from_section_code}' not found "
                 f"in framework '{source_framework_slug}'"
             )
+            logger.warning(msg)
+            import_warnings.append(msg)
             continue
 
         sufficiency = mapping.get("sufficiency", "partial")
@@ -2169,10 +2431,12 @@ def _load_requirement_overlay(library_pack: LibraryPack, file_path: Path) -> int
                 )
                 count += 1
             else:
-                logger.warning(
+                msg = (
                     f"Target requirement '{to_section_code}' not found "
                     f"in framework '{target_framework_slug}'"
                 )
+                logger.warning(msg)
+                import_warnings.append(msg)
 
     return count
 
@@ -2245,8 +2509,8 @@ def activate_pending_overlays_for_framework(framework_slug: str) -> dict:
         })
         results["total_mappings"] += mappings_applied
 
-        # Remove the pending overlay
-        pending.delete()
+        # Keep pending overlay for future re-activation (e.g. framework unimport/re-import).
+        # CASCADE on pack FK handles cleanup when the source pack is unimported.
 
     logger.info(
         f"Activated {len(results['packs_activated'])} pending overlays for framework '{framework_slug}' "
@@ -2354,8 +2618,8 @@ def activate_pending_requirement_overlays_for_framework(framework_slug: str) -> 
         })
         results["total_mappings"] += mappings_applied
 
-        # Remove the pending overlay now that both frameworks exist
-        pending.delete()
+        # Keep pending overlay for future re-activation (e.g. framework unimport/re-import).
+        # CASCADE on pack FK handles cleanup when the source pack is unimported.
 
     logger.info(
         f"Activated {len(results['packs_activated'])} pending requirement overlays "
@@ -2387,12 +2651,14 @@ def get_pending_overlays_for_pack(pack: LibraryPack) -> list[dict]:
     ]
 
 
-def _load_templates(library_pack: LibraryPack, templates_dir: Path) -> int:
+def _load_templates(library_pack: LibraryPack, templates_dir: Path, import_warnings: list[str] | None = None) -> int:
     """
     Load DFD templates from dfd-templates/ directory.
 
     Templates use component_ref to reference components from components.yaml.
     """
+    if import_warnings is None:
+        import_warnings = []
     if not templates_dir.exists():
         return 0
 
@@ -2410,7 +2676,7 @@ def _load_templates(library_pack: LibraryPack, templates_dir: Path) -> int:
 
             # Validate component_refs if present
             canvas_data = template_data.get("canvas_data", {})
-            _validate_template_component_refs(library_pack, canvas_data, template_file.name)
+            _validate_template_component_refs(library_pack, canvas_data, template_file.name, import_warnings)
 
             DFDTemplatesLibrary.objects.update_or_create(
                 qualified_slug=qualified_slug,
@@ -2438,8 +2704,10 @@ def _load_templates(library_pack: LibraryPack, templates_dir: Path) -> int:
     return count
 
 
-def _validate_template_component_refs(library_pack: LibraryPack, canvas_data: dict, template_name: str) -> None:
+def _validate_template_component_refs(library_pack: LibraryPack, canvas_data: dict, template_name: str, import_warnings: list[str] | None = None) -> None:
     """Validate that component_refs in template nodes exist."""
+    if import_warnings is None:
+        import_warnings = []
     nodes = canvas_data.get("nodes", [])
 
     for node in nodes:
@@ -2447,9 +2715,9 @@ def _validate_template_component_refs(library_pack: LibraryPack, canvas_data: di
         if component_ref:
             component = _resolve_component_reference(library_pack, component_ref)
             if not component:
-                logger.warning(
-                    f"Template '{template_name}' references unknown component: {component_ref}"
-                )
+                msg = f"Template '{template_name}' references unknown component: {component_ref}"
+                logger.warning(msg)
+                import_warnings.append(msg)
 
 
 def _resolve_component_reference(library_pack: LibraryPack, ref: str) -> Optional[ComponentLibrary]:
@@ -2475,7 +2743,7 @@ def _resolve_countermeasure_reference(library_pack: LibraryPack, ref: str) -> Op
 
     Supports:
     - 'encrypt_at_rest' → looks in current pack
-    - 'base-stride/encryption-at-rest' → looks in base-stride pack (cross-pack reference)
+    - 'aws/s3-block-public-access' → looks in aws pack (cross-pack reference)
     """
     if "/" in ref:
         # Cross-pack reference

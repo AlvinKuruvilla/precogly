@@ -12,7 +12,7 @@ interface ComponentLibraryItem {
   slug: string
   qualifiedSlug: string | null
   name: string
-  category: 'process' | 'datastore' | 'external'  // Node type category
+  category: 'process' | 'datastore' | 'external_human_actor' | 'external_system_actor'  // Node type category
   componentType: string  // Technology category (database, compute, etc.)
   provider: string
   sourcePack: number | null

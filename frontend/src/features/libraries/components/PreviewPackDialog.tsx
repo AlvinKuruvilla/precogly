@@ -68,13 +68,9 @@ export function PreviewPackDialog({
               <DialogTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
                 {preview.pack.name}
-                <Badge variant="outline" className="ml-2">
-                  v{preview.pack.version}
-                </Badge>
               </DialogTitle>
               <DialogDescription className="flex items-center gap-2 flex-wrap">
                 <PackTypeBadge type={preview.pack.packType} />
-                <TierBadge tier={preview.pack.tier} />
                 {preview.pack.author && (
                   <span className="text-xs">by {preview.pack.author}</span>
                 )}
@@ -330,19 +326,6 @@ function PackTypeBadge({ type }: { type: string }) {
   return (
     <Badge variant="secondary" className={colors[type] || ''}>
       {type}
-    </Badge>
-  )
-}
-
-function TierBadge({ tier }: { tier: string }) {
-  const colors: Record<string, string> = {
-    free: 'bg-green-100 text-green-800',
-    premium: 'bg-purple-100 text-purple-800',
-    enterprise: 'bg-amber-100 text-amber-800',
-  }
-  return (
-    <Badge variant="secondary" className={colors[tier] || ''}>
-      {tier}
     </Badge>
   )
 }

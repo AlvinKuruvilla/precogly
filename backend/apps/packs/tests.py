@@ -1,5 +1,5 @@
 """Tests for path-based pack discovery, O(1) lookup (issue #33),
-and taxonomy reference validation (issue #26)."""
+taxonomy reference validation (issue #26), and pack validation gaps (issue #10)."""
 
 import tempfile
 from pathlib import Path
@@ -9,7 +9,9 @@ import yaml
 from django.test import SimpleTestCase
 
 from apps.packs.services import (
+    ImportResult,
     _find_pack_dir,
+    _is_valid_slug,
     discover_packs_from_source,
     validate_pack,
 )
@@ -36,8 +38,6 @@ def _write_pack(base_dir: Path, relative_path: str, slug: str, **overrides) -> P
         "name": slug,
         "version": "1.0.0",
         "pack_type": "technology",
-        "tier": "free",
-        "source": "official",
         "author": "Test",
     }
     pack_meta.update(overrides)
@@ -157,7 +157,6 @@ class DiscoveryAndDisambiguationTests(SimpleTestCase):
                         {
                             "pack": "nist-csf",
                             "path": "demo/nist-csf",
-                            "version": "^1.0.0",
                         }
                     ],
                 )
@@ -169,6 +168,27 @@ class DiscoveryAndDisambiguationTests(SimpleTestCase):
                 dep = consumer.depends_on[0]
                 self.assertEqual(dep["slug"], "nist-csf")
                 self.assertEqual(dep["path"], "demo/nist-csf")
+
+    def test_path_format_string_depends_on_resolves(self):
+        # depends_on with path-format strings like "taxonomies/stride-taxonomy"
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            with self._patch_db_and_path(base):
+                _write_pack(base, "taxonomies/stride-taxonomy", slug="stride-taxonomy")
+                _write_pack(
+                    base,
+                    "consumer",
+                    slug="consumer",
+                    depends_on=["taxonomies/stride-taxonomy"],
+                )
+
+                packs = discover_packs_from_source()
+                consumer = next(p for p in packs if p.slug == "consumer")
+
+                self.assertEqual(len(consumer.depends_on), 1)
+                dep = consumer.depends_on[0]
+                self.assertEqual(dep["slug"], "stride-taxonomy")
+                self.assertEqual(dep["path"], "taxonomies/stride-taxonomy")
 
 
 class TaxonomyReferenceValidationTests(SimpleTestCase):
@@ -218,11 +238,13 @@ class TaxonomyReferenceValidationTests(SimpleTestCase):
             self.assertEqual(len(taxonomy_errors), 0)
 
     @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
     @mock.patch("apps.packs.services.get_libraries_path")
     def test_validate_accepts_taxonomy_from_dependency(
-        self, mock_get_libraries_path, mock_taxonomy_model
+        self, mock_get_libraries_path, mock_lp, mock_taxonomy_model
     ):
         mock_taxonomy_model.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -240,8 +262,8 @@ class TaxonomyReferenceValidationTests(SimpleTestCase):
             # Downstream pack references the dependency's taxonomy
             pack_dir = _write_pack(
                 base,
-                "mini-cwe",
-                slug="mini-cwe",
+                "cwe",
+                slug="cwe",
                 pack_type="threat",
                 depends_on=["cwe-taxonomy"],
             )
@@ -254,3 +276,525 @@ class TaxonomyReferenceValidationTests(SimpleTestCase):
 
             taxonomy_errors = [e for e in result.errors if e.ref_type == "taxonomy"]
             self.assertEqual(len(taxonomy_errors), 0)
+
+
+# =========================================================================
+# Phase 2: Duplicate ID detection (issue #10)
+# =========================================================================
+
+
+class DuplicateIdValidationTests(SimpleTestCase):
+    """validate_pack catches duplicate IDs that would cause silent overwrites."""
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_duplicate_component_ids_are_errors(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "dup-pack", slug="dup-pack")
+
+            comp_data = {
+                "components": [
+                    {"id": "web-server", "name": "Web Server", "category": "process"},
+                    {"id": "web-server", "name": "Web Server Copy", "category": "process"},
+                ]
+            }
+            (pack_dir / "components.yaml").write_text(yaml.safe_dump(comp_data))
+
+            result = validate_pack(pack_dir)
+
+            dup_errors = [
+                e for e in result.errors
+                if "Duplicate component id" in e.message
+            ]
+            self.assertEqual(len(dup_errors), 1)
+            self.assertIn("web-server", dup_errors[0].message)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_duplicate_threat_ids_are_errors(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "dup-pack", slug="dup-pack")
+
+            threat_data = {
+                "threats": [
+                    {"id": "sql-injection", "name": "SQL Injection"},
+                    {"id": "sql-injection", "name": "SQL Injection 2"},
+                ]
+            }
+            (pack_dir / "threats.yaml").write_text(yaml.safe_dump(threat_data))
+
+            result = validate_pack(pack_dir)
+
+            dup_errors = [
+                e for e in result.errors
+                if "Duplicate threat id" in e.message
+            ]
+            self.assertEqual(len(dup_errors), 1)
+            self.assertIn("sql-injection", dup_errors[0].message)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_duplicate_countermeasure_ids_are_errors(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "dup-pack", slug="dup-pack")
+
+            cm_data = {
+                "countermeasures": [
+                    {"slug": "mfa", "name": "MFA", "control_type": "preventive", "cost": "low"},
+                    {"slug": "mfa", "name": "MFA duplicate", "control_type": "preventive", "cost": "low"},
+                ]
+            }
+            (pack_dir / "countermeasures.yaml").write_text(yaml.safe_dump(cm_data))
+
+            result = validate_pack(pack_dir)
+
+            dup_errors = [
+                e for e in result.errors
+                if "Duplicate countermeasure id" in e.message
+            ]
+            self.assertEqual(len(dup_errors), 1)
+            self.assertIn("mfa", dup_errors[0].message)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_duplicate_framework_section_codes_are_errors(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            pack_dir = base / "fw-pack"
+            pack_dir.mkdir()
+
+            pack_yaml = {
+                "pack": {
+                    "slug": "fw-pack",
+                    "name": "fw-pack",
+                    "version": "1.0.0",
+                    "pack_type": "compliance",
+                },
+                "frameworks": [{
+                    "slug": "test-fw",
+                    "name": "Test Framework",
+                    "requirements": [
+                        {"section_code": "1.1", "description": "First"},
+                        {"section_code": "1.1", "description": "Duplicate"},
+                    ],
+                }],
+            }
+            (pack_dir / "pack.yaml").write_text(yaml.safe_dump(pack_yaml))
+
+            result = validate_pack(pack_dir)
+
+            dup_errors = [
+                e for e in result.errors
+                if "Duplicate section_code" in e.message
+            ]
+            self.assertEqual(len(dup_errors), 1)
+            self.assertIn("1.1", dup_errors[0].message)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_duplicate_taxonomy_external_ids_are_errors(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "tax-pack", slug="tax-pack")
+
+            tax_data = {
+                "taxonomies": [{
+                    "slug": "cwe",
+                    "name": "CWE",
+                    "entries": [
+                        {"external_id": "CWE-79", "title": "XSS"},
+                        {"external_id": "CWE-79", "title": "XSS duplicate"},
+                    ],
+                }]
+            }
+            (pack_dir / "taxonomy.yaml").write_text(yaml.safe_dump(tax_data))
+
+            result = validate_pack(pack_dir)
+
+            dup_errors = [
+                e for e in result.errors
+                if "Duplicate external_id" in e.message
+            ]
+            self.assertEqual(len(dup_errors), 1)
+            self.assertIn("CWE-79", dup_errors[0].message)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_unique_ids_pass_validation(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "clean-pack", slug="clean-pack")
+
+            comp_data = {
+                "components": [
+                    {"id": "web-server", "name": "Web Server", "category": "process"},
+                    {"id": "database", "name": "Database", "category": "datastore"},
+                ]
+            }
+            (pack_dir / "components.yaml").write_text(yaml.safe_dump(comp_data))
+
+            result = validate_pack(pack_dir)
+
+            dup_errors = [
+                e for e in result.errors
+                if "Duplicate" in e.message
+            ]
+            self.assertEqual(len(dup_errors), 0)
+
+
+# =========================================================================
+# Phase 3: Overlay section_code validation (issue #10)
+# =========================================================================
+
+
+class OverlaySectionCodeValidationTests(SimpleTestCase):
+    """validate_pack checks overlay section_codes against framework requirements."""
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.compliance.models.StandardRequirement")
+    @mock.patch("apps.compliance.models.StandardFramework")
+    def test_invalid_section_code_is_error(
+        self, mock_fw, mock_req, mock_lp, mock_taxonomy
+    ):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        # Framework exists
+        mock_framework_instance = mock.MagicMock()
+        mock_fw.objects.filter.return_value.first.return_value = mock_framework_instance
+
+        # Framework has requirements — but not the one we reference
+        mock_req.objects.filter.return_value.values_list.return_value = ["1.1", "1.2"]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "overlay-pack", slug="overlay-pack")
+
+            joins_dir = pack_dir / "joins"
+            joins_dir.mkdir()
+            overlay_data = {
+                "framework": "nist-csf",
+                "mappings": [
+                    {"countermeasure": "mfa", "requirements": ["1.1", "BOGUS"]},
+                ],
+            }
+            (joins_dir / "countermeasures-nist-csf.yaml").write_text(
+                yaml.safe_dump(overlay_data)
+            )
+
+            result = validate_pack(pack_dir)
+
+            section_errors = [
+                e for e in result.errors
+                if "section_code" in e.message and "BOGUS" in e.message
+            ]
+            self.assertEqual(len(section_errors), 1)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.compliance.models.StandardFramework")
+    def test_missing_framework_is_warning(self, mock_fw, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        # Framework does NOT exist
+        mock_fw.objects.filter.return_value.first.return_value = None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "overlay-pack", slug="overlay-pack")
+
+            joins_dir = pack_dir / "joins"
+            joins_dir.mkdir()
+            overlay_data = {
+                "framework": "nonexistent-fw",
+                "mappings": [
+                    {"countermeasure": "mfa", "requirements": ["1.1"]},
+                ],
+            }
+            (joins_dir / "countermeasures-nonexistent-fw.yaml").write_text(
+                yaml.safe_dump(overlay_data)
+            )
+
+            result = validate_pack(pack_dir)
+
+            fw_warnings = [
+                w for w in result.warnings
+                if "nonexistent-fw" in w.message and "not found" in w.message
+            ]
+            self.assertEqual(len(fw_warnings), 1)
+            # Should NOT be an error
+            fw_errors = [
+                e for e in result.errors
+                if "nonexistent-fw" in e.message
+            ]
+            self.assertEqual(len(fw_errors), 0)
+
+
+# =========================================================================
+# Phase 4: depends_on validation (issue #10)
+# =========================================================================
+
+
+class DependsOnValidationTests(SimpleTestCase):
+    """validate_pack warns when depends_on references can't be found."""
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.packs.services.get_libraries_path")
+    def test_missing_dependency_is_warning(
+        self, mock_get_libraries_path, mock_lp, mock_taxonomy
+    ):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            mock_get_libraries_path.return_value = base
+
+            pack_dir = _write_pack(
+                base, "dep-pack", slug="dep-pack",
+                depends_on=["nonexistent-dep"],
+            )
+
+            result = validate_pack(pack_dir)
+
+            dep_warnings = [
+                w for w in result.warnings
+                if "nonexistent-dep" in w.message and "depends_on" in w.field
+            ]
+            self.assertEqual(len(dep_warnings), 1)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.packs.services.get_libraries_path")
+    def test_found_dependency_no_warning(
+        self, mock_get_libraries_path, mock_lp, mock_taxonomy
+    ):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            mock_get_libraries_path.return_value = base
+
+            # Create the dependency pack on disk
+            _write_pack(base, "stride-taxonomy", slug="stride-taxonomy")
+
+            pack_dir = _write_pack(
+                base, "dep-pack", slug="dep-pack",
+                depends_on=["stride-taxonomy"],
+            )
+
+            result = validate_pack(pack_dir)
+
+            dep_warnings = [
+                w for w in result.warnings
+                if "stride-taxonomy" in w.message and "depends_on" in w.field
+            ]
+            self.assertEqual(len(dep_warnings), 0)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.packs.services.get_libraries_path")
+    def test_missing_dependency_is_not_error(
+        self, mock_get_libraries_path, mock_lp, mock_taxonomy
+    ):
+        """Missing dependencies are warnings, not errors — import should still succeed."""
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            mock_get_libraries_path.return_value = base
+
+            pack_dir = _write_pack(
+                base, "dep-pack", slug="dep-pack",
+                depends_on=["ghost-pack"],
+            )
+
+            result = validate_pack(pack_dir)
+
+            dep_errors = [
+                e for e in result.errors
+                if "ghost-pack" in e.message
+            ]
+            self.assertEqual(len(dep_errors), 0)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    @mock.patch("apps.packs.services.get_libraries_path")
+    def test_path_format_depends_on_resolves(
+        self, mock_get_libraries_path, mock_lp, mock_taxonomy
+    ):
+        """depends_on with path-format strings (e.g. 'taxonomies/stride-taxonomy') should resolve."""
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            mock_get_libraries_path.return_value = base
+
+            # Create the dependency at the path
+            _write_pack(base, "taxonomies/stride-taxonomy", slug="stride-taxonomy")
+
+            pack_dir = _write_pack(
+                base, "dep-pack", slug="dep-pack",
+                depends_on=["taxonomies/stride-taxonomy"],
+            )
+
+            result = validate_pack(pack_dir)
+
+            dep_warnings = [
+                w for w in result.warnings
+                if "stride-taxonomy" in w.message and "depends_on" in w.field
+            ]
+            self.assertEqual(len(dep_warnings), 0)
+
+
+# =========================================================================
+# Phase 5: Slug format validation (issue #10)
+# =========================================================================
+
+
+class SlugFormatValidationTests(SimpleTestCase):
+    """validate_pack warns on non-conforming slug formats."""
+
+    def test_is_valid_slug_accepts_good_slugs(self):
+        self.assertTrue(_is_valid_slug("aws"))
+        self.assertTrue(_is_valid_slug("aws-mini"))
+        self.assertTrue(_is_valid_slug("base-stride"))
+        self.assertTrue(_is_valid_slug("a1-b2-c3"))
+
+    def test_is_valid_slug_rejects_bad_slugs(self):
+        self.assertFalse(_is_valid_slug("AWS"))
+        self.assertFalse(_is_valid_slug("my_pack"))
+        self.assertFalse(_is_valid_slug("my.pack"))
+        self.assertFalse(_is_valid_slug("-leading-hyphen"))
+        self.assertFalse(_is_valid_slug("trailing-hyphen-"))
+        self.assertFalse(_is_valid_slug("double--hyphen"))
+        self.assertFalse(_is_valid_slug(""))
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_bad_pack_slug_is_warning(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "Bad_Pack", slug="Bad_Pack")
+
+            result = validate_pack(pack_dir)
+
+            slug_warnings = [
+                w for w in result.warnings
+                if "Bad_Pack" in w.message and "slug" in w.field
+            ]
+            self.assertEqual(len(slug_warnings), 1)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_bad_component_id_is_warning(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "slug-pack", slug="slug-pack")
+
+            comp_data = {
+                "components": [
+                    {"id": "aws_lambda", "name": "Lambda", "category": "process"},
+                ]
+            }
+            (pack_dir / "components.yaml").write_text(yaml.safe_dump(comp_data))
+
+            result = validate_pack(pack_dir)
+
+            slug_warnings = [
+                w for w in result.warnings
+                if "aws_lambda" in w.message and "slug format" in w.message
+            ]
+            self.assertEqual(len(slug_warnings), 1)
+
+    @mock.patch("apps.packs.services.ExternalTaxonomy")
+    @mock.patch("apps.packs.services.LibraryPack")
+    def test_good_slug_no_warning(self, mock_lp, mock_taxonomy):
+        mock_taxonomy.objects.values_list.return_value = []
+        mock_lp.objects.filter.return_value.exists.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_dir = _write_pack(Path(tmp), "good-pack", slug="good-pack")
+
+            comp_data = {
+                "components": [
+                    {"id": "web-server", "name": "Web Server", "category": "process"},
+                ]
+            }
+            (pack_dir / "components.yaml").write_text(yaml.safe_dump(comp_data))
+
+            result = validate_pack(pack_dir)
+
+            slug_warnings = [
+                w for w in result.warnings
+                if "slug format" in w.message
+            ]
+            self.assertEqual(len(slug_warnings), 0)
+
+
+# =========================================================================
+# Phase 1: ImportResult warnings (issue #10)
+# =========================================================================
+
+
+class ImportResultWarningsTests(SimpleTestCase):
+    """ImportResult exposes warnings field in dataclass and to_dict()."""
+
+    def test_import_result_has_warnings_field(self):
+        result = ImportResult(
+            success=True,
+            pack_slug="test",
+            pack_name="Test",
+            version="1.0.0",
+            message="OK",
+            warnings=["something was skipped"],
+        )
+        self.assertEqual(result.warnings, ["something was skipped"])
+
+    def test_import_result_to_dict_includes_warnings(self):
+        result = ImportResult(
+            success=True,
+            pack_slug="test",
+            pack_name="Test",
+            version="1.0.0",
+            message="OK",
+            warnings=["warn1", "warn2"],
+        )
+        d = result.to_dict()
+        self.assertIn("warnings", d)
+        self.assertEqual(d["warnings"], ["warn1", "warn2"])
+
+    def test_import_result_warnings_default_empty(self):
+        result = ImportResult(
+            success=True,
+            pack_slug="test",
+            pack_name="Test",
+            version="1.0.0",
+            message="OK",
+        )
+        self.assertEqual(result.warnings, [])
+        self.assertEqual(result.to_dict()["warnings"], [])

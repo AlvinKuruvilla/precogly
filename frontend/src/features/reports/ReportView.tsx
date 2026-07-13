@@ -1,6 +1,14 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, BarChart3, Code, Shield, FileText } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
+import { Loader2, BarChart3, Code, Shield, FileText, Download, ChevronDown } from 'lucide-react'
 import { useReport } from '@/features/reports/api/reports'
 import type { ReportType, ReportData } from '@/features/reports/types/report'
 import { getSectionsForType } from './reportConfig'
@@ -20,6 +28,13 @@ import { AssumptionsReviewSection } from './sections/AssumptionsReviewSection'
 import { FindingsSection } from './sections/FindingsSection'
 import { ProgressChecklistSection } from './sections/ProgressChecklistSection'
 import { ComplianceDriftBanner } from '@/features/compliance/components/ComplianceDriftBanner'
+import {
+  exportThreatsCSV,
+  exportCountermeasuresCSV,
+  exportRisksCSV,
+  exportComplianceCSV,
+} from './utils/csvExport'
+import { exportWordDoc } from './utils/wordExport'
 
 interface ReportViewProps {
   threatModelId: string
@@ -97,7 +112,7 @@ function renderSection(sectionId: string, depth: string, data: ReportData) {
     case 'findings':
       return <FindingsSection data={data} depth={depth as any} />
     case 'progressChecklist':
-      return <ProgressChecklistSection progressChecklist={data.progressChecklist} />
+      return <ProgressChecklistSection progressChecklist={data.progressChecklist} completionStatus={data.completionStatus} />
     default:
       return null
   }
@@ -106,12 +121,10 @@ function renderSection(sectionId: string, depth: string, data: ReportData) {
 export function ReportView({ threatModelId }: ReportViewProps) {
   const [reportType, setReportType] = useState<ReportType>('executive')
   const { data, isLoading, error } = useReport(threatModelId)
-
   const sections = getSectionsForType(reportType)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Report type selector */}
       <div className="shrink-0 p-4 border-b">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {REPORT_TYPES.map((rt) => (
@@ -140,7 +153,7 @@ export function ReportView({ threatModelId }: ReportViewProps) {
         <ComplianceDriftBanner threatModelId={threatModelId} />
       )}
 
-      {/* Report content */}
+
       <div className="flex-1 overflow-y-auto p-4">
         {isLoading && (
           <div className="flex items-center justify-center py-12">
@@ -148,7 +161,6 @@ export function ReportView({ threatModelId }: ReportViewProps) {
             <span className="ml-2 text-muted-foreground">Loading report data...</span>
           </div>
         )}
-
         {error && (
           <div className="text-center py-12">
             <p className="text-destructive">Failed to load report data.</p>
@@ -157,10 +169,8 @@ export function ReportView({ threatModelId }: ReportViewProps) {
             </p>
           </div>
         )}
-
         {data && (
           <div className="space-y-4 max-w-5xl mx-auto">
-            {/* Report header */}
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">{data.metadata.name}</h2>
@@ -170,9 +180,46 @@ export function ReportView({ threatModelId }: ReportViewProps) {
                   </span>
                 </div>
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                    <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportThreatsCSV(data, data.metadata.name)}>
+                    Threats
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportCountermeasuresCSV(data, data.metadata.name)}>
+                    Countermeasures
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportRisksCSV(data, data.metadata.name)}>
+                    Risks
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportComplianceCSV(data, data.metadata.name)}>
+                    Compliance Coverage
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      try {
+                        await exportWordDoc(data, data.metadata.name)
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error
+                            ? "Failed to export Word report: " + err.message
+                            : "Failed to export Word report"
+                        )
+                      }
+                    }}
+                  >
+                    Full Report (Word)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {/* Sections */}
             {sections.map((section) => (
               <div key={section.id}>
                 {renderSection(section.id, section.depth, data)}

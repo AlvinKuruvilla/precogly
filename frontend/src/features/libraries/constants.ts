@@ -7,9 +7,3 @@ export const packTypeColors: Record<string, string> = {
   full: 'bg-gray-100 text-gray-800',
   taxonomy: 'bg-teal-100 text-teal-800',
 }
-
-export const tierColors: Record<string, string> = {
-  free: 'bg-green-100 text-green-800',
-  premium: 'bg-amber-100 text-amber-800',
-  enterprise: 'bg-indigo-100 text-indigo-800',
-}

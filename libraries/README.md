@@ -9,20 +9,28 @@ Library packs are modular bundles of threat-modeling content (components, threat
 | `pack_type` | What it contains | Example |
 |---|---|---|
 | `technology` | Components only | `aws`, `azure`, `gcp` |
-| `threat` | Threats + countermeasures | `base-stride` |
 | `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
 | `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
-| `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `mini-cwe` |
+| `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `cwe` |
 | `template` | DFD templates only | — |
 
 ---
 
 ## Directory Structure
 
-Every pack is a directory. Only `pack.yaml` is required; all other files are optional depending on pack type.
+Every pack is a directory under one of the category folders in `libraries/packs/`:
 
 ```
-aws-mini/
+libraries/packs/
+├── taxonomies/          # Classification systems (STRIDE, CWE, CAPEC, ATT&CK)
+├── standards/           # Compliance frameworks (NIST CSF, OWASP, SOC 2, etc.)
+└── threat-libraries/    # Technology-specific threats (AWS, Azure, GCP, etc.)
+```
+
+Only `pack.yaml` is required; all other files are optional depending on pack type.
+
+```
+threat-libraries/aws-mini/
 ├── pack.yaml                              # Pack metadata (required)
 ├── components.yaml                        # Component definitions
 ├── threats.yaml                           # Threat definitions
@@ -49,6 +57,7 @@ Pack metadata. This is the only required file.
 
 ```yaml
 pack:
+  schema_version: 1
   slug: aws-mini
   name: AWS Mini
   version: 1.1.0
@@ -56,57 +65,55 @@ pack:
   description: |
     A minimal AWS pack demonstrating core AWS services with
     associated threats and countermeasures.
-  tier: free
-  source: official
   author: Precogly
-  industries:
-    - technology
-    - saas
+  depends_on:
+    - taxonomies/stride-taxonomy
+    - taxonomies/capec
+    - taxonomies/cwe
+    - taxonomies/mitre-attack
   tags:
     - aws
     - cloud
     - serverless
-  repository_url: "https://github.com/precogly/precogly"
-  documentation_url: "https://docs.precogly.dev/packs/aws-mini"
-  depends_on:                          # optional
-    - pack: base-stride
-      version: "^1.0.0"               # SemVer constraint
-      optional: false                  # default false
+    - demo
+    - mini
 ```
 
 ### Field Reference
 
 | Field | Required | Description |
 |---|---|---|
+| `schema_version` | yes | Pack format version. Must be `1`. See [Pack format versioning](#pack-format-versioning). |
 | `slug` | yes | Unique identifier. Lowercase alphanumeric + hyphens. |
 | `name` | yes | Display name. |
 | `version` | yes | Semantic version (`X.Y.Z`). |
-| `pack_type` | yes | `technology`, `threat`, `countermeasure`, `compliance`, `template`, `full`, or `industry` |
+| `pack_type` | yes | `technology`, `threat`, `countermeasure`, `compliance`, `template`, `full`, or `taxonomy` |
 | `description` | yes | Multi-line description. |
-| `tier` | no | `free` (default), `premium`, `enterprise` |
-| `source` | no | `official`, `partner`, `community` (default), `private` |
 | `author` | no | Author name. |
-| `industries` | no | List of industry tags. |
 | `tags` | no | Searchable tags. |
-| `repository_url` | no | Source code URL. |
-| `documentation_url` | no | Documentation URL. |
 | `depends_on` | no | List of pack dependencies (see below). |
 
 ### Dependencies
 
+Dependencies use path-format strings relative to the `libraries/packs/` root:
+
 ```yaml
 depends_on:
-  - pack: base-stride        # pack slug
-    version: "^1.0.0"        # ^=compatible, ~=patch-only, >=, exact
-    optional: true            # optional dependency (default false)
+  - taxonomies/stride-taxonomy
+  - taxonomies/cwe
 ```
 
-| Constraint | Meaning |
-|---|---|
-| `^1.0.0` | Compatible with 1.x.x |
-| `~1.2.0` | Compatible with 1.2.x |
-| `>=2.0.0` | At least 2.0.0 |
-| `1.5.0` | Exact version |
+The slug is extracted from the last path segment (e.g., `taxonomies/stride-taxonomy` resolves to slug `stride-taxonomy`). Plain slugs (without `/`) also work for backward compatibility.
+
+### Pack format versioning
+
+`schema_version` declares which version of the pack format a pack uses. This is separate from the pack's content `version` (which tracks changes to threats, countermeasures, etc.).
+
+- **`schema_version: 1`** — The current and only format version.
+- When the app loads a pack, it checks `schema_version` against its set of supported versions. If the version is unsupported, the pack is rejected with a validation error.
+- If `schema_version` is missing, a validation warning is emitted (the pack can still be imported). This allows backwards compatibility for external packs that haven't adopted the field yet.
+
+When we change the pack structure in the future (rename folders, add required fields, change YAML layout), we will bump the schema version. This lets the app know whether it can read a given pack.
 
 ---
 
@@ -148,7 +155,7 @@ components:
 |---|---|---|
 | `id` | yes | Unique within pack. Lowercase + hyphens. |
 | `name` | yes | Display name. |
-| `category` | yes | `process`, `datastore`, `human_actor`, `system_actor` |
+| `category` | yes | `process`, `datastore`, `external_human_actor`, `external_system_actor` |
 | `type` | yes | Free-text component type (e.g. "Object Storage", "NoSQL Database"). |
 | `provider` | no | Provider name (e.g. `aws`, `azure`, `gcp`). |
 | `description` | no | Multi-line description. |
@@ -214,7 +221,7 @@ countermeasures:
 | `id` | yes | Unique within pack. |
 | `name` | yes | Display name. |
 | `description` | yes | What the control does and how it helps. |
-| `control_type` | yes | `preventive`, `detective`, `corrective`, or `procedural` |
+| `control_type` | yes | `preventive`, `detective`, `corrective`, `deterrent`, `recovery`, `compensating`, or `procedural` |
 | `cost` | yes | `low`, `medium`, or `high` |
 | `default_status` | no | `gap` (default) or `platform`. Platform countermeasures are treated as infrastructure-level controls managed by the security team. See [Platform Controls](../docs/concepts/platform-controls.md). |
 
@@ -544,13 +551,13 @@ Different item types use different identifier keys. Using the wrong key causes s
 Validation catches this automatically on import and suggests the fix.
 
 ```yaml
-# frameworks/nist-csf/pack.yaml
+# standards/nist-csf/pack.yaml
 pack:
+  schema_version: 1
   slug: nist-csf
   name: "NIST CSF 2.0"
   version: "1.0.0"
   pack_type: compliance
-  tier: free
   author: "Precogly"
   description: "NIST Cybersecurity Framework 2.0"
   tags:
@@ -580,20 +587,19 @@ frameworks:
 When your pack depends on another, you can reference its items using qualified slugs (`{pack-slug}/{item-id}`):
 
 ```yaml
-# In your threats-countermeasures.yaml, referencing a base-stride countermeasure
+# In your threats-countermeasures.yaml, referencing another pack's countermeasure
 mappings:
   - threat: my-custom-threat
     countermeasures:
       - my-local-countermeasure        # same pack — plain id
-      - base-stride/mfa-enforcement    # different pack — qualified slug
+      - aws/s3-block-public-access     # different pack — qualified slug
 ```
 
 Declare the dependency in `pack.yaml`:
 
 ```yaml
 depends_on:
-  - pack: base-stride
-    version: "^1.0.0"
+  - threat-libraries/aws
 ```
 
 ---
@@ -614,8 +620,9 @@ POST /api/packs/validate/
 | Check | Severity | What it catches |
 |---|---|---|
 | Required metadata (`slug`, `name`, `version`, `pack_type`) | Error | Missing pack identity fields |
+| Missing `schema_version` | Warning | Pack format version not declared |
+| Unsupported `schema_version` | Error | Pack uses a format version the app cannot read |
 | Valid `pack_type` enum | Warning | Typos in pack type |
-| Valid `tier` enum | Warning | Typos in tier value |
 | Framework entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
 | Taxonomy entries use `slug` not `id` | Warning | Wrong key name (causes silent skip) |
 | Components/threats/countermeasures have `id` | Error | Missing identifier |
@@ -631,10 +638,11 @@ POST /api/packs/validate/
 
 Before submitting a pack, verify:
 
+- [ ] `pack.yaml` has `schema_version: 1` as the first field in the `pack:` section
 - [ ] `pack.yaml` has all required fields (`slug`, `name`, `version`, `pack_type`, `description`)
 - [ ] All `id` / `slug` values are unique within their file
 - [ ] All `id` values are lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`)
-- [ ] All `control_type` values are `preventive`, `detective`, `corrective`, or `procedural`
+- [ ] All `control_type` values are `preventive`, `detective`, `corrective`, `deterrent`, `recovery`, `compensating`, or `procedural`
 - [ ] All `cost` values are `low`, `medium`, or `high`
 - [ ] All references in join files point to ids that exist in the pack (or in declared dependencies)
 - [ ] All threat refs in `threats-{taxonomy}.yaml` join files resolve to valid threat IDs

@@ -50,6 +50,20 @@ Click **Templates** to browse pre-built diagrams from your library packs. Search
 
 ![An AWS Serverless template inserted into the editor](../assets/images/dfd-insert-template.png)
 
+## Multiple DFDs
+
+A threat model can have more than one DFD. The first DFD you create is automatically marked **primary** — this is the diagram whose components, data flows, and trust zones sync to the backend and drive threat analysis. Additional DFDs are **secondary** and are useful for reference diagrams, alternate views, or draft explorations; they save canvas data but do not generate analysis artifacts (components, threats, countermeasures).
+
+![DFD carousel showing a primary and secondary DFD alongside summary cards](../assets/images/dfd-multiple-dfds-carousel.png)
+
+You can manage DFDs from the **Overview** tab of the workspace:
+
+- **Create** — click the **+** button in the DFD carousel (or **Create First DFD** if none exist).
+- **Edit** — click a DFD card to open it in the editor.
+- **Delete** — open the DFD in the editor and click **Delete**. If you delete the primary DFD, the next oldest DFD is automatically promoted to primary.
+
+Only one DFD per threat model can be primary. When you need a secondary DFD's content to feed into threat analysis, delete the current primary (or its nodes) and recreate the components on the primary DFD.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |

@@ -7,8 +7,6 @@ export * from './risk'
 // Re-export pack types
 export {
   type PackType,
-  type PackTier,
-  type PackSource,
   type PackDependency,
   type PackContentSummary,
   type LibraryPack,

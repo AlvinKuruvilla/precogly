@@ -6,20 +6,21 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    ComponentInstanceCountermeasureStandardViewSet,
-    ComponentInstanceCountermeasureViewSet,
     ComponentInstanceThreatViewSet,
     ComponentLibraryThreatViewSet,
+    CountermeasureCommentViewSet,
     CountermeasureLibraryViewSet,
     DataFlowInstanceThreatViewSet,
     ExternalTaxonomyViewSet,
-    FlowInstanceCountermeasureStandardViewSet,
-    FlowInstanceCountermeasureViewSet,
+    InstanceCountermeasureStandardViewSet,
+    InstanceCountermeasureViewSet,
     PentestFindingViewSet,
     RiskViewSet,
     ScoringMethodsView,
     TaxonomyEntryViewSet,
     ThreatLibraryViewSet,
+    ThreatPersonaViewSet,
+    ThreatSourceViewSet,
     VerificationTestViewSet,
 )
 
@@ -46,14 +47,9 @@ router.register(
     basename="flow-threat",
 )
 router.register(
-    r"component-countermeasures",
-    ComponentInstanceCountermeasureViewSet,
-    basename="component-countermeasure",
-)
-router.register(
-    r"flow-countermeasures",
-    FlowInstanceCountermeasureViewSet,
-    basename="flow-countermeasure",
+    r"countermeasures",
+    InstanceCountermeasureViewSet,
+    basename="countermeasure",
 )
 router.register(
     r"verification-tests",
@@ -66,25 +62,34 @@ router.register(
     basename="pentest-finding",
 )
 router.register(
-    r"instance-countermeasure-standards",
-    ComponentInstanceCountermeasureStandardViewSet,
-    basename="instance-countermeasure-standard",
+    r"countermeasure-standards",
+    InstanceCountermeasureStandardViewSet,
+    basename="countermeasure-standard",
 )
+
 router.register(
-    r"flow-instance-countermeasure-standards",
-    FlowInstanceCountermeasureStandardViewSet,
-    basename="flow-instance-countermeasure-standard",
+    r"countermeasure-comments",
+    CountermeasureCommentViewSet,
+    basename="countermeasure-comment",
 )
 
 router.register(r"taxonomies", ExternalTaxonomyViewSet, basename="taxonomy")
 router.register(r"taxonomy-entries", TaxonomyEntryViewSet, basename="taxonomy-entry")
 
-# Nested route for risks under threat models
+# Nested routes under threat models
 router.register(
     r"threat-models/(?P<threat_model_pk>\d+)/risks",
     RiskViewSet,
     basename="threat-model-risk",
 )
+router.register(
+    r"threat-models/(?P<threat_model_pk>\d+)/threat-personas",
+    ThreatPersonaViewSet,
+    basename="threat-model-persona",
+)
+
+# Global reference data
+router.register(r"threat-sources", ThreatSourceViewSet, basename="threat-source")
 
 urlpatterns = [
     path("scoring-methods/", ScoringMethodsView.as_view(), name="scoring-methods"),

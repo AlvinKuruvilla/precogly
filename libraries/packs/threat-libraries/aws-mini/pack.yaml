@@ -1,0 +1,25 @@
+pack:
+  schema_version: 1
+  slug: aws-mini
+  name: AWS Mini
+  version: 1.1.0
+  pack_type: full
+  description: |
+    A minimal AWS pack demonstrating core AWS services with associated threats and countermeasures.
+    Includes S3, Lambda, API Gateway, and DynamoDB components with STRIDE-based threat modeling.
+  author: Precogly
+  depends_on:
+  - taxonomies/stride-taxonomy
+  - taxonomies/capec
+  - taxonomies/cwe
+  - taxonomies/mitre-attack
+  tags:
+  - aws
+  - cloud
+  - serverless
+  - storage
+  - api
+  - demo
+  - technology
+  - saas
+  - mini

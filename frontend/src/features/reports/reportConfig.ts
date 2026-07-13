@@ -49,7 +49,7 @@ const SECTION_MAP: Record<ReportType, SectionConfig[]> = {
     { id: 'crossFrameworkMappings', title: 'Cross-Framework Mappings', depth: 'full' },
     { id: 'assumptions', title: 'Assumptions Review', depth: 'full' },
     { id: 'findings', title: 'Compliance Findings', depth: 'compliance' },
-    { id: 'progressChecklist', title: 'Progress Checklist', depth: 'full' },
+    { id: 'progressChecklist', title: 'Completion Status', depth: 'full' },
   ],
   full: [
     { id: 'executiveSummary', title: 'Executive Summary', depth: 'full' },
@@ -69,7 +69,7 @@ const SECTION_MAP: Record<ReportType, SectionConfig[]> = {
     { id: 'crossFrameworkMappings', title: 'Cross-Framework Mappings', depth: 'full' },
     { id: 'assumptions', title: 'Assumptions Review', depth: 'full' },
     { id: 'findings', title: 'Findings & Action Items', depth: 'full' },
-    { id: 'progressChecklist', title: 'Progress Checklist', depth: 'full' },
+    { id: 'progressChecklist', title: 'Completion Status', depth: 'full' },
   ],
 }
 

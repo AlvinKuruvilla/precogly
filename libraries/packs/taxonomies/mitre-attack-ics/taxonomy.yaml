@@ -1,0 +1,145 @@
+taxonomies:
+  - slug: mitre-attack-ics
+    name: ATT&CK for ICS Techniques
+    description: "MITRE ATT&CK for Industrial Control Systems adversary tactics and techniques"
+    source_url: "https://attack.mitre.org/matrices/ics/"
+    entries:
+      # Initial Access
+      - external_id: T0819
+        title: Exploit Public-Facing Application
+        description: "Adversaries may leverage vulnerabilities in internet-facing ICS assets such as HMI web portals, VPN gateways, or OPC UA servers to gain initial access to the control network."
+        reference_url: "https://attack.mitre.org/techniques/T0819/"
+      - external_id: T0866
+        title: Exploitation of Remote Services
+        description: "Adversaries may exploit remote services such as VPN, RDP, or industrial remote access solutions to gain access to the control system network."
+        reference_url: "https://attack.mitre.org/techniques/T0866/"
+      - external_id: T0886
+        title: Remote Services
+        description: "Adversaries may use valid accounts to log into remote services such as VPN, RDP, SSH, or vendor remote support tools to access control system networks."
+        reference_url: "https://attack.mitre.org/techniques/T0886/"
+      - external_id: T0862
+        title: Supply Chain Compromise
+        description: "Adversaries may manipulate products or delivery mechanisms of control system components prior to receipt by the end user, embedding malicious capabilities."
+        reference_url: "https://attack.mitre.org/techniques/T0862/"
+      - external_id: T0860
+        title: Wireless Compromise
+        description: "Adversaries may perform wireless compromise to gain access to control system networks via industrial wireless protocols, WiFi, or cellular connections."
+        reference_url: "https://attack.mitre.org/techniques/T0860/"
+      - external_id: T0859
+        title: Valid Accounts
+        description: "Adversaries may steal or guess credentials of existing ICS accounts to gain initial access, maintain persistence, or move laterally within control system networks."
+        reference_url: "https://attack.mitre.org/techniques/T0859/"
+
+      # Execution
+      - external_id: T0807
+        title: Command-Line Interface
+        description: "Adversaries may use command-line interfaces to interact with control systems, execute commands on controllers, or modify system configurations."
+        reference_url: "https://attack.mitre.org/techniques/T0807/"
+      - external_id: T0821
+        title: Modify Controller Tasking
+        description: "Adversaries may modify the tasking of a controller to change how it interacts with the physical process, potentially altering setpoints, timers, or logic execution order."
+        reference_url: "https://attack.mitre.org/techniques/T0821/"
+      - external_id: T0858
+        title: Change Operating Mode
+        description: "Adversaries may change the operating mode of a controller to gain additional access, disable safety features, or enable remote programming capabilities."
+        reference_url: "https://attack.mitre.org/techniques/T0858/"
+
+      # Persistence
+      - external_id: T0839
+        title: Module Firmware
+        description: "Adversaries may install malicious firmware on control system modules such as I/O modules or communication modules to maintain persistence below the operating system level."
+        reference_url: "https://attack.mitre.org/techniques/T0839/"
+      - external_id: T0857
+        title: System Firmware
+        description: "Adversaries may modify system firmware on controllers or embedded devices to maintain persistence and survive device reboots or firmware updates."
+        reference_url: "https://attack.mitre.org/techniques/T0857/"
+      - external_id: T0843
+        title: Program Download
+        description: "Adversaries may download a modified program to a controller, replacing legitimate control logic with malicious logic that alters the physical process."
+        reference_url: "https://attack.mitre.org/techniques/T0843/"
+
+      # Discovery / Collection
+      - external_id: T0842
+        title: Network Sniffing
+        description: "Adversaries may sniff network traffic on industrial protocols such as Modbus, DNP3, or EtherNet/IP to discover control system topology, device addresses, and process data."
+        reference_url: "https://attack.mitre.org/techniques/T0842/"
+      - external_id: T0861
+        title: Point & Tag Identification
+        description: "Adversaries may identify points and tags used in control systems to understand the physical process being controlled and identify targets for manipulation."
+        reference_url: "https://attack.mitre.org/techniques/T0861/"
+
+      # Inhibit Response Function
+      - external_id: T0800
+        title: Activate Firmware Update Mode
+        description: "Adversaries may activate firmware update mode on a controller to prevent it from executing control logic, causing a denial of control condition."
+        reference_url: "https://attack.mitre.org/techniques/T0800/"
+      - external_id: T0803
+        title: Block Command Message
+        description: "Adversaries may block command messages between operators and controllers, preventing operators from sending control commands to the physical process."
+        reference_url: "https://attack.mitre.org/techniques/T0803/"
+      - external_id: T0804
+        title: Block Reporting Message
+        description: "Adversaries may block reporting messages from controllers to SCADA/HMI systems, preventing operators from receiving process status information."
+        reference_url: "https://attack.mitre.org/techniques/T0804/"
+      - external_id: T0816
+        title: Device Restart/Shutdown
+        description: "Adversaries may restart or shut down control system devices such as PLCs, RTUs, or safety controllers to disrupt the physical process."
+        reference_url: "https://attack.mitre.org/techniques/T0816/"
+
+      # Impair Process Control
+      - external_id: T0806
+        title: Brute Force I/O
+        description: "Adversaries may brute force I/O points to rapidly toggle outputs or change values, potentially causing physical damage to equipment or unsafe process conditions."
+        reference_url: "https://attack.mitre.org/techniques/T0806/"
+      - external_id: T0836
+        title: Modify Parameter
+        description: "Adversaries may modify parameters and setpoints in controllers to alter the behavior of the physical process outside safe operating limits."
+        reference_url: "https://attack.mitre.org/techniques/T0836/"
+      - external_id: T0855
+        title: Unauthorized Command Message
+        description: "Adversaries may send unauthorized command messages to controllers using industrial protocols to manipulate the physical process."
+        reference_url: "https://attack.mitre.org/techniques/T0855/"
+      - external_id: T0856
+        title: Spoof Reporting Message
+        description: "Adversaries may spoof reporting messages from controllers to SCADA/HMI, providing operators with false process data while the physical process is being manipulated."
+        reference_url: "https://attack.mitre.org/techniques/T0856/"
+
+      # Impact
+      - external_id: T0813
+        title: Denial of Control
+        description: "Adversaries may cause a denial of control condition by preventing operators from interacting with the physical process, potentially leading to unsafe states."
+        reference_url: "https://attack.mitre.org/techniques/T0813/"
+      - external_id: T0815
+        title: Denial of Service
+        description: "Adversaries may perform denial of service attacks against control system components, disrupting communication or processing capabilities."
+        reference_url: "https://attack.mitre.org/techniques/T0815/"
+      - external_id: T0826
+        title: Loss of Availability
+        description: "Adversaries may cause a loss of availability of control system components, making them unable to respond to operator commands or process conditions."
+        reference_url: "https://attack.mitre.org/techniques/T0826/"
+      - external_id: T0827
+        title: Loss of Control
+        description: "Adversaries may cause a complete loss of control over the physical process, where operators can neither monitor nor influence process behavior."
+        reference_url: "https://attack.mitre.org/techniques/T0827/"
+      - external_id: T0828
+        title: Loss of Productivity and Revenue
+        description: "Adversaries may cause loss of productivity and revenue through manipulation or disruption of industrial processes, resulting in production downtime."
+        reference_url: "https://attack.mitre.org/techniques/T0828/"
+      - external_id: T0829
+        title: Loss of View
+        description: "Adversaries may cause a loss of view condition where operators cannot monitor the physical process, leaving them blind to the actual state of operations."
+        reference_url: "https://attack.mitre.org/techniques/T0829/"
+      - external_id: T0831
+        title: Manipulation of Control
+        description: "Adversaries may manipulate control system logic or parameters to alter the physical process in a way that causes damage, degradation, or unsafe conditions."
+        reference_url: "https://attack.mitre.org/techniques/T0831/"
+      - external_id: T0832
+        title: Manipulation of View
+        description: "Adversaries may manipulate the view presented to operators, showing false process data to mask malicious activity or prevent appropriate operator response."
+        reference_url: "https://attack.mitre.org/techniques/T0832/"
+
+      # Command and Control
+      - external_id: T0869
+        title: Standard Application Layer Protocol
+        description: "Adversaries may use standard application layer protocols such as HTTP, HTTPS, or industrial protocols (Modbus TCP, OPC UA) for command and control communications."
+        reference_url: "https://attack.mitre.org/techniques/T0869/"

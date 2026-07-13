@@ -3,6 +3,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/precogly/precogly)](https://github.com/precogly/precogly/releases/latest)
 [![License](https://img.shields.io/github/license/precogly/precogly)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/precogly/precogly)](https://github.com/precogly/precogly/stargazers)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/EMn653Qkq)
 ![OWASP Project](https://img.shields.io/badge/OWASP-Project-blue?logo=owasp)
 
 > [!IMPORTANT]
@@ -13,7 +14,7 @@
 ### Quick Start
 
 ```bash
-  git clone --branch v0.1.0 https://github.com/precogly/precogly.git
+  git clone --branch v0.2.0 https://github.com/precogly/precogly.git
   cd precogly
   docker compose up --build
 ```
@@ -57,11 +58,21 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 - **AI-agent ready architecture** — A clean REST API with full OpenAPI docs, designed to be a foundation for AI-powered threat modeling assistants.
 - **Pack ecosystem** — Community and official packs for AWS, Azure, GCP, banking, and compliance frameworks. Extend or create your own.
 
+### Our AI Philosophy
+
+1. **AI agents need CRUD scaffolding** — Before AI generates a single threat, the platform must let you create, store, update, and track its core objects.
+2. **Ahead-of-time AI > just-in-time AI** — You can point AI at a system during threat modeling, or use it ahead of time to build curated threat libraries linked to standards. The second wins. Fewer hallucinations, more consistency.
+3. **The journey of understanding is the threat model** — The value of the threat model lives in the shared comprehension that humans build along the way. That needs a common interface where humans and agents work from the same picture.
+
 ### Tech Stack
 
 - **Frontend:** React 19, TypeScript, Tailwind CSS, shadcn/ui, React Flow
 - **Backend:** Django 5.1, Django REST Framework, PostgreSQL 16
 - **Infrastructure:** Docker, nginx (production)
+
+### Roadmap
+
+See the [v0.2.0 milestone](https://github.com/precogly/precogly/milestone/1) for what's coming next.
 
 ### Contributing
 
@@ -70,6 +81,10 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 - Contribute to the codebase
 
 If you find Precogly useful, give the project a star!
+
+### Community
+
+Join the conversation on [Discord](https://discord.gg/EMn653Qkq).
 
 ### Need Help? Contact the Developer
 

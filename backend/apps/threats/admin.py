@@ -1,19 +1,22 @@
 from django.contrib import admin
 
 from .models import (
-    ComponentInstanceCountermeasure,
     ComponentInstanceThreat,
     ComponentLibraryThreat,
     CountermeasureLibrary,
     DataFlowInstanceThreat,
     ExternalTaxonomy,
-    FlowInstanceCountermeasure,
+    InstanceCountermeasure,
     PentestFinding,
     Risk,
     RiskThreat,
     TaxonomyEntry,
     ThreatLibrary,
     ThreatLibraryTaxonomyEntry,
+    ThreatPersona,
+    ThreatPersonaLink,
+    ThreatSource,
+    ThreatSourceLink,
     VerificationTest,
 )
 
@@ -50,15 +53,9 @@ class DataFlowInstanceThreatAdmin(admin.ModelAdmin):
     list_filter = ["status", "inherent_severity"]
 
 
-@admin.register(ComponentInstanceCountermeasure)
-class ComponentInstanceCountermeasureAdmin(admin.ModelAdmin):
-    list_display = ["instance_threat", "countermeasure_library", "status", "assigned_owner"]
-    list_filter = ["status", "required_for_release"]
-
-
-@admin.register(FlowInstanceCountermeasure)
-class FlowInstanceCountermeasureAdmin(admin.ModelAdmin):
-    list_display = ["flow_threat", "countermeasure_library", "status", "assigned_owner"]
+@admin.register(InstanceCountermeasure)
+class InstanceCountermeasureAdmin(admin.ModelAdmin):
+    list_display = ["threat_model", "countermeasure_library", "status", "assigned_owner"]
     list_filter = ["status", "required_for_release"]
 
 
@@ -104,3 +101,26 @@ class RiskAdmin(admin.ModelAdmin):
 class RiskThreatAdmin(admin.ModelAdmin):
     list_display = ["risk", "component_threat", "flow_threat"]
     list_filter = ["risk__threat_model"]
+
+
+@admin.register(ThreatPersona)
+class ThreatPersonaAdmin(admin.ModelAdmin):
+    list_display = ["name", "symbolic_name", "threat_model", "is_person", "malicious_intent"]
+    list_filter = ["is_person", "malicious_intent"]
+    search_fields = ["name", "symbolic_name"]
+
+
+@admin.register(ThreatPersonaLink)
+class ThreatPersonaLinkAdmin(admin.ModelAdmin):
+    list_display = ["persona", "component_threat", "flow_threat"]
+
+
+@admin.register(ThreatSource)
+class ThreatSourceAdmin(admin.ModelAdmin):
+    list_display = ["name", "slug"]
+    search_fields = ["name", "slug"]
+
+
+@admin.register(ThreatSourceLink)
+class ThreatSourceLinkAdmin(admin.ModelAdmin):
+    list_display = ["source", "component_threat", "flow_threat"]

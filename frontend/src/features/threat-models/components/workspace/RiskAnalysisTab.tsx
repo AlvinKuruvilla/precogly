@@ -1,11 +1,22 @@
 import { useState } from 'react'
-import { Plus, RefreshCw, Trash2, ChevronRight, Loader2 } from 'lucide-react'
+import {
+  Plus,
+  RefreshCw,
+  Trash2,
+  ChevronRight,
+  Loader2,
+  LayoutGrid,
+  Table2,
+  CheckSquare,
+  Square,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -42,12 +53,23 @@ import {
   useRisks,
   useRisk,
   useCreateRisk,
+  useUpdateRisk,
   useDeleteRisk,
   useRecalculateRisk,
   useScoringMethods,
+  useBulkUpdateRisks,
 } from '@/features/threat-models/api/risks'
-import type { Risk, RiskLevel, RiskStatus, ScoringMethodKey, CreateRiskInput, ScoringMethod } from '@/types/risk'
+import type {
+  Risk,
+  RiskLevel,
+  RiskResponse,
+  ScoringMethodKey,
+  CreateRiskInput,
+  ScoringMethod,
+} from '@/types/risk'
 import type { ComponentThreat } from '@/features/dfd-editor/types/threat-analysis'
+import { useWorkspace } from '@/contexts/WorkspaceContext'
+import { useOrganizationMembers } from '@/features/organization/api/organizations'
 
 interface RiskAnalysisTabProps {
   threatModelId: string
@@ -56,6 +78,16 @@ interface RiskAnalysisTabProps {
   onScoringMethodChange: (method: ScoringMethodKey) => void
 }
 
+type ViewMode = 'table' | 'kanban'
+
+const KANBAN_COLUMNS: { response: RiskResponse | null; label: string; color: string }[] = [
+  { response: null, label: 'Unresponded', color: 'border-gray-300 bg-gray-50' },
+  { response: 'mitigate', label: 'Mitigate', color: 'border-blue-300 bg-blue-50' },
+  { response: 'transfer', label: 'Transfer', color: 'border-yellow-300 bg-yellow-50' },
+  { response: 'accept', label: 'Accept', color: 'border-purple-300 bg-purple-50' },
+  { response: 'avoid', label: 'Avoid', color: 'border-green-300 bg-green-50' },
+]
+
 const LEVEL_COLORS: Record<RiskLevel, string> = {
   critical: 'bg-red-100 text-red-800 border-red-200',
   high: 'bg-orange-100 text-orange-800 border-orange-200',
@@ -63,10 +95,18 @@ const LEVEL_COLORS: Record<RiskLevel, string> = {
   low: 'bg-green-100 text-green-800 border-green-200',
 }
 
-const STATUS_COLORS: Record<RiskStatus, string> = {
-  open: 'bg-red-100 text-red-800 border-red-200',
-  mitigated: 'bg-green-100 text-green-800 border-green-200',
-  accepted: 'bg-blue-100 text-blue-800 border-blue-200',
+const RESPONSE_COLORS: Record<string, string> = {
+  accept: 'bg-purple-100 text-purple-800 border-purple-200',
+  mitigate: 'bg-blue-100 text-blue-800 border-blue-200',
+  transfer: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  avoid: 'bg-green-100 text-green-800 border-green-200',
+}
+
+const RESPONSE_LABELS: Record<string, string> = {
+  accept: 'Accept',
+  mitigate: 'Mitigate',
+  transfer: 'Transfer',
+  avoid: 'Avoid',
 }
 
 function LevelBadge({ level }: { level: RiskLevel | null }) {
@@ -78,10 +118,13 @@ function LevelBadge({ level }: { level: RiskLevel | null }) {
   )
 }
 
-function StatusBadge({ status }: { status: RiskStatus }) {
+function ResponseBadge({ response }: { response: RiskResponse | null }) {
+  if (!response) {
+    return <span className="text-muted-foreground text-sm">—</span>
+  }
   return (
-    <Badge variant="outline" className={STATUS_COLORS[status]}>
-      {status}
+    <Badge variant="outline" className={RESPONSE_COLORS[response]}>
+      {RESPONSE_LABELS[response]}
     </Badge>
   )
 }
@@ -96,9 +139,8 @@ function ScoreDisplay({ score, level }: { score: number | null; level: RiskLevel
   )
 }
 
-/**
- * Dynamic scoring form based on the selected method's metadata_schema.
- */
+// ─── Scoring metadata form ────────────────────────────────────────────────────
+
 function ScoringMetadataForm({
   method,
   metadata,
@@ -109,7 +151,6 @@ function ScoringMetadataForm({
   onChange: (metadata: Record<string, unknown>) => void
 }) {
   if (!method) return null
-
   return (
     <div className="space-y-3">
       {Object.entries(method.metadataSchema).map(([fieldKey, fieldSchema]) => {
@@ -142,7 +183,6 @@ function ScoringMetadataForm({
               <Textarea
                 value={(metadata[fieldKey] as string) || ''}
                 onChange={(e) => onChange({ ...metadata, [fieldKey]: e.target.value })}
-                placeholder={`Enter ${fieldKey.replace(/_/g, ' ')}`}
                 rows={2}
               />
             </div>
@@ -170,9 +210,8 @@ function ScoringMetadataForm({
   )
 }
 
-/**
- * Threat picker for selecting threats to link to a risk.
- */
+// ─── Threat picker ────────────────────────────────────────────────────────────
+
 function ThreatPicker({
   componentThreats,
   selectedComponentThreatIds,
@@ -185,18 +224,15 @@ function ThreatPicker({
   onToggle: (backendId: number, threatType: 'component' | 'dataflow') => void
 }) {
   const activeThreats = componentThreats.filter((t) => !t.dismissed && t.backendThreatId)
-
   if (activeThreats.length === 0) {
     return <p className="text-sm text-muted-foreground py-2">No threats available to link.</p>
   }
-
   return (
     <div className="max-h-48 overflow-y-auto border rounded-md">
       {activeThreats.map((threat) => {
         const isComponent = threat.threatType !== 'dataflow'
         const selectedIds = isComponent ? selectedComponentThreatIds : selectedFlowThreatIds
         const isSelected = selectedIds.includes(threat.backendThreatId!)
-
         return (
           <label
             key={threat.id}
@@ -212,9 +248,7 @@ function ThreatPicker({
               <span className="text-sm truncate block">
                 {threat.threatName || `Threat #${threat.backendThreatId}`}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {isComponent ? 'Component' : 'Flow'}
-              </span>
+              <span className="text-xs text-muted-foreground">{isComponent ? 'Component' : 'Flow'}</span>
             </div>
           </label>
         )
@@ -223,9 +257,8 @@ function ThreatPicker({
   )
 }
 
-/**
- * Add Risk dialog.
- */
+// ─── Add Risk dialog ──────────────────────────────────────────────────────────
+
 function AddRiskDialog({
   open,
   onOpenChange,
@@ -243,12 +276,16 @@ function AddRiskDialog({
 }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [riskResponse, setRiskResponse] = useState<RiskResponse | null>(null)
+  const [owner, setOwner] = useState<number | null>(null)
   const [scoringMetadata, setScoringMetadata] = useState<Record<string, unknown>>({})
   const [inherentScore, setInherentScore] = useState<number | ''>('')
   const [selectedComponentThreatIds, setSelectedComponentThreatIds] = useState<number[]>([])
   const [selectedFlowThreatIds, setSelectedFlowThreatIds] = useState<number[]>([])
 
   const createRisk = useCreateRisk(threatModelId)
+  const { currentOrganization } = useWorkspace()
+  const { data: orgMembers = [] } = useOrganizationMembers(currentOrganization?.id ?? 0)
   const isCustom = scoringMethod === 'custom' || !activeScoringMethod?.available
 
   const handleToggleThreat = (backendId: number, threatType: 'component' | 'dataflow') => {
@@ -263,33 +300,31 @@ function AddRiskDialog({
     }
   }
 
+  const resetForm = () => {
+    setName('')
+    setDescription('')
+    setRiskResponse(null)
+    setOwner(null)
+    setScoringMetadata({})
+    setInherentScore('')
+    setSelectedComponentThreatIds([])
+    setSelectedFlowThreatIds([])
+  }
+
   const handleSubmit = () => {
     const input: CreateRiskInput = {
       name,
       description,
       scoringMetadata,
+      response: riskResponse,
+      owner,
       componentThreatIds: selectedComponentThreatIds,
       flowThreatIds: selectedFlowThreatIds,
     }
-    if (isCustom && inherentScore !== '') {
-      input.inherentScore = Number(inherentScore)
-    }
-
+    if (isCustom && inherentScore !== '') input.inherentScore = Number(inherentScore)
     createRisk.mutate(input, {
-      onSuccess: () => {
-        onOpenChange(false)
-        resetForm()
-      },
+      onSuccess: () => { onOpenChange(false); resetForm() },
     })
-  }
-
-  const resetForm = () => {
-    setName('')
-    setDescription('')
-    setScoringMetadata({})
-    setInherentScore('')
-    setSelectedComponentThreatIds([])
-    setSelectedFlowThreatIds([])
   }
 
   const canSubmit = name.trim() && (isCustom ? inherentScore !== '' : true)
@@ -300,46 +335,55 @@ function AddRiskDialog({
         <DialogHeader>
           <DialogTitle>Add Risk</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Data Breach via API Exploitation" />
           </div>
-
           <div className="space-y-1">
             <Label>Description</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" rows={2} />
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
-
-          {activeScoringMethod && (
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Scoring Method</Label>
-              <p className="text-sm text-muted-foreground">
-                {activeScoringMethod.label}
-              </p>
+              <Label>Response</Label>
+              <Select value={riskResponse ?? '_none'} onValueChange={(v) => setRiskResponse(v === '_none' ? null : v as RiskResponse)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select response…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">None</SelectItem>
+                  {Object.entries(RESPONSE_LABELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-
+            <div className="space-y-1">
+              <Label>Owner</Label>
+              <Select value={owner?.toString() ?? '_none'} onValueChange={(v) => setOwner(v === '_none' ? null : Number(v))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">No owner</SelectItem>
+                  {orgMembers.map((member) => (
+                    <SelectItem key={member.user} value={member.user.toString()}>
+                      {member.userEmail}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           {isCustom ? (
             <div className="space-y-1">
-              <Label>Inherent Score (0-100)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={inherentScore}
-                onChange={(e) => setInherentScore(e.target.value ? Number(e.target.value) : '')}
-              />
+              <Label>Inherent Score (0–100)</Label>
+              <Input type="number" min={0} max={100} value={inherentScore} onChange={(e) => setInherentScore(e.target.value ? Number(e.target.value) : '')} />
             </div>
           ) : (
-            <ScoringMetadataForm
-              method={activeScoringMethod}
-              metadata={scoringMetadata}
-              onChange={setScoringMetadata}
-            />
+            <ScoringMetadataForm method={activeScoringMethod} metadata={scoringMetadata} onChange={setScoringMetadata} />
           )}
-
           <div className="space-y-1">
             <Label>Link Threats (optional)</Label>
             <ThreatPicker
@@ -350,13 +394,10 @@ function AddRiskDialog({
             />
           </div>
         </div>
-
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit || createRisk.isPending}>
-            {createRisk.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {createRisk.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Create Risk
           </Button>
         </DialogFooter>
@@ -365,9 +406,8 @@ function AddRiskDialog({
   )
 }
 
-/**
- * Risk detail side panel.
- */
+// ─── Risk detail panel ────────────────────────────────────────────────────────
+
 function RiskDetailPanel({
   risk,
   threatModelId,
@@ -380,18 +420,22 @@ function RiskDetailPanel({
   const { data: riskDetail } = useRisk(threatModelId, risk.id)
   const displayRisk = riskDetail ?? risk
   const recalculate = useRecalculateRisk(threatModelId)
+  const updateRisk = useUpdateRisk(threatModelId)
   const { data: scoringMethods } = useScoringMethods()
-  const scoringMethodLabel = scoringMethods?.find((m) => m.key === displayRisk.scoringMethod)?.label
-    ?? displayRisk.scoringMethod.replace(/_/g, ' ')
+  const scoringMethodLabel =
+    scoringMethods?.find((m) => m.key === displayRisk.scoringMethod)?.label ??
+    displayRisk.scoringMethod.replace(/_/g, ' ')
+
+  const handleResponseChange = (newResponse: string) => {
+    updateRisk.mutate({ riskId: risk.id, data: { response: newResponse as RiskResponse } })
+  }
 
   return (
     <Card className="border-l-2 border-l-primary">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{displayRisk.name}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            &times;
-          </Button>
+          <Button variant="ghost" size="sm" onClick={onClose}>&times;</Button>
         </div>
         {displayRisk.description && (
           <p className="text-sm text-muted-foreground">{displayRisk.description}</p>
@@ -409,17 +453,24 @@ function RiskDetailPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-muted-foreground">Status:</p>
-          <StatusBadge status={displayRisk.status} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => recalculate.mutate(risk.id)}
-            disabled={recalculate.isPending}
-          >
-            <RefreshCw className={`h-3 w-3 ${recalculate.isPending ? 'animate-spin' : ''}`} />
-          </Button>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">Response</p>
+          <div className="flex items-center gap-2">
+            <Select value={displayRisk.response ?? '_none'} onValueChange={(v) => handleResponseChange(v === '_none' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">Unresponded</SelectItem>
+                {Object.entries(RESPONSE_LABELS).map(([val, label]) => (
+                  <SelectItem key={val} value={val}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => recalculate.mutate(risk.id)} disabled={recalculate.isPending}>
+              <RefreshCw className={`h-3 w-3 ${recalculate.isPending ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {displayRisk.ownerEmail && (
@@ -428,43 +479,21 @@ function RiskDetailPanel({
             <p className="text-sm">{displayRisk.ownerEmail}</p>
           </div>
         )}
-        {displayRisk.assignedToEmail && (
-          <div>
-            <p className="text-xs text-muted-foreground">Assigned To</p>
-            <p className="text-sm">{displayRisk.assignedToEmail}</p>
-          </div>
-        )}
 
         {displayRisk.threats && displayRisk.threats.length > 0 && (
           <div>
-            <p className="text-xs text-muted-foreground mb-2">
-              Linked Threats ({displayRisk.threats.length})
-            </p>
+            <p className="text-xs text-muted-foreground mb-2">Linked Threats ({displayRisk.threats.length})</p>
             <div className="space-y-1">
               {displayRisk.threats.map((threat) => (
-                <div
-                  key={threat.riskThreatId}
-                  className="flex items-center justify-between text-sm border rounded px-2 py-1"
-                >
-                  <span className="truncate flex-1">
-                    {threat.threatName || `Threat #${threat.threatId}`}
-                  </span>
+                <div key={threat.riskThreatId} className="flex items-center justify-between text-sm border rounded px-2 py-1">
+                  <span className="truncate flex-1">{threat.threatName || `Threat #${threat.threatId}`}</span>
                   <div className="flex items-center gap-1.5 ml-2">
-                    <Badge variant="outline" className="text-xs">
-                      {threat.threatType}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={
-                        threat.status === 'mitigated'
-                          ? 'bg-green-50 text-green-700'
-                          : threat.status === 'accepted'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-red-50 text-red-700'
-                      }
-                    >
-                      {threat.status}
-                    </Badge>
+                    <Badge variant="outline" className="text-xs">{threat.threatType}</Badge>
+                    <Badge variant="outline" className={
+                      threat.status === 'mitigated' ? 'bg-green-50 text-green-700' :
+                      threat.status === 'accepted' ? 'bg-blue-50 text-blue-700' :
+                      'bg-red-50 text-red-700'
+                    }>{threat.status}</Badge>
                   </div>
                 </div>
               ))}
@@ -481,13 +510,263 @@ function RiskDetailPanel({
   )
 }
 
-/**
- * Main Risk Analysis Tab component.
- */
-export function RiskAnalysisTab({ threatModelId, componentThreats, riskScoringMethod, onScoringMethodChange }: RiskAnalysisTabProps) {
+// ─── Kanban board ─────────────────────────────────────────────────────────────
+
+function KanbanCard({
+  risk,
+  isSelected,
+  onSelect,
+  onDelete,
+}: {
+  risk: Risk
+  isSelected: boolean
+  onSelect: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div
+      className={`bg-white border rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'ring-2 ring-primary' : ''}`}
+      onClick={onSelect}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span className="text-sm font-medium leading-tight">{risk.name}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 w-5 p-0 shrink-0"
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+        >
+          <Trash2 className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <LevelBadge level={risk.inherentLevel} />
+      </div>
+      {risk.ownerEmail && (
+        <p className="text-xs text-muted-foreground mt-1 truncate">{risk.ownerEmail}</p>
+      )}
+    </div>
+  )
+}
+
+function KanbanBoard({
+  risks,
+  selectedRiskId,
+  onSelectRisk,
+  onDeleteRisk,
+  threatModelId,
+}: {
+  risks: Risk[]
+  selectedRiskId: number | null
+  onSelectRisk: (id: number) => void
+  onDeleteRisk: (id: number) => void
+  threatModelId: string
+}) {
+  const updateRisk = useUpdateRisk(threatModelId)
+
+  const handleDrop = (e: React.DragEvent, targetResponse: RiskResponse | null) => {
+    e.preventDefault()
+    const riskId = Number(e.dataTransfer.getData('riskId'))
+    if (riskId) updateRisk.mutate({ riskId, data: { response: targetResponse } })
+  }
+
+  return (
+    <div className="grid grid-cols-5 items-start gap-4">
+      {KANBAN_COLUMNS.map((col) => {
+        const colRisks = risks.filter((r) => r.response === col.response)
+        return (
+          <div
+            key={col.response ?? '_none'}
+            className={`rounded-lg border-2 ${col.color} p-3`}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, col.response)}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold">{col.label}</span>
+              <Badge variant="secondary" className="text-xs">{colRisks.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {colRisks.map((risk) => (
+                <div
+                  key={risk.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('riskId', String(risk.id))}
+                >
+                  <KanbanCard
+                    risk={risk}
+                    isSelected={selectedRiskId === risk.id}
+                    onSelect={() => onSelectRisk(risk.id)}
+                    onDelete={() => onDeleteRisk(risk.id)}
+                  />
+                </div>
+              ))}
+              {colRisks.length === 0 && (
+                <div className="border border-dashed rounded-md py-4 text-xs text-muted-foreground text-center">
+                  Drop here
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Bulk action bar ──────────────────────────────────────────────────────────
+
+function BulkActionBar({
+  selectedIds,
+  threatModelId,
+  onClear,
+}: {
+  selectedIds: number[]
+  threatModelId: string
+  onClear: () => void
+}) {
+  const bulkUpdate = useBulkUpdateRisks(threatModelId)
+  const [bulkResponse, setBulkResponse] = useState<RiskResponse | ''>('')
+
+  const handleApply = () => {
+    if (!bulkResponse) return
+    bulkUpdate.mutate(
+      {
+        riskIds: selectedIds,
+        response: bulkResponse,
+      },
+      { onSuccess: onClear }
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-3 p-3 bg-muted/60 border rounded-lg">
+      <span className="text-sm font-medium">{selectedIds.length} selected</span>
+      <Select value={bulkResponse} onValueChange={(v) => setBulkResponse(v as RiskResponse)}>
+        <SelectTrigger className="h-8 w-[150px]">
+          <SelectValue placeholder="Set response…" />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(RESPONSE_LABELS).map(([val, label]) => (
+            <SelectItem key={val} value={val}>{label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button size="sm" onClick={handleApply} disabled={!bulkResponse || bulkUpdate.isPending}>
+        {bulkUpdate.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+        Apply
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
+    </div>
+  )
+}
+
+// ─── Table view ───────────────────────────────────────────────────────────────
+
+function TableView({
+  risks,
+  selectedRiskId,
+  selectedIds,
+  onSelectRisk,
+  onToggleSelect,
+  onToggleSelectAll,
+  onDeleteRisk,
+}: {
+  risks: Risk[]
+  selectedRiskId: number | null
+  selectedIds: number[]
+  onSelectRisk: (id: number) => void
+  onToggleSelect: (id: number) => void
+  onToggleSelectAll: () => void
+  onDeleteRisk: (id: number) => void
+}) {
+  const allSelected = risks.length > 0 && selectedIds.length === risks.length
+
+  return (
+    <div className="border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[40px]">
+              <button onClick={onToggleSelectAll} className="flex items-center">
+                {allSelected
+                  ? <CheckSquare className="h-4 w-4 text-primary" />
+                  : <Square className="h-4 w-4 text-muted-foreground" />
+                }
+              </button>
+            </TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead className="w-[140px]">Inherent</TableHead>
+            <TableHead className="w-[140px]">Residual</TableHead>
+            <TableHead className="w-[120px]">Response</TableHead>
+            <TableHead className="w-[140px]">Owner</TableHead>
+            <TableHead className="w-[80px]">Threats</TableHead>
+            <TableHead className="w-[60px]" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {risks.map((risk) => (
+            <TableRow
+              key={risk.id}
+              className={`cursor-pointer ${selectedRiskId === risk.id ? 'bg-muted/50' : ''}`}
+              onClick={() => onSelectRisk(risk.id)}
+            >
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds.includes(risk.id)}
+                  onCheckedChange={() => onToggleSelect(risk.id)}
+                />
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{risk.name}</span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </TableCell>
+              <TableCell>
+                <ScoreDisplay score={risk.inherentScore} level={risk.inherentLevel} />
+              </TableCell>
+              <TableCell>
+                <ScoreDisplay score={risk.residualScore} level={risk.residualLevel} />
+              </TableCell>
+              <TableCell>
+                <ResponseBadge response={risk.response} />
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground truncate">
+                {risk.ownerEmail ?? '—'}
+              </TableCell>
+              <TableCell className="text-center text-sm text-muted-foreground">
+                {risk.threatCount}
+              </TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); onDeleteRisk(risk.id) }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function RiskAnalysisTab({
+  threatModelId,
+  componentThreats,
+  riskScoringMethod,
+  onScoringMethodChange,
+}: RiskAnalysisTabProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [selectedRiskId, setSelectedRiskId] = useState<number | null>(null)
   const [deleteRiskId, setDeleteRiskId] = useState<number | null>(null)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
 
   const { data: risks, isLoading } = useRisks(threatModelId)
   const { data: scoringMethods } = useScoringMethods()
@@ -502,8 +781,18 @@ export function RiskAnalysisTab({ threatModelId, componentThreats, riskScoringMe
       onSuccess: () => {
         setDeleteRiskId(null)
         if (selectedRiskId === deleteRiskId) setSelectedRiskId(null)
+        setSelectedIds((prev) => prev.filter((id) => id !== deleteRiskId))
       },
     })
+  }
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  const handleToggleSelectAll = () => {
+    if (!risks) return
+    setSelectedIds(selectedIds.length === risks.length ? [] : risks.map((r) => r.id))
   }
 
   if (isLoading) {
@@ -517,32 +806,48 @@ export function RiskAnalysisTab({ threatModelId, componentThreats, riskScoringMe
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-semibold">Risk Register</h2>
           <p className="text-sm text-muted-foreground">
-            {risks?.length ?? 0} risk{(risks?.length ?? 0) !== 1 ? 's' : ''} identified
+            {risks?.length ?? 0} risk{(risks?.length ?? 0) !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Scoring method */}
           <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground whitespace-nowrap">Scoring Method:</Label>
-            <Select
-              value={riskScoringMethod}
-              onValueChange={(value) => onScoringMethodChange(value as ScoringMethodKey)}
-            >
-              <SelectTrigger className="w-[260px]">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Scoring:</Label>
+            <Select value={riskScoringMethod} onValueChange={(v) => onScoringMethodChange(v as ScoringMethodKey)}>
+              <SelectTrigger className="w-[220px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {(scoringMethods ?? []).map((method) => (
                   <SelectItem key={method.key} value={method.key} disabled={!method.available}>
-                    {method.label}
-                    {!method.available && ' (Coming Soon)'}
+                    {method.label}{!method.available && ' (Coming Soon)'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          {/* View toggle */}
+          <div className="flex border rounded-md overflow-hidden">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('table')}
+            >
+              <Table2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('kanban')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
           </div>
           <Button onClick={() => setAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -551,90 +856,75 @@ export function RiskAnalysisTab({ threatModelId, componentThreats, riskScoringMe
         </div>
       </div>
 
-      <div className="flex gap-6">
-        {/* Risk Table */}
-        <div className={`flex-1 ${selectedRisk ? 'max-w-[60%]' : ''}`}>
-          {!risks || risks.length === 0 ? (
-            <Card className="p-12 text-center">
-              <p className="text-muted-foreground mb-4">
-                No risks defined yet. Create a risk to start building the risk register.
-              </p>
-              <Button onClick={() => setAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Risk
-              </Button>
-            </Card>
-          ) : (
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="w-[140px]">Inherent</TableHead>
-                    <TableHead className="w-[140px]">Residual</TableHead>
-                    <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead className="w-[80px]">Threats</TableHead>
-                    <TableHead className="w-[60px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {risks.map((risk) => (
-                    <TableRow
-                      key={risk.id}
-                      className={`cursor-pointer ${selectedRiskId === risk.id ? 'bg-muted/50' : ''}`}
-                      onClick={() => setSelectedRiskId(risk.id)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{risk.name}</span>
-                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <ScoreDisplay score={risk.inherentScore} level={risk.inherentLevel} />
-                      </TableCell>
-                      <TableCell>
-                        <ScoreDisplay score={risk.residualScore} level={risk.residualLevel} />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={risk.status} />
-                      </TableCell>
-                      <TableCell className="text-center text-sm text-muted-foreground">
-                        {risk.threatCount}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteRiskId(risk.id)
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+      {/* Bulk action bar */}
+      {selectedIds.length > 0 && viewMode === 'table' && (
+        <BulkActionBar
+          selectedIds={selectedIds}
+          threatModelId={threatModelId}
+          onClear={() => setSelectedIds([])}
+        />
+      )}
+
+      {/* Empty state */}
+      {!risks || risks.length === 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground mb-4">
+            No risks defined yet. Add a risk manually to get started.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => setAddDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Risk
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="flex gap-6">
+          {/* Main content */}
+          <div className={`flex-1 min-w-0 ${selectedRisk && viewMode === 'table' ? 'max-w-[60%]' : ''}`}>
+            {viewMode === 'table' ? (
+              <TableView
+                risks={risks}
+                selectedRiskId={selectedRiskId}
+                selectedIds={selectedIds}
+                onSelectRisk={setSelectedRiskId}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+                onDeleteRisk={setDeleteRiskId}
+              />
+            ) : (
+              <KanbanBoard
+                risks={risks}
+                selectedRiskId={selectedRiskId}
+                onSelectRisk={setSelectedRiskId}
+                onDeleteRisk={setDeleteRiskId}
+                threatModelId={threatModelId}
+              />
+            )}
+          </div>
+
+          {/* Detail panel (table view only) */}
+          {selectedRisk && viewMode === 'table' && (
+            <div className="w-[40%] shrink-0">
+              <RiskDetailPanel
+                risk={selectedRisk}
+                threatModelId={threatModelId}
+                onClose={() => setSelectedRiskId(null)}
+              />
             </div>
           )}
         </div>
+      )}
 
-        {/* Detail Panel */}
-        {selectedRisk && (
-          <div className="w-[40%]">
-            <RiskDetailPanel
-              risk={selectedRisk}
-              threatModelId={threatModelId}
-              onClose={() => setSelectedRiskId(null)}
-            />
-          </div>
-        )}
-      </div>
+      {/* Detail panel for kanban (below board) */}
+      {selectedRisk && viewMode === 'kanban' && (
+        <RiskDetailPanel
+          risk={selectedRisk}
+          threatModelId={threatModelId}
+          onClose={() => setSelectedRiskId(null)}
+        />
+      )}
 
-      {/* Add Risk Dialog */}
       <AddRiskDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
@@ -644,14 +934,12 @@ export function RiskAnalysisTab({ threatModelId, componentThreats, riskScoringMe
         activeScoringMethod={activeScoringMethod}
       />
 
-      {/* Delete Confirmation */}
       <AlertDialog open={deleteRiskId !== null} onOpenChange={(open) => !open && setDeleteRiskId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Risk</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this risk and unlink all associated threats.
-              This action cannot be undone.
+              This will permanently delete this risk and unlink all associated threats. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

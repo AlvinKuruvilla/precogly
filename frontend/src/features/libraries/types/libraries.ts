@@ -2,7 +2,7 @@
  * Type definitions for library items.
  */
 
-import type { TaxonomyEntry } from './domain'
+import type { TaxonomyEntry } from '@/types/domain'
 
 export interface ComponentLibrary {
   id: number

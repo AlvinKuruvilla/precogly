@@ -10,8 +10,7 @@ import type { Framework, FrameworkRequirement, CountermeasureStandardMapping } f
 
 export interface InstanceCountermeasureStandard {
   id: number
-  componentCountermeasure?: number
-  flowCountermeasure?: number
+  countermeasure: number
   requirement: number
   frameworkName: string
   frameworkSlug: string
@@ -29,8 +28,8 @@ export const complianceKeys = {
   framework: (id: number) => [...complianceKeys.all, 'framework', id] as const,
   requirements: (frameworkId?: number) => [...complianceKeys.all, 'requirements', frameworkId] as const,
   countermeasureMappings: (countermeasureId?: number) => [...complianceKeys.all, 'mappings', countermeasureId] as const,
-  instanceMappings: (countermeasureId: number, type: 'component' | 'flow') =>
-    [...complianceKeys.all, 'instance-mappings', type, countermeasureId] as const,
+  instanceMappings: (countermeasureId: number) =>
+    [...complianceKeys.all, 'instance-mappings', countermeasureId] as const,
   complianceDrift: (threatModelId: string) =>
     [...complianceKeys.all, 'drift', threatModelId] as const,
 }
@@ -97,14 +96,15 @@ export function useCountermeasureMappings(countermeasureId?: number) {
 // ============================================
 
 /**
- * Fetch instance-level compliance mappings for a component countermeasure.
+ * Fetch instance-level compliance mappings for a countermeasure.
+ * Unified: works for both component and flow countermeasures.
  */
-export function useComponentInstanceMappings(countermeasureId: number | null) {
+export function useInstanceMappings(countermeasureId: number | null) {
   return useQuery({
-    queryKey: complianceKeys.instanceMappings(countermeasureId!, 'component'),
+    queryKey: complianceKeys.instanceMappings(countermeasureId!),
     queryFn: async () => {
       const response = await api.get<{ results: InstanceCountermeasureStandard[] } | InstanceCountermeasureStandard[]>(
-        `/instance-countermeasure-standards/?component_countermeasure=${countermeasureId}`
+        `/countermeasure-standards/?countermeasure=${countermeasureId}`
       )
       return Array.isArray(response) ? response : response.results
     },
@@ -113,67 +113,26 @@ export function useComponentInstanceMappings(countermeasureId: number | null) {
 }
 
 /**
- * Fetch instance-level compliance mappings for a flow countermeasure.
+ * Create an instance-level compliance mapping for a countermeasure.
+ * Unified: works for both component and flow countermeasures.
  */
-export function useFlowInstanceMappings(countermeasureId: number | null) {
-  return useQuery({
-    queryKey: complianceKeys.instanceMappings(countermeasureId!, 'flow'),
-    queryFn: async () => {
-      const response = await api.get<{ results: InstanceCountermeasureStandard[] } | InstanceCountermeasureStandard[]>(
-        `/flow-instance-countermeasure-standards/?flow_countermeasure=${countermeasureId}`
-      )
-      return Array.isArray(response) ? response : response.results
-    },
-    enabled: countermeasureId !== null,
-  })
-}
-
-/**
- * Create an instance-level compliance mapping for a component countermeasure.
- */
-export function useCreateComponentInstanceMapping() {
+export function useCreateInstanceMapping() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (data: {
-      componentCountermeasure: number
+      countermeasure: number
       requirement: number
       sufficiency: 'full' | 'partial'
     }) =>
-      api.post<InstanceCountermeasureStandard>('/instance-countermeasure-standards/', {
-        component_countermeasure: data.componentCountermeasure,
+      api.post<InstanceCountermeasureStandard>('/countermeasure-standards/', {
+        countermeasure: data.countermeasure,
         requirement: data.requirement,
         sufficiency: data.sufficiency,
       }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: complianceKeys.instanceMappings(variables.componentCountermeasure, 'component'),
-      })
-      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
-    },
-  })
-}
-
-/**
- * Create an instance-level compliance mapping for a flow countermeasure.
- */
-export function useCreateFlowInstanceMapping() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (data: {
-      flowCountermeasure: number
-      requirement: number
-      sufficiency: 'full' | 'partial'
-    }) =>
-      api.post<InstanceCountermeasureStandard>('/flow-instance-countermeasure-standards/', {
-        flow_countermeasure: data.flowCountermeasure,
-        requirement: data.requirement,
-        sufficiency: data.sufficiency,
-      }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: complianceKeys.instanceMappings(variables.flowCountermeasure, 'flow'),
+        queryKey: complianceKeys.instanceMappings(variables.countermeasure),
       })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
     },
@@ -183,18 +142,15 @@ export function useCreateFlowInstanceMapping() {
 /**
  * Update an instance-level compliance mapping.
  */
-export function useUpdateInstanceMapping(type: 'component' | 'flow') {
+export function useUpdateInstanceMapping() {
   const queryClient = useQueryClient()
-  const endpoint = type === 'component'
-    ? '/instance-countermeasure-standards'
-    : '/flow-instance-countermeasure-standards'
 
   return useMutation({
     mutationFn: (data: {
       id: number
       sufficiency: 'full' | 'partial'
     }) =>
-      api.patch<InstanceCountermeasureStandard>(`${endpoint}/${data.id}/`, {
+      api.patch<InstanceCountermeasureStandard>(`/countermeasure-standards/${data.id}/`, {
         sufficiency: data.sufficiency,
       }),
     onSuccess: () => {
@@ -207,14 +163,11 @@ export function useUpdateInstanceMapping(type: 'component' | 'flow') {
 /**
  * Delete an instance-level compliance mapping.
  */
-export function useDeleteInstanceMapping(type: 'component' | 'flow') {
+export function useDeleteInstanceMapping() {
   const queryClient = useQueryClient()
-  const endpoint = type === 'component'
-    ? '/instance-countermeasure-standards'
-    : '/flow-instance-countermeasure-standards'
 
   return useMutation({
-    mutationFn: (id: number) => api.delete(`${endpoint}/${id}/`),
+    mutationFn: (id: number) => api.delete(`/countermeasure-standards/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: complianceKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })

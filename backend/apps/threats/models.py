@@ -281,6 +281,25 @@ class CountermeasureLibrary(TimestampedModel):
         super().save(*args, **kwargs)
 
 
+class ThreatIntent(models.TextChoices):
+    """Attacker intent classification (CycloneDX 2.0 TM-BOM)."""
+
+    ACCIDENTAL = "accidental", "Accidental"
+    OPPORTUNISTIC = "opportunistic", "Opportunistic"
+    TARGETED = "targeted", "Targeted"
+    PERSISTENT = "persistent", "Persistent"
+
+
+class ThreatAccessLevel(models.TextChoices):
+    """Access level required for threat (CycloneDX 2.0 TM-BOM)."""
+
+    NONE = "none", "None"
+    EXTERNAL = "external", "External"
+    INTERNAL = "internal", "Internal"
+    PRIVILEGED = "privileged", "Privileged"
+    PHYSICAL = "physical", "Physical"
+
+
 class ComponentInstanceThreat(TimestampedModel):
     """Threat instance for a specific component."""
 
@@ -356,19 +375,25 @@ class ComponentInstanceThreat(TimestampedModel):
         default="",
         help_text="Narrative description of what the attacker achieves",
     )
-    threat_actor = models.ForeignKey(
-        OrgsystemComponent,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="threats_as_actor",
-        help_text="DFD actor who can initiate this threat",
-    )
     threat_actor_text = models.CharField(
         max_length=100,
         blank=True,
         default="",
-        help_text="Free-text threat actor when not linked to a DFD component (e.g. 'state actor', 'hacktivist')",
+        help_text="Free-text threat actor (e.g. 'state actor', 'hacktivist')",
+    )
+    intent = models.CharField(
+        max_length=20,
+        choices=ThreatIntent.choices,
+        blank=True,
+        default="",
+        help_text="Attacker intent: accidental, opportunistic, targeted, or persistent",
+    )
+    access_level = models.CharField(
+        max_length=20,
+        choices=ThreatAccessLevel.choices,
+        blank=True,
+        default="",
+        help_text="Access level required: none, external, internal, privileged, or physical",
     )
 
     class Meta:
@@ -454,19 +479,25 @@ class DataFlowInstanceThreat(TimestampedModel):
         default="",
         help_text="Narrative description of what the attacker achieves",
     )
-    threat_actor = models.ForeignKey(
-        OrgsystemComponent,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="flow_threats_as_actor",
-        help_text="DFD actor who can initiate this threat",
-    )
     threat_actor_text = models.CharField(
         max_length=100,
         blank=True,
         default="",
-        help_text="Free-text threat actor when not linked to a DFD component (e.g. 'state actor', 'hacktivist')",
+        help_text="Free-text threat actor (e.g. 'state actor', 'hacktivist')",
+    )
+    intent = models.CharField(
+        max_length=20,
+        choices=ThreatIntent.choices,
+        blank=True,
+        default="",
+        help_text="Attacker intent: accidental, opportunistic, targeted, or persistent",
+    )
+    access_level = models.CharField(
+        max_length=20,
+        choices=ThreatAccessLevel.choices,
+        blank=True,
+        default="",
+        help_text="Access level required: none, external, internal, privileged, or physical",
     )
 
     class Meta:
@@ -477,18 +508,21 @@ class DataFlowInstanceThreat(TimestampedModel):
         return f"{self.data_flow} - {self.threat_library}"
 
 
-class ComponentInstanceCountermeasure(TimestampedModel):
-    """Countermeasure instance for a component threat."""
+class InstanceCountermeasure(TimestampedModel):
+    """Unified countermeasure instance scoped to a threat model, linked to threats via junction table."""
 
     class Status(models.TextChoices):
         GAP = "gap", "Gap"
         PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In Progress"
+        IMPLEMENTED = "implemented", "Implemented"
         VERIFIED = "verified", "Verified"
         WAIVED = "waived", "Waived"
         PLATFORM = "platform", "Platform"
+        DECOMMISSIONED = "decommissioned", "Decommissioned"
 
-    instance_threat = models.ForeignKey(
-        ComponentInstanceThreat,
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
         on_delete=models.CASCADE,
         related_name="countermeasures",
     )
@@ -497,7 +531,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="component_instances",
+        related_name="instances",
         help_text="Null means orphaned/custom countermeasure (library item was removed)",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.GAP)
@@ -506,7 +540,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="verified_component_countermeasures",
+        related_name="verified_countermeasures",
     )
     evidence_url = models.URLField(blank=True)
     required_for_release = models.BooleanField(default=False)
@@ -515,7 +549,7 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="assigned_component_countermeasures",
+        related_name="assigned_countermeasures",
     )
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
@@ -540,8 +574,11 @@ class ComponentInstanceCountermeasure(TimestampedModel):
         help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
+    due_date = models.DateField(null=True, blank=True, help_text="Target completion date")
+    external_ticket_url = models.URLField(
+        blank=True, help_text="Link to Jira/GitHub/etc. ticket"
+    )
     format_metadata = models.JSONField(default=dict, blank=True)
-    display_order = models.PositiveIntegerField(default=0)
 
     # Zone inheritance tracking
     is_inherited = models.BooleanField(default=False)
@@ -549,90 +586,61 @@ class ComponentInstanceCountermeasure(TimestampedModel):
     inherited_from_zone_name = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        unique_together = ["instance_threat", "countermeasure_library"]
-        ordering = ["instance_threat", "display_order", "created_at"]
+        ordering = ["created_at"]
 
     def __str__(self):
-        return f"{self.instance_threat} - {self.countermeasure_library}"
+        return f"CM:{self.countermeasure_name or self.countermeasure_library}"
 
 
-class FlowInstanceCountermeasure(TimestampedModel):
-    """Countermeasure instance for a data flow threat."""
+class CountermeasureThreatLink(TimestampedModel):
+    """Polymorphic junction table linking a countermeasure to component and/or flow threats."""
 
-    class Status(models.TextChoices):
-        GAP = "gap", "Gap"
-        PLANNED = "planned", "Planned"
-        VERIFIED = "verified", "Verified"
-        WAIVED = "waived", "Waived"
-        PLATFORM = "platform", "Platform"
-
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
+        on_delete=models.CASCADE,
+        related_name="threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="countermeasure_links",
+    )
     flow_threat = models.ForeignKey(
         DataFlowInstanceThreat,
         on_delete=models.CASCADE,
-        related_name="countermeasures",
-    )
-    countermeasure_library = models.ForeignKey(
-        CountermeasureLibrary,
-        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="flow_instances",
-        help_text="Null means orphaned/custom countermeasure (library item was removed)",
+        related_name="countermeasure_links",
     )
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.GAP)
-    verified_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="verified_flow_countermeasures",
-    )
-    evidence_url = models.URLField(blank=True)
-    required_for_release = models.BooleanField(default=False)
-    assigned_owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="assigned_flow_countermeasures",
-    )
-
-    # Metadata copied from library on creation (for self-sufficiency if orphaned)
-    countermeasure_name = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Copied from CountermeasureLibrary.name on creation",
-    )
-    countermeasure_description = models.TextField(
-        blank=True,
-        help_text="Copied from CountermeasureLibrary.description on creation",
-    )
-    control_type = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="Copied from CountermeasureLibrary.control_type on creation",
-    )
-    effectiveness = models.FloatField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-        help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
-    )
-    priority = models.CharField(max_length=10, default="none", blank=True)
-    format_metadata = models.JSONField(default=dict, blank=True)
     display_order = models.PositiveIntegerField(default=0)
 
-    # Zone inheritance tracking
-    is_inherited = models.BooleanField(default=False)
-    inherited_from_component_name = models.CharField(max_length=255, blank=True)
-    inherited_from_zone_name = models.CharField(max_length=255, blank=True)
-
     class Meta:
-        unique_together = ["flow_threat", "countermeasure_library"]
-        ordering = ["flow_threat", "display_order", "created_at"]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="cm_link_exactly_one_threat_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["countermeasure", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_cm_component_threat_link",
+            ),
+            models.UniqueConstraint(
+                fields=["countermeasure", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_cm_flow_threat_link",
+            ),
+        ]
+        ordering = ["display_order", "created_at"]
 
     def __str__(self):
-        return f"{self.flow_threat} - {self.countermeasure_library}"
+        threat = self.component_threat or self.flow_threat
+        return f"{self.countermeasure} -> {threat}"
 
 
 class VerificationTest(TimestampedModel):
@@ -656,50 +664,53 @@ class VerificationTest(TimestampedModel):
         return self.name
 
 
-class ComponentInstanceCountermeasureTest(TimestampedModel):
-    """Association between component countermeasure and verification test."""
+class InstanceCountermeasureTest(TimestampedModel):
+    """Association between countermeasure and verification test."""
 
-    component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.CASCADE,
         related_name="tests",
     )
     verification_test = models.ForeignKey(
         VerificationTest,
         on_delete=models.CASCADE,
-        related_name="component_countermeasure_tests",
+        related_name="countermeasure_tests",
     )
     tested_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ["component_countermeasure", "verification_test"]
+        unique_together = ["countermeasure", "verification_test"]
         ordering = ["-tested_at"]
 
     def __str__(self):
-        return f"{self.component_countermeasure} - {self.verification_test}"
+        return f"{self.countermeasure} - {self.verification_test}"
 
 
-class FlowInstanceCountermeasureTest(TimestampedModel):
-    """Association between flow countermeasure and verification test."""
+class CountermeasureComment(TimestampedModel):
+    """Comment/history log entry for a countermeasure instance."""
 
-    flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
-        on_delete=models.CASCADE,
-        related_name="tests",
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="countermeasure_comments",
     )
-    verification_test = models.ForeignKey(
-        VerificationTest,
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.CASCADE,
-        related_name="flow_countermeasure_tests",
+        related_name="comments",
     )
-    tested_at = models.DateTimeField(auto_now_add=True)
+    body = models.TextField()
+    # Optional: record what changed (e.g., "status: gap → planned")
+    change_summary = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        unique_together = ["flow_countermeasure", "verification_test"]
-        ordering = ["-tested_at"]
+        ordering = ["created_at"]
 
     def __str__(self):
-        return f"{self.flow_countermeasure} - {self.verification_test}"
+        return f"Comment on {self.countermeasure} by {self.author}"
 
 
 class PentestFinding(TimestampedModel):
@@ -724,15 +735,8 @@ class PentestFinding(TimestampedModel):
         blank=True,
         related_name="matched_pentest_findings",
     )
-    matched_component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="pentest_findings",
-    )
-    matched_flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
+    matched_countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -751,8 +755,8 @@ class PentestFinding(TimestampedModel):
         return f"Finding: {self.finding_description[:50]}..."
 
 
-class ComponentInstanceCountermeasureStandard(TimestampedModel):
-    """Instance-level compliance mapping for component countermeasures.
+class InstanceCountermeasureStandard(TimestampedModel):
+    """Instance-level compliance mapping for countermeasures.
 
     Allows overriding library-level compliance mappings for specific countermeasure instances.
     Instance mappings take precedence over library mappings for the same requirement.
@@ -762,8 +766,8 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
         FULL = "full", "Full"
         PARTIAL = "partial", "Partial"
 
-    component_countermeasure = models.ForeignKey(
-        ComponentInstanceCountermeasure,
+    countermeasure = models.ForeignKey(
+        InstanceCountermeasure,
         on_delete=models.CASCADE,
         related_name="instance_standard_mappings",
     )
@@ -772,7 +776,7 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="component_instance_countermeasure_mappings",
+        related_name="instance_countermeasure_mappings",
     )
     sufficiency = models.CharField(
         max_length=10,
@@ -786,55 +790,12 @@ class ComponentInstanceCountermeasureStandard(TimestampedModel):
     requirement_description = models.TextField(blank=True, default="")
 
     class Meta:
-        unique_together = ["component_countermeasure", "requirement"]
-        verbose_name = "Component countermeasure compliance mapping"
-        verbose_name_plural = "Component countermeasure compliance mappings"
+        unique_together = ["countermeasure", "requirement"]
+        verbose_name = "Countermeasure compliance mapping"
+        verbose_name_plural = "Countermeasure compliance mappings"
 
     def __str__(self):
-        return f"{self.component_countermeasure} - {self.requirement} ({self.sufficiency})"
-
-
-class FlowInstanceCountermeasureStandard(TimestampedModel):
-    """Instance-level compliance mapping for flow countermeasures.
-
-    Allows overriding library-level compliance mappings for specific countermeasure instances.
-    Instance mappings take precedence over library mappings for the same requirement.
-    """
-
-    class Sufficiency(models.TextChoices):
-        FULL = "full", "Full"
-        PARTIAL = "partial", "Partial"
-
-    flow_countermeasure = models.ForeignKey(
-        FlowInstanceCountermeasure,
-        on_delete=models.CASCADE,
-        related_name="instance_standard_mappings",
-    )
-    requirement = models.ForeignKey(
-        "compliance.StandardRequirement",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="flow_instance_countermeasure_mappings",
-    )
-    sufficiency = models.CharField(
-        max_length=10,
-        choices=Sufficiency.choices,
-        default=Sufficiency.PARTIAL,
-    )
-
-    # Snapshot fields — populated on creation, used as fallback when requirement is NULL
-    section_code = models.CharField(max_length=50, blank=True, default="")
-    framework_name = models.CharField(max_length=255, blank=True, default="")
-    requirement_description = models.TextField(blank=True, default="")
-
-    class Meta:
-        unique_together = ["flow_countermeasure", "requirement"]
-        verbose_name = "Flow countermeasure compliance mapping"
-        verbose_name_plural = "Flow countermeasure compliance mappings"
-
-    def __str__(self):
-        return f"{self.flow_countermeasure} - {self.requirement} ({self.sufficiency})"
+        return f"{self.countermeasure} - {self.requirement} ({self.sufficiency})"
 
 
 def build_taxonomy_snapshot(threat_library):
@@ -862,6 +823,12 @@ class Risk(TimestampedModel):
         HIGH = "high", "High"
         CRITICAL = "critical", "Critical"
 
+    class Response(models.TextChoices):
+        ACCEPT = "accept", "Accept"
+        MITIGATE = "mitigate", "Mitigate"
+        TRANSFER = "transfer", "Transfer"
+        AVOID = "avoid", "Avoid"
+
     threat_model = models.ForeignKey(
         "threat_models.ThreatModel",
         on_delete=models.CASCADE,
@@ -883,6 +850,30 @@ class Risk(TimestampedModel):
         max_length=10,
         choices=Level.choices,
         blank=True,
+    )
+    response = models.CharField(
+        max_length=20,
+        choices=Response.choices,
+        null=True,
+        blank=True,
+        help_text="Risk response strategy per NIST IR 8286",
+    )
+    domains = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Risk domains, e.g. ['security', 'compliance']",
+    )
+    target_score = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Target risk score after planned mitigations",
+    )
+    target_level = models.CharField(
+        max_length=10,
+        choices=Level.choices,
+        blank=True,
+        help_text="Target risk level after planned mitigations",
     )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -911,6 +902,208 @@ class Risk(TimestampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.inherent_level})"
+
+
+class ThreatPersona(TimestampedModel):
+    """Threat persona scoped to a specific threat model."""
+
+    threat_model = models.ForeignKey(
+        "threat_models.ThreatModel",
+        on_delete=models.CASCADE,
+        related_name="threat_personas",
+    )
+    symbolic_name = models.SlugField(
+        max_length=100,
+        help_text="Machine-readable identifier, e.g., 'malicious-insider'",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    is_person = models.BooleanField(default=True)
+    malicious_intent = models.BooleanField(default=True)
+    skill_level = models.CharField(max_length=100, blank=True, default="")
+    motivation = models.TextField(blank=True, default="")
+    resources = models.TextField(blank=True, default="")
+    objectives = models.TextField(blank=True, default="")
+    format_metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Extra fields from JSON for round-trip fidelity",
+    )
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["threat_model", "symbolic_name"],
+                name="unique_persona_per_threat_model",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ThreatPersonaLink(TimestampedModel):
+    """Links a ThreatPersona to a threat instance (dual-FK pattern)."""
+
+    persona = models.ForeignKey(
+        ThreatPersona,
+        on_delete=models.CASCADE,
+        related_name="threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="persona_links",
+    )
+    flow_threat = models.ForeignKey(
+        DataFlowInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="persona_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="persona_link_exactly_one_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["persona", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_persona_component_threat",
+            ),
+            models.UniqueConstraint(
+                fields=["persona", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_persona_flow_threat",
+            ),
+        ]
+
+    def __str__(self):
+        threat = self.component_threat or self.flow_threat
+        return f"{self.persona.name} -> {threat}"
+
+
+class ThreatSource(TimestampedModel):
+    """Global reference table for threat sources (e.g., NIST SP 800-30r1)."""
+
+    slug = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class ThreatSourceLink(TimestampedModel):
+    """Links a ThreatSource to a threat instance (dual-FK pattern)."""
+
+    source = models.ForeignKey(
+        ThreatSource,
+        on_delete=models.CASCADE,
+        related_name="threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="source_links",
+    )
+    flow_threat = models.ForeignKey(
+        DataFlowInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="source_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="source_link_exactly_one_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["source", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_source_component_threat",
+            ),
+            models.UniqueConstraint(
+                fields=["source", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_source_flow_threat",
+            ),
+        ]
+
+    def __str__(self):
+        threat = self.component_threat or self.flow_threat
+        return f"{self.source.name} -> {threat}"
+
+
+class RiskResponse(TimestampedModel):
+    """Structured risk response (CycloneDX 2.0 TM-BOM)."""
+
+    class Strategy(models.TextChoices):
+        AVOID = "avoid", "Avoid"
+        REDUCE = "reduce", "Reduce"
+        TRANSFER = "transfer", "Transfer"
+        ACCEPT = "accept", "Accept"
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In Progress"
+        IMPLEMENTED = "implemented", "Implemented"
+        VERIFIED = "verified", "Verified"
+
+    risk = models.ForeignKey(
+        Risk,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    strategy = models.CharField(max_length=20, choices=Strategy.choices)
+    description = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PLANNED,
+    )
+    effectiveness = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
+    cost = models.CharField(max_length=20, blank=True)
+    priority = models.CharField(max_length=20, blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_risk_responses",
+    )
+    target_date = models.DateTimeField(null=True, blank=True)
+    format_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.risk.name} - {self.strategy}"
 
 
 class RiskThreat(TimestampedModel):

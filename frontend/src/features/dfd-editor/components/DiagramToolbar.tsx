@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { useReactFlow } from '@xyflow/react'
+import { useReactFlow, type XYPosition } from '@xyflow/react'
 import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -17,8 +17,11 @@ interface DiagramToolbarProps {
   onConnectionModeChange: (enabled: boolean) => void
   boundaryMode: boolean
   onBoundaryModeChange: (enabled: boolean) => void
+  getCanvasCenterPosition: () => XYPosition
   onOpenTemplates: () => void
   onOpenThreatAnalysis: () => void
+  hideTemplates?: boolean
+  hideAnalyzeThreats?: boolean
 }
 
 interface ToolbarButtonConfig {
@@ -74,22 +77,35 @@ const nodeButtons: ToolbarButtonConfig[] = [
   },
 ]
 
+const DEFAULT_NODE_SIZES: Record<DiagramNodeType, { width: number; height: number }> = {
+  humanActor: { width: 100, height: 100 },
+  systemActor: { width: 100, height: 90 },
+  process: { width: 120, height: 60 },
+  datastore: { width: 120, height: 80 },
+  trustZone: { width: 300, height: 200 },
+  systemScope: { width: 300, height: 200 },
+}
+
 export const DiagramToolbar = memo(function DiagramToolbar({
   connectionMode,
   onConnectionModeChange,
   boundaryMode,
   onBoundaryModeChange,
+  getCanvasCenterPosition,
   onOpenTemplates,
   onOpenThreatAnalysis,
+  hideTemplates,
+  hideAnalyzeThreats,
 }: DiagramToolbarProps) {
   const { addNodes, getNodes } = useReactFlow()
 
   const handleAddNode = (type: DiagramNodeType) => {
-    const nodes = getNodes()
-
-    // Calculate position for new node (offset from existing nodes)
-    const baseX = 100 + (nodes.length % 5) * 150
-    const baseY = 100 + Math.floor(nodes.length / 5) * 150
+    const center = getCanvasCenterPosition()
+    const nodeSize = DEFAULT_NODE_SIZES[type]
+    const position = {
+      x: center.x - nodeSize.width / 2,
+      y: center.y - nodeSize.height / 2,
+    }
 
     // Generate unique ID
     const id = `${type}-${Date.now()}`
@@ -112,7 +128,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
     addNodes({
       id,
       type,
-      position: { x: baseX, y: baseY },
+      position,
       data: { ...defaultData[type], isNewlyInserted: true },
       style: defaultStyle,
     })
@@ -199,51 +215,59 @@ export const DiagramToolbar = memo(function DiagramToolbar({
           </TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        {!hideTemplates && (
+          <>
+            <Separator orientation="vertical" className="h-8 mx-2" />
 
-        {/* Templates button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={onOpenTemplates}
-            >
-              <LayoutTemplate className="h-4 w-4" />
-              <span className="hidden sm:inline">Templates</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="font-medium">DFD Templates</p>
-            <p className="text-xs text-muted-foreground">
-              Browse and insert pre-built diagram templates
-            </p>
-          </TooltipContent>
-        </Tooltip>
+            {/* Templates button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={onOpenTemplates}
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                  <span className="hidden sm:inline">Templates</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-medium">DFD Templates</p>
+                <p className="text-xs text-muted-foreground">
+                  Browse and insert pre-built diagram templates
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
 
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        {!hideAnalyzeThreats && (
+          <>
+            <Separator orientation="vertical" className="h-8 mx-2" />
 
-        {/* Threat Analysis button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-2"
-              onClick={onOpenThreatAnalysis}
-            >
-              <ShieldAlert className="h-4 w-4" />
-              <span className="hidden sm:inline">Analyze Threats</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="font-medium">Analyze Threats & Countermeasures</p>
-            <p className="text-xs text-muted-foreground">
-              Review and manage threats based on your diagram components
-            </p>
-          </TooltipContent>
-        </Tooltip>
+            {/* Threat Analysis button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                  onClick={onOpenThreatAnalysis}
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  <span className="hidden sm:inline">Analyze Threats</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-medium">Analyze Threats & Countermeasures</p>
+                <p className="text-xs text-muted-foreground">
+                  Review and manage threats based on your diagram components
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
       </div>
     </TooltipProvider>
   )

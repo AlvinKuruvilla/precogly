@@ -55,7 +55,6 @@ export function ImportedPackRow({
           </div>
           <div>
             <h3 className="font-semibold">{pack.name}</h3>
-            <p className="text-sm text-muted-foreground">v{pack.version}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">

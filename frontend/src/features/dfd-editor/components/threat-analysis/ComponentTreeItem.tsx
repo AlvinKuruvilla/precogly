@@ -1,5 +1,6 @@
-import { Cog, Database, User, ChevronRight, Building2 } from 'lucide-react'
+import { Cog, Database, User, ChevronRight, Building2, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ComponentThreat } from '../../types/threat-analysis'
 import { deriveThreatStatus } from '../../types/threat-analysis'
@@ -43,6 +44,7 @@ export function ComponentTreeItem({
   onSelectComponent,
   onToggleCollapsed,
   resolveTechName,
+  onRequestDeleteComponent,
 }: {
   treeNode: ComponentTreeNode
   componentThreats: ComponentThreat[]
@@ -51,6 +53,7 @@ export function ComponentTreeItem({
   onSelectComponent: (id: string) => void
   onToggleCollapsed: (id: string) => void
   resolveTechName: (value: string | undefined) => string
+  onRequestDeleteComponent: (component: { id: number; name: string }) => void
 }) {
   const { node, children, depth } = treeNode
   const Icon = nodeTypeIcons[node.type as string] || Cog
@@ -63,13 +66,22 @@ export function ComponentTreeItem({
   const showSecondaryLabel = technologyName && !isDefaultLabel && nodeLabel !== technologyName
   const hasChildren = children.length > 0
   const isCollapsed = collapsedNodes.has(node.id)
+  const componentId = (node.data as { componentId?: number }).componentId
 
   return (
     <>
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelectComponent(node.id)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onSelectComponent(node.id)
+          }
+        }}
         className={cn(
-          'w-full text-left p-2 rounded-md transition-colors',
+          'group w-full text-left p-2 rounded-md transition-colors cursor-pointer',
           isSelected
             ? 'bg-slate-100 border border-slate-300'
             : 'hover:bg-slate-50'
@@ -80,13 +92,14 @@ export function ComponentTreeItem({
           <div className="flex items-center gap-1.5 min-w-0">
             {/* Chevron for parents, spacer for leaves */}
             {hasChildren ? (
-              <span
-                role="button"
+              <button
+                type="button"
                 className="flex-shrink-0 p-0.5 rounded hover:bg-slate-200 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation()
                   onToggleCollapsed(node.id)
                 }}
+                aria-label={isCollapsed ? `Expand ${displayName}` : `Collapse ${displayName}`}
               >
                 <ChevronRight
                   className={cn(
@@ -94,7 +107,7 @@ export function ComponentTreeItem({
                     !isCollapsed && 'rotate-90'
                   )}
                 />
-              </span>
+              </button>
             ) : (
               <span className="w-4 flex-shrink-0" />
             )}
@@ -110,19 +123,36 @@ export function ComponentTreeItem({
               )}
             </div>
           </div>
-          {summary.exposed > 0 ? (
-            <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
-              {summary.exposed} exposed
-            </Badge>
-          ) : summary.addressable > 0 ? (
-            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
-              {summary.addressable} in progress
-            </Badge>
-          ) : summary.total > 0 ? (
-            <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-              No threats
-            </span>
-          ) : null}
+          <div className="flex items-center gap-1 ml-2 shrink-0">
+            {componentId !== undefined && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRequestDeleteComponent({ id: componentId, name: displayName })
+                }}
+                aria-label={`Delete ${displayName}`}
+                title="Delete component"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+            {summary.exposed > 0 ? (
+              <Badge variant="outline" className="bg-red-100 text-red-700 text-xs shrink-0">
+                {summary.exposed} exposed
+              </Badge>
+            ) : summary.addressable > 0 ? (
+              <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs shrink-0">
+                {summary.addressable} in progress
+              </Badge>
+            ) : summary.total > 0 ? (
+              <span className="text-xs text-muted-foreground shrink-0">
+                No threats
+              </span>
+            ) : null}
+          </div>
         </div>
         {summary.total > 0 && (
           <div className="flex items-center gap-1 mt-1" style={{ marginLeft: `${hasChildren ? 24 : 20}px` }}>
@@ -137,7 +167,7 @@ export function ComponentTreeItem({
             </span>
           </div>
         )}
-      </button>
+      </div>
       {/* Data assets inline under selected component */}
       {isSelected && (
         <ComponentDataAssetsDisplay
@@ -155,6 +185,7 @@ export function ComponentTreeItem({
           onSelectComponent={onSelectComponent}
           onToggleCollapsed={onToggleCollapsed}
           resolveTechName={resolveTechName}
+          onRequestDeleteComponent={onRequestDeleteComponent}
         />
       ))}
     </>

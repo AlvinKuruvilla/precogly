@@ -1,4 +1,4 @@
-import { AlertTriangle, XCircle } from 'lucide-react'
+import { AlertTriangle, Loader2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,23 +14,28 @@ export function ValidationWarningsDialog({
   validationResult,
   open,
   onOpenChange,
+  onImportAnyway,
+  isImporting = false,
 }: {
   validationResult: ValidationResult | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onImportAnyway?: () => void
+  isImporting?: boolean
 }) {
   if (!validationResult) return null
 
   const hasErrors = validationResult.errorCount > 0
   const hasWarnings = validationResult.warningCount > 0
+  const canImportAnyway = hasWarnings && !hasErrors && onImportAnyway
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={isImporting ? undefined : onOpenChange}>
       <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Validation Issues Found</DialogTitle>
           <DialogDescription>
-            {validationResult.packName} v{validationResult.version}
+            {validationResult.packName}
           </DialogDescription>
         </DialogHeader>
 
@@ -91,9 +96,15 @@ export function ValidationWarningsDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting}>
             Close
           </Button>
+          {canImportAnyway && (
+            <Button onClick={onImportAnyway} disabled={isImporting}>
+              {isImporting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Import Anyway
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
