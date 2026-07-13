@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import {
   useTeams,
@@ -44,6 +45,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { UserPlus, Trash2, Plus, Pencil, Loader2, Copy, Check } from 'lucide-react'
 import type { TeamListItem, TeamRole, InviteMemberResponse } from '@/features/organization/types/organization'
 
@@ -58,6 +69,7 @@ export function TeamManagement() {
   const [selectedTeam, setSelectedTeam] = useState<TeamListItem | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingTeam, setEditingTeam] = useState<TeamListItem | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null)
 
   // Create team form state
   const [newTeamName, setNewTeamName] = useState('')
@@ -94,6 +106,10 @@ export function TeamManagement() {
           setNewTeamCode('')
           setNewTeamDescription('')
           setNewTeamBusinessUnit('')
+          toast.success('Team created successfully.')
+        },
+        onError: () => {
+          toast.error('Failed to create team.')
         },
       }
     )
@@ -104,14 +120,32 @@ export function TeamManagement() {
     updateTeamMutation.mutate(
       { id: editingTeam.id, data: { name: editName, description: editDescription } },
       {
-        onSuccess: () => setEditingTeam(null),
+        onSuccess: () => {
+          setEditingTeam(null)
+          toast.success('Team updated successfully.')
+        },
+        onError: () => {
+          toast.error('Failed to update team.')
+        },
       }
     )
   }
 
   const handleDeleteTeam = (teamId: number, teamName: string) => {
-    if (!confirm(`Are you sure you want to delete "${teamName}"? This cannot be undone.`)) return
-    deleteTeamMutation.mutate(teamId)
+    setPendingDelete({ id: teamId, name: teamName })
+  }
+
+  const confirmDeleteTeam = () => {
+    if (!pendingDelete) return
+    deleteTeamMutation.mutate(pendingDelete.id, {
+      onSuccess: () => {
+        toast.success('Team deleted successfully.')
+      },
+      onError: () => {
+        toast.error('Failed to delete team.')
+      },
+      onSettled: () => setPendingDelete(null),
+    })
   }
 
   const openEditDialog = (team: TeamListItem) => {
@@ -293,6 +327,33 @@ export function TeamManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Team Confirmation */}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete team?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete &ldquo;{pendingDelete?.name}&rdquo; and remove all its
+              member associations. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteTeam}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Team Members Dialog */}
       {selectedTeam && (
         <TeamMembersDialog
@@ -321,6 +382,10 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
   const [inviteRole, setInviteRole] = useState<TeamRole>('member')
   const [inviteResult, setInviteResult] = useState<InviteMemberResponse | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    userId: number
+    userEmail: string
+  } | null>(null)
 
   const roleColors: Record<string, string> = {
     lead: 'bg-purple-100 text-purple-800',
@@ -338,6 +403,14 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
           setInviteEmail('')
           setInviteRole('member')
           setInviteResult(data)
+          toast.success(
+            data.status === 'added'
+              ? 'Member added to the team.'
+              : 'Invitation created.'
+          )
+        },
+        onError: () => {
+          toast.error('Failed to invite member.')
         },
       }
     )
@@ -351,14 +424,38 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
-  const handleRemove = (userId: number) => {
-    if (confirm('Are you sure you want to remove this member from the team?')) {
-      removeMember({ teamId: team.id, userId })
-    }
+  const handleRemove = (userId: number, userEmail: string) => {
+    setPendingRemoval({ userId, userEmail })
+  }
+
+  const confirmRemoval = () => {
+    if (!pendingRemoval) return
+    removeMember(
+      { teamId: team.id, userId: pendingRemoval.userId },
+      {
+        onSuccess: () => {
+          toast.success('Member removed from team.')
+        },
+        onError: () => {
+          toast.error('Failed to remove member.')
+        },
+        onSettled: () => setPendingRemoval(null),
+      }
+    )
   }
 
   const handleRoleChange = (userId: number, newRole: string) => {
-    changeRole({ teamId: team.id, userId, role: newRole })
+    changeRole(
+      { teamId: team.id, userId, role: newRole },
+      {
+        onSuccess: () => {
+          toast.success('Member role updated.')
+        },
+        onError: () => {
+          toast.error('Failed to update role.')
+        },
+      }
+    )
   }
 
   return (
@@ -466,7 +563,7 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleRemove(member.user)}
+                        onClick={() => handleRemove(member.user, member.userEmail)}
                         disabled={isRemoving}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -478,6 +575,33 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
             )}
           </div>
         </div>
+
+        {/* Remove Member Confirmation */}
+        <AlertDialog
+          open={pendingRemoval !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingRemoval(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove {pendingRemoval?.userEmail} from {team.name}. They will lose
+                access to this team&apos;s threat models.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmRemoval}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   )
