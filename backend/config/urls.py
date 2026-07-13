@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/", include("apps.threats.urls")),  # threat/countermeasure libraries, instances
     path("api/", include("apps.organizations.urls")),  # organizations, memberships
     path("api/", include("apps.packs.urls")),  # library packs, installations
+    path("api/", include("apps.ai.urls")),  # per-tenant AI provider configs
     # API documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

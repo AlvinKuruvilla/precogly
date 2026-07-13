@@ -57,6 +57,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "apps.core",
+    "apps.ai",
     "apps.organizations",
     "apps.systems",
     "apps.threats",
@@ -264,3 +265,35 @@ DEFAULT_FROM_EMAIL = "noreply@precogly.dev"
 
 # Frontend URL for password reset links
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
+
+# AI threat suggestions
+#
+# Precogly talks to any OpenAI-compatible chat-completions endpoint, so a
+# self-hoster can point this at a local model (LM Studio, Ollama, llama.cpp)
+# or a hosted provider without changing code. The feature is OFF by default:
+# nothing reaches out to a model until an operator opts in by flipping
+# AI_SUGGESTIONS_ENABLED and pointing AI_BASE_URL at a running server.
+#
+# AI_BASE_URL is the OpenAI-style root that exposes /chat/completions; the
+# LM Studio default (localhost:1234/v1) matches its out-of-the-box server.
+# AI_API_KEY is optional because local servers usually don't require auth.
+AI_SUGGESTIONS_ENABLED = env.bool("AI_SUGGESTIONS_ENABLED", default=False)
+AI_BASE_URL = env("AI_BASE_URL", default="http://localhost:1234/v1")
+AI_MODEL = env("AI_MODEL", default="local-model")
+AI_API_KEY = env("AI_API_KEY", default="")
+# Cap how long a suggestion request waits on the model before failing with an
+# actionable error rather than hanging the user's request indefinitely.
+AI_REQUEST_TIMEOUT = env.int("AI_REQUEST_TIMEOUT", default=60)
+
+# The AI_* values above act as the *fallback* provider: a single operator-wide
+# config used when an organization has not saved its own AIProviderConfig. Orgs
+# that bring their own model override it per-tenant in the database.
+#
+# AI_SECRET_KEY encrypts those per-tenant API keys at rest (Fernet). It is kept
+# separate from SECRET_KEY so the model-key encryption secret can be rotated or
+# scoped independently of Django's signing key. It is only required once an
+# operator stores a non-empty API key; local setups with no key (e.g. LM Studio)
+# can leave it unset. Rotating it invalidates already-stored keys, which must
+# then be re-entered.
+AI_SECRET_KEY = env("AI_SECRET_KEY", default="")

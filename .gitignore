@@ -19,9 +19,17 @@ htmlcov/
 node_modules/
 dist/
 
+# IDE
+.vscode/
+.idea/
+
 # Django
 backend/staticfiles/
 backend/media/
 
 # MkDocs
 site/
+
+# Local working files (session notes, scratch artifacts)
+SESSION.md
+tmp/

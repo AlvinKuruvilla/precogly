@@ -762,6 +762,11 @@ export function ThreatModelDetail() {
                     onReorderThreats={reorderThreats}
                     onReorderCountermeasures={reorderCountermeasures}
                     isSecurityTeam={isSecurityTeam}
+                    aiComponentId={
+                      selectedBackendInfo?.type === 'component'
+                        ? selectedBackendInfo.backendId
+                        : null
+                    }
                   />
                 ) : (
                   <TableView
