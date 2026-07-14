@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FolderOpen, Pencil, ArrowLeft } from 'lucide-react'
+import { Download, FileText, FolderOpen, Pencil, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useGuestEditor } from '../context/GuestEditorContext'
 import { serializeToTmLibrary, downloadTmLibraryFile, openTmLibraryFile } from '../lib/precogly-file'
+import { exportGuestWordDoc } from '../lib/guestWordExport'
 
 function titleToFilename(title: string): string {
   return title.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '-').toLowerCase() || 'diagram'
@@ -115,6 +116,17 @@ export function GuestEditorHeader({
     }
   }, [onLoadFromFile, guestEditor])
 
+  const handleDownloadReport = useCallback(async () => {
+    if (!guestEditor) return
+    await exportGuestWordDoc({
+      title,
+      nodes: guestEditor.nodes,
+      edges: guestEditor.edges,
+      threats: guestEditor.getAllThreats(),
+      countermeasures: guestEditor.getAllCountermeasures(),
+    })
+  }, [title, guestEditor])
+
   return (
     <>
       <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
@@ -173,6 +185,16 @@ export function GuestEditorHeader({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Open a threat model JSON file</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleDownloadReport}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Report
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Download threat model report as Word document</TooltipContent>
             </Tooltip>
 
             <Tooltip>
