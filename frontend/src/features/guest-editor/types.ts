@@ -1,4 +1,5 @@
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
+import type { STRIDECategory } from '@/types/domain'
 
 export interface GuestThreat {
   id: string
@@ -7,6 +8,7 @@ export interface GuestThreat {
   name: string
   description: string
   severity: 'low' | 'medium' | 'high' | 'critical'
+  category?: STRIDECategory
   createdAt: string
 }
 

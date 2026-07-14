@@ -122,6 +122,7 @@ export function serializeToTmLibrary(
       name: t.name,
       description: t.description,
       severity: t.severity,
+      ...(t.category && { category: t.category }),
       [affectedKey]: [t.targetId],
     }
   })
@@ -211,6 +212,8 @@ function deserializeTmLibrary(json: string): DeserializedFile {
         targetType = node?.type === 'systemScope' ? 'systemScope' : 'component'
       }
 
+      const categoryValue = t.category as string | undefined
+
       return {
         id: t.symbolic_name,
         targetId,
@@ -218,6 +221,7 @@ function deserializeTmLibrary(json: string): DeserializedFile {
         name: t.name,
         description: t.description || '',
         severity: (t.severity as GuestThreat['severity']) || 'medium',
+        ...(categoryValue ? { category: categoryValue as GuestThreat['category'] } : {}),
         createdAt:
           parsed.extensions?.['precogly.org/guest-metadata']?.createdAt ||
           new Date().toISOString(),

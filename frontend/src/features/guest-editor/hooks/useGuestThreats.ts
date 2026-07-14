@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { GuestThreat } from '../types'
+import type { STRIDECategory } from '@/types/domain'
 
 export function useGuestThreats() {
   const [threats, setThreats] = useState<GuestThreat[]>([])
@@ -10,7 +11,8 @@ export function useGuestThreats() {
       targetType: GuestThreat['targetType'],
       name: string,
       description: string,
-      severity: GuestThreat['severity']
+      severity: GuestThreat['severity'],
+      category?: STRIDECategory
     ) => {
       const newThreat: GuestThreat = {
         id: crypto.randomUUID(),
@@ -19,6 +21,7 @@ export function useGuestThreats() {
         name,
         description,
         severity,
+        ...(category && { category }),
         createdAt: new Date().toISOString(),
       }
       setThreats((prev) => [...prev, newThreat])
@@ -27,7 +30,7 @@ export function useGuestThreats() {
   )
 
   const updateThreat = useCallback(
-    (threatId: string, updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity'>>) => {
+    (threatId: string, updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity' | 'category'>>) => {
       setThreats((prev) =>
         prev.map((t) => (t.id === threatId ? { ...t, ...updates } : t))
       )
