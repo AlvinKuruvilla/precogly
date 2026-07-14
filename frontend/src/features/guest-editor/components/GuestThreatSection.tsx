@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useGuestEditor } from '../context/GuestEditorContext'
 import { GuestThreatDialog } from './GuestAddThreatDialog'
 import type { GuestThreat } from '../types'
+import { STRIDE_CONFIG } from '@/types/domain'
 
 const SEVERITY_COLORS: Record<GuestThreat['severity'], string> = {
   low: 'bg-blue-100 text-blue-800',
@@ -86,6 +87,18 @@ export function GuestThreatSection({
                     >
                       {threat.severity}
                     </Badge>
+                    {threat.category && STRIDE_CONFIG[threat.category] && (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 text-xs border"
+                        style={{
+                          color: STRIDE_CONFIG[threat.category].color,
+                          borderColor: STRIDE_CONFIG[threat.category].color,
+                        }}
+                      >
+                        {STRIDE_CONFIG[threat.category].label}
+                      </Badge>
+                    )}
                     <span className="truncate">{threat.name}</span>
                   </div>
                   <Button

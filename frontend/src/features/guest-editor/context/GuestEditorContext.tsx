@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 import type { GuestThreat, GuestCountermeasure } from '../types'
+import type { STRIDECategory } from '@/types/domain'
 
 interface GuestEditorContextType {
   // Diagram data (read-only from context consumers)
@@ -14,11 +15,12 @@ interface GuestEditorContextType {
     targetType: GuestThreat['targetType'],
     name: string,
     description: string,
-    severity: GuestThreat['severity']
+    severity: GuestThreat['severity'],
+    category?: STRIDECategory
   ) => void
   updateThreat: (
     threatId: string,
-    updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity'>>
+    updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity' | 'category'>>
   ) => void
   removeThreat: (threatId: string) => void
   getThreatsForTarget: (targetId: string) => GuestThreat[]

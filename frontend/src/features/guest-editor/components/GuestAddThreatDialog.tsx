@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { useGuestEditor } from '../context/GuestEditorContext'
 import type { GuestThreat } from '../types'
+import { STRIDE_CATEGORIES, type STRIDECategory } from '@/types/domain'
 
 const SEVERITY_OPTIONS = [
   { value: 'low', label: 'Low' },
@@ -51,6 +52,7 @@ export function GuestThreatDialog({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState<GuestThreat['severity']>('medium')
+  const [category, setCategory] = useState('')
 
   const isEditMode = !!editThreat
 
@@ -61,10 +63,12 @@ export function GuestThreatDialog({
         setName(editThreat.name)
         setDescription(editThreat.description)
         setSeverity(editThreat.severity)
+        setCategory(editThreat.category || '')
       } else {
         setName('')
         setDescription('')
         setSeverity('medium')
+        setCategory('')
       }
     }
   }, [open, editThreat])
@@ -77,9 +81,17 @@ export function GuestThreatDialog({
         name: name.trim(),
         description: description.trim(),
         severity,
+        category: (category as STRIDECategory) || undefined,
       })
     } else {
-      guestEditor.addThreat(targetId, targetType, name.trim(), description.trim(), severity)
+      guestEditor.addThreat(
+        targetId,
+        targetType,
+        name.trim(),
+        description.trim(),
+        severity,
+        (category as STRIDECategory) || undefined
+      )
     }
     onOpenChange(false)
   }
@@ -127,6 +139,22 @@ export function GuestThreatDialog({
               </SelectTrigger>
               <SelectContent>
                 {SEVERITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="threat-category">STRIDE Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger id="threat-category">
+                <SelectValue placeholder="Select a category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {STRIDE_CATEGORIES.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>
