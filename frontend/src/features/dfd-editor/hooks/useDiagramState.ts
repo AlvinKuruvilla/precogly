@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { Diagram, DiagramNode, DiagramEdge } from '../types'
+import type { DFDNotationStyle } from '../types/notation'
 import { api } from '@/lib/api'
 // Undo feature - remove this import to disable undo functionality
 import { useUndoHistory } from './useUndoHistory'
@@ -17,6 +18,7 @@ interface UseDiagramStateReturn {
   diagram: Diagram | undefined
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  initialNotationStyle: DFDNotationStyle
 
   // Loading states
   isLoading: boolean
@@ -29,7 +31,7 @@ interface UseDiagramStateReturn {
   setEdges: React.Dispatch<React.SetStateAction<DiagramEdge[]>>
   onNodesChange: (changes: NodeChange<DiagramNode>[]) => void
   onEdgesChange: (changes: EdgeChange<DiagramEdge>[]) => void
-  saveNow: () => Promise<void>
+  saveNow: (notationStyle?: DFDNotationStyle) => Promise<void>
   updateTitle: (title: string) => Promise<void>
   // Undo feature - remove this line to disable undo functionality
   undo: () => void
@@ -47,12 +49,13 @@ async function fetchDiagram(diagramId: string): Promise<Diagram> {
 
 async function saveDiagram(
   diagramId: string,
-  data: { nodes: DiagramNode[]; edges: DiagramEdge[] }
+  data: { nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle }
 ): Promise<Diagram> {
   return api.patch<Diagram>(`/diagrams/${diagramId}/`, {
     canvas_data: {
       nodes: data.nodes,
       edges: data.edges,
+      notationStyle: data.notationStyle,
     },
   })
 }
@@ -75,6 +78,8 @@ export function useDiagramState({
   const [edges, setEdgesInternal] = useState<DiagramEdge[]>([])
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [initialNotationStyle, setInitialNotationStyle] = useState<DFDNotationStyle>('dfd3')
+  const notationStyleRef = useRef<DFDNotationStyle>('dfd3')
 
   // Track if initial data has been loaded
   const initialLoadRef = useRef(false)
@@ -125,7 +130,7 @@ export function useDiagramState({
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: (data: { nodes: DiagramNode[]; edges: DiagramEdge[] }) =>
+    mutationFn: (data: { nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle }) =>
       saveDiagram(diagramId, data),
     onSuccess: (updatedDiagram) => {
       queryClient.setQueryData(['diagram', diagramId], updatedDiagram)
@@ -205,6 +210,9 @@ export function useDiagramState({
       // Use internal setters during initial load to avoid marking as changed
       setNodesInternal((canvasData?.nodes || []) as DiagramNode[])
       setEdgesInternal((canvasData?.edges || []) as DiagramEdge[])
+      const loadedNotation = canvasData?.notationStyle ?? 'dfd3'
+      setInitialNotationStyle(loadedNotation)
+      notationStyleRef.current = loadedNotation
       const updatedAt = diagram.updatedAt
       if (updatedAt) setLastSaved(new Date(updatedAt))
       initialLoadRef.current = true
@@ -253,15 +261,17 @@ export function useDiagramState({
     if (autoSaveInterval <= 0 || !hasUnsavedChanges) return
 
     const timer = setTimeout(() => {
-      saveMutation.mutate({ nodes, edges })
+      saveMutation.mutate({ nodes, edges, notationStyle: notationStyleRef.current })
     }, autoSaveInterval)
 
     return () => clearTimeout(timer)
   }, [nodes, edges, hasUnsavedChanges, autoSaveInterval, saveMutation])
 
-  // Save now function
-  const saveNow = useCallback(async () => {
-    await saveMutation.mutateAsync({ nodes, edges })
+  // Save now function — accepts optional notationStyle override to capture latest value
+  const saveNow = useCallback(async (currentNotationStyle?: DFDNotationStyle) => {
+    const styleToSave = currentNotationStyle ?? notationStyleRef.current
+    notationStyleRef.current = styleToSave
+    await saveMutation.mutateAsync({ nodes, edges, notationStyle: styleToSave })
   }, [nodes, edges, saveMutation])
 
   // Update title function
@@ -296,6 +306,7 @@ export function useDiagramState({
     diagram,
     nodes,
     edges,
+    initialNotationStyle,
     isLoading,
     isSaving: saveMutation.isPending,
     isError,

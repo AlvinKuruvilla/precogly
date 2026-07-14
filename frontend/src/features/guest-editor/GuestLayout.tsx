@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
+import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
 import { useGuestDiagramState } from './hooks/useGuestDiagramState'
 import { useGuestThreats } from './hooks/useGuestThreats'
 import { useGuestCountermeasures } from './hooks/useGuestCountermeasures'
@@ -17,12 +18,15 @@ export interface GuestDiagramOutletContext {
   onEdgesChange: (changes: EdgeChange<DiagramEdge>[]) => void
   undo: () => void
   canUndo: boolean
+  notationStyle: DFDNotationStyle
+  setNotationStyle: (notation: DFDNotationStyle) => void
 }
 
 export function GuestLayout() {
   const diagramState = useGuestDiagramState()
   const threatOps = useGuestThreats()
   const countermeasureOps = useGuestCountermeasures()
+  const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('dfd3')
 
   // Wrap removeThreat to cascade-delete countermeasures
   const removeThreatWithCascade = useCallback(
@@ -89,6 +93,8 @@ export function GuestLayout() {
       onEdgesChange: diagramState.onEdgesChange,
       undo: diagramState.undo,
       canUndo: diagramState.canUndo,
+      notationStyle,
+      setNotationStyle,
     }),
     [
       diagramState.nodes,
@@ -99,7 +105,16 @@ export function GuestLayout() {
       diagramState.onEdgesChange,
       diagramState.undo,
       diagramState.canUndo,
+      notationStyle,
     ]
+  )
+
+  const handleLoadFromFile = useCallback(
+    (data: { title: string; nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle }) => {
+      diagramState.loadFromFile(data)
+      setNotationStyle(data.notationStyle ?? 'dfd3')
+    },
+    [diagramState.loadFromFile]
   )
 
   return (
@@ -110,7 +125,8 @@ export function GuestLayout() {
           onTitleChange={diagramState.setTitle}
           hasUnsavedChanges={diagramState.hasUnsavedChanges}
           onMarkSaved={diagramState.markSaved}
-          onLoadFromFile={diagramState.loadFromFile}
+          onLoadFromFile={handleLoadFromFile}
+          notationStyle={notationStyle}
         />
         <Outlet context={outletContext} />
       </div>

@@ -18,6 +18,7 @@ import { DiagramToolbar } from '@/features/dfd-editor/components/DiagramToolbar'
 import { NodeEditPanel } from '@/features/dfd-editor/components/panels/NodeEditPanel'
 import { EdgeEditPanel } from '@/features/dfd-editor/components/panels/EdgeEditPanel'
 import { TrustBoundaryEdgeEditPanel } from '@/features/dfd-editor/components/panels/TrustBoundaryEdgeEditPanel'
+import { DFDNotationProvider } from '@/features/dfd-editor/context/DFDNotationContext'
 import { useParentRelationships } from '@/features/dfd-editor/hooks/useParentRelationships'
 import { useKeyboardShortcuts } from '@/features/dfd-editor/hooks/useKeyboardShortcuts'
 import { useConnectionMode } from '@/features/dfd-editor/hooks/useConnectionMode'
@@ -28,6 +29,7 @@ import type {
   DataFlowEdge,
   TrustBoundaryEdge,
 } from '@/features/dfd-editor/types'
+import { type DFDNotationStyle, NOTATION_NODE_SIZES } from '@/features/dfd-editor/types/notation'
 import { GuestThreatSection } from './components/GuestThreatSection'
 import { guestNodeTypes, guestEdgeTypes } from './components/GuestNodeWrapper'
 import type { GuestDiagramOutletContext } from './GuestLayout'
@@ -45,7 +47,43 @@ function GuestDFDEditorContent() {
     onNodesChange,
     onEdgesChange,
     undo,
+    notationStyle,
+    setNotationStyle,
   } = useOutletContext<GuestDiagramOutletContext>()
+
+  // Handle notation change — resize affected nodes
+  const handleNotationChange = useCallback(
+    (newNotation: DFDNotationStyle) => {
+      setNotationStyle(newNotation)
+      const newSizes = NOTATION_NODE_SIZES[newNotation]
+
+      setNodes((currentNodes) => {
+        const containerProcessIds = new Set(
+          currentNodes
+            .filter((n) => n.parentId)
+            .map((n) => n.parentId!)
+            .filter((parentId) => currentNodes.find((n) => n.id === parentId)?.type === 'process')
+        )
+
+        return currentNodes.map((node) => {
+          if (
+            (node.type === 'process' && !containerProcessIds.has(node.id)) ||
+            node.type === 'datastore'
+          ) {
+            const defaultSize = newSizes[node.type]
+            if (defaultSize) {
+              return {
+                ...node,
+                style: { ...node.style, width: defaultSize.width, height: defaultSize.height },
+              }
+            }
+          }
+          return node
+        })
+      })
+    },
+    [setNodes, setNotationStyle]
+  )
 
   // State for UI
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
@@ -212,50 +250,54 @@ function GuestDFDEditorContent() {
         onOpenTemplates={() => {}}
         onOpenThreatAnalysis={() => navigate('/guest/threats')}
         hideTemplates
+        notationStyle={notationStyle}
+        onNotationChange={handleNotationChange}
       />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
         <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={handleConnect}
-            onNodeClick={handleNodeClick}
-            onEdgeClick={handleEdgeClick}
-            onPaneClick={handlePaneClick}
-            onNodeDragStop={handleNodeDragStop}
-            nodeTypes={guestNodeTypes}
-            edgeTypes={guestEdgeTypes}
-            connectionMode={ConnectionMode.Loose}
-            defaultEdgeOptions={{
-              type: 'dataFlow',
-              animated: true,
-            }}
-            fitView
-            snapToGrid
-            snapGrid={[15, 15]}
-            minZoom={0.1}
-            maxZoom={4}
-            deleteKeyCode={null}
-          >
-            <CanvasOverlays
-              viewportX={viewportX}
-              viewportY={viewportY}
-              zoom={zoom}
-              connectionMode={connectionMode}
-              connectionSourceId={connectionSourceId}
-              connectionSourcePosition={connectionSourcePosition}
-              mousePosition={mousePosition}
-              boundaryMode={boundaryMode}
-              boundarySourceId={boundarySourceId}
-              boundarySourceZoneInfo={boundarySourceZoneInfo}
-            />
-            <Background gap={15} size={1} />
-            <Controls />
-          </ReactFlow>
+          <DFDNotationProvider notationStyle={notationStyle}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={handleConnect}
+              onNodeClick={handleNodeClick}
+              onEdgeClick={handleEdgeClick}
+              onPaneClick={handlePaneClick}
+              onNodeDragStop={handleNodeDragStop}
+              nodeTypes={guestNodeTypes}
+              edgeTypes={guestEdgeTypes}
+              connectionMode={ConnectionMode.Loose}
+              defaultEdgeOptions={{
+                type: 'dataFlow',
+                animated: true,
+              }}
+              fitView
+              snapToGrid
+              snapGrid={[15, 15]}
+              minZoom={0.1}
+              maxZoom={4}
+              deleteKeyCode={null}
+            >
+              <CanvasOverlays
+                viewportX={viewportX}
+                viewportY={viewportY}
+                zoom={zoom}
+                connectionMode={connectionMode}
+                connectionSourceId={connectionSourceId}
+                connectionSourcePosition={connectionSourcePosition}
+                mousePosition={mousePosition}
+                boundaryMode={boundaryMode}
+                boundarySourceId={boundarySourceId}
+                boundarySourceZoneInfo={boundarySourceZoneInfo}
+              />
+              <Background gap={15} size={1} />
+              <Controls />
+            </ReactFlow>
+          </DFDNotationProvider>
         </div>
 
         {/* Edit Panels */}

@@ -89,6 +89,7 @@ export interface TmLibraryControl {
 export interface CanvasDataExtension {
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle
 }
 
 export interface GuestMetadataExtension {

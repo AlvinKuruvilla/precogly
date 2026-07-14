@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
+import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
 import { useUndoHistory } from '@/features/dfd-editor/hooks/useUndoHistory'
 
 interface LoadFromFileData {
   title: string
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  notationStyle?: DFDNotationStyle
 }
 
 interface UseGuestDiagramStateReturn {

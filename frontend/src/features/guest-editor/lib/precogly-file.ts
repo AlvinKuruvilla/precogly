@@ -1,4 +1,5 @@
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
+import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
 import type {
   GuestThreat,
   GuestCountermeasure,
@@ -31,7 +32,8 @@ export function serializeToTmLibrary(
   nodes: DiagramNode[],
   edges: DiagramEdge[],
   threats: GuestThreat[],
-  countermeasures: GuestCountermeasure[]
+  countermeasures: GuestCountermeasure[],
+  notationStyle?: DFDNotationStyle
 ): string {
   const now = new Date().toISOString()
 
@@ -150,7 +152,7 @@ export function serializeToTmLibrary(
     controls: tmControls,
     risks: [],
     extensions: {
-      'precogly.org/canvas-data': { nodes, edges },
+      'precogly.org/canvas-data': { nodes, edges, notationStyle },
       'precogly.org/guest-metadata': {
         generator: 'precogly-guest',
         createdAt: now,
@@ -170,6 +172,7 @@ interface DeserializedFile {
   edges: DiagramEdge[]
   threats: GuestThreat[]
   countermeasures: GuestCountermeasure[]
+  notationStyle?: DFDNotationStyle
 }
 
 // --- Deserialization: TM-Library JSON → in-memory state ---
@@ -195,6 +198,7 @@ function deserializeTmLibrary(json: string): DeserializedFile {
   const title = parsed.scope?.title || 'Untitled Diagram'
   const nodes: DiagramNode[] = canvasData.nodes
   const edges: DiagramEdge[] = canvasData.edges
+  const notationStyleValue = canvasData.notationStyle as DFDNotationStyle | undefined
 
   // Reconstruct GuestThreat[] from threats[]
   const threats: GuestThreat[] = (parsed.threats || []).map(
@@ -244,7 +248,7 @@ function deserializeTmLibrary(json: string): DeserializedFile {
     })
   )
 
-  return { title, nodes, edges, threats, countermeasures }
+  return { title, nodes, edges, threats, countermeasures, notationStyle: notationStyleValue }
 }
 
 // --- Legacy .precogly format ---

@@ -30,7 +30,8 @@ interface GuestEditorHeaderProps {
   onTitleChange: (title: string) => void
   hasUnsavedChanges: boolean
   onMarkSaved: () => void
-  onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[] }) => void
+  onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[]; notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle }) => void
+  notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle
 }
 
 export function GuestEditorHeader({
@@ -39,6 +40,7 @@ export function GuestEditorHeader({
   hasUnsavedChanges,
   onMarkSaved,
   onLoadFromFile,
+  notationStyle,
 }: GuestEditorHeaderProps) {
   const navigate = useNavigate()
   const guestEditor = useGuestEditor()
@@ -92,17 +94,18 @@ export function GuestEditorHeader({
       guestEditor.nodes,
       guestEditor.edges,
       threats,
-      countermeasures
+      countermeasures,
+      notationStyle
     )
     downloadTmLibraryFile(filename, content)
     onMarkSaved()
     setShowSaveDialog(false)
-  }, [saveFilename, title, guestEditor, onMarkSaved])
+  }, [saveFilename, title, guestEditor, onMarkSaved, notationStyle])
 
   const handleOpen = useCallback(async () => {
     try {
       const data = await openTmLibraryFile()
-      onLoadFromFile({ title: data.title, nodes: data.nodes, edges: data.edges })
+      onLoadFromFile({ title: data.title, nodes: data.nodes, edges: data.edges, notationStyle: data.notationStyle })
       if (guestEditor) {
         guestEditor.loadThreats(data.threats)
         guestEditor.loadCountermeasures(data.countermeasures)

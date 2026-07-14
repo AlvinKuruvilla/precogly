@@ -360,17 +360,29 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           <>
             <div className="space-y-2">
               <Label>Technology</Label>
-              <TechnologyCombobox
-                value={(node.data as { technology?: string }).technology || ''}
-                onChange={handleTechnologyChange}
-                filterNodeType={node.type as 'process' | 'datastore'}
-                placeholder={
-                  node.type === 'datastore'
-                    ? 'Select storage/database...'
-                    : 'Select compute/backend...'
-                }
-                threatModelId={threatModelId}
-              />
+              {threatModelId ? (
+                <TechnologyCombobox
+                  value={(node.data as { technology?: string }).technology || ''}
+                  onChange={handleTechnologyChange}
+                  filterNodeType={node.type as 'process' | 'datastore'}
+                  placeholder={
+                    node.type === 'datastore'
+                      ? 'Select storage/database...'
+                      : 'Select compute/backend...'
+                  }
+                  threatModelId={threatModelId}
+                />
+              ) : (
+                <Input
+                  value={(node.data as { technology?: string }).technology || ''}
+                  onChange={(e) => updateNodeData({ technology: e.target.value })}
+                  placeholder={
+                    node.type === 'datastore'
+                      ? 'e.g., PostgreSQL, Redis...'
+                      : 'e.g., Node.js, Python...'
+                  }
+                />
+              )}
             </div>
 
             {node.type === 'datastore' && (
@@ -677,13 +689,21 @@ export const NodeEditPanel = memo(function NodeEditPanel({
 
             <div className="space-y-2">
               <Label>Technology</Label>
-              <TechnologyCombobox
-                value={(node.data as { technology?: string }).technology || ''}
-                onChange={(value) => updateNodeData({ technology: value })}
-                filterNodeType="trustZone"
-                placeholder="Select networking/security..."
-                threatModelId={threatModelId}
-              />
+              {threatModelId ? (
+                <TechnologyCombobox
+                  value={(node.data as { technology?: string }).technology || ''}
+                  onChange={(value) => updateNodeData({ technology: value })}
+                  filterNodeType="trustZone"
+                  placeholder="Select networking/security..."
+                  threatModelId={threatModelId}
+                />
+              ) : (
+                <Input
+                  value={(node.data as { technology?: string }).technology || ''}
+                  onChange={(e) => updateNodeData({ technology: e.target.value })}
+                  placeholder="e.g., AWS VPC, Firewall..."
+                />
+              )}
             </div>
 
             {/* Trust Boundaries (read-only) */}
@@ -770,13 +790,21 @@ export const NodeEditPanel = memo(function NodeEditPanel({
           <>
             <div className="space-y-2">
               <Label>Technology</Label>
-              <TechnologyCombobox
-                value={(node.data as { technology?: string }).technology || ''}
-                onChange={(value) => updateNodeData({ technology: value })}
-                filterNodeType="systemScope"
-                placeholder="Select infrastructure..."
-                threatModelId={threatModelId}
-              />
+              {threatModelId ? (
+                <TechnologyCombobox
+                  value={(node.data as { technology?: string }).technology || ''}
+                  onChange={(value) => updateNodeData({ technology: value })}
+                  filterNodeType="systemScope"
+                  placeholder="Select infrastructure..."
+                  threatModelId={threatModelId}
+                />
+              ) : (
+                <Input
+                  value={(node.data as { technology?: string }).technology || ''}
+                  onChange={(e) => updateNodeData({ technology: e.target.value })}
+                  placeholder="e.g., AWS, Kubernetes..."
+                />
+              )}
             </div>
 
             <div className="space-y-2">
