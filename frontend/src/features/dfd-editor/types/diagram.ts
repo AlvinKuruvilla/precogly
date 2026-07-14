@@ -1,4 +1,5 @@
 import type { Node, Edge } from '@xyflow/react'
+import type { DFDNotationStyle } from './notation'
 
 // Re-export domain types for convenience
 export {
@@ -160,6 +161,7 @@ export type DiagramEdge = DataFlowEdge | TrustBoundaryEdge
 export interface CanvasData {
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  notationStyle?: DFDNotationStyle
 }
 
 // Diagram entity

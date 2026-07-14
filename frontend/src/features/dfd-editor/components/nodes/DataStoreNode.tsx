@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { DataStoreNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
 import { useTechnologyDisplayName } from '../../api/component-library'
+import { useDFDNotation } from '../../context/DFDNotationContext'
 
 type DataStoreNodeType = Node<DataStoreNodeData, 'datastore'>
 
@@ -15,6 +16,7 @@ export const DataStoreNode = memo(function DataStoreNode({
   const isNewlyInserted = data.isNewlyInserted
   const technologyDisplayName = useTechnologyDisplayName(data.technology)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
+  const { notationStyle } = useDFDNotation()
 
   // Trigger lock animation when lockAnimationKey changes (new timestamp = new animation)
   useEffect(() => {
@@ -25,15 +27,17 @@ export const DataStoreNode = memo(function DataStoreNode({
     }
   }, [data.lockAnimationKey])
 
+  const isYourdon = notationStyle === 'yourdon'
+
   return (
     <>
       <NodeResizer
-        minWidth={120}
-        minHeight={50}
+        minWidth={isYourdon ? 80 : 120}
+        minHeight={isYourdon ? 30 : 50}
         isVisible={selected}
-        lineClassName="!border-solid"
+        lineClassName={isYourdon ? '!border-none' : '!border-solid'}
         handleClassName="!w-2 !h-2 !rounded-sm"
-        lineStyle={{ borderColor: '#a855f7' }}
+        lineStyle={isYourdon ? { borderColor: 'transparent' } : { borderColor: '#a855f7' }}
         handleStyle={{ backgroundColor: '#a855f7', borderColor: '#a855f7' }}
       />
       {/* Handles on all 4 sides for flexible edge routing */}
@@ -52,52 +56,78 @@ export const DataStoreNode = memo(function DataStoreNode({
 
       <div
         className={cn(
-          'w-full h-full relative min-w-[120px] transition-all',
-          isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg',
-          showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2 rounded-lg'
+          'w-full h-full relative transition-all',
+          !isYourdon && isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg',
+          !isYourdon && showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2 rounded-lg'
         )}
       >
-        {/* Cylinder shape using CSS */}
-        <div
-          className={cn(
-            'w-full h-full relative bg-purple-50 border-2 rounded-lg overflow-hidden flex flex-col',
-            selected ? 'border-purple-500 shadow-md' : 'border-purple-200'
-          )}
-        >
-          {/* Top ellipse */}
-          <div className="h-3 bg-purple-100 border-b border-purple-200 rounded-t-lg flex-shrink-0" />
-
-          {/* Body */}
-          <div className="px-4 py-3 flex-1">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-purple-600 flex-shrink-0" />
-              <div className="flex flex-col min-w-0">
-                <span className="font-medium text-sm text-purple-900 truncate">
+        {isYourdon ? (
+          /* Yourdon/DeMarco: two parallel horizontal lines */
+          <div
+            className={cn(
+              'w-full h-full relative bg-purple-50 flex items-center border-t-2 border-b-2',
+              selected ? 'border-purple-500 shadow-md' : 'border-purple-200',
+              isNewlyInserted && 'shadow-[0_-2px_0_0_#4ade80,0_2px_0_0_#4ade80]',
+              showLockAnimation && 'animate-lock-pulse shadow-[0_-2px_0_0_#fb923c,0_2px_0_0_#fb923c]'
+            )}
+          >
+            <div className="px-3 py-1 flex items-center gap-2 w-full">
+              <Database className="h-3.5 w-3.5 text-purple-600 flex-shrink-0" />
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="font-medium text-xs text-purple-900 truncate">
                   {data.label}
                 </span>
                 {data.technology && (
-                  <span className="text-xs text-purple-600 truncate">
+                  <span className="text-[10px] text-purple-600 truncate">
                     {technologyDisplayName}
                   </span>
                 )}
               </div>
             </div>
-            {data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity] && (
-              <div
-                className="mt-2 text-xs px-1.5 py-0.5 rounded text-center"
-                style={{
-                  backgroundColor: `${DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color}20`,
-                  color: DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color,
-                }}
-              >
-                {DATA_SENSITIVITY_CONFIG[data.dataSensitivity].label}
-              </div>
-            )}
           </div>
+        ) : (
+          /* DFD3: Cylinder shape using CSS */
+          <div
+            className={cn(
+              'w-full h-full relative bg-purple-50 border-2 rounded-lg overflow-hidden flex flex-col min-w-[120px]',
+              selected ? 'border-purple-500 shadow-md' : 'border-purple-200'
+            )}
+          >
+            {/* Top ellipse */}
+            <div className="h-3 bg-purple-100 border-b border-purple-200 rounded-t-lg flex-shrink-0" />
 
-          {/* Bottom ellipse */}
-          <div className="h-3 bg-purple-100 border-t border-purple-200 rounded-b-lg flex-shrink-0" />
-        </div>
+            {/* Body */}
+            <div className="px-4 py-3 flex-1">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <span className="font-medium text-sm text-purple-900 truncate">
+                    {data.label}
+                  </span>
+                  {data.technology && (
+                    <span className="text-xs text-purple-600 truncate">
+                      {technologyDisplayName}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity] && (
+                <div
+                  className="mt-2 text-xs px-1.5 py-0.5 rounded text-center"
+                  style={{
+                    backgroundColor: `${DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color}20`,
+                    color: DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color,
+                  }}
+                >
+                  {DATA_SENSITIVITY_CONFIG[data.dataSensitivity].label}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom ellipse */}
+            <div className="h-3 bg-purple-100 border-t border-purple-200 rounded-b-lg flex-shrink-0" />
+          </div>
+        )}
       </div>
     </>
   )

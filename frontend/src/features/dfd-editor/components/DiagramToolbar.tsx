@@ -4,6 +4,13 @@ import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, S
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -11,6 +18,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { DiagramNodeType } from '../types'
+import { type DFDNotationStyle, NOTATION_NODE_SIZES } from '../types/notation'
 
 interface DiagramToolbarProps {
   connectionMode: boolean
@@ -22,6 +30,8 @@ interface DiagramToolbarProps {
   onOpenThreatAnalysis: () => void
   hideTemplates?: boolean
   hideAnalyzeThreats?: boolean
+  notationStyle?: DFDNotationStyle
+  onNotationChange?: (notation: DFDNotationStyle) => void
 }
 
 interface ToolbarButtonConfig {
@@ -77,15 +87,6 @@ const nodeButtons: ToolbarButtonConfig[] = [
   },
 ]
 
-const DEFAULT_NODE_SIZES: Record<DiagramNodeType, { width: number; height: number }> = {
-  humanActor: { width: 100, height: 100 },
-  systemActor: { width: 100, height: 90 },
-  process: { width: 120, height: 60 },
-  datastore: { width: 120, height: 80 },
-  trustZone: { width: 300, height: 200 },
-  systemScope: { width: 300, height: 200 },
-}
-
 export const DiagramToolbar = memo(function DiagramToolbar({
   connectionMode,
   onConnectionModeChange,
@@ -96,12 +97,15 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   onOpenThreatAnalysis,
   hideTemplates,
   hideAnalyzeThreats,
+  notationStyle = 'dfd3',
+  onNotationChange,
 }: DiagramToolbarProps) {
   const { addNodes, getNodes } = useReactFlow()
+  const nodeSizes = NOTATION_NODE_SIZES[notationStyle]
 
   const handleAddNode = (type: DiagramNodeType) => {
     const center = getCanvasCenterPosition()
-    const nodeSize = DEFAULT_NODE_SIZES[type]
+    const nodeSize = nodeSizes[type] ?? { width: 120, height: 70 }
     const position = {
       x: center.x - nodeSize.width / 2,
       y: center.y - nodeSize.height / 2,
@@ -120,17 +124,12 @@ export const DiagramToolbar = memo(function DiagramToolbar({
       systemScope: { label: 'System Scope' },
     }
 
-    // Default style for boundary nodes
-    const defaultStyle = (type === 'trustZone' || type === 'systemScope')
-      ? { width: 300, height: 200 }
-      : undefined
-
     addNodes({
       id,
       type,
       position,
       data: { ...defaultData[type], isNewlyInserted: true },
-      style: defaultStyle,
+      style: { width: nodeSize.width, height: nodeSize.height },
     })
 
     // Remove the "newly inserted" highlight after 2 seconds
@@ -183,7 +182,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
               onClick={() => onConnectionModeChange(!connectionMode)}
             >
               <ArrowRight className="h-4 w-4" />
-              <span className="hidden sm:inline">Draw Connection</span>
+              <span className="hidden sm:inline">Flow</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -214,6 +213,24 @@ export const DiagramToolbar = memo(function DiagramToolbar({
             </p>
           </TooltipContent>
         </Tooltip>
+
+        {onNotationChange && (
+          <>
+            <Separator orientation="vertical" className="h-8 mx-2" />
+            <Select
+              value={notationStyle}
+              onValueChange={(value) => onNotationChange(value as DFDNotationStyle)}
+            >
+              <SelectTrigger className="h-8 w-[140px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dfd3">DFD3</SelectItem>
+                <SelectItem value="yourdon">Yourdon</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        )}
 
         {!hideTemplates && (
           <>

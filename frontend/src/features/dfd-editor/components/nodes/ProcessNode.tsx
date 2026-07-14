@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { ProcessNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
 import { useTechnologyDisplayName } from '../../api/component-library'
+import { useDFDNotation } from '../../context/DFDNotationContext'
 
 type ProcessNodeType = Node<ProcessNodeData, 'process'>
 
@@ -42,6 +43,7 @@ export const ProcessNode = memo(function ProcessNode({
   const technologyDisplayName = useTechnologyDisplayName(data.technology)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
   const [showReceiveAnimation, setShowReceiveAnimation] = useState(false)
+  const { notationStyle } = useDFDNotation()
 
   // Check if this process has children (makes it a container)
   const isContainer = useStore(
@@ -69,6 +71,8 @@ export const ProcessNode = memo(function ProcessNode({
     }
   }, [data.receiveChildAnimationKey])
 
+  const isYourdon = notationStyle === 'yourdon' && !isContainer
+
   // ── Unified render path ──
   // Always renders the same DOM structure (NodeResizer → Handles → div) regardless
   // of leaf/container mode. This mirrors TrustZoneNode's always-container pattern
@@ -76,8 +80,8 @@ export const ProcessNode = memo(function ProcessNode({
   return (
     <>
       <NodeResizer
-        minWidth={isContainer ? 250 : 120}
-        minHeight={isContainer ? 180 : 50}
+        minWidth={isContainer ? 250 : isYourdon ? 60 : 120}
+        minHeight={isContainer ? 180 : isYourdon ? 60 : 50}
         isVisible={selected}
         lineClassName="!border-solid"
         handleClassName="!w-2 !h-2 !rounded-sm"
@@ -87,18 +91,24 @@ export const ProcessNode = memo(function ProcessNode({
       <ProcessHandles />
       <div
         className={cn(
-          'w-full h-full rounded-lg border-2 transition-all',
+          'w-full h-full border-2 transition-all',
           isContainer
             ? cn(
-                'border-solid',
+                'rounded-lg border-solid',
                 selected ? 'border-blue-500 shadow-md' : 'border-blue-300',
                 showReceiveAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
               )
-            : cn(
-                'px-4 py-3 bg-blue-50 min-w-[120px]',
-                selected ? 'border-blue-500 shadow-md' : 'border-blue-200',
-                showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
-              ),
+            : isYourdon
+              ? cn(
+                  'rounded-full bg-blue-50 flex flex-col items-center justify-center',
+                  selected ? 'border-blue-500 shadow-md' : 'border-blue-200',
+                  showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
+                )
+              : cn(
+                  'rounded-lg px-4 py-3 bg-blue-50 min-w-[120px] flex items-center',
+                  selected ? 'border-blue-500 shadow-md' : 'border-blue-200',
+                  showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2'
+                ),
           isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2'
         )}
         style={isContainer ? { backgroundColor: 'rgba(219, 234, 254, 0.4)' } : undefined}
@@ -127,6 +137,18 @@ export const ProcessNode = memo(function ProcessNode({
               >
                 {DATA_SENSITIVITY_CONFIG[data.dataSensitivity].label}
               </div>
+            )}
+          </>
+        ) : isYourdon ? (
+          <>
+            <Cog className="h-4 w-4 text-blue-600 flex-shrink-0" />
+            <span className="font-medium text-xs text-blue-900 truncate max-w-[90%] text-center px-1">
+              {data.label}
+            </span>
+            {(data.technology || data.dataSensitivity) && (
+              <span className="text-[10px] text-blue-600 truncate max-w-[90%]" title={[technologyDisplayName, data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity]?.label].filter(Boolean).join(' / ')}>
+                {technologyDisplayName || (data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity]?.label) || ''}
+              </span>
             )}
           </>
         ) : (
