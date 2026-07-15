@@ -94,6 +94,11 @@ class CycloneDxAdapter(BaseAdapter):
         blueprint = self._build_blueprint(threat_model, resolver, prefetch)
         document["blueprints"] = [blueprint]
 
+        # Controls (build before threats so mitigations can reference them)
+        controls = self._build_controls(threat_model, resolver, prefetch)
+        if controls:
+            document["controls"] = controls
+
         # Threats
         threats_block = self._build_threats_block(threat_model, resolver, prefetch)
         if threats_block:
@@ -103,11 +108,6 @@ class CycloneDxAdapter(BaseAdapter):
         risks_block = self._build_risks_block(threat_model, resolver, prefetch)
         if risks_block:
             document["risks"] = risks_block
-
-        # Controls
-        controls = self._build_controls(threat_model, resolver, prefetch)
-        if controls:
-            document["controls"] = controls
 
         # Re-emit Tier 3 passthrough data from format_metadata
         cyclonedx_meta = threat_model.format_metadata.get("cyclonedx", {})
@@ -987,8 +987,13 @@ class CycloneDxAdapter(BaseAdapter):
             self._import_risk(risk_data, threat_model, resolver)
             summary["risks"] += 1
 
+        # 13. Resolve control → threat links from mitigations
+        self._resolve_control_threat_links(
+            threats_block, threat_model, resolver
+        )
+
         # 14. Tier 3 passthrough
-        self._store_tier3_data(threat_model, json_data, blueprint)
+        self._store_tier3_data(threat_model, json_data, blueprint, resolver)
 
         if warnings:
             summary["warnings"] = warnings
@@ -1571,7 +1576,55 @@ class CycloneDxAdapter(BaseAdapter):
         precogly_level = CDX_TO_LEVEL.get(level, "medium")
         return score, precogly_level
 
-    def _store_tier3_data(self, threat_model, json_data, blueprint):
+    def _resolve_control_threat_links(
+        self, threats_block, threat_model, resolver
+    ):
+        """Create CountermeasureThreatLink records from threat mitigations."""
+        from apps.threats.models import (
+            ComponentInstanceThreat,
+            CountermeasureThreatLink,
+            DataFlowInstanceThreat,
+        )
+
+        for threat_data in threats_block.get("threats", []):
+            mitigation_refs = threat_data.get("mitigations", [])
+            if not mitigation_refs:
+                continue
+
+            threat_ref = threat_data.get("bom-ref", "")
+            threat_lib = resolver.resolve("threat", threat_ref)
+            if not threat_lib:
+                continue
+
+            component_threats = list(
+                ComponentInstanceThreat.objects.filter(
+                    threat_library=threat_lib,
+                    component__threat_model=threat_model,
+                )
+            )
+            flow_threats = list(
+                DataFlowInstanceThreat.objects.filter(
+                    threat_library=threat_lib,
+                    data_flow__source_component__threat_model=threat_model,
+                )
+            )
+
+            for mitigation_ref in mitigation_refs:
+                control = resolver.resolve("control", mitigation_ref)
+                if not control:
+                    continue
+                for ct in component_threats:
+                    CountermeasureThreatLink.objects.get_or_create(
+                        countermeasure=control,
+                        component_threat=ct,
+                    )
+                for ft in flow_threats:
+                    CountermeasureThreatLink.objects.get_or_create(
+                        countermeasure=control,
+                        flow_threat=ft,
+                    )
+
+    def _store_tier3_data(self, threat_model, json_data, blueprint, resolver):
         """Store ThreatModel-level Tier 3 data for round-trip fidelity."""
         tier3 = {}
 
@@ -1609,7 +1662,7 @@ class CycloneDxAdapter(BaseAdapter):
         passthrough_visualizations = []
         for vis in visualizations:
             if vis.get("type") == "precogly-dfd" and vis.get("data"):
-                self._import_dfd(vis, threat_model)
+                self._import_dfd(vis, threat_model, resolver)
             else:
                 passthrough_visualizations.append(vis)
         if passthrough_visualizations:
@@ -1621,13 +1674,52 @@ class CycloneDxAdapter(BaseAdapter):
             )
             threat_model.save(update_fields=["format_metadata"])
 
-    def _import_dfd(self, vis_data, threat_model):
+    def _import_dfd(self, vis_data, threat_model, resolver):
         """Recreate a DFD record from an exported Precogly DFD visualization."""
+        import copy
+
         from apps.diagrams.models import DFD
 
         name = vis_data.get("name", f"{threat_model.name} DFD")
         diagram_type = vis_data.get("diagramType", "level1")
-        canvas_data = vis_data.get("data", {})
+        canvas_data = copy.deepcopy(vis_data.get("data", {}))
+
+        # Build name → new component mapping from resolver
+        asset_name_to_component = {}
+        for _ref_key, (entity_type, obj) in resolver._ref_to_obj.items():
+            if entity_type == "asset" and hasattr(obj, "name"):
+                asset_name_to_component[obj.name] = obj
+
+        # Remap component_id in nodes to newly created component IDs
+        for node in canvas_data.get("nodes", []):
+            data = node.get("data", {})
+            if data.get("component_id") is None:
+                continue
+            label = data.get("label", "")
+            new_component = asset_name_to_component.get(label)
+            if new_component:
+                data["component_id"] = new_component.id
+            else:
+                logger.warning(
+                    "DFD node '%s' has no matching imported asset; "
+                    "component_id may be stale.",
+                    label,
+                )
+
+        # Remap dataflowId in edges to newly created flow IDs
+        flow_label_to_flow = {}
+        for _ref_key, (entity_type, obj) in resolver._ref_to_obj.items():
+            if entity_type == "flow" and hasattr(obj, "label"):
+                flow_label_to_flow[obj.label] = obj
+
+        for edge in canvas_data.get("edges", []):
+            data = edge.get("data", {})
+            if data.get("dataflowId") is None:
+                continue
+            label = data.get("label", "")
+            new_flow = flow_label_to_flow.get(label)
+            if new_flow:
+                data["dataflowId"] = new_flow.id
 
         DFD.objects.create(
             name=name,
