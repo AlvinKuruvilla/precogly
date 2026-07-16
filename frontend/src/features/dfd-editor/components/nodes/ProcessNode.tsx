@@ -82,6 +82,7 @@ export const ProcessNode = memo(function ProcessNode({
       <NodeResizer
         minWidth={isContainer ? 250 : isYourdon ? 60 : 120}
         minHeight={isContainer ? 180 : isYourdon ? 60 : 50}
+        keepAspectRatio={isYourdon}
         isVisible={selected}
         lineClassName="!border-solid"
         handleClassName="!w-2 !h-2 !rounded-sm"
@@ -145,15 +146,26 @@ export const ProcessNode = memo(function ProcessNode({
             <span className="font-medium text-xs text-blue-900 truncate max-w-[90%] text-center px-1">
               {data.label}
             </span>
-            {(data.technology || data.dataSensitivity) && (
-              <span className="text-[10px] text-blue-600 truncate max-w-[90%]" title={[technologyDisplayName, data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity]?.label].filter(Boolean).join(' / ')}>
-                {technologyDisplayName || (data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity]?.label) || ''}
+            {data.technology && (
+              <span className="text-[10px] text-blue-600 truncate max-w-[90%]">
+                {technologyDisplayName}
+              </span>
+            )}
+            {data.dataSensitivity && (
+              <span
+                className="text-[10px] truncate max-w-[90%] px-1 rounded"
+                style={{
+                  backgroundColor: `${DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color}20`,
+                  color: DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color,
+                }}
+              >
+                {DATA_SENSITIVITY_CONFIG[data.dataSensitivity].label}
               </span>
             )}
           </>
         ) : (
-          <>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col min-w-0 overflow-hidden w-full">
+            <div className="flex items-center gap-2 min-w-0">
               <Cog className="h-4 w-4 text-blue-600 flex-shrink-0" />
               <div className="flex flex-col min-w-0">
                 <span className="font-medium text-sm text-blue-900 truncate">
@@ -168,7 +180,7 @@ export const ProcessNode = memo(function ProcessNode({
             </div>
             {data.dataSensitivity && (
               <div
-                className="mt-2 text-xs px-1.5 py-0.5 rounded text-center"
+                className="mt-1 text-xs px-1.5 py-0.5 rounded text-center truncate"
                 style={{
                   backgroundColor: `${DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color}20`,
                   color: DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color,
@@ -177,7 +189,7 @@ export const ProcessNode = memo(function ProcessNode({
                 {DATA_SENSITIVITY_CONFIG[data.dataSensitivity].label}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </>

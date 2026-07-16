@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useMemo, useState, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -232,6 +232,8 @@ function GuestDFDEditorContent() {
     enabled: true,
   })
 
+  const fitViewOptions = useMemo(() => ({ maxZoom: 0.75 }), [])
+
   // Determine guest threat target type for the selected node
   const getNodeTargetType = (node: DiagramNode): 'component' | 'systemScope' => {
     if (node.type === 'systemScope') return 'systemScope'
@@ -276,6 +278,7 @@ function GuestDFDEditorContent() {
                 animated: true,
               }}
               fitView
+              fitViewOptions={fitViewOptions}
               snapToGrid
               snapGrid={[15, 15]}
               minZoom={0.1}
