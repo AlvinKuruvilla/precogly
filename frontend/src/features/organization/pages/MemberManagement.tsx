@@ -38,7 +38,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Trash2, AlertCircle } from 'lucide-react'
+import type { ApiError } from '@/lib/api'
 
 const roleLabels: Record<string, string> = {
   security_team: 'Security Team',
@@ -75,11 +77,54 @@ export function MemberManagement() {
   )
 
   if (workspaceLoading || membersLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-96 mt-2" />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="w-20">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-44" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!currentOrganization) {
-    return <div>No organization selected.</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
+            <p className="text-lg font-medium">No organization selected</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select an organization from the workspace switcher to manage its members.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const handleRemove = (userId: number, userEmail: string) => {
@@ -97,8 +142,10 @@ export function MemberManagement() {
         onSuccess: () => {
           toast.success('Member removed successfully.')
         },
-        onError: () => {
-          toast.error('Failed to remove member.')
+        onError: (error) => {
+          const errData = (error as ApiError)?.data as Record<string, unknown> | undefined
+          const message = (errData?.detail as string) || 'Failed to remove member.'
+          toast.error(message)
         },
         onSettled: () => setPendingRemoval(null),
       }
@@ -136,9 +183,10 @@ export function MemberManagement() {
           toast.success('Member role updated successfully.')
         },
         onError: (error) => {
+          const errData = (error as ApiError)?.data as Record<string, unknown> | undefined
           const message =
-            (error as any)?.response?.data?.role?.[0] ||
-            (error as any)?.response?.data?.detail ||
+            (errData?.role as string[])?.[0] ||
+            (errData?.detail as string) ||
             'Failed to update member role.'
           toast.error(message)
         },
