@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ReactFlow,
@@ -339,6 +339,8 @@ function DFDEditorContent() {
     enabled: true,
   })
 
+  const fitViewOptions = useMemo(() => ({ maxZoom: 0.75 }), [])
+
   // Format last saved time
   const formatLastSaved = (date: Date | null) => {
     if (!date) return 'Never saved'
@@ -544,6 +546,7 @@ function DFDEditorContent() {
                 animated: true,
               }}
               fitView
+              fitViewOptions={fitViewOptions}
               snapToGrid
               snapGrid={[15, 15]}
               minZoom={0.1}
