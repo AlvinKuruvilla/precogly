@@ -24,10 +24,12 @@ import {
 } from '@/components/ui/tooltip'
 import { useThreatModel, useDeleteDFD } from '@/features/threat-models/api/threat-models'
 // DFD Editor internal imports
-import { nodeTypes, edgeTypes } from './components'
+import { canvasNodeTypes, canvasEdgeTypes } from './components/nodes/CanvasNodeWrapper'
 import { DiagramToolbar } from './components/DiagramToolbar'
 import { NodeEditPanel } from './components/panels/NodeEditPanel'
 import { EdgeEditPanel } from './components/panels/EdgeEditPanel'
+import { CanvasThreatSection } from './components/panels/CanvasThreatSection'
+import { useThreatModelThreats } from '@/features/threat-models/api/threats'
 import { TrustBoundaryEdgeEditPanel } from './components/panels/TrustBoundaryEdgeEditPanel'
 import { TemplateBrowser } from './components/TemplateBrowser'
 import { CanvasOverlays } from './components/CanvasOverlays'
@@ -131,6 +133,9 @@ function DFDEditorContent() {
 
   // Fetch threat model for name display
   const { data: threatModel } = useThreatModel(threatModelId || '')
+
+  // Fetch threat data for canvas badges and threat sections
+  const { data: threatData } = useThreatModelThreats(threatModelId)
 
   // Parent relationship detection
   const { updateParentRelationships } = useParentRelationships()
@@ -538,8 +543,8 @@ function DFDEditorContent() {
               onEdgeClick={handleEdgeClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
+              nodeTypes={canvasNodeTypes}
+              edgeTypes={canvasEdgeTypes}
               connectionMode={ConnectionMode.Loose}
               defaultEdgeOptions={{
                 type: 'dataFlow',
@@ -577,6 +582,20 @@ function DFDEditorContent() {
             node={currentSelectedNode}
             onClose={() => setSelectedNode(null)}
             threatModelId={threatModelId}
+            renderExtra={
+              currentSelectedNode.type !== 'trustZone' ? (
+                <CanvasThreatSection
+                  threatModelId={threatModelId}
+                  canvasId={currentSelectedNode.id}
+                  targetType="component"
+                  targetName={currentSelectedNode.data.label || currentSelectedNode.type || 'Node'}
+                  backendId={
+                    (currentSelectedNode.data as { componentId?: number }).componentId ??
+                    threatData?.nodeComponentMap[currentSelectedNode.id]?.componentId
+                  }
+                />
+              ) : undefined
+            }
           />
         )}
         {currentSelectedEdge?.type === 'dataFlow' && (
@@ -584,6 +603,18 @@ function DFDEditorContent() {
             edge={currentSelectedEdge as DataFlowEdge}
             onClose={() => setSelectedEdge(null)}
             threatModelId={threatModelId}
+            renderExtra={
+              <CanvasThreatSection
+                threatModelId={threatModelId}
+                canvasId={currentSelectedEdge.id}
+                targetType="dataflow"
+                targetName={(currentSelectedEdge as DataFlowEdge).data?.label || 'Data Flow'}
+                backendId={
+                  (currentSelectedEdge as DataFlowEdge).data?.dataflowId ??
+                  threatData?.edgeDataflowMap[currentSelectedEdge.id]?.dataflowId
+                }
+              />
+            }
           />
         )}
         {currentSelectedEdge?.type === 'trustBoundary' && (

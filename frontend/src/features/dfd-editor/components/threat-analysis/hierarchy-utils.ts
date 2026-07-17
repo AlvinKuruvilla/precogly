@@ -60,34 +60,44 @@ export function getDirectProcessChildren(
 }
 
 /**
+ * Returns the process-type parent of a component node (process, datastore, or actor).
+ * Datastores and actors can be children of processes on the canvas.
+ */
+export function getComponentParent(
+  node: DiagramNode,
+  nodesMap: Map<string, DiagramNode>
+): DiagramNode | null {
+  if (!node.parentId) return null
+  const parent = nodesMap.get(node.parentId)
+  if (!parent || parent.type !== 'process') return null
+  return parent
+}
+
+/**
  * Builds a tree of ComponentTreeNode objects for the left panel.
- * Returns { treeRoots, flatNonProcess } — process nodes in a tree,
- * non-process nodes (datastores, actors) as a flat list.
+ * All analyzable components (processes, datastores, actors) are included
+ * in the tree. Non-process nodes with a process parent appear as children;
+ * those without appear as top-level roots.
  */
 export function buildComponentTree(
   analyzableComponents: DiagramNode[],
   allNodes: DiagramNode[]
-): { treeRoots: ComponentTreeNode[]; flatNonProcess: DiagramNode[] } {
+): { treeRoots: ComponentTreeNode[] } {
   const nodesMap = new Map(allNodes.map((n) => [n.id, n]))
 
-  // Separate process nodes from non-process nodes
-  const processNodes = analyzableComponents.filter((n) => n.type === 'process')
-  const flatNonProcess = analyzableComponents.filter((n) => n.type !== 'process')
-
-  // Build tree nodes map
+  // Build tree nodes map for all analyzable components
   const treeNodeMap = new Map<string, ComponentTreeNode>()
-  for (const node of processNodes) {
+  for (const node of analyzableComponents) {
     treeNodeMap.set(node.id, { node, children: [], depth: 0 })
   }
 
   // Wire up parent-child relationships
   const treeRoots: ComponentTreeNode[] = []
-  for (const node of processNodes) {
-    const processParent = getProcessParent(node, nodesMap)
-    if (processParent && treeNodeMap.has(processParent.id)) {
-      treeNodeMap.get(processParent.id)!.children.push(treeNodeMap.get(node.id)!)
+  for (const node of analyzableComponents) {
+    const componentParent = getComponentParent(node, nodesMap)
+    if (componentParent && treeNodeMap.has(componentParent.id)) {
+      treeNodeMap.get(componentParent.id)!.children.push(treeNodeMap.get(node.id)!)
     } else {
-      // Root-level process (no process parent or parent not in analyzable set)
       treeRoots.push(treeNodeMap.get(node.id)!)
     }
   }
@@ -105,7 +115,7 @@ export function buildComponentTree(
   }
   setDepths(treeRoots, 0)
 
-  return { treeRoots, flatNonProcess }
+  return { treeRoots }
 }
 
 /**
