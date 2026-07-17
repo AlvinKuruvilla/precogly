@@ -113,7 +113,7 @@ export function DeleteThreatModelDialog({
               onConfirm()
             }}
             disabled={isDeleting || isLoadingPreview}
-            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isDeleting ? (
               <>

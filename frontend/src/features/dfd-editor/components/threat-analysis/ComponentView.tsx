@@ -1,6 +1,6 @@
 import { Fragment, useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Cog, Database, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Building2, Lock, GripVertical, Loader2, Trash2 } from 'lucide-react'
+import { Cog, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Lock, GripVertical, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -62,7 +62,6 @@ import { WaiverReasonInput } from './WaiverReasonInput'
 import { ComplianceDetailSection } from './ComplianceDetailSection'
 import { CountermeasureStatusButtons } from './CountermeasureStatusButtons'
 import { ComponentTreeItem } from './ComponentTreeItem'
-import { ComponentDataAssetsDisplay } from './ComponentDataAssetsDisplay'
 import { useTechnologies } from '../../api/component-library'
 import { DataFlowAssetsDisplay } from './DataFlowAssetsDisplay'
 import { SortableList } from '@/components/shared/SortableList'
@@ -72,13 +71,6 @@ import { SuggestThreatsOwl } from '@/features/ai/components/SuggestThreatsOwl'
 export type Assignee = { type: 'member'; userId: number; email: string; name: string | null }
 
 // Icon map for node types
-const nodeTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  process: Cog,
-  datastore: Database,
-  humanActor: User,
-  systemActor: Building2,
-}
-
 interface ComponentViewProps {
   threatModelId: string
   canvasData: CanvasData
@@ -86,7 +78,7 @@ interface ComponentViewProps {
   trustZones: DiagramNode[]
   dataFlows: DataFlowEdge[]
   componentThreats: ComponentThreat[]
-  selectedFrameworks: string[]
+
   selectedComponentId: string | null
   selectedThreatId: string | null
   selectedComponentThreat: ComponentThreat | null
@@ -176,7 +168,6 @@ export function ComponentView({
   trustZones,
   dataFlows,
   componentThreats,
-  selectedFrameworks: _selectedFrameworks,
   selectedComponentId,
   selectedThreatId,
   selectedComponentThreat,
@@ -344,19 +335,9 @@ export function ComponentView({
   )
 
   // Build component tree for the left panel
-  const { treeRoots, flatNonProcess } = useMemo(
+  const { treeRoots } = useMemo(
     () => buildComponentTree(analyzableComponents, canvasData.nodes),
     [analyzableComponents, canvasData.nodes]
-  )
-
-  const dataStoreNodes = useMemo(
-    () => flatNonProcess.filter((n) => n.type === 'datastore'),
-    [flatNonProcess]
-  )
-
-  const actorNodes = useMemo(
-    () => flatNonProcess.filter((n) => n.type === 'humanActor' || n.type === 'systemActor'),
-    [flatNonProcess]
   )
 
   const toggleNodeCollapsed = useCallback((nodeId: string) => {
@@ -542,90 +523,6 @@ export function ComponentView({
                 resolveTechName={resolveTechName}
                 onRequestDeleteComponent={(component) => setDeleteComponentConfirmFor(component)}
               />
-            ))}
-
-            {/* Data Stores and Actors as separate sections */}
-            {[
-              { label: 'Data Stores', nodes: dataStoreNodes },
-              { label: 'Actors', nodes: actorNodes },
-            ].map(({ label, nodes }) => nodes.length > 0 && (
-              <Fragment key={label}>
-                <div className="pt-3 pb-1 px-2 border-t mt-2">
-                  <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                </div>
-                {nodes.map((node) => {
-                  const Icon = nodeTypeIcons[node.type as string] || Cog
-                  const summary = getComponentThreatSummary(node.id, componentThreats)
-                  const isSelected = node.id === selectedComponentId
-                  const technologySlug = (node.data as { technology?: string }).technology
-                  const technologyName = resolveTechName(technologySlug)
-                  const nodeLabel = String(node.data.label)
-                  const isDefaultLabel = nodeLabel.toLowerCase().includes('new ')
-                  const displayName = !isDefaultLabel ? nodeLabel : (technologyName || nodeLabel)
-                  const showSecondaryLabel = technologyName && !isDefaultLabel && nodeLabel !== technologyName
-
-                  return (
-                    <Fragment key={node.id}>
-                      <button
-                        onClick={() => onSelectComponent(node.id)}
-                        className={cn(
-                          'w-full text-left p-2 rounded-md transition-colors',
-                          isSelected
-                            ? 'bg-slate-100 border border-slate-300'
-                            : 'hover:bg-slate-50'
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm truncate">
-                                {displayName}
-                              </div>
-                              {showSecondaryLabel && (
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {technologyName}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {summary.exposed > 0 ? (
-                            <Badge variant="outline" className="bg-red-100 text-red-700 text-xs ml-2 flex-shrink-0">
-                              {summary.exposed} exposed
-                            </Badge>
-                          ) : summary.addressable > 0 ? (
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs ml-2 flex-shrink-0">
-                              {summary.addressable} in progress
-                            </Badge>
-                          ) : summary.total > 0 ? (
-                            <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                              No threats
-                            </span>
-                          ) : null}
-                        </div>
-                        {summary.total > 0 && (
-                          <div className="flex items-center gap-1 mt-1 ml-6">
-                            <span
-                              className={cn(
-                                'w-2 h-2 rounded-full',
-                                summary.exposed > 0 ? 'bg-red-500' : 'bg-yellow-500'
-                              )}
-                            />
-                            <span className="text-xs text-muted-foreground">
-                              {summary.total}
-                            </span>
-                          </div>
-                        )}
-                      </button>
-                      {isSelected && (
-                        <ComponentDataAssetsDisplay
-                          componentId={(node.data as { componentId?: number }).componentId}
-                        />
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </Fragment>
             ))}
 
             {/* Trust Boundaries section */}
@@ -898,7 +795,7 @@ export function ComponentView({
                       onReorderThreats(selectedComponentId, reordered)
                     }
                   }}
-                  renderItem={(ct, dragHandleRef, _isDragging) => {
+                  renderItem={(ct, dragHandleRef) => {
                     if (!ct.threatName) return null
 
                     const status = deriveThreatStatus(ct.countermeasures)
@@ -1137,7 +1034,7 @@ export function ComponentView({
                     onReorderCountermeasures(selectedComponentThreat.id, reordered)
                   }
                 }}
-                renderItem={(cm, dragHandleRef, _isDragging) => {
+                renderItem={(cm, dragHandleRef) => {
                   const cmName = cm.countermeasureName || cm.countermeasureId
                   const cmDescription = cm.countermeasureDescription
                   const canDelete = (() => {
@@ -1481,15 +1378,23 @@ export function ComponentView({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteCountermeasureMutation.isPending || unlinkCountermeasureMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
                 handleConfirmDeleteCountermeasure()
               }}
+              disabled={deleteCountermeasureMutation.isPending || unlinkCountermeasureMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {deleteCountermeasureMutation.isPending || unlinkCountermeasureMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1510,15 +1415,23 @@ export function ComponentView({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteComponentMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
                 handleConfirmDeleteComponent()
               }}
+              disabled={deleteComponentMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {deleteComponentMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

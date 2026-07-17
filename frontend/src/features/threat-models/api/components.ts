@@ -134,17 +134,3 @@ export function useCreateAnalysisComponent() {
   })
 }
 
-/**
- * Delete a component.
- */
-export function useDeleteComponent() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (componentId: number) => api.delete(`/components/${componentId}/`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: componentKeys.all })
-      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
-    },
-  })
-}

@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient, skipToken } from '@tanstack/reac
 import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure, CountermeasureStatus } from '@/features/dfd-editor/types/threat-analysis'
 import type { TaxonomyEntry } from '@/types/domain'
+import { componentKeys } from './components'
 
 // Backend countermeasure status (aligned with frontend CountermeasureStatus)
 type BackendCountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
@@ -985,6 +986,7 @@ export function useDeleteComponent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: componentKeys.all })
     },
   })
 }

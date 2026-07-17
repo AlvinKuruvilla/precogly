@@ -1,6 +1,7 @@
 import { Cog, Database, User, ChevronRight, Building2, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { ComponentThreat } from '../../types/threat-analysis'
 import { deriveThreatStatus } from '../../types/threat-analysis'
@@ -67,6 +68,7 @@ export function ComponentTreeItem({
   const hasChildren = children.length > 0
   const isCollapsed = collapsedNodes.has(node.id)
   const componentId = (node.data as { componentId?: number }).componentId
+  const isAnalysisOnly = (node.data as { isAnalysisOnly?: boolean }).isAnalysisOnly
 
   return (
     <>
@@ -124,7 +126,7 @@ export function ComponentTreeItem({
             </div>
           </div>
           <div className="flex items-center gap-1 ml-2 shrink-0">
-            {componentId !== undefined && (
+            {componentId !== undefined && isAnalysisOnly && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -138,6 +140,26 @@ export function ComponentTreeItem({
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
+            )}
+            {componentId !== undefined && !isAnalysisOnly && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground pointer-events-none opacity-50"
+                      disabled
+                      aria-label={`Cannot delete ${displayName}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  This component was created in the DFD editor. You can delete it only where you created it.
+                </TooltipContent>
+              </Tooltip>
             )}
             {summary.exposed > 0 ? (
               <Badge variant="outline" className="bg-red-100 text-red-700 text-xs shrink-0">

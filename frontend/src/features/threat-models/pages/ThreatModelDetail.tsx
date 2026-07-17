@@ -168,7 +168,7 @@ export function ThreatModelDetail() {
 
   // Fetch threat model threats data (for nodeComponentMap)
   const { data: threatData, refetch: refetchThreats } = useThreatModelThreats(id)
-  const nodeComponentMap = threatData?.nodeComponentMap || {}
+  const nodeComponentMap = useMemo(() => threatData?.nodeComponentMap || {}, [threatData?.nodeComponentMap])
 
   // Create diagram mutation
   const createDiagramMutation = useMutation({
@@ -194,7 +194,7 @@ export function ThreatModelDetail() {
   // Aggregate canvas data from all diagrams or selected diagram
   const aggregatedCanvasData = useMemo((): CanvasData => {
     const diagramsToUse = selectedDiagramId
-      ? diagrams.filter((d) => d.id === selectedDiagramId)
+      ? diagrams.filter((d) => String(d.id) === selectedDiagramId)
       : diagrams.filter((d) => d.isPrimary)
 
     const nodes: DiagramNode[] = []
@@ -215,7 +215,7 @@ export function ThreatModelDetail() {
   const filteredComponentThreats = useMemo(() => {
     if (!selectedDiagramId) return componentThreats
     return componentThreats.filter(
-      (ct) => ct.sourceDiagramId === selectedDiagramId || ct.diagramId === selectedDiagramId
+      (ct) => String(ct.sourceDiagramId) === selectedDiagramId || String(ct.diagramId) === selectedDiagramId
     )
   }, [componentThreats, selectedDiagramId])
 
@@ -675,19 +675,29 @@ export function ThreatModelDetail() {
                   {/* DFD Filter - only show if DFDs exist */}
                   {diagrams.length > 0 && (
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Filter by DFD:</span>
                       <select
                         value={selectedDiagramId || ''}
                         onChange={(e) => setSelectedDiagramId(e.target.value || null)}
                         className="text-sm border rounded-md px-2 py-1 bg-background"
                       >
-                        <option value="">All DFDs</option>
+                        <option value="">All</option>
                         {diagrams.map((d) => (
                           <option key={d.id} value={d.id}>
                             {d.name}
                           </option>
                         ))}
                       </select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const diagramId = selectedDiagramId || diagrams.find((d) => d.isPrimary)?.id || diagrams[0].id
+                          navigate(`/threat-models/${id}/diagrams/${diagramId}`)
+                        }}
+                      >
+                        DFD
+                      </Button>
                     </div>
                   )}
                   {/* Zone Protections Button */}
@@ -737,7 +747,6 @@ export function ThreatModelDetail() {
                     trustZones={trustZones}
                     dataFlows={dataFlows}
                     componentThreats={filteredComponentThreats}
-                    selectedFrameworks={(threatModel.frameworks || []).map(f => f.name)}
                     selectedComponentId={selectedComponentId}
                     selectedThreatId={selectedThreatId}
                     selectedComponentThreat={selectedComponentThreat}
