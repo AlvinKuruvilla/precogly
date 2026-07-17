@@ -1,7 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FileText, FolderOpen, Pencil, ArrowLeft } from 'lucide-react'
+import { Download, FileText, FolderOpen, Pencil, ArrowLeft, ImageDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -33,6 +39,8 @@ interface GuestEditorHeaderProps {
   onMarkSaved: () => void
   onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[]; notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle }) => void
   notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle
+  onExportImage: (format: 'png' | 'svg') => void
+  onCaptureImage: () => Promise<Uint8Array | null>
 }
 
 export function GuestEditorHeader({
@@ -42,6 +50,8 @@ export function GuestEditorHeader({
   onMarkSaved,
   onLoadFromFile,
   notationStyle,
+  onExportImage,
+  onCaptureImage,
 }: GuestEditorHeaderProps) {
   const navigate = useNavigate()
   const guestEditor = useGuestEditor()
@@ -118,14 +128,17 @@ export function GuestEditorHeader({
 
   const handleDownloadReport = useCallback(async () => {
     if (!guestEditor) return
+    // Capture the diagram image before generating the Word doc
+    const diagramImage = await onCaptureImage() ?? undefined
     await exportGuestWordDoc({
       title,
       nodes: guestEditor.nodes,
       edges: guestEditor.edges,
       threats: guestEditor.getAllThreats(),
       countermeasures: guestEditor.getAllCountermeasures(),
+      diagramImage,
     })
-  }, [title, guestEditor])
+  }, [title, guestEditor, onCaptureImage])
 
   return (
     <>
@@ -196,6 +209,28 @@ export function GuestEditorHeader({
               </TooltipTrigger>
               <TooltipContent>Download threat model report as Word document</TooltipContent>
             </Tooltip>
+
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <ImageDown className="h-4 w-4 mr-2" />
+                      Export Image
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Download diagram as PNG or SVG</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onExportImage('png')}>
+                  Download as PNG
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExportImage('svg')}>
+                  Download as SVG
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Tooltip>
               <TooltipTrigger asChild>

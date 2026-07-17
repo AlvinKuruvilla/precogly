@@ -1,5 +1,6 @@
 import {
   Document,
+  ImageRun,
   Paragraph,
   Table,
   TextRun,
@@ -11,6 +12,7 @@ import type { GuestThreat, GuestCountermeasure } from '../types'
 import { STRIDE_CONFIG } from '@/types/domain'
 import type { STRIDECategory } from '@/types/domain'
 import {
+  CONTENT_WIDTH,
   h1,
   h2,
   para,
@@ -34,6 +36,7 @@ export interface GuestReportData {
   edges: DiagramEdge[]
   threats: GuestThreat[]
   countermeasures: GuestCountermeasure[]
+  diagramImage?: Uint8Array
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +94,41 @@ function buildOverviewSection(data: GuestReportData): (Paragraph | Table)[] {
         ['Countermeasures', String(data.countermeasures.length)],
       ],
     ),
+    spacer(),
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Diagram Image Section (between Overview and Component Inventory)
+// ---------------------------------------------------------------------------
+
+/** CONTENT_WIDTH in DXA = 6.5 inches at 1440 DXA/inch. Convert to pixels at 96 DPI. */
+const CONTENT_WIDTH_PX = (CONTENT_WIDTH / 1440) * 96 // ≈ 624 px
+
+function buildDiagramImageSection(diagramImage: Uint8Array): (Paragraph | Table)[] {
+  // Decode PNG header to read image dimensions (width × height at bytes 16–23)
+  const widthBytes = diagramImage.slice(16, 20)
+  const heightBytes = diagramImage.slice(20, 24)
+  const pngWidth = (widthBytes[0] << 24) | (widthBytes[1] << 16) | (widthBytes[2] << 8) | widthBytes[3]
+  const pngHeight = (heightBytes[0] << 24) | (heightBytes[1] << 16) | (heightBytes[2] << 8) | heightBytes[3]
+
+  // Scale to fit page content width while maintaining aspect ratio
+  const scale = Math.min(1, CONTENT_WIDTH_PX / pngWidth)
+  const displayWidth = Math.round(pngWidth * scale)
+  const displayHeight = Math.round(pngHeight * scale)
+
+  return [
+    h1('Data Flow Diagram'),
+    spacer(),
+    new Paragraph({
+      children: [
+        new ImageRun({
+          data: diagramImage,
+          transformation: { width: displayWidth, height: displayHeight },
+          type: 'png',
+        }),
+      ],
+    }),
     spacer(),
   ]
 }
@@ -389,7 +427,7 @@ export async function exportGuestWordDoc(data: GuestReportData): Promise<void> {
 
     // Sections
     ...buildOverviewSection(data),
-    pageBreak(),
+    ...(data.diagramImage ? [...buildDiagramImageSection(data.diagramImage), pageBreak()] : [pageBreak()]),
     ...buildComponentInventorySection(data),
     pageBreak(),
     ...buildThreatAnalysisSection(data),

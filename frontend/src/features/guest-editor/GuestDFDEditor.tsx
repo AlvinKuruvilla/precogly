@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -23,6 +23,7 @@ import { useParentRelationships } from '@/features/dfd-editor/hooks/useParentRel
 import { useKeyboardShortcuts } from '@/features/dfd-editor/hooks/useKeyboardShortcuts'
 import { useConnectionMode } from '@/features/dfd-editor/hooks/useConnectionMode'
 import { useBoundaryMode } from '@/features/dfd-editor/hooks/useBoundaryMode'
+import { exportDiagramImage, captureDiagramImage } from '@/features/dfd-editor/lib/export-diagram-image'
 import type {
   DiagramNode,
   DiagramEdge,
@@ -40,6 +41,7 @@ function GuestDFDEditorContent() {
 
   // Consume diagram state from layout via outlet context
   const {
+    title,
     nodes,
     edges,
     setNodes,
@@ -49,6 +51,8 @@ function GuestDFDEditorContent() {
     undo,
     notationStyle,
     setNotationStyle,
+    exportImageRef,
+    captureImageRef,
   } = useOutletContext<GuestDiagramOutletContext>()
 
   // Handle notation change — resize affected nodes
@@ -90,7 +94,7 @@ function GuestDFDEditorContent() {
   const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
 
   // ReactFlow instance
-  const { screenToFlowPosition, getEdges } = useReactFlow()
+  const { screenToFlowPosition, getEdges, getViewport, setViewport } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   // Parent relationship detection
@@ -143,6 +147,28 @@ function GuestDFDEditorContent() {
       y: bounds ? bounds.top + bounds.height / 2 : window.innerHeight / 2,
     })
   }, [screenToFlowPosition])
+
+  // Register export image handler so the header can call it
+  useEffect(() => {
+    exportImageRef.current = (format: 'png' | 'svg') => {
+      if (!reactFlowWrapper.current) return
+      const filename = (title || 'diagram')
+        .replace(/[^a-zA-Z0-9-_ ]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase()
+      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport)
+    }
+    return () => { exportImageRef.current = null }
+  }, [exportImageRef, title, nodes, getViewport, setViewport])
+
+  // Register capture image handler so the header can capture PNG bytes for the Word report
+  useEffect(() => {
+    captureImageRef.current = async (): Promise<Uint8Array | null> => {
+      if (!reactFlowWrapper.current || nodes.length === 0) return null
+      return captureDiagramImage(reactFlowWrapper.current, nodes, getViewport, setViewport)
+    }
+    return () => { captureImageRef.current = null }
+  }, [captureImageRef, nodes, getViewport, setViewport])
 
   // Handle node click
   const handleNodeClick = useCallback(
