@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
@@ -10,6 +10,7 @@ import { GuestEditorProvider } from './context/GuestEditorContext'
 import { GuestEditorHeader } from './components/GuestEditorHeader'
 
 export interface GuestDiagramOutletContext {
+  title: string
   nodes: DiagramNode[]
   edges: DiagramEdge[]
   setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>
@@ -20,6 +21,8 @@ export interface GuestDiagramOutletContext {
   canUndo: boolean
   notationStyle: DFDNotationStyle
   setNotationStyle: (notation: DFDNotationStyle) => void
+  exportImageRef: React.MutableRefObject<((format: 'png' | 'svg') => void) | null>
+  captureImageRef: React.MutableRefObject<(() => Promise<Uint8Array | null>) | null>
 }
 
 export function GuestLayout() {
@@ -27,6 +30,8 @@ export function GuestLayout() {
   const threatOps = useGuestThreats()
   const countermeasureOps = useGuestCountermeasures()
   const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('dfd3')
+  const exportImageRef = useRef<((format: 'png' | 'svg') => void) | null>(null)
+  const captureImageRef = useRef<(() => Promise<Uint8Array | null>) | null>(null)
 
   // Wrap removeThreat to cascade-delete countermeasures
   const removeThreatWithCascade = useCallback(
@@ -85,6 +90,7 @@ export function GuestLayout() {
 
   const outletContext: GuestDiagramOutletContext = useMemo(
     () => ({
+      title: diagramState.title,
       nodes: diagramState.nodes,
       edges: diagramState.edges,
       setNodes: diagramState.setNodes,
@@ -95,8 +101,11 @@ export function GuestLayout() {
       canUndo: diagramState.canUndo,
       notationStyle,
       setNotationStyle,
+      exportImageRef,
+      captureImageRef,
     }),
     [
+      diagramState.title,
       diagramState.nodes,
       diagramState.edges,
       diagramState.setNodes,
@@ -127,6 +136,8 @@ export function GuestLayout() {
           onMarkSaved={diagramState.markSaved}
           onLoadFromFile={handleLoadFromFile}
           notationStyle={notationStyle}
+          onExportImage={(format) => exportImageRef.current?.(format)}
+          onCaptureImage={() => captureImageRef.current?.() ?? Promise.resolve(null)}
         />
         <Outlet context={outletContext} />
       </div>

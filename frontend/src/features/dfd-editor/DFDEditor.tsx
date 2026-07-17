@@ -13,8 +13,14 @@ import {
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ImageDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { DeleteDFDDialog } from '@/features/threat-models/components'
 import {
   Tooltip,
@@ -41,6 +47,7 @@ import { useConnectionMode } from './hooks/useConnectionMode'
 import { useBoundaryMode } from './hooks/useBoundaryMode'
 import type { DiagramNode, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from './types/notation'
+import { exportDiagramImage } from './lib/export-diagram-image'
 
 function DFDEditorContent() {
   const { diagramId, id: threatModelId } = useParams<{ id: string; diagramId: string }>()
@@ -54,7 +61,7 @@ function DFDEditorContent() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   // ReactFlow instance for coordinate conversion and edge queries
-  const { screenToFlowPosition, getEdges } = useReactFlow()
+  const { screenToFlowPosition, getEdges, getViewport, setViewport } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   // Delete DFD mutation
@@ -386,6 +393,19 @@ function DFDEditorContent() {
     [handleTitleSave]
   )
 
+  // Export diagram as image
+  const handleExportImage = useCallback(
+    (format: 'png' | 'svg') => {
+      if (!reactFlowWrapper.current) return
+      const filename = (diagramTitle || 'diagram')
+        .replace(/[^a-zA-Z0-9-_ ]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase()
+      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport)
+    },
+    [diagramTitle, nodes, getViewport, setViewport]
+  )
+
   // Handle DFD deletion
   const handleConfirmDelete = useCallback(
     (deleteOrphanedComponents: boolean) => {
@@ -498,6 +518,23 @@ function DFDEditorContent() {
             <Save className="h-4 w-4 mr-2" />
             Save
           </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <ImageDown className="h-4 w-4 mr-2" />
+                Export Image
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExportImage('png')}>
+                Download as PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportImage('svg')}>
+                Download as SVG
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             size="sm"
