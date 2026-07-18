@@ -716,6 +716,8 @@ export function transformBackendThreatsToComponentThreats(
       backendThreatId: bt.id,
       backendComponentId: bt.componentId,
       threatType: bt.type,
+      componentName: bt.componentName || undefined,
+      dataflowLabel: bt.dataflowLabel || undefined,
       // Actor & impact fields
       impactDescription: bt.impactDescription || undefined,
       threatActorText: bt.threatActorText || undefined,

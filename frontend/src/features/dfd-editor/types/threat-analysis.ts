@@ -175,6 +175,9 @@ export interface ComponentThreat {
   backendThreatId?: number
   backendComponentId?: number
   threatType?: 'component' | 'dataflow'
+  // Context labels for display (component name or flow label)
+  componentName?: string
+  dataflowLabel?: string
   // Actor & impact fields
   impactDescription?: string
   threatActorText?: string
