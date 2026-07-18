@@ -28,6 +28,19 @@ import {
 
 type ThreatWithContext = { threat: ReportThreat; context: string }
 
+const ACTOR_TYPE_LABELS: Record<string, string> = {
+  user: 'User',
+  power_user: 'Power User',
+  administrator: 'Administrator',
+  engineer: 'Engineer',
+  third_party: 'Third Party',
+  customer: 'Customer',
+}
+
+function formatActorType(actorType: string): string {
+  return ACTOR_TYPE_LABELS[actorType] ?? actorType
+}
+
 function flattenThreats(data: ReportData): ThreatWithContext[] {
   const out: ThreatWithContext[] = []
   for (const [context, threats] of Object.entries(data.threatAnalysis.componentThreats)) {
@@ -294,13 +307,18 @@ function buildComponentsSection(data: ReportData): (Paragraph | Table)[] {
     buildTable(
       [2400, 1440, 1440, 1440, 2640],
       ['Name', 'Type', 'Category', 'Trust Zone', 'Description'],
-      allComponents.map((c) => [
-        c.name,
-        c._type,
-        c.category,
-        c.trustZone ?? '—',
-        c.description,
-      ]),
+      allComponents.map((c) => {
+        const displayType = c._type === 'Human Actor' && c.actorType
+          ? `${c._type}\n(${formatActorType(c.actorType)})`
+          : c._type
+        return [
+          c.name,
+          displayType,
+          c.category,
+          c.trustZone ?? '—',
+          c.description,
+        ]
+      }),
     ),
     spacer(),
   ]

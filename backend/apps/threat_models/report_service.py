@@ -244,6 +244,7 @@ def _build_components(component_ids):
             "name": comp.name,
             "category": comp.category,
             "component_type": comp.component_type,
+            "actor_type": comp.actor_type,
             "provider": comp.provider,
             "trust_zone": comp.trust_zone.name if comp.trust_zone else None,
             "description": comp.description,

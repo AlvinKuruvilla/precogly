@@ -93,6 +93,7 @@ export interface ReportComponent {
   name: string
   category: string
   componentType: string
+  actorType: string
   provider: string
   trustZone: string | null
   description: string
