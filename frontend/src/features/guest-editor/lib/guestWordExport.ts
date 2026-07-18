@@ -56,6 +56,19 @@ function formatNodeType(type: string | undefined): string {
   }
 }
 
+const ACTOR_TYPE_LABELS: Record<string, string> = {
+  user: 'User',
+  power_user: 'Power User',
+  administrator: 'Administrator',
+  engineer: 'Engineer',
+  third_party: 'Third Party',
+  customer: 'Customer',
+}
+
+function formatActorType(actorType: string): string {
+  return ACTOR_TYPE_LABELS[actorType] ?? actorType
+}
+
 /** Resolve a target name from its ID by searching nodes and edges. */
 function resolveTargetName(targetId: string, nodes: DiagramNode[], edges: DiagramEdge[]): string {
   const node = nodes.find((n) => n.id === targetId)
@@ -153,10 +166,14 @@ function buildComponentInventorySection(data: GuestReportData): (Paragraph | Tab
         [3120, 2160, 4080],
         ['Name', 'Type', 'Description'],
         componentNodes.map((node) => {
-          const nodeData = node.data as { label?: string; description?: string }
+          const nodeData = node.data as { label?: string; description?: string; actorType?: string }
+          const typeName = formatNodeType(node.type)
+          const displayType = node.type === 'humanActor' && nodeData.actorType
+            ? `${typeName}\n(${formatActorType(nodeData.actorType)})`
+            : typeName
           return [
             nodeData.label ?? '—',
-            formatNodeType(node.type),
+            displayType,
             nodeData.description ?? '—',
           ]
         }),
