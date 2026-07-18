@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import {
   Plus,
   RefreshCw,
   Trash2,
   ChevronRight,
+  Search,
   Loader2,
   LayoutGrid,
   Table2,
@@ -27,6 +29,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -154,10 +157,11 @@ function ScoringMetadataForm({
   return (
     <div className="space-y-3">
       {Object.entries(method.metadataSchema).map(([fieldKey, fieldSchema]) => {
+        const requiredIndicator = fieldSchema.required ? <span className="text-destructive ml-0.5">*</span> : null
         if (fieldSchema.type === 'enum' && fieldSchema.values) {
           return (
             <div key={fieldKey} className="space-y-1">
-              <Label className="capitalize">{fieldKey.replace(/_/g, ' ')}</Label>
+              <Label className="capitalize">{fieldKey.replace(/_/g, ' ')}{requiredIndicator}</Label>
               <Select
                 value={(metadata[fieldKey] as string) || ''}
                 onValueChange={(value) => onChange({ ...metadata, [fieldKey]: value })}
@@ -179,7 +183,7 @@ function ScoringMetadataForm({
         if (fieldSchema.type === 'text') {
           return (
             <div key={fieldKey} className="space-y-1">
-              <Label className="capitalize">{fieldKey.replace(/_/g, ' ')}</Label>
+              <Label className="capitalize">{fieldKey.replace(/_/g, ' ')}{requiredIndicator}</Label>
               <Textarea
                 value={(metadata[fieldKey] as string) || ''}
                 onChange={(e) => onChange({ ...metadata, [fieldKey]: e.target.value })}
@@ -191,7 +195,7 @@ function ScoringMetadataForm({
         if (fieldSchema.type === 'number') {
           return (
             <div key={fieldKey} className="space-y-1">
-              <Label className="capitalize">{fieldKey.replace(/_/g, ' ')}</Label>
+              <Label className="capitalize">{fieldKey.replace(/_/g, ' ')}{requiredIndicator}</Label>
               <Input
                 type="number"
                 value={(metadata[fieldKey] as number) ?? ''}
@@ -223,37 +227,94 @@ function ThreatPicker({
   selectedFlowThreatIds: number[]
   onToggle: (backendId: number, threatType: 'component' | 'dataflow') => void
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [filter, setFilter] = useState('')
+
   const activeThreats = componentThreats.filter((t) => !t.dismissed && t.backendThreatId)
+  const selectedCount = selectedComponentThreatIds.length + selectedFlowThreatIds.length
+
   if (activeThreats.length === 0) {
     return <p className="text-sm text-muted-foreground py-2">No threats available to link.</p>
   }
+
+  const filteredThreats = filter
+    ? activeThreats.filter((t) =>
+        (t.threatName || '').toLowerCase().includes(filter.toLowerCase())
+      )
+    : activeThreats
+
   return (
-    <div className="max-h-48 overflow-y-auto border rounded-md">
-      {activeThreats.map((threat) => {
-        const isComponent = threat.threatType !== 'dataflow'
-        const selectedIds = isComponent ? selectedComponentThreatIds : selectedFlowThreatIds
-        const isSelected = selectedIds.includes(threat.backendThreatId!)
-        return (
-          <label
-            key={threat.id}
-            className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
-          >
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => onToggle(threat.backendThreatId!, threat.threatType as 'component' | 'dataflow')}
-              className="rounded"
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full justify-between"
+        onClick={() => setPickerOpen(true)}
+      >
+        <span>
+          {selectedCount > 0
+            ? `${selectedCount} threat${selectedCount === 1 ? '' : 's'} selected`
+            : 'Select threats...'}
+        </span>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+      <Dialog open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) setFilter('') }}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Link Threats</DialogTitle>
+            <DialogDescription>
+              Select threats to associate with this risk. {selectedCount > 0 && `${selectedCount} selected.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter threats..."
+              className="h-8 pl-7 text-sm"
             />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm truncate block">
-                {threat.threatName || `Threat #${threat.backendThreatId}`}
-              </span>
-              <span className="text-xs text-muted-foreground">{isComponent ? 'Component' : 'Flow'}</span>
-            </div>
-          </label>
-        )
-      })}
-    </div>
+          </div>
+          <div className="flex-1 overflow-y-auto border rounded-md min-h-0">
+            {filteredThreats.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-3 py-2">No matching threats.</p>
+            ) : (
+              filteredThreats.map((threat) => {
+                const isComponent = threat.threatType !== 'dataflow'
+                const selectedIds = isComponent ? selectedComponentThreatIds : selectedFlowThreatIds
+                const isSelected = selectedIds.includes(threat.backendThreatId!)
+                return (
+                  <label
+                    key={threat.id}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggle(threat.backendThreatId!, threat.threatType as 'component' | 'dataflow')}
+                      className="rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm truncate block">
+                        {threat.threatName || `Threat #${threat.backendThreatId}`}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {isComponent
+                          ? `Component${threat.componentName ? `: ${threat.componentName}` : ''}`
+                          : `Flow${threat.dataflowLabel ? `: ${threat.dataflowLabel}` : ''}`}
+                      </span>
+                    </div>
+                  </label>
+                )
+              })
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPickerOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -324,20 +385,42 @@ function AddRiskDialog({
     if (isCustom && inherentScore !== '') input.inherentScore = Number(inherentScore)
     createRisk.mutate(input, {
       onSuccess: () => { onOpenChange(false); resetForm() },
+      onError: (error) => {
+        let message = 'Failed to create risk.'
+        if (error instanceof Error && 'data' in error && error.data && typeof error.data === 'object') {
+          const data = error.data as Record<string, unknown>
+          const fieldMessages = Object.values(data)
+            .map((v) => (Array.isArray(v) ? v.join(', ') : String(v)))
+          if (fieldMessages.length) message = fieldMessages.join(' ')
+        }
+        toast.error(message)
+      },
     })
   }
 
-  const canSubmit = name.trim() && (isCustom ? inherentScore !== '' : true)
+  const hasRequiredMetadata = isCustom
+    ? inherentScore !== ''
+    : !activeScoringMethod || Object.entries(activeScoringMethod.metadataSchema)
+        .filter(([, field]) => field.required)
+        .every(([key]) => {
+          const value = scoringMetadata[key]
+          return value !== undefined && value !== null && value !== ''
+        })
+
+  const canSubmit = !!name.trim() && hasRequiredMetadata
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Risk</DialogTitle>
+          <DialogDescription>
+            Define a new risk and optionally link it to existing threats.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label>Name</Label>
+            <Label>Name<span className="text-destructive ml-0.5">*</span></Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Data Breach via API Exploitation" />
           </div>
           <div className="space-y-1">
@@ -378,7 +461,7 @@ function AddRiskDialog({
           </div>
           {isCustom ? (
             <div className="space-y-1">
-              <Label>Inherent Score (0–100)</Label>
+              <Label>Inherent Score (0–100)<span className="text-destructive ml-0.5">*</span></Label>
               <Input type="number" min={0} max={100} value={inherentScore} onChange={(e) => setInherentScore(e.target.value ? Number(e.target.value) : '')} />
             </div>
           ) : (

@@ -735,7 +735,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         flow_threats = DataFlowInstanceThreat.objects.filter(
             data_flow_id__in=dataflow_ids
         ).select_related(
-            "data_flow", "threat_library"
+            "data_flow", "data_flow__source_component", "data_flow__dest_component", "threat_library"
         ).prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             countermeasure_links_prefetch,
@@ -786,15 +786,24 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                     edge_info = {"edge_id": edge_id, **info}
                     break
 
+            # Build a descriptive label for the data flow
+            flow = threat.data_flow
+            if flow and flow.label:
+                flow_display_label = flow.label
+            elif flow and flow.source_component and flow.dest_component:
+                flow_display_label = f"{flow.source_component.name} \u2192 {flow.dest_component.name}"
+            else:
+                flow_display_label = None
+
             threat_data = {
                 "id": threat.id,
                 "type": "dataflow",
                 "dataflow_id": threat.data_flow_id,
-                "dataflow_label": threat.data_flow.label if threat.data_flow else None,
+                "dataflow_label": flow_display_label,
                 "edge_id": edge_info["edge_id"] if edge_info else None,
                 "node_id": edge_info["edge_id"] if edge_info else None,
                 "component_id": threat.data_flow_id,
-                "component_name": threat.data_flow.label if threat.data_flow else None,
+                "component_name": flow_display_label,
                 "dfd_id": edge_info["dfd_id"] if edge_info else None,
                 "dfd_name": edge_info["dfd_name"] if edge_info else None,
                 "threat_library_id": threat.threat_library_id,
