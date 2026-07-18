@@ -118,11 +118,15 @@ export function headerCell(text: string, width: number): TableCell {
 }
 
 export function dataCell(text: string, width: number): TableCell {
+  const parts = (text ?? '').split('\n')
+  const children: TextRun[] = parts.flatMap((part, i) =>
+    i === 0 ? [new TextRun(part)] : [new TextRun({ break: 1, text: part })]
+  )
   return new TableCell({
     borders: CELL_BORDERS,
     width: { size: width, type: WidthType.DXA },
     margins: CELL_MARGINS,
-    children: [new Paragraph({ children: [new TextRun(text ?? '')] })],
+    children: [new Paragraph({ children })],
   })
 }
 
