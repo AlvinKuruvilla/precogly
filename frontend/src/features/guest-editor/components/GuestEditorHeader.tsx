@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FileText, FolderOpen, Pencil, ArrowLeft, ImageDown } from 'lucide-react'
+import { Download, FileText, FolderOpen, Pencil, ArrowLeft, ImageDown, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -27,6 +27,7 @@ import {
 import { useGuestEditor } from '../context/GuestEditorContext'
 import { serializeToTmLibrary, downloadTmLibraryFile, openTmLibraryFile } from '../lib/precogly-file'
 import { exportGuestWordDoc } from '../lib/guestWordExport'
+import { GuestSystemContextModal } from './GuestSystemContextModal'
 
 function titleToFilename(title: string): string {
   return title.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '-').toLowerCase() || 'diagram'
@@ -37,7 +38,7 @@ interface GuestEditorHeaderProps {
   onTitleChange: (title: string) => void
   hasUnsavedChanges: boolean
   onMarkSaved: () => void
-  onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[]; notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle }) => void
+  onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[]; notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle; systemContext?: import('../types').GuestSystemContext }) => void
   notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle
   onExportImage: (format: 'png' | 'svg') => void
   onCaptureImage: () => Promise<Uint8Array | null>
@@ -58,6 +59,9 @@ export function GuestEditorHeader({
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // System context modal state
+  const [showSystemContextModal, setShowSystemContextModal] = useState(false)
 
   // Save dialog state
   const [showSaveDialog, setShowSaveDialog] = useState(false)
@@ -100,13 +104,15 @@ export function GuestEditorHeader({
     const filename = saveFilename.trim() || titleToFilename(title)
     const threats = guestEditor.getAllThreats()
     const countermeasures = guestEditor.getAllCountermeasures()
+    const systemContext = guestEditor.getSystemContext()
     const content = serializeToTmLibrary(
       title,
       guestEditor.nodes,
       guestEditor.edges,
       threats,
       countermeasures,
-      notationStyle
+      notationStyle,
+      systemContext
     )
     downloadTmLibraryFile(filename, content)
     onMarkSaved()
@@ -116,10 +122,13 @@ export function GuestEditorHeader({
   const handleOpen = useCallback(async () => {
     try {
       const data = await openTmLibraryFile()
-      onLoadFromFile({ title: data.title, nodes: data.nodes, edges: data.edges, notationStyle: data.notationStyle })
+      onLoadFromFile({ title: data.title, nodes: data.nodes, edges: data.edges, notationStyle: data.notationStyle, systemContext: data.systemContext })
       if (guestEditor) {
         guestEditor.loadThreats(data.threats)
         guestEditor.loadCountermeasures(data.countermeasures)
+        if (data.systemContext) {
+          guestEditor.loadSystemContext(data.systemContext)
+        }
       }
     } catch {
       // User cancelled or invalid file - silently ignore
@@ -137,6 +146,7 @@ export function GuestEditorHeader({
       threats: guestEditor.getAllThreats(),
       countermeasures: guestEditor.getAllCountermeasures(),
       diagramImage,
+      systemContext: guestEditor.getSystemContext(),
     })
   }, [title, guestEditor, onCaptureImage])
 
@@ -198,6 +208,16 @@ export function GuestEditorHeader({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Open a threat model JSON file</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={() => setShowSystemContextModal(true)}>
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Context
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Define system context, data assets, and assumptions</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -279,6 +299,12 @@ export function GuestEditorHeader({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* System Context modal */}
+      <GuestSystemContextModal
+        open={showSystemContextModal}
+        onOpenChange={setShowSystemContextModal}
+      />
     </>
   )
 }

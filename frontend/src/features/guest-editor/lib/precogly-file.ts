@@ -3,6 +3,8 @@ import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
 import type {
   GuestThreat,
   GuestCountermeasure,
+  GuestSystemContext,
+  SystemContextExtension,
   TmLibraryFile,
   TmLibraryEntity,
   TmLibraryDataFlow,
@@ -33,7 +35,8 @@ export function serializeToTmLibrary(
   edges: DiagramEdge[],
   threats: GuestThreat[],
   countermeasures: GuestCountermeasure[],
-  notationStyle?: DFDNotationStyle
+  notationStyle?: DFDNotationStyle,
+  systemContext?: GuestSystemContext
 ): string {
   const now = new Date().toISOString()
 
@@ -140,7 +143,10 @@ export function serializeToTmLibrary(
 
   const file: TmLibraryFile = {
     version: '1.0',
-    scope: { title },
+    scope: {
+      title,
+      ...(systemContext?.systemInfo.description && { description: systemContext.systemInfo.description }),
+    },
     trust_zones: trustZones,
     trust_boundaries: trustBoundaries,
     actors,
@@ -158,6 +164,15 @@ export function serializeToTmLibrary(
         createdAt: now,
         updatedAt: now,
       },
+      ...(systemContext && {
+        'precogly.org/system-context': {
+          session: systemContext.session,
+          systemInfo: systemContext.systemInfo,
+          dataAssets: systemContext.dataAssets,
+          assumptions: systemContext.assumptions,
+          outOfScopeItems: systemContext.outOfScopeItems,
+        } satisfies SystemContextExtension,
+      }),
     },
   }
 
@@ -173,6 +188,7 @@ interface DeserializedFile {
   threats: GuestThreat[]
   countermeasures: GuestCountermeasure[]
   notationStyle?: DFDNotationStyle
+  systemContext?: GuestSystemContext
 }
 
 // --- Deserialization: TM-Library JSON → in-memory state ---
@@ -248,7 +264,26 @@ function deserializeTmLibrary(json: string): DeserializedFile {
     })
   )
 
-  return { title, nodes, edges, threats, countermeasures, notationStyle: notationStyleValue }
+  // Reconstruct system context from extension (if present)
+  const systemContextExt = parsed.extensions?.['precogly.org/system-context'] as SystemContextExtension | undefined
+  const systemContext: GuestSystemContext | undefined = systemContextExt
+    ? {
+        session: {
+          facilitator: systemContextExt.session?.facilitator ?? '',
+          participants: Array.isArray(systemContextExt.session?.participants) ? systemContextExt.session.participants : [],
+          meetingDate: systemContextExt.session?.meetingDate ?? '',
+        },
+        systemInfo: {
+          description: systemContextExt.systemInfo?.description ?? '',
+          criticality: systemContextExt.systemInfo?.criticality ?? 'medium',
+        },
+        dataAssets: Array.isArray(systemContextExt.dataAssets) ? systemContextExt.dataAssets : [],
+        assumptions: Array.isArray(systemContextExt.assumptions) ? systemContextExt.assumptions : [],
+        outOfScopeItems: Array.isArray(systemContextExt.outOfScopeItems) ? systemContextExt.outOfScopeItems : [],
+      }
+    : undefined
+
+  return { title, nodes, edges, threats, countermeasures, notationStyle: notationStyleValue, systemContext }
 }
 
 // --- Legacy .precogly format ---

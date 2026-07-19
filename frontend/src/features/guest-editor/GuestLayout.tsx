@@ -6,8 +6,10 @@ import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
 import { useGuestDiagramState } from './hooks/useGuestDiagramState'
 import { useGuestThreats } from './hooks/useGuestThreats'
 import { useGuestCountermeasures } from './hooks/useGuestCountermeasures'
+import { useGuestSystemContext } from './hooks/useGuestSystemContext'
 import { GuestEditorProvider } from './context/GuestEditorContext'
 import { GuestEditorHeader } from './components/GuestEditorHeader'
+import type { GuestSystemContext } from './types'
 
 export interface GuestDiagramOutletContext {
   title: string
@@ -29,6 +31,7 @@ export function GuestLayout() {
   const diagramState = useGuestDiagramState()
   const threatOps = useGuestThreats()
   const countermeasureOps = useGuestCountermeasures()
+  const systemContextOps = useGuestSystemContext()
   const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('dfd3')
   const exportImageRef = useRef<((format: 'png' | 'svg') => void) | null>(null)
   const captureImageRef = useRef<(() => Promise<Uint8Array | null>) | null>(null)
@@ -66,6 +69,28 @@ export function GuestLayout() {
       getCountermeasureCount: countermeasureOps.getCountermeasureCount,
       getAllCountermeasures: countermeasureOps.getAllCountermeasures,
       loadCountermeasures: countermeasureOps.loadCountermeasures,
+
+      // System Context state
+      session: systemContextOps.session,
+      systemInfo: systemContextOps.systemInfo,
+      dataAssets: systemContextOps.dataAssets,
+      assumptions: systemContextOps.assumptions,
+      outOfScopeItems: systemContextOps.outOfScopeItems,
+
+      // System Context operations
+      updateSession: systemContextOps.updateSession,
+      updateSystemInfo: systemContextOps.updateSystemInfo,
+      addDataAsset: systemContextOps.addDataAsset,
+      updateDataAsset: systemContextOps.updateDataAsset,
+      removeDataAsset: systemContextOps.removeDataAsset,
+      addAssumption: systemContextOps.addAssumption,
+      updateAssumption: systemContextOps.updateAssumption,
+      removeAssumption: systemContextOps.removeAssumption,
+      addOutOfScopeItem: systemContextOps.addOutOfScopeItem,
+      updateOutOfScopeItem: systemContextOps.updateOutOfScopeItem,
+      removeOutOfScopeItem: systemContextOps.removeOutOfScopeItem,
+      loadSystemContext: systemContextOps.loadSystemContext,
+      getSystemContext: systemContextOps.getSystemContext,
     }),
     [
       diagramState.nodes,
@@ -85,6 +110,24 @@ export function GuestLayout() {
       countermeasureOps.getCountermeasureCount,
       countermeasureOps.getAllCountermeasures,
       countermeasureOps.loadCountermeasures,
+      systemContextOps.session,
+      systemContextOps.systemInfo,
+      systemContextOps.dataAssets,
+      systemContextOps.assumptions,
+      systemContextOps.outOfScopeItems,
+      systemContextOps.updateSession,
+      systemContextOps.updateSystemInfo,
+      systemContextOps.addDataAsset,
+      systemContextOps.updateDataAsset,
+      systemContextOps.removeDataAsset,
+      systemContextOps.addAssumption,
+      systemContextOps.updateAssumption,
+      systemContextOps.removeAssumption,
+      systemContextOps.addOutOfScopeItem,
+      systemContextOps.updateOutOfScopeItem,
+      systemContextOps.removeOutOfScopeItem,
+      systemContextOps.loadSystemContext,
+      systemContextOps.getSystemContext,
     ]
   )
 
@@ -119,11 +162,14 @@ export function GuestLayout() {
   )
 
   const handleLoadFromFile = useCallback(
-    (data: { title: string; nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle }) => {
+    (data: { title: string; nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle; systemContext?: GuestSystemContext }) => {
       diagramState.loadFromFile(data)
       setNotationStyle(data.notationStyle ?? 'dfd3')
+      if (data.systemContext) {
+        systemContextOps.loadSystemContext(data.systemContext)
+      }
     },
-    [diagramState.loadFromFile]
+    [diagramState.loadFromFile, systemContextOps.loadSystemContext]
   )
 
   return (
