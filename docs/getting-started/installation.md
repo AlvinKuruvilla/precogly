@@ -98,6 +98,8 @@ docker compose up --build
 
 The `-v` flag removes the PostgreSQL data volume. On the next start, the database is recreated and re-seeded.
 
+Use this reset after pulling changes that alter migrations or seed data, or when local demo data no longer matches the current branch. A normal `docker compose down` stops containers but keeps the database volume, so old schema/data can survive rebuilds.
+
 ## Troubleshooting
 
 ### Port conflicts

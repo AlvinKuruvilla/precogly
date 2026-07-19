@@ -55,6 +55,10 @@ Data that has no equivalent in the TM-Library schema is preserved in an `extensi
 !!! tip
     When sharing with non-Precogly tools, the extensions block is safely ignored — the standard TM-Library fields carry the core threat model data. When re-importing into Precogly, the extensions restore the full analytical context.
 
+Some fields are preserved primarily for round-trip fidelity even when the current UI does not expose a dedicated editor for them. For example, risk metadata such as domains, target score, and target level can be imported from richer formats and retained by the backend, but day-to-day risk workflows may still focus on the visible score, level, owner, assignee, and response fields. Treat these preserved fields as interoperability data unless your workflow explicitly surfaces them.
+
+Status values can also come from external schemas whose vocabulary does not perfectly match Precogly's internal countermeasure statuses. During import, statuses are mapped into the closest local concept where possible. If an external status cannot be mapped cleanly, review the imported controls before relying on downstream mitigation, residual-risk, or compliance reports.
+
 ### What's not exported
 
 Some data is intentionally excluded because it is instance-specific or not meaningful outside the originating environment:
@@ -86,6 +90,8 @@ Precogly validates the file structure before importing. Issues are reported as e
 
 - **Errors** block the import entirely (missing required fields, invalid types, duplicate symbolic names).
 - **Warnings** allow the import to proceed (unresolved references, unknown extensions). Entities with unresolvable references are created without those associations.
+
+Validation focuses on whether the file can be converted into a coherent threat model. A syntactically valid file can still contain repeated references, unknown status values, or fields that are meaningful to the source tool but not directly editable in Precogly. After importing third-party files, review the generated threats, controls, risks, and warnings before using the result as audit evidence.
 
 ### What happens during import
 
@@ -123,6 +129,18 @@ Some structural differences between TM-Library and Precogly are resolved during 
 | **`inherent_severity`** | Imported directly onto threat instances (defaults to `medium` if absent). On export, both `inherent_severity` and `residual_severity` are included. |
 | **`event` (on threats)** | Mapped to the `impact_description` field on threat instances. |
 | **Actor `type`** | Stored in `format_metadata` for round-trip. Actor category is set to `null` on import; users classify post-import. |
+
+### Risk fields and round-trip metadata
+
+Imported risks may include additional planning fields such as domains, target score, or target level. These values are useful when moving models between tools or preserving TM-BOM-style context, but they may not all appear in the primary risk UI. The import process keeps this metadata so a later export can retain as much of the original model as possible.
+
+When reviewing an imported risk, use the visible risk score, level, response, owner, and assignee as the main operational fields. If your source file uses target risk or domain classifications for governance, verify those values through the API/export path until the UI exposes first-class editing for them.
+
+### Control status mapping
+
+External threat-model formats can contain control statuses that differ from Precogly's local lifecycle. Precogly maps known statuses during import, then uses the resulting local status for threat mitigation, residual scoring, and report generation. Because those downstream calculations depend on the mapped status, status warnings should be reviewed with the same care as unresolved component or taxonomy references.
+
+If an imported control appears with an unexpected status, update it in Precogly before relying on generated reports. This is especially important for statuses that sound final in the source tool but do not have an exact local equivalent.
 
 ### Restoring Precogly extensions
 

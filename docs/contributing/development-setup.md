@@ -84,6 +84,19 @@ docker compose down
 
 Use `docker compose down -v` only when you want to delete the local database volume and reseed from scratch on the next startup.
 
+## Reset Seeded Data
+
+Docker keeps PostgreSQL data in a named volume. That volume survives container rebuilds, so an older local database can drift from the current migrations or seed data after switching branches, pulling new changes, or testing schema-related fixes. When that happens, the app may fail during startup, seed commands may report unexpected constraint errors, or the UI may show stale demo data that does not match the current code.
+
+To reset the local database and reseed from the current branch:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+The `-v` flag deletes the PostgreSQL volume. Use it only for local development data you are comfortable losing.
+
 ## Frontend Workflow
 
 The frontend container runs Vite on port `5173`. API calls use `/api` in the browser and are proxied by Vite to the backend container through the `API_URL` value in `docker-compose.yml`.
