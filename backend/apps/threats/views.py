@@ -85,7 +85,7 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for ThreatLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = None
+    pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = []
     search_fields = ["name", "description"]
@@ -151,7 +151,7 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for CountermeasureLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = None
+    pagination_class = None  # Return all items without pagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["control_type", "cost"]
     search_fields = ["name", "description"]
