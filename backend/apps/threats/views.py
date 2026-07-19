@@ -2,7 +2,7 @@
 Views for threats app.
 """
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from rest_framework.exceptions import PermissionDenied
 
+from apps.core.pagination import CatalogPagination
 from apps.core.permissions import CanWrite, IsSecurityTeam
 from apps.systems.models import OrgsystemComponent
 from apps.threat_models.models import ThreatModel
@@ -34,6 +35,7 @@ from .models import (
     RiskThreat,
     TaxonomyEntry,
     ThreatLibrary,
+    ThreatLibraryTaxonomyEntry,
     ThreatPersona,
     ThreatSource,
     VerificationTest,
@@ -84,7 +86,7 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for ThreatLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = None  # Return all items without pagination
+    pagination_class = CatalogPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = []
     search_fields = ["name", "description"]
@@ -101,7 +103,16 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
             threat_model: If provided, filters to threats from connected packs
             (or with no source pack).
         """
-        queryset = ThreatLibrary.objects.all().select_related("source_pack")
+        queryset = ThreatLibrary.objects.all().select_related(
+            "source_pack"
+        ).prefetch_related(
+            Prefetch(
+                "taxonomy_entries",
+                queryset=ThreatLibraryTaxonomyEntry.objects.select_related(
+                    "taxonomy_entry__taxonomy"
+                ),
+            )
+        )
 
         component_id = self.request.query_params.get("component_id")
         if component_id:
@@ -141,7 +152,7 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for CountermeasureLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = None  # Return all items without pagination
+    pagination_class = CatalogPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["control_type", "cost"]
     search_fields = ["name", "description"]
@@ -856,7 +867,7 @@ class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = TaxonomyEntry.objects.select_related("taxonomy").all()
     serializer_class = TaxonomyEntryNestedSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = None
+    pagination_class = CatalogPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["taxonomy__slug"]
     search_fields = ["external_id", "title"]
@@ -1005,9 +1016,9 @@ class ThreatPersonaViewSet(viewsets.ModelViewSet):
 
     serializer_class = ThreatPersonaSerializer
     permission_classes = [IsAuthenticated, CanWrite]
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["name", "symbolic_name"]
-    pagination_class = None
 
     def get_queryset(self):
         org_ids = self.request.user.organization_memberships.values_list(

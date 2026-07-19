@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from django.db import transaction
 
+from apps.core.pagination import CatalogPagination
 from apps.core.permissions import IsSecurityTeam
 from apps.diagrams.models import DFDTemplatesLibrary
 
@@ -43,7 +44,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [IsAuthenticated]
-    pagination_class = None
+    pagination_class = CatalogPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["pack_type"]
     search_fields = ["name", "description", "author", "tags"]

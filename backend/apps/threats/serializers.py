@@ -82,7 +82,7 @@ class ThreatLibrarySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug", "taxonomy_entries"]
 
     def get_taxonomy_entries(self, obj):
-        joins = obj.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all()
+        joins = obj.taxonomy_entries.all()
         return TaxonomyEntryNestedSerializer(
             [j.taxonomy_entry for j in joins], many=True
         ).data
@@ -104,7 +104,7 @@ class ThreatLibraryListSerializer(serializers.ModelSerializer):
         ]
 
     def get_taxonomy_entries(self, obj):
-        joins = obj.taxonomy_entries.select_related("taxonomy_entry__taxonomy").all()
+        joins = obj.taxonomy_entries.all()
         return TaxonomyEntryNestedSerializer(
             [j.taxonomy_entry for j in joins], many=True
         ).data
