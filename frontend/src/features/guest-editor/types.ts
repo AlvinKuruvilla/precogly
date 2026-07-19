@@ -31,6 +31,79 @@ export const GUEST_CONTROL_TYPES = [
   { value: 'procedural', label: 'Procedural' },
 ] as const
 
+// --- System Context types ---
+
+export interface GuestSessionMetadata {
+  facilitator: string
+  participants: string[]
+  meetingDate: string // ISO date (YYYY-MM-DD) or empty
+}
+
+export interface GuestSystemInfo {
+  description: string
+  criticality: 'low' | 'medium' | 'high' | 'critical'
+}
+
+export interface GuestDataAsset {
+  id: string
+  name: string
+  description: string
+  classification: string
+  confidentiality: 'low' | 'medium' | 'high'
+  integrity: 'low' | 'medium' | 'high'
+  availability: 'low' | 'medium' | 'high'
+  complianceTags: string[]
+  dataSensitivity: string[]
+}
+
+export interface GuestAssumption {
+  id: string
+  description: string
+  validity: 'unconfirmed' | 'confirmed' | 'rejected'
+  topics: string[]
+}
+
+export interface GuestOutOfScopeItem {
+  id: string
+  name: string
+  reason: string
+}
+
+export interface GuestSystemContext {
+  session: GuestSessionMetadata
+  systemInfo: GuestSystemInfo
+  dataAssets: GuestDataAsset[]
+  assumptions: GuestAssumption[]
+  outOfScopeItems: GuestOutOfScopeItem[]
+}
+
+export interface SystemContextExtension {
+  session: GuestSessionMetadata
+  systemInfo: GuestSystemInfo
+  dataAssets: GuestDataAsset[]
+  assumptions: GuestAssumption[]
+  outOfScopeItems: GuestOutOfScopeItem[]
+}
+
+export const GUEST_CRITICALITY_OPTIONS = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+] as const
+
+export const GUEST_CIA_LEVELS = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+] as const
+
+export const GUEST_ASSUMPTION_VALIDITY = [
+  { value: 'unconfirmed', label: 'Unconfirmed' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'rejected', label: 'Rejected' },
+] as const
+
 export interface PrecoglyFile {
   version: '1.0'
   generator: 'precogly-guest'
@@ -117,6 +190,7 @@ export interface TmLibraryFile {
   extensions: {
     'precogly.org/canvas-data': CanvasDataExtension
     'precogly.org/guest-metadata': GuestMetadataExtension
+    'precogly.org/system-context'?: SystemContextExtension
     [key: string]: unknown
   }
 }

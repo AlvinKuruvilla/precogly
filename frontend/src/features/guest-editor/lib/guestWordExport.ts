@@ -8,7 +8,7 @@ import {
 } from 'docx'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 import { isDataFlowEdge } from '@/features/dfd-editor/types'
-import type { GuestThreat, GuestCountermeasure } from '../types'
+import type { GuestThreat, GuestCountermeasure, GuestSystemContext } from '../types'
 import { STRIDE_CONFIG } from '@/types/domain'
 import type { STRIDECategory } from '@/types/domain'
 import {
@@ -37,6 +37,7 @@ export interface GuestReportData {
   threats: GuestThreat[]
   countermeasures: GuestCountermeasure[]
   diagramImage?: Uint8Array
+  systemContext?: GuestSystemContext
 }
 
 // ---------------------------------------------------------------------------
@@ -90,12 +91,12 @@ function capitalize(str: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Section 1: Diagram Overview
+// Section: Diagram Overview
 // ---------------------------------------------------------------------------
 
-function buildOverviewSection(data: GuestReportData): (Paragraph | Table)[] {
+function buildOverviewSection(data: GuestReportData, sectionNum: number): (Paragraph | Table)[] {
   return [
-    h1('1. Diagram Overview'),
+    h1(`${sectionNum}. Diagram Overview`),
     spacer(),
     buildTable(
       [4680, 4680],
@@ -147,11 +148,133 @@ function buildDiagramImageSection(diagramImage: Uint8Array): (Paragraph | Table)
 }
 
 // ---------------------------------------------------------------------------
-// Section 2: Component Inventory
+// Section: System Information
 // ---------------------------------------------------------------------------
 
-function buildComponentInventorySection(data: GuestReportData): (Paragraph | Table)[] {
-  const children: (Paragraph | Table)[] = [h1('2. Component Inventory'), spacer()]
+function buildSystemInfoSection(systemContext: GuestSystemContext, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. System Information`), spacer()]
+
+  if (systemContext.systemInfo.description) {
+    children.push(
+      h2(`${sectionNum}.1 Description`),
+      spacer(),
+      para(systemContext.systemInfo.description),
+      spacer(),
+    )
+  }
+
+  children.push(
+    h2(`${sectionNum}.2 Criticality`),
+    spacer(),
+    para(capitalize(systemContext.systemInfo.criticality), { bold: true }),
+    spacer(),
+  )
+
+  return children
+}
+
+// ---------------------------------------------------------------------------
+// Section: Data Assets
+// ---------------------------------------------------------------------------
+
+function buildDataAssetsSection(systemContext: GuestSystemContext, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Data Assets`), spacer()]
+
+  if (systemContext.dataAssets.length === 0) {
+    children.push(
+      para('No data assets have been defined.', { italic: true }),
+      spacer(),
+    )
+    return children
+  }
+
+  children.push(
+    buildTable(
+      [1800, 1560, 2400, 1080, 1080, 1080, 1360],
+      ['Name', 'Classification', 'Description', 'C', 'I', 'A', 'Sensitivity'],
+      systemContext.dataAssets.map((asset) => [
+        asset.name,
+        capitalize(asset.classification),
+        asset.description || '—',
+        capitalize(asset.confidentiality),
+        capitalize(asset.integrity),
+        capitalize(asset.availability),
+        asset.dataSensitivity.length > 0 ? asset.dataSensitivity.join(', ') : '—',
+      ]),
+    ),
+    spacer(),
+  )
+
+  return children
+}
+
+// ---------------------------------------------------------------------------
+// Section: Assumptions
+// ---------------------------------------------------------------------------
+
+function buildAssumptionsSection(systemContext: GuestSystemContext, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Assumptions`), spacer()]
+
+  if (systemContext.assumptions.length === 0) {
+    children.push(
+      para('No assumptions have been documented.', { italic: true }),
+      spacer(),
+    )
+    return children
+  }
+
+  children.push(
+    buildTable(
+      [4680, 1800, 2880],
+      ['Description', 'Validity', 'Topics'],
+      systemContext.assumptions.map((assumption) => [
+        assumption.description,
+        capitalize(assumption.validity),
+        assumption.topics.length > 0 ? assumption.topics.join(', ') : '—',
+      ]),
+    ),
+    spacer(),
+  )
+
+  return children
+}
+
+// ---------------------------------------------------------------------------
+// Section: Out of Scope
+// ---------------------------------------------------------------------------
+
+function buildOutOfScopeSection(systemContext: GuestSystemContext, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Out of Scope`), spacer()]
+
+  if (systemContext.outOfScopeItems.length === 0) {
+    children.push(
+      para('No out-of-scope items have been documented.', { italic: true }),
+      spacer(),
+    )
+    return children
+  }
+
+  children.push(
+    buildTable(
+      [4680, 4680],
+      ['Item', 'Reason'],
+      systemContext.outOfScopeItems.map((item) => [
+        item.name,
+        item.reason || '—',
+      ]),
+    ),
+    spacer(),
+  )
+
+  return children
+}
+
+// ---------------------------------------------------------------------------
+// Section: Component Inventory
+// ---------------------------------------------------------------------------
+
+function buildComponentInventorySection(data: GuestReportData, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Component Inventory`), spacer()]
 
   // Group nodes by type — exclude container types (trustZone, systemScope)
   const componentNodes = data.nodes.filter(
@@ -160,7 +283,7 @@ function buildComponentInventorySection(data: GuestReportData): (Paragraph | Tab
 
   if (componentNodes.length > 0) {
     children.push(
-      h2('2.1 Components'),
+      h2(`${sectionNum}.1 Components`),
       spacer(),
       buildTable(
         [3120, 2160, 4080],
@@ -191,7 +314,7 @@ function buildComponentInventorySection(data: GuestReportData): (Paragraph | Tab
   const dataFlows = data.edges.filter(isDataFlowEdge)
   if (dataFlows.length > 0) {
     children.push(
-      h2('2.2 Data Flows'),
+      h2(`${sectionNum}.2 Data Flows`),
       spacer(),
       buildTable(
         [3120, 3120, 3120],
@@ -214,8 +337,8 @@ function buildComponentInventorySection(data: GuestReportData): (Paragraph | Tab
 // Section 3: Threat Analysis
 // ---------------------------------------------------------------------------
 
-function buildThreatAnalysisSection(data: GuestReportData): (Paragraph | Table)[] {
-  const children: (Paragraph | Table)[] = [h1('3. Threat Analysis'), spacer()]
+function buildThreatAnalysisSection(data: GuestReportData, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Threat Analysis`), spacer()]
 
   if (data.threats.length === 0) {
     children.push(
@@ -238,7 +361,7 @@ function buildThreatAnalysisSection(data: GuestReportData): (Paragraph | Table)[
   }
 
   children.push(
-    h2('3.1 Summary'),
+    h2(`${sectionNum}.1 Summary`),
     spacer(),
     buildTable(
       [4680, 4680],
@@ -257,7 +380,7 @@ function buildThreatAnalysisSection(data: GuestReportData): (Paragraph | Table)[
   // STRIDE distribution
   if (Object.keys(strideCounts).length > 0) {
     children.push(
-      h2('3.2 STRIDE Distribution'),
+      h2(`${sectionNum}.2 STRIDE Distribution`),
       spacer(),
       buildTable(
         [4680, 4680],
@@ -270,7 +393,7 @@ function buildThreatAnalysisSection(data: GuestReportData): (Paragraph | Table)[
 
   // Main threats table
   children.push(
-    h2('3.3 Threat Details'),
+    h2(`${sectionNum}.3 Threat Details`),
     spacer(),
     buildTable(
       [1800, 1560, 1200, 1560, 1080, 2160],
@@ -294,8 +417,8 @@ function buildThreatAnalysisSection(data: GuestReportData): (Paragraph | Table)[
 // Section 4: Countermeasures
 // ---------------------------------------------------------------------------
 
-function buildCountermeasuresSection(data: GuestReportData): (Paragraph | Table)[] {
-  const children: (Paragraph | Table)[] = [h1('4. Countermeasures'), spacer()]
+function buildCountermeasuresSection(data: GuestReportData, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Countermeasures`), spacer()]
 
   if (data.countermeasures.length === 0) {
     children.push(
@@ -313,7 +436,7 @@ function buildCountermeasuresSection(data: GuestReportData): (Paragraph | Table)
   }
 
   children.push(
-    h2('4.1 Summary'),
+    h2(`${sectionNum}.1 Summary`),
     spacer(),
     buildTable(
       [4680, 4680],
@@ -331,7 +454,7 @@ function buildCountermeasuresSection(data: GuestReportData): (Paragraph | Table)
 
   // Main countermeasures table
   children.push(
-    h2('4.2 Countermeasure Details'),
+    h2(`${sectionNum}.2 Countermeasure Details`),
     spacer(),
     buildTable(
       [2160, 1560, 2160, 3480],
@@ -356,8 +479,8 @@ function buildCountermeasuresSection(data: GuestReportData): (Paragraph | Table)
 // Section 5: Coverage Summary
 // ---------------------------------------------------------------------------
 
-function buildCoverageSummarySection(data: GuestReportData): (Paragraph | Table)[] {
-  const children: (Paragraph | Table)[] = [h1('5. Coverage Summary'), spacer()]
+function buildCoverageSummarySection(data: GuestReportData, sectionNum: number): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [h1(`${sectionNum}. Coverage Summary`), spacer()]
 
   if (data.threats.length === 0) {
     children.push(
@@ -414,8 +537,16 @@ function buildCoverageSummarySection(data: GuestReportData): (Paragraph | Table)
 // ---------------------------------------------------------------------------
 
 export async function exportGuestWordDoc(data: GuestReportData): Promise<void> {
+  const systemContext = data.systemContext
+  const hasSystemContext = systemContext && (
+    systemContext.systemInfo.description ||
+    systemContext.dataAssets.length > 0 ||
+    systemContext.assumptions.length > 0 ||
+    systemContext.outOfScopeItems.length > 0
+  )
+
+  // Title page
   const children: (Paragraph | Table)[] = [
-    // Title page
     new Paragraph({
       heading: HeadingLevel.TITLE,
       children: [new TextRun({ text: data.title })],
@@ -438,21 +569,94 @@ export async function exportGuestWordDoc(data: GuestReportData): Promise<void> {
         }),
       ],
     }),
+  ]
+
+  // Session metadata on title page
+  if (systemContext) {
+    if (systemContext.session.facilitator) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Facilitator: ${systemContext.session.facilitator}`, size: 22, color: '666666' }),
+          ],
+        }),
+      )
+    }
+    if (systemContext.session.participants.length > 0) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Participants: ${systemContext.session.participants.join(', ')}`, size: 22, color: '666666' }),
+          ],
+        }),
+      )
+    }
+    if (systemContext.session.meetingDate) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Meeting Date: ${systemContext.session.meetingDate}`, size: 22, color: '666666' }),
+          ],
+        }),
+      )
+    }
+  }
+
+  children.push(
     spacer(),
     para('Generated from Precogly Guest Editor', { italic: true, size: 20 }),
     pageBreak(),
+  )
 
-    // Sections
-    ...buildOverviewSection(data),
-    ...(data.diagramImage ? [...buildDiagramImageSection(data.diagramImage), pageBreak()] : [pageBreak()]),
-    ...buildComponentInventorySection(data),
-    pageBreak(),
-    ...buildThreatAnalysisSection(data),
-    pageBreak(),
-    ...buildCountermeasuresSection(data),
-    pageBreak(),
-    ...buildCoverageSummarySection(data),
-  ]
+  // Dynamic section numbering
+  let sectionNum = 1
+
+  // 1. Diagram Overview
+  children.push(...buildOverviewSection(data, sectionNum++))
+
+  // System Information (if present)
+  if (hasSystemContext && systemContext.systemInfo.description) {
+    children.push(...buildSystemInfoSection(systemContext, sectionNum++))
+  }
+
+  // Data Assets (if present)
+  if (hasSystemContext && systemContext.dataAssets.length > 0) {
+    children.push(...buildDataAssetsSection(systemContext, sectionNum++))
+  }
+
+  // DFD Image
+  if (data.diagramImage) {
+    children.push(...buildDiagramImageSection(data.diagramImage), pageBreak())
+  } else {
+    children.push(pageBreak())
+  }
+
+  // Component Inventory
+  children.push(...buildComponentInventorySection(data, sectionNum++))
+  children.push(pageBreak())
+
+  // Threat Analysis
+  children.push(...buildThreatAnalysisSection(data, sectionNum++))
+  children.push(pageBreak())
+
+  // Countermeasures
+  children.push(...buildCountermeasuresSection(data, sectionNum++))
+  children.push(pageBreak())
+
+  // Coverage Summary
+  children.push(...buildCoverageSummarySection(data, sectionNum++))
+
+  // Assumptions (if present)
+  if (hasSystemContext && systemContext.assumptions.length > 0) {
+    children.push(pageBreak())
+    children.push(...buildAssumptionsSection(systemContext, sectionNum++))
+  }
+
+  // Out of Scope (if present)
+  if (hasSystemContext && systemContext.outOfScopeItems.length > 0) {
+    children.push(pageBreak())
+    children.push(...buildOutOfScopeSection(systemContext, sectionNum++))
+  }
 
   const doc = new Document({
     styles: createDocumentStyles(),
