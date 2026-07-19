@@ -12,7 +12,6 @@ from rest_framework.views import APIView
 
 from rest_framework.exceptions import PermissionDenied
 
-from apps.core.pagination import CatalogPagination
 from apps.core.permissions import CanWrite, IsSecurityTeam
 from apps.systems.models import OrgsystemComponent
 from apps.threat_models.models import ThreatModel
@@ -86,7 +85,7 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for ThreatLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = CatalogPagination
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = []
     search_fields = ["name", "description"]
@@ -152,7 +151,7 @@ class CountermeasureLibraryViewSet(viewsets.ModelViewSet):
     """ViewSet for CountermeasureLibrary CRUD operations."""
 
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = CatalogPagination
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["control_type", "cost"]
     search_fields = ["name", "description"]
@@ -867,7 +866,7 @@ class TaxonomyEntryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = TaxonomyEntry.objects.select_related("taxonomy").all()
     serializer_class = TaxonomyEntryNestedSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = CatalogPagination
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["taxonomy__slug"]
     search_fields = ["external_id", "title"]

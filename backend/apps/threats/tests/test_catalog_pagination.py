@@ -1,4 +1,4 @@
-"""Tests for catalog pagination and N+1 query fix."""
+"""Tests for threat library N+1 query fix."""
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -16,68 +16,6 @@ from apps.threats.models import (
 )
 
 User = get_user_model()
-
-
-class CatalogPaginationTests(TestCase):
-    """Verify that catalog endpoints return paginated responses."""
-
-    @classmethod
-    def setUpTestData(cls):
-        cls.org = Organization.objects.create(name="Test Org", domain="test.org")
-        cls.user = User.objects.create_user(
-            username="testuser", email="test@test.org", password="testpass123"
-        )
-        OrganizationMember.objects.create(
-            organization=cls.org, user=cls.user, role="security_team"
-        )
-
-    def setUp(self):
-        self.client = APIClient()
-        self.client.credentials(
-            HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.user).access_token}"
-        )
-
-    def test_threat_library_returns_paginated_response(self):
-        resp = self.client.get("/api/threat-library/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertIn("results", resp.data)
-
-    def test_countermeasure_library_returns_paginated_response(self):
-        resp = self.client.get("/api/countermeasure-library/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertIn("results", resp.data)
-
-    def test_component_library_returns_paginated_response(self):
-        resp = self.client.get("/api/component-library/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertIn("results", resp.data)
-
-    def test_taxonomy_entries_returns_paginated_response(self):
-        resp = self.client.get("/api/taxonomy-entries/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertIn("results", resp.data)
-
-    def test_frameworks_returns_paginated_response(self):
-        resp = self.client.get("/api/frameworks/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertIn("results", resp.data)
-
-    def test_packs_returns_paginated_response(self):
-        resp = self.client.get("/api/packs/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertIn("results", resp.data)
-
-    def test_page_size_query_param_respected(self):
-        resp = self.client.get("/api/threat-library/?page_size=5")
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("count", resp.data)
-        self.assertLessEqual(len(resp.data["results"]), 5)
 
 
 class ThreatLibraryN1QueryTests(TestCase):
@@ -120,6 +58,6 @@ class ThreatLibraryN1QueryTests(TestCase):
         with CaptureQueriesContext(connection) as ctx:
             resp = self.client.get("/api/threat-library/")
         self.assertEqual(resp.status_code, 200)
-        self.assertGreaterEqual(resp.data["count"], 10)
+        self.assertGreaterEqual(len(resp.data), 10)
         self.assertLessEqual(len(ctx), 10,
             f"Expected <=10 queries but got {len(ctx)} — N+1 likely not fixed")

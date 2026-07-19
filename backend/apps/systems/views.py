@@ -10,7 +10,6 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.pagination import CatalogPagination
 from apps.core.permissions import CanWrite, IsSecurityTeam
 
 from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat, build_taxonomy_snapshot
@@ -117,7 +116,7 @@ class ComponentLibraryViewSet(viewsets.ModelViewSet):
 
     serializer_class = ComponentLibrarySerializer
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = CatalogPagination
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["category", "component_type", "provider"]
     search_fields = ["name", "component_type", "slug"]

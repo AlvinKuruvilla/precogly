@@ -6,7 +6,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.pagination import CatalogPagination
 from apps.core.permissions import IsSecurityTeam
 
 from .models import CountermeasureLibraryStandard, StandardFramework, StandardRequirement
@@ -23,7 +22,7 @@ class StandardFrameworkViewSet(viewsets.ModelViewSet):
 
     queryset = StandardFramework.objects.all()
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = CatalogPagination
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "issuer", "description"]
     ordering_fields = ["name", "version"]
@@ -42,7 +41,7 @@ class StandardRequirementViewSet(viewsets.ModelViewSet):
     queryset = StandardRequirement.objects.select_related("framework", "parent").all()
     serializer_class = StandardRequirementSerializer
     permission_classes = [IsAuthenticated, IsSecurityTeam]
-    pagination_class = CatalogPagination
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["framework"]
     search_fields = ["section_code", "description"]
