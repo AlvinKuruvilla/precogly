@@ -685,3 +685,69 @@ class TestCycloneDxEnumMappings(CycloneDxTestMixin, TestCase):
         tm, _ = self.adapter.import_data(json_data, self.org, self.user)
         risk = Risk.objects.get(threat_model=tm)
         self.assertEqual(risk.inherent_level, "low")
+
+    def test_invalid_control_status_defaults_to_gap(self):
+        """Unknown CDX status values must not persist as invalid choices."""
+        from apps.threat_models.adapters.cyclonedx_enum_maps import CDX_STATUS_TO_CONTROL
+
+        original = dict(CDX_STATUS_TO_CONTROL)
+        CDX_STATUS_TO_CONTROL["totally-bogus"] = "totally_bogus"
+        try:
+            json_data = {
+                "specFormat": "CycloneDX",
+                "specVersion": "2.0",
+                "blueprints": [{"name": "Test"}],
+                "controls": [
+                    {
+                        "bom-ref": "ctrl-bogus",
+                        "name": "Bogus Status Control",
+                        "status": "totally-bogus",
+                    }
+                ],
+            }
+            tm, _ = self.adapter.import_data(json_data, self.org, self.user)
+            control = InstanceCountermeasure.objects.get(threat_model=tm)
+            self.assertEqual(control.status, "gap")
+        finally:
+            CDX_STATUS_TO_CONTROL.clear()
+            CDX_STATUS_TO_CONTROL.update(original)
+
+    def test_duplicate_affected_asset_does_not_abort_import(self):
+        """Same asset listed twice in affectedAssets must not raise
+        IntegrityError on the (component, threat_library) unique constraint.
+        The duplicate should be skipped and surfaced as a warning."""
+        json_data = {
+            "specFormat": "CycloneDX",
+            "specVersion": "2.0",
+            "blueprints": [
+                {
+                    "name": "Test",
+                    "assets": [
+                        {
+                            "bom-ref": "asset-dup",
+                            "name": "Shared Component",
+                            "type": "component",
+                        }
+                    ],
+                }
+            ],
+            "threats": {
+                "threats": [
+                    {
+                        "bom-ref": "threat-dup",
+                        "name": "Duplicate Ref Threat",
+                        "affectedAssets": ["asset-dup", "asset-dup"],
+                    },
+                ],
+            },
+        }
+        tm, summary = self.adapter.import_data(json_data, self.org, self.user)
+        self.assertEqual(summary["threats"], 1)
+        instances = ComponentInstanceThreat.objects.filter(
+            component__threat_model=tm
+        )
+        self.assertEqual(instances.count(), 1)
+        warnings = summary.get("warnings", [])
+        dup_warnings = [w for w in warnings if "Duplicate threat-asset link" in w]
+        self.assertEqual(len(dup_warnings), 1)
+        self.assertIn("Shared Component", dup_warnings[0])
