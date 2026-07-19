@@ -254,16 +254,38 @@ class TeamViewSet(viewsets.ModelViewSet):
             role=TeamMembership.Role.LEAD,
         )
 
+    def _can_manage_team(self, team, user):
+        """Return True if user is team lead or org security_team."""
+        if team.organization.members.filter(
+            user=user, role="security_team"
+        ).exists():
+            return True
+        return team.memberships.filter(user=user, role="lead").exists()
+
     @action(detail=True, methods=["post"], url_path="change-member-role")
     def change_member_role(self, request, pk=None):
         """Change a team member's role."""
         team = self.get_object()
+
+        if not self._can_manage_team(team, request.user):
+            return Response(
+                {"detail": "Only team leads and security team members can manage roles."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         user_id = request.data.get("user_id")
         new_role = request.data.get("role")
 
         if not user_id or not new_role:
             return Response(
                 {"error": "user_id and role are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        valid_roles = {r[0] for r in TeamMembership.Role.choices}
+        if new_role not in valid_roles:
+            return Response(
+                {"error": f"Invalid role. Must be one of: {', '.join(sorted(valid_roles))}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -274,6 +296,14 @@ class TeamViewSet(viewsets.ModelViewSet):
                 {"error": "Member not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        if membership.role == "lead" and new_role != "lead":
+            remaining_leads = team.memberships.filter(role="lead").exclude(user_id=user_id).count()
+            if remaining_leads == 0:
+                return Response(
+                    {"error": "Cannot change role: this is the only team lead."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         membership.role = new_role
         membership.save(update_fields=["role", "updated_at"])
@@ -294,6 +324,13 @@ class TeamViewSet(viewsets.ModelViewSet):
         For non-existent users, use invite_member instead.
         """
         team = self.get_object()
+
+        if not self._can_manage_team(team, request.user):
+            return Response(
+                {"detail": "Only team leads and security team members can add members."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         user_id = request.data.get("user_id")
         role = request.data.get("role", "member")
 
@@ -325,6 +362,13 @@ class TeamViewSet(viewsets.ModelViewSet):
         - If user doesn't exist: creates TeamInvitation (pending)
         """
         team = self.get_object()
+
+        if not self._can_manage_team(team, request.user):
+            return Response(
+                {"detail": "Only team leads and security team members can invite members."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         email = request.data.get("email")
         role = request.data.get("role", "member")
 
@@ -391,6 +435,13 @@ class TeamViewSet(viewsets.ModelViewSet):
     def remove_member(self, request, pk=None):
         """Remove a member from a team."""
         team = self.get_object()
+
+        if not self._can_manage_team(team, request.user):
+            return Response(
+                {"detail": "Only team leads and security team members can remove members."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         user_id = request.data.get("user_id")
 
         if not user_id:
@@ -401,13 +452,22 @@ class TeamViewSet(viewsets.ModelViewSet):
 
         try:
             membership = team.memberships.get(user_id=user_id)
-            membership.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
         except TeamMembership.DoesNotExist:
             return Response(
                 {"error": "Member not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        if membership.role == "lead":
+            remaining_leads = team.memberships.filter(role="lead").exclude(user_id=user_id).count()
+            if remaining_leads == 0:
+                return Response(
+                    {"error": "Cannot remove the only team lead."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        membership.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
     def join(self, request, pk=None):
