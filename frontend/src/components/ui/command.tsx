@@ -82,15 +82,34 @@ function CommandInput({
 
 function CommandList({
   className,
+  onWheel,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.List>) {
+  const listRef = React.useRef<React.ElementRef<typeof CommandPrimitive.List>>(null)
+
   return (
     <CommandPrimitive.List
+      ref={listRef}
       data-slot="command-list"
       className={cn(
         "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
         className
       )}
+      // Popover/Popper positions its content with `position: fixed` plus a CSS
+      // `transform` (see @radix-ui/react-popper). Nesting a native
+      // `overflow-y: auto` scroller inside that kind of ancestor is a known spot
+      // where some browsers (Chrome on Windows in particular) fail to deliver
+      // physical mouse-wheel deltas to the scroll container — trackpad scroll
+      // still works because it goes through a different code path. Scrolling
+      // the list manually sidesteps the broken native delegation entirely, so
+      // it behaves the same for every input device.
+      onWheel={(event) => {
+        onWheel?.(event)
+        if (listRef.current) {
+          event.preventDefault()
+          listRef.current.scrollTop += event.deltaY
+        }
+      }}
       {...props}
     />
   )
