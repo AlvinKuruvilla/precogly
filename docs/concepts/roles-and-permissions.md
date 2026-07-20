@@ -11,6 +11,8 @@ Every organization member has one of two roles:
 
 Organization members are managed in **Settings > Members**. Only Security Team members can change roles or remove members.
 
+Organization roles are intended to be scoped to the organization where the membership exists. If a user belongs to multiple organizations, their Security Team role in one organization should not be treated as administrative authority in another organization. When reviewing API behavior or debugging permissions, always check both the user's organization membership and the organization that owns the object being modified.
+
 ![Organization members settings page](../assets/images/roles-and-permissions-settings.png)
 
 ## Team roles
@@ -26,6 +28,8 @@ Within a team, each member has a role that controls what they can do with that t
 | Change team member roles                  | Yes  | Yes    | No     |
 
 **Security Team** (org-level role) bypasses all team-level checks — they get unconditional write access across the entire organization regardless of team membership.
+
+Team roles apply only inside the team where they are assigned. A Lead in one team does not automatically manage another team unless they also hold the Security Team organization role. Member-management actions should be evaluated against the team being changed, while organization-level member actions should be evaluated against the organization being changed.
 
 ## Threat model visibility
 
@@ -51,6 +55,8 @@ The invite flow works by email:
 
 When an invited user signs up or logs in using the invite link, any pending invitations for their email are **automatically accepted** — they're added to the team and organization without needing to click an accept button.
 
+In local development, invitation email delivery may use Django's console backend. In that setup the application creates the invitation and prints or returns the link, but no real email is delivered to the recipient. Copy the generated invite link and share it manually when testing team onboarding locally.
+
 ### Organization members
 
 Organization membership is typically managed automatically:
@@ -69,3 +75,5 @@ Threat models can be shared externally using **magic links** — tokenized URLs 
 - If a logged-in user accesses a magic link, the threat model appears in their **Shared with Me** section on the Threat Models page.
 
 See [Magic Links](magic-links.md) for full details on creating and managing shared links.
+
+Magic links are intentionally different from organization and team membership. They grant read-only access to a single shared threat model and do not add the recipient to the owning organization or team. Use team invitations when the recipient should become a collaborator, and use magic links when the recipient only needs read-only review access.
