@@ -38,7 +38,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, AlertCircle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function BusinessUnitsSettings() {
   const { currentOrganization, isLoading: workspaceLoading, isSecurityTeam } = useWorkspace()
@@ -61,11 +62,66 @@ export function BusinessUnitsSettings() {
   const label = currentOrganization?.businessUnitLabel ?? 'Business Units'
 
   if (workspaceLoading || busLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <Skeleton className="h-6 w-36" />
+                <Skeleton className="h-4 w-64 mt-2" />
+              </div>
+              <Skeleton className="h-10 w-40" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Parent</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!currentOrganization) {
-    return <div>No organization selected.</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
+            <p className="text-lg font-medium">No organization selected</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select an organization from the workspace switcher to manage business units.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const handleCreate = () => {

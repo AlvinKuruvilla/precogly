@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Loader2, Check } from 'lucide-react'
+import { Loader2, Check, AlertCircle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function OrganizationSettings() {
   const { currentOrganization, isLoading, refresh, isSecurityTeam } = useWorkspace()
@@ -28,11 +29,43 @@ export function OrganizationSettings() {
   }, [currentOrganization])
 
   if (isLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-full max-w-md" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full max-w-md" />
+            </div>
+            <Skeleton className="h-10 w-28 mt-2" />
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!currentOrganization) {
-    return <div>No organization selected.</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
+            <p className="text-lg font-medium">No organization selected</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select an organization from the workspace switcher to manage its settings.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const hasChanges =

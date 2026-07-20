@@ -55,7 +55,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { UserPlus, Trash2, Plus, Pencil, Loader2, Copy, Check } from 'lucide-react'
+import { UserPlus, Trash2, Plus, Pencil, Loader2, Copy, Check, AlertCircle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { TeamListItem, TeamRole, InviteMemberResponse } from '@/features/organization/types/organization'
 
 export function TeamManagement() {
@@ -82,11 +83,65 @@ export function TeamManagement() {
   const [editDescription, setEditDescription] = useState('')
 
   if (workspaceLoading || teamsLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-4 w-56 mt-2" />
+              </div>
+              <Skeleton className="h-10 w-32" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Team Name</TableHead>
+                  <TableHead>Business Unit</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Skeleton className="h-8 w-16 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!currentOrganization) {
-    return <div>No organization selected.</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
+            <p className="text-lg font-medium">No organization selected</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select an organization from the workspace switcher to manage teams.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const handleCreateTeam = () => {
@@ -528,7 +583,20 @@ function TeamMembersDialog({ team, open, onOpenChange }: TeamMembersDialogProps)
           <div className="space-y-2">
             <Label>Current Members</Label>
             {isLoading ? (
-              <p className="text-muted-foreground text-sm">Loading...</p>
+              <div className="border rounded-md divide-y">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-44" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-28 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : members.length === 0 ? (
               <p className="text-muted-foreground text-sm">No members yet.</p>
             ) : (
