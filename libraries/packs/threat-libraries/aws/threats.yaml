@@ -142,3 +142,104 @@ threats:
     description: |
       Malicious data injected into the communication channel between components,
       potentially exploiting downstream systems or corrupting data.
+
+  # ============================================================================
+  # Bedrock / LLM Threats
+  # ============================================================================
+  - id: bedrock-prompt-injection
+    name: LLM Prompt Injection
+    description: |
+      Attacker crafts input that manipulates the LLM's behavior by injecting
+      instructions into prompts. Includes direct injection (user input) and
+      indirect injection (via RAG context, tool outputs, or other data sources).
+      Can cause the model to ignore system instructions, exfiltrate data, or
+      perform unauthorized actions.
+
+  - id: bedrock-jailbreak
+    name: LLM Jailbreak
+    description: |
+      Attacker bypasses model safety guardrails and content filters through
+      adversarial prompting techniques. Enables generation of harmful content,
+      policy-violating responses, or disclosure of system prompts.
+
+  - id: bedrock-data-leakage
+    name: LLM Data Leakage
+    description: |
+      Sensitive data (PII, credentials, cardholder data, internal configurations)
+      leaked through LLM responses. Can occur via training data memorization,
+      RAG context inclusion, or insufficient output filtering.
+
+  - id: bedrock-sensitive-data-in-prompt
+    name: Sensitive Data Exposure in Prompts
+    description: |
+      Cardholder data, PII, or other sensitive information sent to the LLM in
+      prompts or RAG context without tokenization or masking. Data may be logged,
+      cached, or used for model improvement by the provider.
+
+  - id: bedrock-model-abuse
+    name: LLM Resource Abuse
+    description: |
+      Unauthorized or excessive model invocations causing financial impact through
+      high token consumption, denial of service to legitimate users, or abuse of
+      model capabilities for malicious purposes (spam, phishing content generation).
+
+  # ============================================================================
+  # RAG / OpenSearch Serverless Threats
+  # ============================================================================
+  - id: rag-poisoning
+    name: RAG Knowledge Base Poisoning
+    description: |
+      Attacker injects malicious or manipulated content into the RAG knowledge base
+      (vector store). Poisoned documents influence model outputs, enabling indirect
+      prompt injection, misinformation, or targeted manipulation of responses.
+
+  - id: rag-unauthorized-retrieval
+    name: RAG Unauthorized Document Retrieval
+    description: |
+      RAG pipeline retrieves and includes documents in the model context that the
+      requesting user is not authorized to access. Occurs when document-level access
+      controls are not enforced during semantic search.
+
+  - id: opensearch-data-exfiltration
+    name: Vector Store Data Exfiltration
+    description: |
+      Vector embeddings in OpenSearch Serverless are exploited to reconstruct or
+      infer sensitive source data. Attackers with read access to embeddings can
+      reverse-engineer original text content or identify sensitive patterns.
+
+  # ============================================================================
+  # Cognito Threats
+  # ============================================================================
+  - id: cognito-token-theft
+    name: Cognito Token Theft
+    description: |
+      Stolen or forged Cognito JWT tokens used for unauthorized access to
+      protected resources. Tokens intercepted via XSS, insecure storage, or
+      man-in-the-middle attacks on token endpoints.
+
+  - id: cognito-account-takeover
+    name: Cognito Account Takeover
+    description: |
+      Attacker gains control of user accounts through credential stuffing, weak
+      password policies, or social engineering. Compromised accounts provide
+      legitimate access to AI-powered services and sensitive data.
+
+  # ============================================================================
+  # WAF Threats
+  # ============================================================================
+  - id: waf-bypass
+    name: WAF Rule Bypass
+    description: |
+      Attacker circumvents WAF rules through encoding tricks, payload fragmentation,
+      or exploiting gaps in rule coverage. Bypassed WAF allows malicious requests
+      to reach backend services including AI endpoints.
+
+  # ============================================================================
+  # CloudWatch Threats
+  # ============================================================================
+  - id: cloudwatch-log-injection
+    name: CloudWatch Log Injection
+    description: |
+      Attacker injects crafted data into application logs stored in CloudWatch,
+      creating misleading entries that obscure attacks, trigger false alarms,
+      or exploit log analysis tools.

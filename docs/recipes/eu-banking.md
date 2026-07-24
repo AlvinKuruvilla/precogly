@@ -64,7 +64,7 @@ Import these packs in order (dependencies first):
 | Pack | Purpose |
 |------|---------|
 | `banking` | Banking-specific components, threats, and countermeasures |
-| `aws-mini` or `azure` | Cloud infrastructure (if applicable) |
+| `aws` or `azure` | Cloud infrastructure (if applicable) |
 
 !!! tip
     You do not need all compliance packs for every threat model. Import them all into the organization once, then link only the relevant ones to each threat model.

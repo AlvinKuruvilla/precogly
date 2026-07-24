@@ -43,3 +43,32 @@ mappings:
     entries: [spoofing]
   - threat: dataflow-injection
     entries: [tampering]
+  # Bedrock / LLM
+  - threat: bedrock-prompt-injection
+    entries: [tampering]
+  - threat: bedrock-jailbreak
+    entries: [elevation-of-privilege]
+  - threat: bedrock-data-leakage
+    entries: [information-disclosure]
+  - threat: bedrock-sensitive-data-in-prompt
+    entries: [information-disclosure]
+  - threat: bedrock-model-abuse
+    entries: [denial-of-service]
+  # RAG / OpenSearch
+  - threat: rag-poisoning
+    entries: [tampering]
+  - threat: rag-unauthorized-retrieval
+    entries: [information-disclosure]
+  - threat: opensearch-data-exfiltration
+    entries: [information-disclosure]
+  # Cognito
+  - threat: cognito-token-theft
+    entries: [spoofing]
+  - threat: cognito-account-takeover
+    entries: [spoofing, elevation-of-privilege]
+  # WAF
+  - threat: waf-bypass
+    entries: [tampering]
+  # CloudWatch
+  - threat: cloudwatch-log-injection
+    entries: [repudiation]

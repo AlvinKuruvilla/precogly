@@ -677,7 +677,7 @@ class SlugFormatValidationTests(SimpleTestCase):
 
     def test_is_valid_slug_accepts_good_slugs(self):
         self.assertTrue(_is_valid_slug("aws"))
-        self.assertTrue(_is_valid_slug("aws-mini"))
+        self.assertTrue(_is_valid_slug("aws-core"))
         self.assertTrue(_is_valid_slug("base-stride"))
         self.assertTrue(_is_valid_slug("a1-b2-c3"))
 

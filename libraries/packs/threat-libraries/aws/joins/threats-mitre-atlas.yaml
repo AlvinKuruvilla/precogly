@@ -1,0 +1,21 @@
+taxonomy: mitre-atlas
+
+mappings:
+  # Bedrock / LLM
+  - threat: bedrock-prompt-injection
+    entries: [AML.T0051, AML.T0051.000, AML.T0051.001]
+  - threat: bedrock-jailbreak
+    entries: [AML.T0054]
+  - threat: bedrock-data-leakage
+    entries: [AML.T0057]
+  - threat: bedrock-sensitive-data-in-prompt
+    entries: [AML.T0057]
+  - threat: bedrock-model-abuse
+    entries: [AML.T0048.000, AML.T0040]
+  # RAG / OpenSearch
+  - threat: rag-poisoning
+    entries: [AML.T0070, AML.T0043]
+  - threat: rag-unauthorized-retrieval
+    entries: [AML.T0057]
+  - threat: opensearch-data-exfiltration
+    entries: [AML.T0057, AML.T0040]

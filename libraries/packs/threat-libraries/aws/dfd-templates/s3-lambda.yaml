@@ -1,5 +1,5 @@
 template:
-  slug: aws-mini-s3-lambda
+  slug: aws-s3-lambda
   name: "S3 + Lambda"
   description: "Simple serverless pattern with S3 storage and Lambda processing"
   category: serverless
@@ -36,6 +36,7 @@ canvas_data:
       type: "datastore"
       parentId: "tb-aws"
       position: { x: 50, y: 60 }
+      style: { width: 170, height: 70 }
       data:
         label: "S3 Bucket"
         component_ref: "s3"
@@ -46,6 +47,7 @@ canvas_data:
       type: "process"
       parentId: "tb-aws"
       position: { x: 250, y: 60 }
+      style: { width: 150, height: 70 }
       data:
         label: "Lambda"
         component_ref: "lambda"

@@ -26,7 +26,7 @@ canvas_data:
       type: "trustZone"
       parentId: "scope-aws-serverless"
       position: { x: 390, y: 405 }
-      style: { width: 485, height: 255 }
+      style: { width: 485, height: 300 }
       data:
         label: "Internal"
         zoneType: "zoneInternal"
@@ -44,6 +44,7 @@ canvas_data:
       type: "process"
       parentId: "tb-internal"
       position: { x: 60, y: 15 }
+      style: { width: 150, height: 70 }
       data:
         label: "API Gateway"
         component_ref: "api-gateway"
@@ -52,7 +53,8 @@ canvas_data:
     - id: "process-lambda"
       type: "process"
       parentId: "tb-internal"
-      position: { x: 165, y: 120 }
+      position: { x: 130, y: 120 }
+      style: { width: 150, height: 70 }
       data:
         label: "Lambda"
         component_ref: "lambda"
@@ -62,17 +64,20 @@ canvas_data:
     - id: "datastore-s3"
       type: "datastore"
       parentId: "tb-internal"
-      position: { x: 345, y: 75 }
+      position: { x: 300, y: 75 }
+      style: { width: 170, height: 90 }
       data:
         label: "S3 Bucket"
         component_ref: "s3"
         description: "Object storage for uploaded files"
         dataSensitivity: "confidential"
+        technology: "Amazon S3"
 
     - id: "process-waf"
       type: "process"
       parentId: "tb-external"
       position: { x: 60, y: 45 }
+      style: { width: 150, height: 70 }
       data:
         label: "AWS WAF"
         dataSensitivity: "public"

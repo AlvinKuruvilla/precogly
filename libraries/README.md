@@ -9,7 +9,7 @@ Library packs are modular bundles of threat-modeling content (components, threat
 | `pack_type` | What it contains | Example |
 |---|---|---|
 | `technology` | Components only | `aws`, `azure`, `gcp` |
-| `full` | Components + threats + countermeasures + joins + templates | `aws-mini` |
+| `full` | Components + threats + countermeasures + joins + templates | `aws` |
 | `compliance` | Framework definitions with requirements | `nist-csf`, `pci-dss` |
 | `taxonomy` | Classification entries (STRIDE, CWE, CAPEC, etc.) | `stride-taxonomy`, `cwe` |
 | `template` | DFD templates only | — |
@@ -30,7 +30,7 @@ libraries/packs/
 Only `pack.yaml` is required; all other files are optional depending on pack type.
 
 ```
-threat-libraries/aws-mini/
+threat-libraries/aws/
 ├── pack.yaml                              # Pack metadata (required)
 ├── components.yaml                        # Component definitions
 ├── threats.yaml                           # Threat definitions
@@ -44,7 +44,8 @@ threat-libraries/aws-mini/
 │   ├── threats-mitre-attack.yaml         # Threat → ATT&CK taxonomy mappings
 │   ├── countermeasures-nist-csf.yaml      # Compliance mapping to NIST CSF
 │   ├── countermeasures-owasp.yaml         # Compliance mapping to OWASP
-│   └── countermeasures-soc2.yaml          # Compliance mapping to SOC 2
+│   ├── countermeasures-soc2.yaml          # Compliance mapping to SOC 2
+│   └── requirements-fda-premarket.yaml    # Cross-framework requirement mapping
 └── dfd-templates/
     └── s3-lambda.yaml                     # DFD template
 ```
@@ -58,13 +59,13 @@ Pack metadata. This is the only required file.
 ```yaml
 pack:
   schema_version: 1
-  slug: aws-mini
-  name: AWS Mini
+  slug: aws
+  name: AWS
   version: 1.1.0
   pack_type: full
   description: |
-    A minimal AWS pack demonstrating core AWS services with
-    associated threats and countermeasures.
+    AWS pack covering core infrastructure and AI/ML services
+    with associated threats and countermeasures.
   author: Precogly
   depends_on:
     - taxonomies/stride-taxonomy
@@ -75,8 +76,8 @@ pack:
     - aws
     - cloud
     - serverless
-    - demo
-    - mini
+    - technology
+    - saas
 ```
 
 ### Field Reference
@@ -352,6 +353,42 @@ mappings:
 | `requirements` | yes | List of `section_code` values from the framework. |
 | `sufficiency` | yes | `full` (fully satisfies) or `partial` (partially satisfies). |
 
+### Cross-Framework Requirement Overlay Files
+
+Map requirements between two compliance frameworks. File naming convention: `requirements-{target-framework-slug}.yaml`.
+
+These overlays create direct requirement-to-requirement links between standards (e.g., IEC 81001 requirement "5.3" maps to FDA Premarket requirement "FDA-PM-1"). They appear in the **Cross-Framework Mappings** section of the Compliance report.
+
+```yaml
+# joins/requirements-fda-premarket.yaml
+framework: fda-premarket-2023
+source_framework: iec-81001-2021
+
+mappings:
+  - requirement: "5.3"
+    entries:
+      - "FDA-PM-1"
+    sufficiency: full
+
+  - requirement: "6.1"
+    entries:
+      - "FDA-PM-2"
+      - "FDA-PM-3"
+    sufficiency: partial
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `framework` | yes | Slug of the **target** framework (the one being mapped to). |
+| `source_framework` | yes | Slug of the **source** framework (the one being mapped from). |
+| `requirement` | yes | `section_code` of a requirement in the source framework. |
+| `entries` | yes | List of `section_code` values in the target framework. |
+| `sufficiency` | yes | `full` or `partial`. |
+
+**Deferred activation:** If either framework is not imported when the pack is loaded, the mappings are stored as pending and activate automatically when both frameworks become available.
+
+**Directionality:** Each file defines mappings in one direction. Create separate files for each direction if needed.
+
 ---
 
 ## taxonomy.yaml
@@ -397,7 +434,7 @@ Templates are pre-built Data Flow Diagrams stored in the `dfd-templates/` direct
 ```yaml
 # dfd-templates/s3-lambda.yaml
 template:
-  slug: aws-mini-s3-lambda
+  slug: aws-s3-lambda
   name: "S3 + Lambda"
   description: "Simple serverless pattern with S3 storage and Lambda processing"
   category: serverless
@@ -647,6 +684,7 @@ Before submitting a pack, verify:
 - [ ] All references in join files point to ids that exist in the pack (or in declared dependencies)
 - [ ] All threat refs in `threats-{taxonomy}.yaml` join files resolve to valid threat IDs
 - [ ] All `framework` slugs in compliance overlays match a published compliance pack
+- [ ] All `source_framework` slugs in requirement overlays match a published compliance pack
 - [ ] All `section_code` values match requirements in the referenced framework
 - [ ] DFD template `component_ref` values match ids in `components.yaml`
 - [ ] Version follows semantic versioning (`X.Y.Z`)

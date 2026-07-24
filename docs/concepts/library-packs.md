@@ -11,6 +11,7 @@ A pack can contain any combination of:
 - **Countermeasures** — security controls that mitigate threats (e.g., S3 Block Public Access)
 - **Taxonomy mappings** — links from threats to STRIDE, MITRE ATT&CK, CAPEC, CWE
 - **Compliance mappings** — links from countermeasures to standards like NIST CSF, ASVS, SOC 2, PCI-DSS
+- **Cross-framework requirement mappings** — links between requirements in different standards (e.g., IEC 81001 to FDA Premarket)
 - **DFD templates** — pre-built Data Flow Diagrams with components already wired up
 
 When you add a component from a library pack to your threat model, its associated threats and countermeasures come with it — along with all taxonomy and compliance links.
@@ -22,7 +23,7 @@ When you add a component from a library pack to your threat model, its associate
 | Type         | Contains                                                   | Example                         |
 | ------------ | ---------------------------------------------------------- | ------------------------------- |
 | `technology` | Components only                                            | `aws`, `azure`, `gcp`           |
-| `full`       | Components + threats + countermeasures + joins + templates | `aws-mini`                      |
+| `full`       | Components + threats + countermeasures + joins + templates | `aws`                           |
 | `compliance` | Framework definitions with requirements                    | `nist-csf`, `pci-dss`           |
 | `taxonomy`   | External threat classification taxonomies                  | `stride-taxonomy`, `capec` |
 | `template`   | DFD templates only                                         | —                               |
@@ -32,7 +33,7 @@ When you add a component from a library pack to your threat model, its associate
 Every pack is a directory under `libraries/packs/`, organized by category (`taxonomies/`, `standards/`, `threat-libraries/`). Only `pack.yaml` is required — other files depend on the pack type.
 
 ```
-threat-libraries/aws-mini/
+threat-libraries/aws/
 ├── pack.yaml                    # Pack metadata (required)
 ├── components.yaml              # Component definitions
 ├── threats.yaml                 # Threat definitions
@@ -44,7 +45,8 @@ threat-libraries/aws-mini/
 │   ├── threats-cwe.yaml               # Threat → CWE mappings
 │   ├── threats-capec.yaml             # Threat → CAPEC mappings
 │   ├── countermeasures-nist-csf.yaml  # Countermeasure → NIST CSF mappings
-│   └── countermeasures-soc2.yaml      # Countermeasure → SOC 2 mappings
+│   ├── countermeasures-soc2.yaml      # Countermeasure → SOC 2 mappings
+│   └── requirements-fda-premarket.yaml # Cross-framework requirement mapping
 └── dfd-templates/
     └── s3-lambda.yaml           # Pre-built DFD template
 ```
@@ -54,13 +56,13 @@ threat-libraries/aws-mini/
 ```yaml
 pack:
   schema_version: 1
-  slug: aws-mini
-  name: AWS Mini
+  slug: aws
+  name: AWS
   version: 1.1.0
   pack_type: full
   description: |
-    A minimal AWS pack with core services,
-    threats, and countermeasures.
+    AWS pack covering core infrastructure and AI/ML services
+    with associated threats and countermeasures.
   author: Precogly
   depends_on:
     - taxonomies/stride-taxonomy
@@ -70,8 +72,8 @@ pack:
   tags:
     - aws
     - cloud
-    - demo
-    - mini
+    - technology
+    - saas
 ```
 
 `schema_version` declares which version of the pack format this pack uses. The app checks this at import time and rejects packs with an unsupported version. This is separate from `version`, which tracks changes to the pack's content.
@@ -169,6 +171,21 @@ mappings:
     sufficiency: full # full | partial
 ```
 
+**requirements-{framework}.yaml** — maps requirements between two compliance frameworks:
+
+```yaml
+framework: fda-premarket-2023
+source_framework: iec-81001-2021
+
+mappings:
+  - requirement: "5.3"
+    entries:
+      - "FDA-PM-1"
+    sufficiency: full # full | partial
+```
+
+These cross-framework mappings appear in the **Cross-Framework Mappings** section of the Compliance report. See the [Compliance Mapping guide](../guides/compliance-mapping.md#cross-framework-requirement-mappings) for details.
+
 ## How to import a library pack
 
 !!! note "Import requires Security Team role"
@@ -179,7 +196,7 @@ The **Import** button is only visible to users with the **Security Team** organi
 3. Click on a pack to preview its components, threats, and countermeasures
 4. Click **Import** to add it to your organization
 
-Packs with dependencies (e.g., `aws-mini` depends on `stride-taxonomy`, `capec`, etc.) will show which dependencies need to be imported. Dependencies are **not enforced** — you can import a pack without its taxonomy dependencies if you don't need taxonomy enrichment (STRIDE, CAPEC, CWE tags on threats). Import taxonomy packs first if you want full taxonomy linking.
+Packs with dependencies (e.g., `aws` depends on `stride-taxonomy`, `capec`, etc.) will show which dependencies need to be imported. Dependencies are **not enforced** — you can import a pack without its taxonomy dependencies if you don't need taxonomy enrichment (STRIDE, CAPEC, CWE tags on threats). Import taxonomy packs first if you want full taxonomy linking.
 
 ![Import dialog with dependency checks and compliance overlay selection](../assets/images/library-packs-import-dialog.png)
 
@@ -217,6 +234,9 @@ Creating your own pack involves writing YAML files following the structure above
 
 **Compliance mappings not appearing**
 : If the compliance framework pack (e.g., `nist-csf`) wasn't imported when the content pack was imported, the mappings are stored as pending. Import the framework pack and the mappings will activate automatically.
+
+**Cross-framework mappings not showing in the report**
+: Both the source and target framework packs must be imported, and both frameworks must appear in the threat model's compliance data (through countermeasure mappings). See the [Compliance Mapping guide](../guides/compliance-mapping.md#troubleshooting) for details.
 
 **Unimport blocked**
 : Another pack depends on the one you're trying to remove. Check which packs list it in their `depends_on` and unimport those first. Note that taxonomy packs are protected this way because they enrich threat data, while compliance packs can be unimported freely since their mappings are optional.

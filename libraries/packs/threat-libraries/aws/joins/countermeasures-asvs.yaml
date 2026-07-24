@@ -130,3 +130,56 @@ mappings:
   - countermeasure: api-gateway-private
     requirements: ["V1.14.1"]
     sufficiency: full
+
+  # ---- Bedrock / LLM ----
+  - countermeasure: bedrock-input-validation
+    requirements: ["V5.1.3", "V5.1.4", "V5.5.3"]
+    sufficiency: partial
+
+  - countermeasure: bedrock-output-filtering
+    requirements: ["V5.5.3"]
+    sufficiency: partial
+
+  - countermeasure: bedrock-vpc-endpoint
+    requirements: ["V1.14.1"]
+    sufficiency: full
+
+  - countermeasure: bedrock-model-invocation-logging
+    requirements: ["V7.1.3"]
+    sufficiency: partial
+
+  - countermeasure: bedrock-data-masking
+    requirements: ["V8.3.4"]
+    sufficiency: full
+
+  # ---- RAG / OpenSearch ----
+  - countermeasure: rag-access-control
+    requirements: ["V4.1.1", "V4.1.3"]
+    sufficiency: full
+
+  - countermeasure: opensearch-encryption
+    requirements: ["V6.1.1"]
+    sufficiency: full
+
+  - countermeasure: opensearch-access-policy
+    requirements: ["V4.1.3"]
+    sufficiency: full
+
+  # ---- Cognito ----
+  - countermeasure: cognito-mfa
+    requirements: ["V4.1.1"]
+    sufficiency: partial
+
+  - countermeasure: cognito-advanced-security
+    requirements: ["V4.1.1", "V11.1.4"]
+    sufficiency: partial
+
+  # ---- WAF ----
+  - countermeasure: waf-managed-rules
+    requirements: ["V1.4.1", "V11.1.4"]
+    sufficiency: partial
+
+  # ---- CloudWatch ----
+  - countermeasure: cloudwatch-alarm
+    requirements: ["V7.1.3"]
+    sufficiency: partial

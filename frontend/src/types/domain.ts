@@ -202,6 +202,7 @@ const KNOWN_CATEGORY_LABELS: Record<string, string> = {
   paymentProcessing: 'Payment Processing',
   cloudInfrastructure: 'Cloud Infrastructure',
   serverless: 'Serverless',
+  ai: 'AI',
   iot: 'IoT',
   api: 'API',
   apiGateway: 'API Gateway',

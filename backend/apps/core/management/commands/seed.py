@@ -2,7 +2,7 @@
 Seed the database with demo data for new contributors.
 
 Creates a superuser, demo organization, imports library packs,
-and creates a sample threat model with an AWS Serverless DFD template.
+and creates sample threat models with DFD templates.
 
 Usage:
     python manage.py seed
@@ -31,6 +31,7 @@ TAXONOMY_PACKS = [
     "taxonomies/capec",
     "taxonomies/cwe",
     "taxonomies/mitre-attack",
+    "taxonomies/mitre-atlas",
 ]
 
 STANDARD_PACKS = [
@@ -39,14 +40,28 @@ STANDARD_PACKS = [
     "standards/nist-csf",
     "standards/cra",
     "standards/owasp-asvs",
+    "standards/owasp-aisvs",
+    "standards/pci-dss",
 ]
 
 FULL_PACKS = [
-    "threat-libraries/aws-mini",
+    "threat-libraries/aws",
 ]
 
-DFD_TEMPLATE_SLUG = "aws-mini/aws-serverless"
-THREAT_MODEL_NAME = "Sample Threat Model"
+SAMPLE_THREAT_MODELS = [
+    {
+        "name": "Sample AWS Serverless API",
+        "description": "A sample serverless API threat model with API Gateway, Lambda, S3, and WAF.",
+        "template_slug": "aws/aws-serverless",
+        "criticality": "HIGH",
+    },
+    {
+        "name": "Sample AWS AI Chatbot",
+        "description": "A sample AI chatbot threat model with Bedrock, RAG pipeline, and OpenSearch.",
+        "template_slug": "aws/aws-ai-chatbot",
+        "criticality": "HIGH",
+    },
+]
 
 
 class Command(BaseCommand):
@@ -66,7 +81,7 @@ class Command(BaseCommand):
         user = self._create_superuser()
         team = self._setup_membership(org, user)
         self._import_packs(force)
-        self._create_sample_threat_model(org, team, user)
+        self._create_sample_threat_models(org, team, user)
         self._connect_packs_to_threat_models()
 
         self.stdout.write("")
@@ -173,64 +188,70 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.WARNING(f"Skipped: {pack_slug} — {result.message}"))
 
-    def _create_sample_threat_model(self, org, team, user):
-        if ThreatModel.objects.filter(name=THREAT_MODEL_NAME, organization=org).exists():
-            self.stdout.write(f"Threat model already exists: {THREAT_MODEL_NAME}")
-            return
+    def _create_sample_threat_models(self, org, team, user):
+        for sample in SAMPLE_THREAT_MODELS:
+            name = sample["name"]
+            if ThreatModel.objects.filter(name=name, organization=org).exists():
+                self.stdout.write(f"Threat model already exists: {name}")
+                continue
 
-        template = DFDTemplatesLibrary.objects.filter(
-            qualified_slug=DFD_TEMPLATE_SLUG
-        ).first()
-        if not template:
-            self.stdout.write(self.style.WARNING(
-                f"DFD template not found: {DFD_TEMPLATE_SLUG}. "
-                "Threat model created without diagram."
-            ))
-            ThreatModel.objects.create(
+            template_slug = sample["template_slug"]
+            template = DFDTemplatesLibrary.objects.filter(
+                qualified_slug=template_slug
+            ).first()
+
+            criticality = getattr(ThreatModel.Criticality, sample["criticality"])
+
+            if not template:
+                self.stdout.write(self.style.WARNING(
+                    f"DFD template not found: {template_slug}. "
+                    "Threat model created without diagram."
+                ))
+                ThreatModel.objects.create(
+                    organization=org,
+                    owning_team=team,
+                    created_by=user,
+                    name=name,
+                    description=sample["description"],
+                    criticality=criticality,
+                )
+                continue
+
+            threat_model = ThreatModel.objects.create(
                 organization=org,
                 owning_team=team,
                 created_by=user,
-                name=THREAT_MODEL_NAME,
-                description="A sample threat model to explore Precogly's features.",
-                criticality=ThreatModel.Criticality.HIGH,
+                name=name,
+                description=sample["description"],
+                criticality=criticality,
             )
-            return
 
-        threat_model = ThreatModel.objects.create(
-            organization=org,
-            owning_team=team,
-            created_by=user,
-            name=THREAT_MODEL_NAME,
-            description="A sample threat model to explore Precogly's features.",
-            criticality=ThreatModel.Criticality.HIGH,
-        )
+            # Connect all imported packs before generating threats
+            imported_packs = LibraryPack.objects.all()
+            ThreatModelLibraryPack.objects.bulk_create(
+                [ThreatModelLibraryPack(threat_model=threat_model, library_pack=pack)
+                 for pack in imported_packs],
+                ignore_conflicts=True,
+            )
 
-        # Connect all imported packs before generating threats
-        imported_packs = LibraryPack.objects.all()
-        ThreatModelLibraryPack.objects.bulk_create(
-            [ThreatModelLibraryPack(threat_model=threat_model, library_pack=pack)
-             for pack in imported_packs],
-            ignore_conflicts=True,
-        )
+            dfd = DFD.objects.create(
+                name="Data Flow Diagram 1",
+                diagram_type=template.diagram_type,
+                threat_model=threat_model,
+                template_library=template,
+                canvas_data=template.canvas_data,
+                is_primary=True,
+                updated_by=user,
+            )
 
-        dfd = DFD.objects.create(
-            name="Data Flow Diagram 1",
-            diagram_type=template.diagram_type,
-            threat_model=threat_model,
-            template_library=template,
-            canvas_data=template.canvas_data,
-            is_primary=True,
-            updated_by=user,
-        )
+            sync_result = sync_dfd_nodes_to_components(dfd, threat_model)
+            components_count = sync_result.get("created_count", 0)
+            threats_count = sync_result.get("threats_generated", 0)
 
-        sync_result = sync_dfd_nodes_to_components(dfd, threat_model)
-        components_count = sync_result.get("created_count", 0)
-        threats_count = sync_result.get("threats_generated", 0)
-
-        self.stdout.write(self.style.SUCCESS(
-            f"Created: {THREAT_MODEL_NAME} "
-            f"({components_count} components, {threats_count} threats)"
-        ))
+            self.stdout.write(self.style.SUCCESS(
+                f"Created: {name} "
+                f"({components_count} components, {threats_count} threats)"
+            ))
 
     def _connect_packs_to_threat_models(self):
         """Ensure all imported packs are connected to all threat models."""
