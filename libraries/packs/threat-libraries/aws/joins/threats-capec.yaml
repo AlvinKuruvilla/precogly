@@ -1,0 +1,50 @@
+taxonomy: capec
+
+mappings:
+  - threat: lambda-injection
+    entries: ["CAPEC-88"]
+  - threat: lambda-privilege-escalation
+    entries: ["CAPEC-122"]
+  - threat: apigw-injection
+    entries: ["CAPEC-66"]
+  - threat: dynamodb-unauthorized-access
+    entries: ["CAPEC-122"]
+  - threat: dynamodb-injection
+    entries: ["CAPEC-66"]
+  - threat: sqs-message-injection
+    entries: ["CAPEC-586"]
+  - threat: dataflow-mitm
+    entries: ["CAPEC-94"]
+  - threat: dataflow-eavesdropping
+    entries: ["CAPEC-94"]
+  - threat: dataflow-replay-attack
+    entries: ["CAPEC-60"]
+  # Bedrock / LLM
+  - threat: bedrock-prompt-injection
+    entries: ["CAPEC-242"]
+  - threat: bedrock-jailbreak
+    entries: ["CAPEC-267"]
+  - threat: bedrock-data-leakage
+    entries: ["CAPEC-169"]
+  - threat: bedrock-sensitive-data-in-prompt
+    entries: ["CAPEC-169"]
+  - threat: bedrock-model-abuse
+    entries: ["CAPEC-125"]
+  # RAG / OpenSearch
+  - threat: rag-poisoning
+    entries: ["CAPEC-586"]
+  - threat: rag-unauthorized-retrieval
+    entries: ["CAPEC-122"]
+  - threat: opensearch-data-exfiltration
+    entries: ["CAPEC-169"]
+  # Cognito
+  - threat: cognito-token-theft
+    entries: ["CAPEC-60"]
+  - threat: cognito-account-takeover
+    entries: ["CAPEC-560"]
+  # WAF
+  - threat: waf-bypass
+    entries: ["CAPEC-267"]
+  # CloudWatch
+  - threat: cloudwatch-log-injection
+    entries: ["CAPEC-268"]

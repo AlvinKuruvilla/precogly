@@ -1,0 +1,32 @@
+pack:
+  schema_version: 1
+  slug: aws
+  name: AWS
+  version: 1.2.0
+  pack_type: full
+  description: |
+    AWS pack covering core infrastructure and AI/ML services with associated threats
+    and countermeasures. Includes S3, Lambda, API Gateway, DynamoDB, SQS, Bedrock,
+    OpenSearch Serverless, Cognito, WAF, and CloudWatch. Threats mapped to STRIDE,
+    CAPEC, CWE, MITRE ATT&CK, and MITRE ATLAS taxonomies.
+  author: Precogly
+  depends_on:
+  - taxonomies/stride-taxonomy
+  - taxonomies/capec
+  - taxonomies/cwe
+  - taxonomies/mitre-attack
+  - taxonomies/mitre-atlas
+  tags:
+  - aws
+  - cloud
+  - serverless
+  - ai
+  - llm
+  - rag
+  - bedrock
+  - storage
+  - api
+  - demo
+  - technology
+  - saas
+  - technology

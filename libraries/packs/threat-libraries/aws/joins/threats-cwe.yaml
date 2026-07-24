@@ -37,3 +37,32 @@ mappings:
     entries: [CWE-20]
   - threat: sqs-queue-flooding
     entries: [CWE-20]
+  # Bedrock / LLM
+  - threat: bedrock-prompt-injection
+    entries: [CWE-77, CWE-20]
+  - threat: bedrock-jailbreak
+    entries: [CWE-693]
+  - threat: bedrock-data-leakage
+    entries: [CWE-200, CWE-532]
+  - threat: bedrock-sensitive-data-in-prompt
+    entries: [CWE-200, CWE-312]
+  - threat: bedrock-model-abuse
+    entries: [CWE-770]
+  # RAG / OpenSearch
+  - threat: rag-poisoning
+    entries: [CWE-20, CWE-345]
+  - threat: rag-unauthorized-retrieval
+    entries: [CWE-862, CWE-200]
+  - threat: opensearch-data-exfiltration
+    entries: [CWE-200, CWE-311]
+  # Cognito
+  - threat: cognito-token-theft
+    entries: [CWE-522, CWE-384]
+  - threat: cognito-account-takeover
+    entries: [CWE-287, CWE-307]
+  # WAF
+  - threat: waf-bypass
+    entries: [CWE-693]
+  # CloudWatch
+  - threat: cloudwatch-log-injection
+    entries: [CWE-117]

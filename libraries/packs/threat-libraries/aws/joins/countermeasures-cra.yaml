@@ -271,3 +271,94 @@ mappings:
     requirements:
       - "Annex I.2(f)"
     sufficiency: full
+
+  # ============================================================================
+  # AI / ML Countermeasures
+  # ============================================================================
+
+  # Annex I.1(b) — No known exploitable vulnerabilities
+  - countermeasure: bedrock-guardrails
+    requirements:
+      - "Annex I.1(b)"
+    sufficiency: partial
+
+  - countermeasure: waf-managed-rules
+    requirements:
+      - "Annex I.1(b)"
+    sufficiency: partial
+
+  # Annex I.1(d) — Protection against unauthorized access
+  - countermeasure: rag-access-control
+    requirements:
+      - "Annex I.1(d)"
+    sufficiency: full
+
+  - countermeasure: opensearch-access-policy
+    requirements:
+      - "Annex I.1(d)"
+    sufficiency: full
+
+  - countermeasure: cognito-mfa
+    requirements:
+      - "Annex I.1(d)"
+    sufficiency: full
+
+  - countermeasure: cognito-advanced-security
+    requirements:
+      - "Annex I.1(d)"
+    sufficiency: partial
+
+  # Annex I.1(e) — Confidentiality of data (encryption)
+  - countermeasure: opensearch-encryption
+    requirements:
+      - "Annex I.1(e)"
+    sufficiency: full
+
+  - countermeasure: bedrock-data-masking
+    requirements:
+      - "Annex I.1(e)"
+    sufficiency: full
+
+  - countermeasure: bedrock-vpc-endpoint
+    requirements:
+      - "Annex I.1(e)"
+    sufficiency: partial
+
+  # Annex I.1(f) — Integrity of data, commands, and programs
+  - countermeasure: bedrock-input-validation
+    requirements:
+      - "Annex I.1(f)"
+    sufficiency: full
+
+  - countermeasure: rag-data-sanitization
+    requirements:
+      - "Annex I.1(f)"
+    sufficiency: full
+
+  - countermeasure: bedrock-output-filtering
+    requirements:
+      - "Annex I.1(f)"
+    sufficiency: partial
+
+  # Annex I.1(h) — Availability and resilience
+  - countermeasure: bedrock-token-budget
+    requirements:
+      - "Annex I.1(h)"
+    sufficiency: partial
+
+  # Annex I.1(j) — Reduce attack surfaces
+  - countermeasure: bedrock-vpc-endpoint
+    requirements:
+      - "Annex I.1(j)"
+    sufficiency: full
+
+  # Annex I.1(l) — Recording and monitoring internal activity
+  - countermeasure: bedrock-model-invocation-logging
+    requirements:
+      - "Annex I.1(l)"
+    sufficiency: full
+
+  - countermeasure: cloudwatch-alarm
+    requirements:
+      - "Annex I.1(l)"
+    sufficiency: partial

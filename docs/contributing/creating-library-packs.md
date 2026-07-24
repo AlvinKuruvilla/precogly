@@ -4,7 +4,7 @@ Library packs are modular bundles of threat-modeling content: components, threat
 
 For background on what library packs are and how they work in the UI, see [Library Packs (Concepts)](../concepts/library-packs.md). For the complete field-level YAML reference, see [`libraries/README.md`](https://github.com/precogly/precogly/blob/main/libraries/README.md).
 
-The canonical reference pack is **`aws-mini`** (`libraries/packs/threat-libraries/aws-mini/`). This guide walks through its structure and uses it as the model for creating your own.
+The canonical reference pack is **`aws`** (`libraries/packs/threat-libraries/aws/`). This guide walks through its structure and uses it as the model for creating your own.
 
 ---
 
@@ -41,14 +41,14 @@ Most community contributions will be `technology` packs (adding components for a
 
 ---
 
-## The canonical pack: `aws-mini`
+## The canonical pack: `aws`
 
-The `aws-mini` pack is a `full` pack that demonstrates every file type. Use it as your template.
+The `aws` pack is a `full` pack that demonstrates every file type. Use it as your template.
 
 ### Directory layout
 
 ```
-libraries/packs/threat-libraries/aws-mini/
+libraries/packs/threat-libraries/aws/
 ├── pack.yaml                              # Pack metadata
 ├── components.yaml                        # 4 components (S3, Lambda, API Gateway, DynamoDB)
 ├── threats.yaml                           # ~15 threats across all components
@@ -76,13 +76,13 @@ libraries/packs/threat-libraries/aws-mini/
 ```yaml
 pack:
   schema_version: 1
-  slug: aws-mini
-  name: AWS Mini
+  slug: aws
+  name: AWS
   version: 1.1.0
   pack_type: full
   description: |
-    A minimal AWS pack demonstrating core AWS services with associated
-    threats and countermeasures.
+    AWS pack covering core infrastructure and AI/ML services
+    with associated threats and countermeasures.
   author: Precogly
   depends_on:
     - taxonomies/stride-taxonomy
@@ -95,8 +95,6 @@ pack:
     - serverless
     - technology
     - saas
-    - demo
-    - mini
 ```
 
 Key points:
@@ -147,7 +145,7 @@ countermeasures:
 
 ### Design rationale
 
-The `aws-mini` pack demonstrates several important patterns:
+The `aws` pack demonstrates several important patterns:
 
 - **Threat-per-component granularity**: Each threat targets a specific component (e.g., `s3-public-exposure` for S3) rather than being generic. This ensures threats are actionable.
 - **Cross-component countermeasure sharing**: A countermeasure like `lambda-input-validation` can appear in multiple threat mappings, enabling [zone protections](../concepts/zone-protections.md).
@@ -193,8 +191,8 @@ Use these conventions:
 - cost: low, medium, or high
 - applies_to in component-threat joins: "component", "flow", or "both"
 
-Reference this example from the aws-mini pack for structure:
-[paste a sample from aws-mini]
+Reference this example from the aws pack for structure:
+[paste a sample from aws]
 ```
 
 ### Example prompts
@@ -222,7 +220,7 @@ Include 3-5 threats per component and appropriate countermeasures.
 
 ### Tips for better results
 
-- **Provide the `aws-mini` files as context.** The more examples the LLM sees, the more consistent its output.
+- **Provide the `aws` files as context.** The more examples the LLM sees, the more consistent its output.
 - **Generate one file at a time** if the pack is large. Start with components, then threats, then countermeasures, then joins.
 - **Ask for specific threat categories.** For example: "Include at least one data exposure threat and one injection threat for each component."
 - **Specify the taxonomy entries.** If you want STRIDE mappings, list the valid STRIDE categories: `spoofing`, `tampering`, `repudiation`, `information-disclosure`, `denial-of-service`, `elevation-of-privilege`.

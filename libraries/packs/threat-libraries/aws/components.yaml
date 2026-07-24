@@ -1,0 +1,106 @@
+components:
+  # Storage
+  - id: s3
+    name: Amazon S3
+    category: datastore
+    type: Object Storage
+    provider: aws
+    description: |
+      Amazon Simple Storage Service (S3) provides scalable object storage for data backup,
+      archival, and analytics. Supports versioning, lifecycle policies, and cross-region replication.
+
+  # Compute
+  - id: lambda
+    name: AWS Lambda
+    category: process
+    type: Serverless Function
+    provider: aws
+    description: |
+      AWS Lambda lets you run code without provisioning servers. Supports multiple runtimes
+      (Python, Node.js, Java, etc.) with automatic scaling and pay-per-execution pricing.
+
+  # API
+  - id: api-gateway
+    name: Amazon API Gateway
+    category: process
+    type: API Management
+    provider: aws
+    description: |
+      Amazon API Gateway is a managed service for creating, publishing, and securing REST,
+      HTTP, and WebSocket APIs. Supports throttling, caching, and authorization.
+
+  # Database
+  - id: dynamodb
+    name: Amazon DynamoDB
+    category: datastore
+    type: NoSQL Database
+    provider: aws
+    description: |
+      Amazon DynamoDB is a fully managed NoSQL database with single-digit millisecond latency.
+      Supports key-value and document data models with automatic scaling.
+
+  # Messaging
+  - id: sqs
+    name: Amazon SQS
+    category: process
+    type: Message Queue
+    provider: aws
+    description: |
+      Amazon Simple Queue Service (SQS) is a fully managed message queuing service
+      for decoupling and scaling microservices, distributed systems, and serverless apps.
+
+  # AI / ML
+  - id: bedrock
+    name: Amazon Bedrock
+    category: external_system_actor
+    type: AI Model Service
+    provider: aws
+    description: |
+      Amazon Bedrock is a fully managed service for building generative AI applications
+      with foundation models from Anthropic, Meta, Mistral, and others. Supports text
+      generation, embeddings, image generation, and model customization with Guardrails
+      for responsible AI.
+
+  # Search / Vector Store
+  - id: opensearch-serverless
+    name: Amazon OpenSearch Serverless
+    category: datastore
+    type: Vector Database
+    provider: aws
+    description: |
+      Amazon OpenSearch Serverless provides serverless search and vector database
+      capabilities. Used as a knowledge base for RAG (Retrieval-Augmented Generation)
+      pipelines, storing vector embeddings alongside source documents for semantic search.
+
+  # Identity
+  - id: cognito
+    name: Amazon Cognito
+    category: external_system_actor
+    type: Identity Provider
+    provider: aws
+    description: |
+      Amazon Cognito provides authentication, authorization, and user management for
+      web and mobile apps. Supports user pools, identity pools, OAuth 2.0/OIDC,
+      MFA, and adaptive authentication.
+
+  # Security
+  - id: waf
+    name: AWS WAF
+    category: process
+    type: Web Application Firewall
+    provider: aws
+    description: |
+      AWS WAF is a web application firewall that protects against common web exploits
+      and bots. Supports managed rules, custom rules, rate limiting, and IP reputation
+      lists. Integrates with API Gateway, CloudFront, and ALB.
+
+  # Monitoring
+  - id: cloudwatch
+    name: Amazon CloudWatch
+    category: external_system_actor
+    type: Monitoring Service
+    provider: aws
+    description: |
+      Amazon CloudWatch provides monitoring and observability for AWS resources and
+      applications. Collects metrics, logs, and traces. Supports alarms, dashboards,
+      anomaly detection, and automated actions.

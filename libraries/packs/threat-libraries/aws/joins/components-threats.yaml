@@ -72,3 +72,53 @@ mappings:
         applies_to: flow
       - threat: dataflow-replay-attack
         applies_to: flow
+
+  - component: bedrock
+    threats:
+      - threat: bedrock-prompt-injection
+        applies_to: both
+      - threat: bedrock-jailbreak
+        applies_to: component
+      - threat: bedrock-data-leakage
+        applies_to: both
+      - threat: bedrock-sensitive-data-in-prompt
+        applies_to: flow
+      - threat: bedrock-model-abuse
+        applies_to: component
+      # Data flow threats for Bedrock connections
+      - threat: dataflow-eavesdropping
+        applies_to: flow
+
+  - component: opensearch-serverless
+    threats:
+      - threat: rag-poisoning
+        applies_to: component
+      - threat: rag-unauthorized-retrieval
+        applies_to: both
+      - threat: opensearch-data-exfiltration
+        applies_to: component
+      # Data flow threats for OpenSearch connections
+      - threat: dataflow-eavesdropping
+        applies_to: flow
+      - threat: dataflow-injection
+        applies_to: flow
+
+  - component: cognito
+    threats:
+      - threat: cognito-token-theft
+        applies_to: both
+      - threat: cognito-account-takeover
+        applies_to: component
+      # Data flow threats for Cognito connections
+      - threat: dataflow-mitm
+        applies_to: flow
+
+  - component: waf
+    threats:
+      - threat: waf-bypass
+        applies_to: component
+
+  - component: cloudwatch
+    threats:
+      - threat: cloudwatch-log-injection
+        applies_to: both

@@ -1,0 +1,69 @@
+framework: nist-csf-2
+
+mappings:
+  # PR.AC-1 - Identity management
+  - countermeasure: lambda-least-privilege
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  # PR.AC-4 - Least privilege
+  - countermeasure: s3-bucket-policy
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: lambda-least-privilege
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: s3-block-public-access
+    requirements:
+      - "PR.AC-4"
+    sufficiency: partial
+
+  # SC-8 - Transmission confidentiality
+  - countermeasure: s3-encryption
+    requirements:
+      - "SC-8"
+    sufficiency: partial
+
+  - countermeasure: lambda-vpc
+    requirements:
+      - "SC-8"
+    sufficiency: partial
+
+  # AI / ML Countermeasures
+  # PR.AC-1 - Identity management
+  - countermeasure: cognito-mfa
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  - countermeasure: cognito-advanced-security
+    requirements:
+      - "PR.AC-1"
+    sufficiency: partial
+
+  # PR.AC-4 - Least privilege
+  - countermeasure: rag-access-control
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  - countermeasure: opensearch-access-policy
+    requirements:
+      - "PR.AC-4"
+    sufficiency: full
+
+  # SC-8 - Transmission confidentiality
+  - countermeasure: bedrock-vpc-endpoint
+    requirements:
+      - "SC-8"
+    sufficiency: partial
+
+  - countermeasure: opensearch-encryption
+    requirements:
+      - "SC-8"
+    sufficiency: partial

@@ -177,3 +177,45 @@ class PendingRequirementOverlay(TimestampedModel):
             f"{self.pack.slug}: {self.source_framework_slug} -> "
             f"{self.target_framework_slug} (pending)"
         )
+
+
+class PendingTaxonomyOverlay(TimestampedModel):
+    """
+    Stores taxonomy join overlays that couldn't be applied because the
+    taxonomy wasn't installed when the pack was imported.
+
+    When a taxonomy is later installed, pending overlays for that taxonomy
+    can be activated automatically.
+    """
+
+    pack = models.ForeignKey(
+        LibraryPack,
+        on_delete=models.CASCADE,
+        related_name="pending_taxonomy_overlays",
+        help_text="The pack that contains this overlay",
+    )
+    taxonomy_slug = models.CharField(
+        max_length=100,
+        help_text="The slug of the taxonomy this overlay maps to",
+    )
+    overlay_file_name = models.CharField(
+        max_length=255,
+        help_text="Name of the overlay file (e.g., 'threats-mitre-atlas.yaml')",
+    )
+    overlay_data = models.JSONField(
+        default=dict,
+        help_text="The raw overlay data from the YAML file",
+    )
+    mapping_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of mappings in this overlay",
+    )
+
+    class Meta:
+        unique_together = ["pack", "taxonomy_slug"]
+        verbose_name = "Pending Taxonomy Overlay"
+        verbose_name_plural = "Pending Taxonomy Overlays"
+        ordering = ["pack", "taxonomy_slug"]
+
+    def __str__(self):
+        return f"{self.pack.slug} -> {self.taxonomy_slug} (pending)"

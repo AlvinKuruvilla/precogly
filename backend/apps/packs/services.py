@@ -28,7 +28,7 @@ from apps.threats.models import (
     ThreatLibraryTaxonomyEntry,
 )
 
-from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay, PendingRequirementOverlay
+from .models import LibraryPack, LibraryPackDependency, PendingFrameworkOverlay, PendingRequirementOverlay, PendingTaxonomyOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -298,7 +298,7 @@ def get_pack_preview_from_source(pack_relative_path: str) -> dict | None:
     libraries/packs root for O(1) directory lookup.
 
     Args:
-        pack_relative_path: Relative path from libraries/packs root (e.g. "demo/aws-mini",
+        pack_relative_path: Relative path from libraries/packs root (e.g. "threat-libraries/aws",
             "standards/nist-csf")
 
     Returns:
@@ -1607,6 +1607,23 @@ def sync_all_packs_from_source(
             for join_file in joins_dir.glob("requirements-*.yaml"):
                 _load_requirement_overlay(pack, join_file)
 
+        # Third pass: re-apply taxonomy joins.
+        # Same ordering issue as requirement overlays — taxonomy packs may
+        # be re-imported after the threat packs that reference them, causing
+        # CASCADE deletes to destroy the mappings. Re-loading from disk
+        # after all taxonomies exist fixes this.
+        for pack_info in packs:
+            pack = LibraryPack.objects.filter(slug=pack_info.slug).first()
+            if not pack:
+                continue
+            joins_dir = Path(pack_info.path) / "joins"
+            if not joins_dir.exists():
+                continue
+            for join_file in joins_dir.glob("threats-*.yaml"):
+                if join_file.name == "threats-countermeasures.yaml":
+                    continue
+                _load_threat_taxonomy_joins(pack, join_file)
+
     return results
 
 
@@ -1630,6 +1647,7 @@ def _hard_delete_pack_items(pack: LibraryPack):
     ExternalTaxonomy.objects.filter(source_pack=pack).delete()
     StandardRequirementMapping.objects.filter(source_pack=pack).delete()
     PendingRequirementOverlay.objects.filter(pack=pack).delete()
+    PendingTaxonomyOverlay.objects.filter(pack=pack).delete()
     StandardFramework.objects.filter(source_pack=pack).delete()
 
 
@@ -1730,13 +1748,35 @@ def _load_threat_taxonomy_joins(library_pack: LibraryPack, file_path: Path, impo
         import_warnings.append(msg)
         return 0
 
-    if not ExternalTaxonomy.objects.filter(slug=taxonomy_slug).exists():
-        logger.error(
-            f"Taxonomy '{taxonomy_slug}' does not exist — "
-            f"check that this matches the slug in taxonomy.yaml, not the pack slug. "
-            f"File: {file_path.name}"
+    taxonomy_exists = ExternalTaxonomy.objects.filter(slug=taxonomy_slug).exists()
+
+    if not taxonomy_exists:
+        # Store as pending overlay for later activation
+        logger.info(f"Taxonomy '{taxonomy_slug}' not found. Storing overlay as pending.")
+        mapping_count = len(data.get("mappings", []))
+        PendingTaxonomyOverlay.objects.update_or_create(
+            pack=library_pack,
+            taxonomy_slug=taxonomy_slug,
+            defaults={
+                "overlay_file_name": file_path.name,
+                "overlay_data": data,
+                "mapping_count": mapping_count,
+            },
         )
         return 0
+
+    # Taxonomy exists - ensure pending overlay is stored for future re-activation
+    # (e.g. if the taxonomy is unimported then re-imported later)
+    mapping_count = len(data.get("mappings", []))
+    PendingTaxonomyOverlay.objects.update_or_create(
+        pack=library_pack,
+        taxonomy_slug=taxonomy_slug,
+        defaults={
+            "overlay_file_name": file_path.name,
+            "overlay_data": data,
+            "mapping_count": mapping_count,
+        },
+    )
 
     count = 0
     for mapping in data.get("mappings", []):
@@ -1798,6 +1838,7 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path, import_warnings: 
             continue
 
         existing_taxonomy = ExternalTaxonomy.objects.filter(slug=slug).first()
+        is_new_taxonomy = existing_taxonomy is None
         if existing_taxonomy and existing_taxonomy.source_pack and existing_taxonomy.source_pack != library_pack:
             msg = f"Taxonomy '{slug}' source_pack changing from '{existing_taxonomy.source_pack.slug}' to '{library_pack.slug}'"
             logger.warning(msg)
@@ -1828,9 +1869,97 @@ def _load_taxonomy(library_pack: LibraryPack, file_path: Path, import_warnings: 
                 },
             )
 
+        # Activate pending taxonomy overlays for newly created taxonomies
+        if is_new_taxonomy:
+            result = activate_pending_taxonomy_overlays(slug)
+            if result.get("total_mappings", 0) > 0:
+                logger.info(
+                    f"Activated {result['total_mappings']} pending taxonomy overlay "
+                    f"mappings for taxonomy '{slug}'"
+                )
+
         count += 1
 
     return count
+
+
+def activate_pending_taxonomy_overlays(taxonomy_slug: str) -> dict:
+    """
+    Activate all pending taxonomy overlays for a newly installed taxonomy.
+
+    Called when a taxonomy is installed to apply any taxonomy join overlays
+    that were waiting for this taxonomy.
+
+    Args:
+        taxonomy_slug: The slug of the taxonomy that was just installed
+
+    Returns:
+        Dictionary with activation results including counts per pack
+    """
+    taxonomy = ExternalTaxonomy.objects.filter(slug=taxonomy_slug).first()
+    if not taxonomy:
+        logger.error(f"Cannot activate taxonomy overlays: Taxonomy '{taxonomy_slug}' not found")
+        return {"success": False, "error": "Taxonomy not found", "activated": 0}
+
+    pending_overlays = PendingTaxonomyOverlay.objects.filter(taxonomy_slug=taxonomy_slug)
+
+    results = {
+        "success": True,
+        "taxonomy": taxonomy_slug,
+        "taxonomy_name": taxonomy.name,
+        "packs_activated": [],
+        "total_mappings": 0,
+    }
+
+    for pending in pending_overlays:
+        pack = pending.pack
+        data = pending.overlay_data
+        mappings_applied = 0
+
+        for mapping in data.get("mappings", []):
+            threat_ref = mapping.get("threat", "")
+            if not threat_ref:
+                continue
+
+            threat_obj = _resolve_threat_reference(pack, threat_ref)
+            if not threat_obj:
+                logger.warning(f"Threat not found during taxonomy activation: {threat_ref}")
+                continue
+
+            for external_id in mapping.get("entries", []):
+                try:
+                    taxonomy_entry = TaxonomyEntry.objects.get(
+                        taxonomy__slug=taxonomy_slug,
+                        external_id=str(external_id),
+                    )
+                    ThreatLibraryTaxonomyEntry.objects.get_or_create(
+                        threat_library=threat_obj,
+                        taxonomy_entry=taxonomy_entry,
+                    )
+                    mappings_applied += 1
+                except TaxonomyEntry.DoesNotExist:
+                    logger.warning(
+                        f"Taxonomy entry {taxonomy_slug}:{external_id} not found "
+                        f"during activation"
+                    )
+
+        results["packs_activated"].append({
+            "pack_slug": pack.slug,
+            "pack_name": pack.name,
+            "mappings_applied": mappings_applied,
+        })
+        results["total_mappings"] += mappings_applied
+
+        # Keep pending overlay for future re-activation (e.g. taxonomy unimport/re-import).
+        # CASCADE on pack FK handles cleanup when the source pack is unimported.
+
+    logger.info(
+        f"Activated {len(results['packs_activated'])} pending taxonomy overlays "
+        f"for taxonomy '{taxonomy_slug}' "
+        f"with {results['total_mappings']} total mappings"
+    )
+
+    return results
 
 
 def _load_components(library_pack: LibraryPack, file_path: Path, import_warnings: list[str] | None = None) -> int:
@@ -2830,7 +2959,7 @@ def get_available_overlays_for_pack(pack_relative_path: str) -> list[OverlayInfo
     path from the libraries/packs root for O(1) directory lookup.
 
     Args:
-        pack_relative_path: Relative path from libraries/packs root (e.g. "aws-mini")
+        pack_relative_path: Relative path from libraries/packs root (e.g. "threat-libraries/aws")
 
     Returns:
         List of OverlayInfo with framework_id, framework_name, mapping_count, framework_exists

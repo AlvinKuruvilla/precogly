@@ -120,3 +120,82 @@ mappings:
       - tls-encryption
       - request-signing
       - lambda-input-validation
+
+  # Bedrock / LLM Threat → Countermeasure mappings
+  - threat: bedrock-prompt-injection
+    countermeasures:
+      - bedrock-guardrails
+      - bedrock-input-validation
+      - bedrock-output-filtering
+      - apigw-waf
+
+  - threat: bedrock-jailbreak
+    countermeasures:
+      - bedrock-guardrails
+      - bedrock-input-validation
+      - bedrock-model-invocation-logging
+
+  - threat: bedrock-data-leakage
+    countermeasures:
+      - bedrock-guardrails
+      - bedrock-output-filtering
+      - bedrock-data-masking
+      - bedrock-model-invocation-logging
+
+  - threat: bedrock-sensitive-data-in-prompt
+    countermeasures:
+      - bedrock-data-masking
+      - bedrock-guardrails
+      - bedrock-vpc-endpoint
+
+  - threat: bedrock-model-abuse
+    countermeasures:
+      - bedrock-token-budget
+      - apigw-throttling
+      - bedrock-model-invocation-logging
+      - apigw-cognito-auth
+
+  # RAG / OpenSearch Threat → Countermeasure mappings
+  - threat: rag-poisoning
+    countermeasures:
+      - rag-data-sanitization
+      - opensearch-access-policy
+      - bedrock-output-filtering
+
+  - threat: rag-unauthorized-retrieval
+    countermeasures:
+      - rag-access-control
+      - opensearch-access-policy
+      - bedrock-output-filtering
+
+  - threat: opensearch-data-exfiltration
+    countermeasures:
+      - opensearch-encryption
+      - opensearch-access-policy
+      - bedrock-vpc-endpoint
+
+  # Cognito Threat → Countermeasure mappings
+  - threat: cognito-token-theft
+    countermeasures:
+      - cognito-mfa
+      - tls-encryption
+      - cognito-advanced-security
+
+  - threat: cognito-account-takeover
+    countermeasures:
+      - cognito-mfa
+      - cognito-advanced-security
+      - cloudwatch-alarm
+
+  # WAF Threat → Countermeasure mappings
+  - threat: waf-bypass
+    countermeasures:
+      - waf-managed-rules
+      - apigw-request-validation
+      - lambda-input-validation
+
+  # CloudWatch Threat → Countermeasure mappings
+  - threat: cloudwatch-log-injection
+    countermeasures:
+      - lambda-input-validation
+      - cloudwatch-alarm

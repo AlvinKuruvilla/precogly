@@ -41,3 +41,32 @@ mappings:
     entries: [T1190]
   - threat: sqs-queue-flooding
     entries: [T1190]
+  # Bedrock / LLM
+  - threat: bedrock-prompt-injection
+    entries: [T1190]
+  - threat: bedrock-jailbreak
+    entries: [T1190]
+  - threat: bedrock-data-leakage
+    entries: [T1530]
+  - threat: bedrock-sensitive-data-in-prompt
+    entries: [T1530]
+  - threat: bedrock-model-abuse
+    entries: [T1496]
+  # RAG / OpenSearch
+  - threat: rag-poisoning
+    entries: [T1565]
+  - threat: rag-unauthorized-retrieval
+    entries: [T1530]
+  - threat: opensearch-data-exfiltration
+    entries: [T1530]
+  # Cognito
+  - threat: cognito-token-theft
+    entries: [T1528]
+  - threat: cognito-account-takeover
+    entries: [T1110, T1078]
+  # WAF
+  - threat: waf-bypass
+    entries: [T1190]
+  # CloudWatch
+  - threat: cloudwatch-log-injection
+    entries: [T1565]

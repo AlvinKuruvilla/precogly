@@ -264,3 +264,154 @@ countermeasures:
       Reduces attack surface by eliminating public access.
     control_type: preventive
     cost: low
+
+  # ============================================================================
+  # Bedrock / LLM Countermeasures
+  # ============================================================================
+  - id: bedrock-guardrails
+    name: Bedrock Guardrails
+    description: |
+      Configure Amazon Bedrock Guardrails to filter harmful content, enforce topic
+      restrictions, and block sensitive information in inputs and outputs. Supports
+      denied topics, content filters, word filters, sensitive information filters,
+      and contextual grounding checks.
+    control_type: preventive
+    cost: medium
+
+  - id: bedrock-input-validation
+    name: Bedrock Prompt Input Validation
+    description: |
+      Validate and sanitize all user input before inclusion in LLM prompts.
+      Apply character allowlists, encoding normalization, length limits, and
+      prompt injection detection classifiers to prevent adversarial inputs.
+    control_type: preventive
+    cost: medium
+
+  - id: bedrock-output-filtering
+    name: Bedrock Output Filtering
+    description: |
+      Scan and filter all LLM-generated outputs before returning to users.
+      Detect and redact sensitive data (PII, PAN, credentials), block policy-
+      violating content, and validate output schema conformance.
+    control_type: detective
+    cost: medium
+
+  - id: bedrock-vpc-endpoint
+    name: Bedrock VPC Endpoint
+    description: |
+      Use VPC endpoint for Amazon Bedrock to keep model invocation traffic within
+      the AWS network. Prevents exposure to public internet and enables endpoint
+      policies for fine-grained access control.
+    control_type: preventive
+    cost: low
+
+  - id: bedrock-model-invocation-logging
+    name: Bedrock Model Invocation Logging
+    description: |
+      Enable model invocation logging to capture prompts, completions, token usage,
+      and metadata for all Bedrock API calls. Logs stored in S3 or CloudWatch for
+      audit, forensics, and compliance.
+    control_type: detective
+    cost: low
+
+  - id: bedrock-token-budget
+    name: Bedrock Token and Cost Budget
+    description: |
+      Set per-request and per-session token limits, configure service quotas, and
+      implement cost alerts for Bedrock model invocations. Prevents runaway costs
+      and resource abuse from excessive or automated requests.
+    control_type: preventive
+    cost: low
+
+  - id: bedrock-data-masking
+    name: Sensitive Data Masking Before LLM
+    description: |
+      Tokenize, mask, or redact sensitive data (PAN, PII, credentials) before
+      including in LLM prompts or RAG context. Use reversible tokenization to
+      restore data in responses when needed.
+    control_type: preventive
+    cost: medium
+
+  # ============================================================================
+  # RAG / OpenSearch Serverless Countermeasures
+  # ============================================================================
+  - id: rag-access-control
+    name: RAG Document-Level Access Control
+    description: |
+      Enforce end-user authorization at each stage of the RAG pipeline. Apply
+      document-level metadata filters during semantic search to ensure users
+      only retrieve documents they are authorized to access.
+    control_type: preventive
+    cost: high
+
+  - id: rag-data-sanitization
+    name: RAG Data Sanitization
+    description: |
+      Validate and sanitize all documents before ingestion into the RAG knowledge
+      base. Scan for prompt injection payloads, malicious content, and verify
+      data integrity to prevent knowledge base poisoning.
+    control_type: preventive
+    cost: medium
+
+  - id: opensearch-encryption
+    name: OpenSearch Serverless Encryption
+    description: |
+      Enable encryption at rest (AWS-owned or customer-managed KMS keys) and
+      enforce TLS for data in transit for OpenSearch Serverless collections.
+      Protects vector embeddings and source documents.
+    control_type: preventive
+    cost: low
+
+  - id: opensearch-access-policy
+    name: OpenSearch Serverless Access Policy
+    description: |
+      Configure data access policies and network access policies for OpenSearch
+      Serverless collections. Restrict access to authorized IAM principals and
+      VPC endpoints using least-privilege policies.
+    control_type: preventive
+    cost: low
+
+  # ============================================================================
+  # Cognito Countermeasures
+  # ============================================================================
+  - id: cognito-mfa
+    name: Cognito MFA Enforcement
+    description: |
+      Require multi-factor authentication for all Cognito user pool sign-ins.
+      Supports TOTP, SMS, and email-based MFA. Prevents account compromise
+      from stolen credentials alone.
+    control_type: preventive
+    cost: low
+
+  - id: cognito-advanced-security
+    name: Cognito Advanced Security
+    description: |
+      Enable Cognito advanced security features including adaptive authentication,
+      compromised credential detection, and risk-based access decisions. Blocks
+      sign-ins from suspicious locations or devices.
+    control_type: detective
+    cost: medium
+
+  # ============================================================================
+  # WAF Countermeasures
+  # ============================================================================
+  - id: waf-managed-rules
+    name: WAF Managed Rule Groups
+    description: |
+      Deploy AWS WAF managed rule groups (Core Rule Set, Known Bad Inputs, SQL
+      Injection, Bot Control) for comprehensive protection against common web
+      exploits. Regularly update rule versions.
+    control_type: preventive
+    cost: medium
+
+  # ============================================================================
+  # CloudWatch Countermeasures
+  # ============================================================================
+  - id: cloudwatch-alarm
+    name: CloudWatch Security Alarms
+    description: |
+      Configure CloudWatch alarms for security-relevant metrics and anomalies.
+      Monitor failed authentication attempts, unusual API call patterns, model
+      invocation spikes, and error rates with automated notifications.
+    control_type: detective
+    cost: low

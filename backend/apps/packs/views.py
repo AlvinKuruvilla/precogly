@@ -256,7 +256,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         Query parameters:
             path: The pack's relative path from libraries/packs root
-                  (e.g. "demo/aws-mini", "standards/nist-csf")
+                  (e.g. "threat-libraries/aws", "standards/nist-csf")
 
         Returns pack metadata along with all components, threats, and countermeasures.
         """
@@ -285,7 +285,7 @@ class LibraryPackViewSet(viewsets.ReadOnlyModelViewSet):
 
         Query parameters:
             path: The pack's relative path from libraries/packs root
-                  (e.g. "demo/aws-mini", "standards/nist-csf")
+                  (e.g. "threat-libraries/aws", "standards/nist-csf")
 
         Returns list of overlays with framework_id, framework_name, mapping_count,
         and whether the framework is installed.
