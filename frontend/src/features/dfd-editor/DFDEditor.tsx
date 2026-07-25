@@ -613,6 +613,9 @@ function DFDEditorContent() {
               }}
               fitView
               fitViewOptions={fitViewOptions}
+              selectionOnDrag
+              panOnDrag={[1, 2]}
+              panOnScroll
               snapToGrid
               snapGrid={[15, 15]}
               minZoom={0.1}
