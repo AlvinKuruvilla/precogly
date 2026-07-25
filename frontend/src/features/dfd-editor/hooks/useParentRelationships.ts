@@ -96,6 +96,20 @@ function getDepth(node: DiagramNode, nodesMap: Map<string, DiagramNode>): number
   return depth
 }
 
+/**
+ * Check if all 4 corners of `inner` are inside `outer`.
+ * This prevents mutual containment (a larger node can never fit inside a smaller one)
+ * and ensures the user has fully placed the child inside the parent.
+ */
+function isFullyInside(inner: BoundingBox, outer: BoundingBox): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
+  )
+}
+
 export function useParentRelationships() {
   const findParentBoundary = useCallback(
     (node: DiagramNode, allNodes: DiagramNode[]): DiagramNode | null => {
@@ -138,17 +152,11 @@ export function useParentRelationships() {
 
         const candidateBox = getAbsoluteBoundingBox(candidate, nodesMap)
 
-        // Check Intersection (Center method is good for UX)
-        const nodeCenterX = nodeBox.x + nodeBox.width / 2
-        const nodeCenterY = nodeBox.y + nodeBox.height / 2
+        // Check if all 4 corners of the node are inside the candidate's box.
+        // This prevents mutual containment and premature locking.
+        const allCornersInside = isFullyInside(nodeBox, candidateBox)
 
-        const isInside =
-          nodeCenterX >= candidateBox.x &&
-          nodeCenterX <= candidateBox.x + candidateBox.width &&
-          nodeCenterY >= candidateBox.y &&
-          nodeCenterY <= candidateBox.y + candidateBox.height
-
-        if (isInside) {
+        if (allCornersInside) {
           // For process candidates, enforce max depth (D4)
           if (candidate.type === 'process') {
             const parentProcessDepth = getProcessAncestorDepth(candidate.id, allNodes) + 1
@@ -189,37 +197,8 @@ export function useParentRelationships() {
         const liveNodesMap = new Map(currentNodes.map((n) => [n.id, n]))
 
         const updatedNodes = currentNodes.map((node) => {
-          // If node already has a parent, check if it should be preserved
-          // Only preserve if: parent exists, is a boundary, AND child is still inside parent bounds
-          if (node.parentId) {
-            const currentParent = liveNodesMap.get(node.parentId)
-            if (currentParent && (currentParent.type === 'trustZone' || currentParent.type === 'systemScope' || currentParent.type === 'process')) {
-              const nodeBox = getAbsoluteBoundingBox(node, liveNodesMap)
-              const parentBox = getAbsoluteBoundingBox(currentParent, liveNodesMap)
-
-              const nodeCenterX = nodeBox.x + nodeBox.width / 2
-              const nodeCenterY = nodeBox.y + nodeBox.height / 2
-
-              const stillInside =
-                nodeCenterX >= parentBox.x &&
-                nodeCenterX <= parentBox.x + parentBox.width &&
-                nodeCenterY >= parentBox.y &&
-                nodeCenterY <= parentBox.y + parentBox.height
-
-              if (stillInside) {
-                // Parent still exists, is valid, and child is still inside - keep the relationship
-                newParentAssignments.set(node.id, node.parentId)
-                // Clear extent if it was set (to allow free dragging)
-                if (node.extent) {
-                  hasChanges = true
-                  return { ...node, extent: undefined }
-                }
-                return node
-              }
-            }
-          }
-
-          // Use liveNodesMap (which has updated nodes) for parent detection
+          // Find the best (smallest) containing parent for every node on every pass.
+          // This ensures nodes always lock to the most specific container.
           const allNodesForSearch = Array.from(liveNodesMap.values())
           const newParent = findParentBoundary(node, allNodesForSearch)
           let newParentId = newParent?.id

@@ -45,7 +45,8 @@ import { useParentRelationships } from './hooks/useParentRelationships'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useConnectionMode } from './hooks/useConnectionMode'
 import { useBoundaryMode } from './hooks/useBoundaryMode'
-import type { DiagramNode, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
+import type { DiagramNode, DiagramNodeType, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
+import { useCreateNode } from './hooks/useCreateNode'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from './types/notation'
 import { exportDiagramImage } from './lib/export-diagram-image'
 
@@ -195,6 +196,29 @@ function DFDEditorContent() {
       y: bounds ? bounds.top + bounds.height / 2 : window.innerHeight / 2,
     })
   }, [screenToFlowPosition])
+
+  // Drag-and-drop from toolbar
+  const { createNode } = useCreateNode(notationStyle)
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as DiagramNodeType
+      if (!nodeType) return
+      const dropPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      createNode(nodeType, dropPosition)
+      // Let ReactFlow render the new node, then check parent relationships
+      requestAnimationFrame(() => {
+        updateParentRelationships(nodes, setNodes)
+      })
+    },
+    [screenToFlowPosition, createNode, nodes, setNodes, updateParentRelationships]
+  )
 
   // Handle node click - delegates to mode hooks then falls through to selection
   const handleNodeClick = useCallback(
@@ -568,7 +592,7 @@ function DFDEditorContent() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
-        <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove}>
+        <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove} onDragOver={handleDragOver} onDrop={handleDrop}>
           <DFDNotationProvider notationStyle={notationStyle}>
             <ReactFlow
               nodes={nodes}

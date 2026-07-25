@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { useReactFlow, type XYPosition } from '@xyflow/react'
+import { memo, useCallback } from 'react'
+import type { XYPosition } from '@xyflow/react'
 import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { DiagramNodeType } from '../types'
-import { type DFDNotationStyle, NOTATION_NODE_SIZES } from '../types/notation'
+import type { DFDNotationStyle } from '../types/notation'
+import { useCreateNode } from '../hooks/useCreateNode'
 
 interface DiagramToolbarProps {
   connectionMode: boolean
@@ -100,51 +101,23 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   notationStyle = 'dfd3',
   onNotationChange,
 }: DiagramToolbarProps) {
-  const { addNodes, getNodes } = useReactFlow()
-  const nodeSizes = NOTATION_NODE_SIZES[notationStyle]
+  const { createNode } = useCreateNode(notationStyle)
 
-  const handleAddNode = (type: DiagramNodeType) => {
-    const center = getCanvasCenterPosition()
-    const nodeSize = nodeSizes[type] ?? { width: 120, height: 70 }
-    const position = {
-      x: center.x - nodeSize.width / 2,
-      y: center.y - nodeSize.height / 2,
-    }
+  const handleAddNode = useCallback(
+    (type: DiagramNodeType) => {
+      const center = getCanvasCenterPosition()
+      createNode(type, center)
+    },
+    [createNode, getCanvasCenterPosition]
+  )
 
-    // Generate unique ID
-    const id = `${type}-${Date.now()}`
-
-    // Default data based on node type
-    const defaultData: Record<DiagramNodeType, Record<string, unknown>> = {
-      humanActor: { label: 'New Human Actor' },
-      systemActor: { label: 'New System Actor' },
-      process: { label: 'New Process', technology: '' },
-      datastore: { label: 'New Data Store', technology: '' },
-      trustZone: { label: 'Trust Zone', trustLevel: 75, zoneColor: '#22c55e' },
-      systemScope: { label: 'System Scope' },
-    }
-
-    addNodes({
-      id,
-      type,
-      position,
-      data: { ...defaultData[type], isNewlyInserted: true },
-      style: { width: nodeSize.width, height: nodeSize.height },
-    })
-
-    // Remove the "newly inserted" highlight after 2 seconds
-    setTimeout(() => {
-      const currentNodes = getNodes()
-      const nodeIndex = currentNodes.findIndex((n) => n.id === id)
-      if (nodeIndex !== -1) {
-        const updatedNodes = [...currentNodes]
-        updatedNodes[nodeIndex] = {
-          ...updatedNodes[nodeIndex],
-          data: { ...updatedNodes[nodeIndex].data, isNewlyInserted: false },
-        }
-      }
-    }, 2000)
-  }
+  const handleDragStart = useCallback(
+    (event: React.DragEvent, nodeType: DiagramNodeType) => {
+      event.dataTransfer.setData('application/reactflow-node-type', nodeType)
+      event.dataTransfer.effectAllowed = 'move'
+    },
+    []
+  )
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -156,8 +129,10 @@ export const DiagramToolbar = memo(function DiagramToolbar({
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn('gap-2', button.color)}
+                className={cn('gap-2 cursor-grab active:cursor-grabbing', button.color)}
                 onClick={() => handleAddNode(button.type)}
+                draggable
+                onDragStart={(e) => handleDragStart(e, button.type)}
               >
                 <button.icon className="h-4 w-4" />
                 <span className="hidden sm:inline">{button.label}</span>
