@@ -8,7 +8,7 @@ const defaultData: Record<DiagramNodeType, Record<string, unknown>> = {
   systemActor: { label: 'New System Actor' },
   process: { label: 'New Process', technology: '' },
   datastore: { label: 'New Data Store', technology: '' },
-  trustZone: { label: 'Trust Zone', trustLevel: 75, zoneColor: '#22c55e' },
+  trustZone: { label: 'Trust Zone', trustLevel: 25, zoneColor: '#ef4444' },
   systemScope: { label: 'System Scope' },
 }
 
