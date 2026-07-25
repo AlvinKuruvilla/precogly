@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FileText, FolderOpen, Pencil, ArrowLeft, ImageDown, Settings2 } from 'lucide-react'
+import { Download, FileText, FolderOpen, Pencil, ArrowLeft, ImageDown, Settings2, Save, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,7 +25,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useGuestEditor } from '../context/GuestEditorContext'
-import { serializeToTmLibrary, downloadTmLibraryFile, openTmLibraryFile } from '../lib/precogly-file'
+import { serializeGuestToCycloneDx, deserializeCycloneDxToGuest } from '../lib/cyclonedx-guest'
+import {
+  supportsFileSystemAccess,
+  pickFileToSave,
+  pickFileToOpen,
+  writeToHandle,
+  downloadAsFallback,
+  openFileViaInput,
+} from '../lib/file-system-access'
 import { exportGuestWordDoc } from '../lib/guestWordExport'
 import { GuestSystemContextModal } from './GuestSystemContextModal'
 
@@ -42,6 +50,10 @@ interface GuestEditorHeaderProps {
   notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle
   onExportImage: (format: 'png' | 'svg') => void
   onCaptureImage: () => Promise<Uint8Array | null>
+  fileHandle: FileSystemFileHandle | null
+  fileName: string | null
+  onFileHandleChange: (handle: FileSystemFileHandle) => void
+  onFileHandleClear: () => void
 }
 
 export function GuestEditorHeader({
@@ -53,6 +65,10 @@ export function GuestEditorHeader({
   notationStyle,
   onExportImage,
   onCaptureImage,
+  fileHandle,
+  fileName,
+  onFileHandleChange,
+  onFileHandleClear,
 }: GuestEditorHeaderProps) {
   const navigate = useNavigate()
   const guestEditor = useGuestEditor()
@@ -63,7 +79,7 @@ export function GuestEditorHeader({
   // System context modal state
   const [showSystemContextModal, setShowSystemContextModal] = useState(false)
 
-  // Save dialog state
+  // Save dialog state (fallback for browsers without File System Access API)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [saveFilename, setSaveFilename] = useState('')
   const filenameInputRef = useRef<HTMLInputElement>(null)
@@ -93,19 +109,13 @@ export function GuestEditorHeader({
     [handleTitleSave]
   )
 
-  const handleOpenSaveDialog = useCallback(() => {
-    setSaveFilename(titleToFilename(title))
-    setShowSaveDialog(true)
-    setTimeout(() => filenameInputRef.current?.select(), 0)
-  }, [title])
-
-  const handleConfirmSave = useCallback(() => {
-    if (!guestEditor) return
-    const filename = saveFilename.trim() || titleToFilename(title)
+  // --- Serialize current state to CycloneDX JSON ---
+  const serializeContent = useCallback(() => {
+    if (!guestEditor) return ''
     const threats = guestEditor.getAllThreats()
     const countermeasures = guestEditor.getAllCountermeasures()
     const systemContext = guestEditor.getSystemContext()
-    const content = serializeToTmLibrary(
+    return serializeGuestToCycloneDx(
       title,
       guestEditor.nodes,
       guestEditor.edges,
@@ -114,15 +124,103 @@ export function GuestEditorHeader({
       notationStyle,
       systemContext
     )
-    downloadTmLibraryFile(filename, content)
+  }, [title, guestEditor, notationStyle])
+
+  // --- Save handler ---
+  const handleSave = useCallback(async () => {
+    if (!guestEditor) return
+    const content = serializeContent()
+
+    if (supportsFileSystemAccess()) {
+      if (fileHandle) {
+        // Silent save to existing handle
+        try {
+          await writeToHandle(fileHandle, content)
+          onMarkSaved()
+        } catch {
+          // Handle might be stale (file deleted externally) — clear and re-prompt
+          onFileHandleClear()
+          try {
+            const newHandle = await pickFileToSave(`${titleToFilename(title)}.cdx.json`)
+            await writeToHandle(newHandle, content)
+            onFileHandleChange(newHandle)
+            onMarkSaved()
+          } catch (innerError) {
+            // User cancelled — silently ignore AbortError
+            if (innerError instanceof DOMException && innerError.name === 'AbortError') return
+          }
+        }
+      } else {
+        // No handle yet — prompt for location
+        try {
+          const newHandle = await pickFileToSave(`${titleToFilename(title)}.cdx.json`)
+          await writeToHandle(newHandle, content)
+          onFileHandleChange(newHandle)
+          onMarkSaved()
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') return
+        }
+      }
+    } else {
+      // Fallback: show filename dialog
+      setSaveFilename(titleToFilename(title))
+      setShowSaveDialog(true)
+      setTimeout(() => filenameInputRef.current?.select(), 0)
+    }
+  }, [guestEditor, serializeContent, fileHandle, title, onMarkSaved, onFileHandleChange, onFileHandleClear])
+
+  // --- Save As handler (always prompts for new location) ---
+  const handleSaveAs = useCallback(async () => {
+    if (!guestEditor) return
+    const content = serializeContent()
+
+    if (supportsFileSystemAccess()) {
+      try {
+        const newHandle = await pickFileToSave(`${titleToFilename(title)}.cdx.json`)
+        await writeToHandle(newHandle, content)
+        onFileHandleChange(newHandle)
+        onMarkSaved()
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+      }
+    } else {
+      setSaveFilename(titleToFilename(title))
+      setShowSaveDialog(true)
+      setTimeout(() => filenameInputRef.current?.select(), 0)
+    }
+  }, [guestEditor, serializeContent, title, onMarkSaved, onFileHandleChange])
+
+  // --- Fallback save dialog confirm ---
+  const handleConfirmSave = useCallback(() => {
+    const content = serializeContent()
+    const filename = saveFilename.trim() || titleToFilename(title)
+    downloadAsFallback(filename, content)
     onMarkSaved()
     setShowSaveDialog(false)
-  }, [saveFilename, title, guestEditor, onMarkSaved, notationStyle])
+  }, [saveFilename, title, serializeContent, onMarkSaved])
 
+  // --- Open handler ---
   const handleOpen = useCallback(async () => {
     try {
-      const data = await openTmLibraryFile()
-      onLoadFromFile({ title: data.title, nodes: data.nodes, edges: data.edges, notationStyle: data.notationStyle, systemContext: data.systemContext })
+      let content: string
+      let handle: FileSystemFileHandle | null = null
+
+      if (supportsFileSystemAccess()) {
+        const result = await pickFileToOpen()
+        content = result.content
+        handle = result.handle
+      } else {
+        content = await openFileViaInput()
+      }
+
+      const data = deserializeCycloneDxToGuest(content)
+      onLoadFromFile({
+        title: data.title,
+        nodes: data.nodes,
+        edges: data.edges,
+        notationStyle: data.notationStyle,
+        systemContext: data.systemContext,
+      })
       if (guestEditor) {
         guestEditor.loadThreats(data.threats)
         guestEditor.loadCountermeasures(data.countermeasures)
@@ -130,10 +228,33 @@ export function GuestEditorHeader({
           guestEditor.loadSystemContext(data.systemContext)
         }
       }
-    } catch {
-      // User cancelled or invalid file - silently ignore
+
+      if (handle) {
+        onFileHandleChange(handle)
+      } else {
+        onFileHandleClear()
+      }
+    } catch (error) {
+      // User cancelled or AbortError — silently ignore
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      // Show error for invalid files
+      if (error instanceof Error && error.message) {
+        alert(error.message)
+      }
     }
-  }, [onLoadFromFile, guestEditor])
+  }, [onLoadFromFile, guestEditor, onFileHandleChange, onFileHandleClear])
+
+  // --- Ctrl+S / Cmd+S keyboard shortcut ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSave])
 
   const handleDownloadReport = useCallback(async () => {
     if (!guestEditor) return
@@ -149,6 +270,11 @@ export function GuestEditorHeader({
       systemContext: guestEditor.getSystemContext(),
     })
   }, [title, guestEditor, onCaptureImage])
+
+  // Determine save button tooltip
+  const saveTooltip = fileHandle && fileName
+    ? `Save to ${fileName}`
+    : 'Save as CycloneDX JSON'
 
   return (
     <>
@@ -187,7 +313,7 @@ export function GuestEditorHeader({
               </button>
             )}
             <p className="text-xs text-muted-foreground">
-              Data Flow Diagram
+              {fileName ? fileName : 'Data Flow Diagram'}
             </p>
           </div>
           {hasUnsavedChanges && (
@@ -207,7 +333,7 @@ export function GuestEditorHeader({
                   Open
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open a threat model JSON file</TooltipContent>
+              <TooltipContent>Open a CycloneDX JSON file</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -252,20 +378,47 @@ export function GuestEditorHeader({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" onClick={handleOpenSaveDialog}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Save
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Download as JSON file</TooltipContent>
-            </Tooltip>
+            {/* Save button with Save As dropdown */}
+            <div className="flex items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    className="rounded-r-none"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{saveTooltip}</TooltipContent>
+              </Tooltip>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleSave}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSaveAs}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Save As...
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </TooltipProvider>
         </div>
       </div>
 
-      {/* Save filename dialog */}
+      {/* Save filename dialog (fallback for browsers without File System Access API) */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -285,7 +438,7 @@ export function GuestEditorHeader({
                 }}
                 className="flex-1"
               />
-              <span className="text-sm text-muted-foreground shrink-0">.json</span>
+              <span className="text-sm text-muted-foreground shrink-0">.cdx.json</span>
             </div>
           </div>
           <DialogFooter>

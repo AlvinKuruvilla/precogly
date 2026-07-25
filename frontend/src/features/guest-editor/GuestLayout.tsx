@@ -7,6 +7,7 @@ import { useGuestDiagramState } from './hooks/useGuestDiagramState'
 import { useGuestThreats } from './hooks/useGuestThreats'
 import { useGuestCountermeasures } from './hooks/useGuestCountermeasures'
 import { useGuestSystemContext } from './hooks/useGuestSystemContext'
+import { useFileHandle } from './hooks/useFileHandle'
 import { GuestEditorProvider } from './context/GuestEditorContext'
 import { GuestEditorHeader } from './components/GuestEditorHeader'
 import type { GuestSystemContext } from './types'
@@ -33,6 +34,7 @@ export function GuestLayout() {
   const countermeasureOps = useGuestCountermeasures()
   const systemContextOps = useGuestSystemContext()
   const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('dfd3')
+  const fileHandleState = useFileHandle()
   const exportImageRef = useRef<((format: 'png' | 'svg') => void) | null>(null)
   const captureImageRef = useRef<(() => Promise<Uint8Array | null>) | null>(null)
 
@@ -184,6 +186,10 @@ export function GuestLayout() {
           notationStyle={notationStyle}
           onExportImage={(format) => exportImageRef.current?.(format)}
           onCaptureImage={() => captureImageRef.current?.() ?? Promise.resolve(null)}
+          fileHandle={fileHandleState.fileHandle}
+          fileName={fileHandleState.fileName}
+          onFileHandleChange={fileHandleState.updateHandle}
+          onFileHandleClear={fileHandleState.clearHandle}
         />
         <Outlet context={outletContext} />
       </div>
