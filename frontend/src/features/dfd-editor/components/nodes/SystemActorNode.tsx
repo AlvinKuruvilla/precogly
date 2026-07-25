@@ -2,11 +2,13 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InlineEditableLabel } from './InlineEditableLabel'
 import type { SystemActorNodeData } from '../../types'
 
 type SystemActorNodeType = Node<SystemActorNodeData, 'systemActor'>
 
 export const SystemActorNode = memo(function SystemActorNode({
+  id,
   data,
   selected,
 }: NodeProps<SystemActorNodeType>) {
@@ -51,9 +53,13 @@ export const SystemActorNode = memo(function SystemActorNode({
         <Server className="w-8 h-8 text-slate-600 mb-2" />
 
         {/* Label */}
-        <span className="font-medium text-sm text-slate-900 text-center">
-          {data.label}
-        </span>
+        <InlineEditableLabel
+          nodeId={id}
+          label={data.label}
+          isEditing={data.isInlineEditing}
+          className="font-medium text-sm text-slate-900 text-center"
+          inputClassName="text-sm text-slate-900 text-center w-full"
+        />
       </div>
     </>
   )

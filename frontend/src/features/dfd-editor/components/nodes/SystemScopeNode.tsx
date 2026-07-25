@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { InlineEditableLabel } from './InlineEditableLabel'
 import type { SystemScopeNodeData, DiagramNode } from '../../types'
 
 type SystemScopeNodeType = Node<SystemScopeNodeData, 'systemScope'>
@@ -100,7 +101,12 @@ export const SystemScopeNode = memo(function SystemScopeNode({
         {/* Label badge at top-left */}
         <div className="absolute -top-3 left-3 px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 bg-slate-600 text-white">
           <Box className="h-3 w-3" />
-          {data.label}
+          <InlineEditableLabel
+            nodeId={id}
+            label={data.label}
+            isEditing={data.isInlineEditing}
+            inputClassName="max-w-[120px] text-white placeholder-white/50"
+          />
         </div>
 
         {/* Delete button (only visible when selected) */}

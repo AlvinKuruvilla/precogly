@@ -221,11 +221,32 @@ function GuestDFDEditorContent() {
     []
   )
 
+  // Handle double-click on node to enable inline label editing
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: DiagramNode) => {
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, isInlineEditing: n.id === node.id },
+        }))
+      )
+    },
+    [setNodes]
+  )
+
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null)
     setSelectedEdge(null)
     handlePaneClickForConnection()
-  }, [handlePaneClickForConnection])
+    // Clear any inline editing state
+    setNodes((nds) =>
+      nds.some((n) => n.data.isInlineEditing)
+        ? nds.map((n) =>
+            n.data.isInlineEditing ? { ...n, data: { ...n.data, isInlineEditing: false } } : n
+          )
+        : nds
+    )
+  }, [handlePaneClickForConnection, setNodes])
 
   const handleNodeDragStop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -318,6 +339,7 @@ function GuestDFDEditorContent() {
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
               onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}

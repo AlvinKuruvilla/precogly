@@ -193,11 +193,18 @@ export function serializeGuestToCycloneDx(
   })
 
   // --- Build visualization with raw canvas data for lossless round-trip ---
+  // Strip transient UI flags before persisting
+  const cleanedNodes = nodes.map((node) => {
+    const { isInlineEditing, isNewlyInserted, ...restData } = node.data as Record<string, unknown>
+    return isInlineEditing || isNewlyInserted
+      ? { ...node, data: restData }
+      : node
+  })
   const visualization: CycloneDxVisualization = {
     type: 'precogly-dfd',
     name: title,
     data: {
-      nodes: nodes as unknown as Record<string, unknown>[],
+      nodes: cleanedNodes as unknown as Record<string, unknown>[],
       edges: edges as unknown as Record<string, unknown>[],
       notationStyle,
       systemContext,

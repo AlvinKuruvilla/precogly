@@ -252,14 +252,35 @@ function DFDEditorContent() {
     []
   )
 
+  // Handle double-click on node to enable inline label editing
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: DiagramNode) => {
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, isInlineEditing: n.id === node.id },
+        }))
+      )
+    },
+    [setNodes]
+  )
+
   // Handle pane click (deselect)
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null)
     setSelectedEdge(null)
     handlePaneClickForConnection()
+    // Clear any inline editing state
+    setNodes((nds) =>
+      nds.some((n) => n.data.isInlineEditing)
+        ? nds.map((n) =>
+            n.data.isInlineEditing ? { ...n, data: { ...n.data, isInlineEditing: false } } : n
+          )
+        : nds
+    )
     // Boundary source is NOT cleared here — React Flow fires onPaneClick
     // alongside onNodeClick for container nodes (trust zones)
-  }, [handlePaneClickForConnection])
+  }, [handlePaneClickForConnection, setNodes])
 
   // Handle node drag end - update parent relationships
   const handleNodeDragStop = useCallback(
@@ -601,6 +622,7 @@ function DFDEditorContent() {
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
               onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}

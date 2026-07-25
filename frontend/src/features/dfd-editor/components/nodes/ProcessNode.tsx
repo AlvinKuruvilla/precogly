@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, useStore, type Node, type NodeProps } from '@xyflow/react'
 import { Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InlineEditableLabel } from './InlineEditableLabel'
 import type { ProcessNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
 import { useTechnologyDisplayName } from '../../api/component-library'
@@ -119,7 +120,12 @@ export const ProcessNode = memo(function ProcessNode({
             {/* Label badge at top-left */}
             <div className="absolute -top-3 left-3 px-2 py-0.5 rounded text-xs font-medium bg-blue-500 text-white flex items-center gap-1">
               <Cog className="h-3 w-3" />
-              {data.label}
+              <InlineEditableLabel
+                nodeId={id}
+                label={data.label}
+                isEditing={data.isInlineEditing}
+                inputClassName="max-w-[120px] text-white placeholder-white/50"
+              />
             </div>
             {/* Technology badge at top-right */}
             {data.technology && (
@@ -143,9 +149,13 @@ export const ProcessNode = memo(function ProcessNode({
         ) : isYourdon ? (
           <>
             <Cog className="h-4 w-4 text-blue-600 flex-shrink-0" />
-            <span className="font-medium text-xs text-blue-900 truncate max-w-[90%] text-center px-1">
-              {data.label}
-            </span>
+            <InlineEditableLabel
+              nodeId={id}
+              label={data.label}
+              isEditing={data.isInlineEditing}
+              className="font-medium text-xs text-blue-900 truncate max-w-[90%] text-center px-1"
+              inputClassName="max-w-[90%] text-xs text-blue-900 text-center"
+            />
             {data.technology && (
               <span className="text-[10px] text-blue-600 truncate max-w-[90%]">
                 {technologyDisplayName}
@@ -168,9 +178,13 @@ export const ProcessNode = memo(function ProcessNode({
             <div className="flex items-center gap-2 min-w-0">
               <Cog className="h-4 w-4 text-blue-600 flex-shrink-0" />
               <div className="flex flex-col min-w-0">
-                <span className="font-medium text-sm text-blue-900 truncate">
-                  {data.label}
-                </span>
+                <InlineEditableLabel
+                  nodeId={id}
+                  label={data.label}
+                  isEditing={data.isInlineEditing}
+                  className="font-medium text-sm text-blue-900 truncate"
+                  inputClassName="text-sm text-blue-900 w-full"
+                />
                 {data.technology && (
                   <span className="text-xs text-blue-600 truncate">
                     {technologyDisplayName}

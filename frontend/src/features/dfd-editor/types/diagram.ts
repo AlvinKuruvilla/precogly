@@ -34,6 +34,7 @@ export interface BaseNodeData {
   label: string
   description?: string
   isNewlyInserted?: boolean
+  isInlineEditing?: boolean
   lockAnimationKey?: number     // Timestamp to trigger lock animation (child locked into parent)
   receiveChildAnimationKey?: number  // Timestamp to trigger animation (container received a child)
   [key: string]: unknown  // Required for React Flow's Node<T> constraint

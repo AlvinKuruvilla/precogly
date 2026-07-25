@@ -47,13 +47,23 @@ async function fetchDiagram(diagramId: string): Promise<Diagram> {
   return api.get<Diagram>(`/diagrams/${diagramId}/`)
 }
 
+/** Strip transient UI flags from node data before persisting. */
+function stripTransientNodeFlags(nodes: DiagramNode[]): DiagramNode[] {
+  return nodes.map((node) => {
+    const { isInlineEditing, isNewlyInserted, ...rest } = node.data
+    return isInlineEditing || isNewlyInserted
+      ? { ...node, data: { ...rest, label: node.data.label } as typeof node.data }
+      : node
+  })
+}
+
 async function saveDiagram(
   diagramId: string,
   data: { nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle }
 ): Promise<Diagram> {
   return api.patch<Diagram>(`/diagrams/${diagramId}/`, {
     canvas_data: {
-      nodes: data.nodes,
+      nodes: stripTransientNodeFlags(data.nodes),
       edges: data.edges,
       notationStyle: data.notationStyle,
     },

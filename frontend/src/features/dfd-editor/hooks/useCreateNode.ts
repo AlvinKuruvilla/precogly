@@ -31,7 +31,7 @@ export function useCreateNode(notationStyle: DFDNotationStyle) {
         id,
         type,
         position,
-        data: { ...defaultData[type], isNewlyInserted: true },
+        data: { ...defaultData[type], isNewlyInserted: true, isInlineEditing: true },
         style: { width: nodeSize.width, height: nodeSize.height },
       })
 
@@ -42,6 +42,8 @@ export function useCreateNode(notationStyle: DFDNotationStyle) {
           )
         )
       }, 2000)
+
+      return id
     },
     [addNodes, setNodes, nodeSizes]
   )
