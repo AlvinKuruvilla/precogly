@@ -45,7 +45,8 @@ import { useParentRelationships } from './hooks/useParentRelationships'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useConnectionMode } from './hooks/useConnectionMode'
 import { useBoundaryMode } from './hooks/useBoundaryMode'
-import type { DiagramNode, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
+import type { DiagramNode, DiagramNodeType, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
+import { useCreateNode } from './hooks/useCreateNode'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from './types/notation'
 import { exportDiagramImage } from './lib/export-diagram-image'
 
@@ -196,6 +197,29 @@ function DFDEditorContent() {
     })
   }, [screenToFlowPosition])
 
+  // Drag-and-drop from toolbar
+  const { createNode } = useCreateNode(notationStyle)
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as DiagramNodeType
+      if (!nodeType) return
+      const dropPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      createNode(nodeType, dropPosition)
+      // Let ReactFlow render the new node, then check parent relationships
+      requestAnimationFrame(() => {
+        updateParentRelationships(nodes, setNodes)
+      })
+    },
+    [screenToFlowPosition, createNode, nodes, setNodes, updateParentRelationships]
+  )
+
   // Handle node click - delegates to mode hooks then falls through to selection
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
@@ -228,14 +252,35 @@ function DFDEditorContent() {
     []
   )
 
+  // Handle double-click on node to enable inline label editing
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: DiagramNode) => {
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, isInlineEditing: n.id === node.id },
+        }))
+      )
+    },
+    [setNodes]
+  )
+
   // Handle pane click (deselect)
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null)
     setSelectedEdge(null)
     handlePaneClickForConnection()
+    // Clear any inline editing state
+    setNodes((nds) =>
+      nds.some((n) => n.data.isInlineEditing)
+        ? nds.map((n) =>
+            n.data.isInlineEditing ? { ...n, data: { ...n.data, isInlineEditing: false } } : n
+          )
+        : nds
+    )
     // Boundary source is NOT cleared here — React Flow fires onPaneClick
     // alongside onNodeClick for container nodes (trust zones)
-  }, [handlePaneClickForConnection])
+  }, [handlePaneClickForConnection, setNodes])
 
   // Handle node drag end - update parent relationships
   const handleNodeDragStop = useCallback(
@@ -568,7 +613,7 @@ function DFDEditorContent() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
-        <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove}>
+        <div className="flex-1" ref={reactFlowWrapper} onMouseMove={handleMouseMove} onDragOver={handleDragOver} onDrop={handleDrop}>
           <DFDNotationProvider notationStyle={notationStyle}>
             <ReactFlow
               nodes={nodes}
@@ -577,6 +622,7 @@ function DFDEditorContent() {
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
               onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}
@@ -589,6 +635,9 @@ function DFDEditorContent() {
               }}
               fitView
               fitViewOptions={fitViewOptions}
+              selectionOnDrag
+              panOnDrag={[1, 2]}
+              panOnScroll
               snapToGrid
               snapGrid={[15, 15]}
               minZoom={0.1}

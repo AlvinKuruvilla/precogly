@@ -2,12 +2,14 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import { Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InlineEditableLabel } from './InlineEditableLabel'
 import type { TrustZoneNodeData } from '../../types'
 import { getZoneColorConfig } from '../../types'
 
 type TrustZoneNodeType = Node<TrustZoneNodeData, 'trustZone'>
 
 export const TrustZoneNode = memo(function TrustZoneNode({
+  id,
   data,
   selected,
 }: NodeProps<TrustZoneNodeType>) {
@@ -66,7 +68,12 @@ export const TrustZoneNode = memo(function TrustZoneNode({
           }}
         >
           <Shield className="h-3 w-3" />
-          {data.label}
+          <InlineEditableLabel
+            nodeId={id}
+            label={data.label}
+            isEditing={data.isInlineEditing}
+            inputClassName="max-w-[120px] text-white placeholder-white/50"
+          />
         </div>
 
         {/* Trust level indicator */}

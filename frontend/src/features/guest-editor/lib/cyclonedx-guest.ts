@@ -1,0 +1,903 @@
+/**
+ * CycloneDX 2.0 TM-BOM serializer/deserializer for the guest editor.
+ * Replaces precogly-file.ts with CycloneDX format support.
+ */
+
+import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
+import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
+import type { STRIDECategory } from '@/types/domain'
+import type {
+  GuestThreat,
+  GuestCountermeasure,
+  GuestSystemContext,
+  GuestDataAsset,
+  GuestAssumption,
+} from '../types'
+import type {
+  CycloneDxDocument,
+  CycloneDxBlueprint,
+  CycloneDxAsset,
+  CycloneDxFlow,
+  CycloneDxZone,
+  CycloneDxBoundary,
+  CycloneDxControl,
+  CycloneDxThreat,
+  CycloneDxScenario,
+  CycloneDxVisualization,
+  CycloneDxDataSet,
+  CycloneDxAssumption,
+} from './cyclonedx-types'
+import {
+  NODE_TYPE_TO_ASSET_TYPE,
+  ASSET_TYPE_TO_NODE_TYPE,
+  SEVERITY_TO_CDX_RISK_LEVEL,
+  CDX_RISK_LEVEL_TO_SEVERITY,
+} from './cyclonedx-enum-maps'
+
+// ---------------------------------------------------------------------------
+// BomRefGenerator — simple slugified bom-ref generator matching backend pattern
+// ---------------------------------------------------------------------------
+
+class BomRefGenerator {
+  private counter = new Map<string, number>()
+
+  generate(entityType: string, name: string): string {
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || entityType
+    const count = (this.counter.get(entityType) ?? 0) + 1
+    this.counter.set(entityType, count)
+    return `${entityType}-${slug}-${count}`
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Deserialization result (shared interface)
+// ---------------------------------------------------------------------------
+
+export interface DeserializedFile {
+  title: string
+  nodes: DiagramNode[]
+  edges: DiagramEdge[]
+  threats: GuestThreat[]
+  countermeasures: GuestCountermeasure[]
+  notationStyle?: DFDNotationStyle
+  systemContext?: GuestSystemContext
+}
+
+// ---------------------------------------------------------------------------
+// Serialization: Guest editor state -> CycloneDX 2.0 JSON
+// ---------------------------------------------------------------------------
+
+export function serializeGuestToCycloneDx(
+  title: string,
+  nodes: DiagramNode[],
+  edges: DiagramEdge[],
+  threats: GuestThreat[],
+  countermeasures: GuestCountermeasure[],
+  notationStyle?: DFDNotationStyle,
+  systemContext?: GuestSystemContext
+): string {
+  const refGen = new BomRefGenerator()
+  const nodeIdToBomRef = new Map<string, string>()
+  const edgeIdToBomRef = new Map<string, string>()
+  const threatIdToBomRef = new Map<string, string>()
+
+  // Build node map for lookups
+  const nodeMap = new Map<string, DiagramNode>()
+  for (const node of nodes) {
+    nodeMap.set(node.id, node)
+  }
+
+  // --- Build zones from trustZone nodes ---
+  const zoneNodes = nodes.filter((n) => n.type === 'trustZone')
+  const zones: CycloneDxZone[] = zoneNodes.map((n) => {
+    const bomRef = refGen.generate('zone', n.data.label || 'zone')
+    nodeIdToBomRef.set(n.id, bomRef)
+    const zone: CycloneDxZone = {
+      'bom-ref': bomRef,
+      name: n.data.label || '',
+      type: 'trust',
+    }
+    if (n.data.description) zone.description = n.data.description
+    const trustLevel = (n.data as Record<string, unknown>).trustLevel as number | undefined
+    if (trustLevel != null) zone.trustLevel = trustLevel
+    return zone
+  })
+
+  // --- Build assets from process/datastore/humanActor/systemActor nodes ---
+  const assetNodeTypes = ['process', 'datastore', 'humanActor', 'systemActor']
+  const assetNodes = nodes.filter((n) => assetNodeTypes.includes(n.type ?? ''))
+  const assets: CycloneDxAsset[] = assetNodes.map((n) => {
+    const bomRef = refGen.generate('asset', n.data.label || n.type || 'asset')
+    nodeIdToBomRef.set(n.id, bomRef)
+    const assetType = NODE_TYPE_TO_ASSET_TYPE[n.type ?? ''] ?? 'component'
+    const asset: CycloneDxAsset = {
+      'bom-ref': bomRef,
+      name: n.data.label || '',
+      type: assetType,
+    }
+    if (n.data.description) asset.description = n.data.description
+    // Set zone reference if node is inside a trust zone
+    if (n.parentId) {
+      const parent = nodeMap.get(n.parentId)
+      if (parent?.type === 'trustZone') {
+        const zoneRef = nodeIdToBomRef.get(n.parentId)
+        if (zoneRef) asset.zone = zoneRef
+      }
+    }
+    return asset
+  })
+
+  // --- Build flows from dataFlow edges ---
+  const dataFlowEdges = edges.filter((e) => e.type === 'dataFlow')
+  const flows: CycloneDxFlow[] = dataFlowEdges.map((e) => {
+    const data = e.data as Record<string, unknown> | undefined
+    const bomRef = refGen.generate('flow', (data?.label as string) || 'flow')
+    edgeIdToBomRef.set(e.id, bomRef)
+    const sourceRef = nodeIdToBomRef.get(e.source) ?? e.source
+    const destRef = nodeIdToBomRef.get(e.target) ?? e.target
+    const flow: CycloneDxFlow = {
+      'bom-ref': bomRef,
+      source: sourceRef,
+      destination: destRef,
+      type: 'data',
+    }
+    if (data?.label) flow.name = data.label as string
+    if (data?.description) flow.description = data.description as string
+    if (data?.protocol) flow.protocols = [data.protocol as string]
+    if (data?.encrypted) flow.encrypted = true
+    if (data?.authenticated) flow.authenticated = true
+    return flow
+  })
+
+  // --- Build boundaries from trustBoundary edges ---
+  const trustBoundaryEdges = edges.filter((e) => e.type === 'trustBoundary')
+  const boundaries: CycloneDxBoundary[] = trustBoundaryEdges.map((e) => {
+    const sourceRef = nodeIdToBomRef.get(e.source) ?? e.source
+    const destRef = nodeIdToBomRef.get(e.target) ?? e.target
+    const boundary: CycloneDxBoundary = {
+      zones: [sourceRef, destRef],
+    }
+    if (e.data?.label) boundary.name = e.data.label as string
+    return boundary
+  })
+
+  // --- Build dataSets from systemContext.dataAssets ---
+  const dataSets: CycloneDxDataSet[] = (systemContext?.dataAssets ?? []).map(
+    (da: GuestDataAsset) => {
+      const bomRef = refGen.generate('dataset', da.name || 'dataset')
+      const dataSet: CycloneDxDataSet = {
+        'bom-ref': bomRef,
+        name: da.name,
+      }
+      if (da.description) dataSet.description = da.description
+      if (da.classification) dataSet.classification = da.classification
+      return dataSet
+    }
+  )
+
+  // --- Build assumptions from systemContext.assumptions ---
+  const assumptions: CycloneDxAssumption[] = (
+    systemContext?.assumptions ?? []
+  ).map((a: GuestAssumption) => {
+    const assumption: CycloneDxAssumption = {
+      'bom-ref': a.id,
+      description: a.description,
+    }
+    if (a.validity) assumption.validity = a.validity
+    if (a.topics?.length) assumption.topic = a.topics[0]
+    return assumption
+  })
+
+  // --- Build visualization with raw canvas data for lossless round-trip ---
+  // Strip transient UI flags before persisting
+  const cleanedNodes = nodes.map((node) => {
+    const { isInlineEditing, isNewlyInserted, ...restData } = node.data as Record<string, unknown>
+    return isInlineEditing || isNewlyInserted
+      ? { ...node, data: restData }
+      : node
+  })
+  const visualization: CycloneDxVisualization = {
+    type: 'precogly-dfd',
+    name: title,
+    data: {
+      nodes: cleanedNodes as unknown as Record<string, unknown>[],
+      edges: edges as unknown as Record<string, unknown>[],
+      notationStyle,
+      systemContext,
+    },
+  }
+
+  // --- Assemble blueprint ---
+  const blueprint: CycloneDxBlueprint = {
+    'bom-ref': refGen.generate('blueprint', title),
+    name: title,
+    modelTypes: ['data-flow'],
+  }
+  if (systemContext?.systemInfo.description) {
+    blueprint.description = systemContext.systemInfo.description
+  }
+  if (zones.length) blueprint.zones = zones
+  if (assets.length) blueprint.assets = assets
+  if (flows.length) blueprint.flows = flows
+  if (boundaries.length) blueprint.boundaries = boundaries
+  if (dataSets.length) blueprint.dataSets = dataSets
+  if (assumptions.length) blueprint.assumptions = assumptions
+  blueprint.visualizations = [visualization]
+
+  // --- Build controls from countermeasures ---
+  const controls: CycloneDxControl[] = countermeasures.map((c) => {
+    const bomRef = refGen.generate('control', c.name || 'control')
+    const control: CycloneDxControl = {
+      'bom-ref': bomRef,
+      name: c.name,
+      status: 'recommended',
+    }
+    if (c.description) control.description = c.description
+    if (c.controlType) control.category = c.controlType
+
+    // Link to threat bom-ref via mitigations
+    const threatRef = threatIdToBomRef.get(c.threatId)
+    if (threatRef) control.mitigations = [threatRef]
+
+    return control
+  })
+
+  // --- Build threats block ---
+  // Each GuestThreat maps to one abstract threat + one scenario
+  const abstractThreats: CycloneDxThreat[] = []
+  const scenarios: CycloneDxScenario[] = []
+
+  for (const threat of threats) {
+    const threatBomRef = refGen.generate('threat', threat.name || 'threat')
+    threatIdToBomRef.set(threat.id, threatBomRef)
+
+    // Determine affected asset bom-ref
+    let affectedRef: string | undefined
+    if (threat.targetType === 'dataflow') {
+      affectedRef = edgeIdToBomRef.get(threat.targetId)
+    } else {
+      affectedRef = nodeIdToBomRef.get(threat.targetId)
+    }
+
+    // Abstract threat
+    const abstractThreat: CycloneDxThreat = {
+      'bom-ref': threatBomRef,
+      name: threat.name,
+      description: threat.description,
+    }
+    if (threat.category) {
+      abstractThreat.categories = [
+        { taxonomy: 'stride', id: threat.category, name: getCategoryName(threat.category) },
+      ]
+    }
+    if (affectedRef) abstractThreat.affectedAssets = [affectedRef]
+
+    // Link mitigations from countermeasures that reference this threat
+    const mitigationRefs = countermeasures
+      .filter((c) => c.threatId === threat.id)
+      .map((c) => {
+        // Find control bom-ref by looking through controls array
+        const matchingControl = controls.find((ctrl) => ctrl.name === c.name)
+        return matchingControl?.['bom-ref']
+      })
+      .filter((ref): ref is string => ref != null)
+    if (mitigationRefs.length) abstractThreat.mitigations = mitigationRefs
+
+    abstractThreats.push(abstractThreat)
+
+    // Scenario
+    const scenarioBomRef = refGen.generate('scenario', threat.name || 'scenario')
+    const scenario: CycloneDxScenario = {
+      'bom-ref': scenarioBomRef,
+      threat: threatBomRef,
+    }
+    if (affectedRef) scenario.affectedAssets = [affectedRef]
+    scenario.riskScore = {
+      level: SEVERITY_TO_CDX_RISK_LEVEL[threat.severity] ?? threat.severity,
+    }
+    scenarios.push(scenario)
+  }
+
+  // Now fix up control mitigations that were created before threats
+  for (const countermeasure of countermeasures) {
+    const threatRef = threatIdToBomRef.get(countermeasure.threatId)
+    if (threatRef) {
+      const matchingControl = controls.find((ctrl) => ctrl.name === countermeasure.name)
+      if (matchingControl && !matchingControl.mitigations?.length) {
+        matchingControl.mitigations = [threatRef]
+      }
+    }
+  }
+
+  // --- Assemble document ---
+  const document: CycloneDxDocument = {
+    specFormat: 'CycloneDX',
+    specVersion: '2.0',
+    serialNumber: `urn:uuid:${generateUUID()}`,
+    version: 1,
+    metadata: {
+      timestamp: new Date().toISOString(),
+      tools: {
+        components: [
+          {
+            type: 'application',
+            name: 'Precogly Guest Editor',
+            version: '1.0.0',
+          },
+        ],
+      },
+    },
+    blueprints: [blueprint],
+  }
+
+  if (controls.length) document.controls = controls
+  if (abstractThreats.length || scenarios.length) {
+    document.threats = {}
+    if (abstractThreats.length) document.threats.threats = abstractThreats
+    if (scenarios.length) document.threats.scenarios = scenarios
+  }
+
+  return JSON.stringify(document, null, 2)
+}
+
+// ---------------------------------------------------------------------------
+// Deserialization: CycloneDX 2.0 JSON -> Guest editor state
+// ---------------------------------------------------------------------------
+
+export function deserializeCycloneDxToGuest(json: string): DeserializedFile {
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    throw new Error('Invalid file format. Expected a CycloneDX JSON file.')
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Invalid file format. Expected a CycloneDX JSON file.')
+  }
+
+  if (parsed.specFormat !== 'CycloneDX') {
+    throw new Error('This is not a CycloneDX file.')
+  }
+
+  const specVersion = parsed.specVersion as string
+  if (!specVersion?.startsWith('2.')) {
+    throw new Error('Unsupported CycloneDX version. Expected 2.0.')
+  }
+
+  const blueprints = parsed.blueprints as CycloneDxBlueprint[] | undefined
+  const blueprint = blueprints?.[0]
+  const title = blueprint?.name || 'Untitled Diagram'
+
+  // Check for Precogly visualization for lossless round-trip
+  const visualizations = blueprint?.visualizations ?? []
+  const precoglyViz = visualizations.find(
+    (v: CycloneDxVisualization) => v.type === 'precogly-dfd'
+  )
+
+  if (precoglyViz?.data) {
+    return deserializeFromVisualization(title, precoglyViz, parsed)
+  }
+
+  return deserializeFromStructure(title, blueprint, parsed)
+}
+
+// ---------------------------------------------------------------------------
+// Round-trip deserialization from Precogly visualization data
+// ---------------------------------------------------------------------------
+
+function deserializeFromVisualization(
+  title: string,
+  visualization: CycloneDxVisualization,
+  document: Record<string, unknown>
+): DeserializedFile {
+  const data = visualization.data!
+  const nodes = (data.nodes ?? []) as unknown as DiagramNode[]
+  const edges = (data.edges ?? []) as unknown as DiagramEdge[]
+  const notationStyle = data.notationStyle as DFDNotationStyle | undefined
+  const systemContext = data.systemContext as GuestSystemContext | undefined
+
+  // Reconstruct threats from the threats block
+  const threatsBlock = document.threats as Record<string, unknown> | undefined
+  const scenariosArray = (threatsBlock?.scenarios ?? []) as CycloneDxScenario[]
+  const abstractThreats = (threatsBlock?.threats ?? []) as CycloneDxThreat[]
+
+  // Build threat bom-ref -> abstract threat map
+  const threatRefMap = new Map<string, CycloneDxThreat>()
+  for (const abstractThreat of abstractThreats) {
+    threatRefMap.set(abstractThreat['bom-ref'], abstractThreat)
+  }
+
+  // Build bomRef -> nodeId/edgeId reverse map from visualization data
+  // For round-trip we need to match assets back to node IDs
+  const bomRefToNodeId = buildBomRefToNodeIdMap(nodes, edges, document)
+
+  const threats: GuestThreat[] = scenariosArray.map(
+    (scenario: CycloneDxScenario, index: number) => {
+      const abstractThreat = threatRefMap.get(scenario.threat)
+
+      // Determine severity from scenario riskScore
+      const riskLevel = scenario.riskScore?.level ?? 'medium'
+      const severity = (CDX_RISK_LEVEL_TO_SEVERITY[riskLevel] ?? 'medium') as GuestThreat['severity']
+
+      // Determine STRIDE category from abstract threat
+      let category: STRIDECategory | undefined
+      const categories = abstractThreat?.categories ?? []
+      const strideCategory = categories.find(
+        (c) => c.taxonomy === 'stride'
+      )
+      if (strideCategory?.id) {
+        category = strideCategory.id as STRIDECategory
+      }
+
+      // Determine target from affectedAssets
+      const affectedRef = scenario.affectedAssets?.[0] ?? abstractThreat?.affectedAssets?.[0]
+      const { targetId, targetType } = resolveTargetFromBomRef(
+        affectedRef,
+        bomRefToNodeId,
+        nodes
+      )
+
+      return {
+        id: scenario['bom-ref'] || `threat-${index}`,
+        targetId,
+        targetType,
+        name: abstractThreat?.name ?? '',
+        description: abstractThreat?.description ?? '',
+        severity,
+        ...(category ? { category } : {}),
+        createdAt: new Date().toISOString(),
+      }
+    }
+  )
+
+  // Reconstruct countermeasures from controls
+  const controlsArray = (document.controls ?? []) as CycloneDxControl[]
+  const countermeasures = reconstructCountermeasures(
+    controlsArray,
+    abstractThreats,
+    threats
+  )
+
+  return {
+    title,
+    nodes,
+    edges,
+    threats,
+    countermeasures,
+    notationStyle,
+    systemContext,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Third-party CycloneDX import (no visualization data)
+// ---------------------------------------------------------------------------
+
+function deserializeFromStructure(
+  title: string,
+  blueprint: CycloneDxBlueprint | undefined,
+  document: Record<string, unknown>
+): DeserializedFile {
+  const nodes: DiagramNode[] = []
+  const edges: DiagramEdge[] = []
+  const bomRefToNodeId = new Map<string, string>()
+  const bomRefToEdgeId = new Map<string, string>()
+
+  let nextNodeIndex = 0
+
+  // --- Generate trust zone nodes ---
+  const zoneData = blueprint?.zones ?? []
+  const zoneXStart = 50
+  const zoneWidth = 400
+  const zoneHeight = 300
+  const zoneGap = 50
+
+  for (let i = 0; i < zoneData.length; i++) {
+    const zone = zoneData[i]
+    const nodeId = `zone-${nextNodeIndex++}`
+    bomRefToNodeId.set(zone['bom-ref'], nodeId)
+    nodes.push({
+      id: nodeId,
+      type: 'trustZone',
+      position: { x: zoneXStart + i * (zoneWidth + zoneGap), y: 50 },
+      data: {
+        label: zone.name,
+        description: zone.description,
+        trustLevel: zone.trustLevel,
+      },
+      style: { width: zoneWidth, height: zoneHeight },
+    } as DiagramNode)
+  }
+
+  // --- Generate asset nodes ---
+  const assetData = blueprint?.assets ?? []
+  // Track children per zone for grid positioning
+  const zoneChildCount = new Map<string, number>()
+
+  for (const asset of assetData) {
+    const nodeId = `node-${nextNodeIndex++}`
+    bomRefToNodeId.set(asset['bom-ref'], nodeId)
+
+    const nodeType = ASSET_TYPE_TO_NODE_TYPE[asset.type] ?? 'process'
+    let parentId: string | undefined
+    let position = { x: 50, y: 400 + nextNodeIndex * 100 }
+
+    if (asset.zone) {
+      const zoneNodeId = bomRefToNodeId.get(asset.zone)
+      if (zoneNodeId) {
+        parentId = zoneNodeId
+        const childIndex = zoneChildCount.get(asset.zone) ?? 0
+        zoneChildCount.set(asset.zone, childIndex + 1)
+        // Grid layout inside zone: 2 columns
+        const col = childIndex % 2
+        const row = Math.floor(childIndex / 2)
+        position = { x: 30 + col * 180, y: 50 + row * 120 }
+      }
+    }
+
+    nodes.push({
+      id: nodeId,
+      type: nodeType,
+      position,
+      parentId,
+      data: {
+        label: asset.name,
+        description: asset.description,
+      },
+      ...(parentId ? { extent: 'parent' as const } : {}),
+    } as DiagramNode)
+  }
+
+  // --- Generate orphan node positioning ---
+  // Nodes without a zone that defaulted to y:400+... are fine as-is
+
+  // --- Generate data flow edges ---
+  const flowData = blueprint?.flows ?? []
+  let edgeIndex = 0
+
+  for (const flow of flowData) {
+    const sourceNodeId = bomRefToNodeId.get(flow.source)
+    const destNodeId = bomRefToNodeId.get(flow.destination)
+    if (!sourceNodeId || !destNodeId) continue
+
+    const edgeId = `edge-${edgeIndex++}`
+    bomRefToEdgeId.set(flow['bom-ref'], edgeId)
+
+    edges.push({
+      id: edgeId,
+      type: 'dataFlow',
+      source: sourceNodeId,
+      target: destNodeId,
+      data: {
+        label: flow.name ?? '',
+        description: flow.description,
+        protocol: flow.protocols?.[0],
+        encrypted: flow.encrypted,
+        authenticated: flow.authenticated,
+      },
+    } as DiagramEdge)
+  }
+
+  // --- Generate trust boundary edges ---
+  const boundaryData = blueprint?.boundaries ?? []
+  for (const boundary of boundaryData) {
+    const zoneRefA = boundary.zones[0]
+    const zoneRefB = boundary.zones[1]
+    if (!zoneRefA || !zoneRefB) continue
+
+    const sourceNodeId = bomRefToNodeId.get(zoneRefA)
+    const targetNodeId = bomRefToNodeId.get(zoneRefB)
+    if (!sourceNodeId || !targetNodeId) continue
+
+    edges.push({
+      id: `edge-${edgeIndex++}`,
+      type: 'trustBoundary',
+      source: sourceNodeId,
+      target: targetNodeId,
+      data: {
+        label: boundary.name ?? '',
+      },
+    } as DiagramEdge)
+  }
+
+  // --- Reconstruct threats ---
+  const threatsBlock = document.threats as Record<string, unknown> | undefined
+  const abstractThreats = (threatsBlock?.threats ?? []) as CycloneDxThreat[]
+  const scenariosArray = (threatsBlock?.scenarios ?? []) as CycloneDxScenario[]
+
+  const threatRefMap = new Map<string, CycloneDxThreat>()
+  for (const abstractThreat of abstractThreats) {
+    threatRefMap.set(abstractThreat['bom-ref'], abstractThreat)
+  }
+
+  // Build combined bomRef -> node/edge map
+  const combinedBomRefMap = new Map<string, { id: string; type: 'node' | 'edge' }>()
+  for (const [bomRef, nodeId] of bomRefToNodeId) {
+    combinedBomRefMap.set(bomRef, { id: nodeId, type: 'node' })
+  }
+  for (const [bomRef, edgeId] of bomRefToEdgeId) {
+    combinedBomRefMap.set(bomRef, { id: edgeId, type: 'edge' })
+  }
+
+  const threats: GuestThreat[] = scenariosArray.map(
+    (scenario: CycloneDxScenario, index: number) => {
+      const abstractThreat = threatRefMap.get(scenario.threat)
+      const riskLevel = scenario.riskScore?.level ?? 'medium'
+      const severity = (CDX_RISK_LEVEL_TO_SEVERITY[riskLevel] ?? 'medium') as GuestThreat['severity']
+
+      let category: STRIDECategory | undefined
+      const categories = abstractThreat?.categories ?? []
+      const strideCategory = categories.find((c) => c.taxonomy === 'stride')
+      if (strideCategory?.id) {
+        category = strideCategory.id as STRIDECategory
+      }
+
+      const affectedRef = scenario.affectedAssets?.[0] ?? abstractThreat?.affectedAssets?.[0]
+      let targetId = ''
+      let targetType: GuestThreat['targetType'] = 'component'
+
+      if (affectedRef) {
+        const mapping = combinedBomRefMap.get(affectedRef)
+        if (mapping) {
+          targetId = mapping.id
+          if (mapping.type === 'edge') {
+            targetType = 'dataflow'
+          } else {
+            const targetNode = nodes.find((n) => n.id === mapping.id)
+            targetType = targetNode?.type === 'systemScope' ? 'systemScope' : 'component'
+          }
+        }
+      }
+
+      return {
+        id: scenario['bom-ref'] || `threat-${index}`,
+        targetId,
+        targetType,
+        name: abstractThreat?.name ?? '',
+        description: abstractThreat?.description ?? '',
+        severity,
+        ...(category ? { category } : {}),
+        createdAt: new Date().toISOString(),
+      }
+    }
+  )
+
+  // --- Reconstruct countermeasures ---
+  const controlsArray = (document.controls ?? []) as CycloneDxControl[]
+  const countermeasures = reconstructCountermeasures(
+    controlsArray,
+    abstractThreats,
+    threats
+  )
+
+  // --- Reconstruct system context from blueprint fields ---
+  const blueprintAssumptions = blueprint?.assumptions ?? []
+  const blueprintDataSets = blueprint?.dataSets ?? []
+
+  let systemContext: GuestSystemContext | undefined
+  if (blueprintAssumptions.length || blueprintDataSets.length || blueprint?.description) {
+    systemContext = {
+      session: { facilitator: '', participants: [], meetingDate: '' },
+      systemInfo: {
+        description: blueprint?.description ?? '',
+        criticality: 'medium',
+      },
+      dataAssets: blueprintDataSets.map((ds, index) => ({
+        id: ds['bom-ref'] || `data-asset-${index}`,
+        name: ds.name,
+        description: ds.description ?? '',
+        classification: ds.classification ?? '',
+        confidentiality: 'medium' as const,
+        integrity: 'medium' as const,
+        availability: 'medium' as const,
+        complianceTags: [],
+        dataSensitivity: [],
+      })),
+      assumptions: blueprintAssumptions.map((a, index) => ({
+        id: a['bom-ref'] || `assumption-${index}`,
+        description: a.description,
+        validity: (a.validity ?? 'unconfirmed') as GuestAssumption['validity'],
+        topics: a.topic ? [a.topic] : [],
+      })),
+      outOfScopeItems: [],
+    }
+  }
+
+  return {
+    title,
+    nodes,
+    edges,
+    threats,
+    countermeasures,
+    systemContext,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function reconstructCountermeasures(
+  controlsArray: CycloneDxControl[],
+  abstractThreats: CycloneDxThreat[],
+  guestThreats: GuestThreat[]
+): GuestCountermeasure[] {
+  // Build abstract threat bom-ref -> GuestThreat.id mapping
+  // Match by name since IDs differ between formats
+  const threatNameToId = new Map<string, string>()
+  for (const threat of guestThreats) {
+    threatNameToId.set(threat.name, threat.id)
+  }
+
+  // Build control bom-ref -> threat bom-ref mapping from abstract threat mitigations
+  const controlRefToThreatRefs = new Map<string, string[]>()
+  for (const abstractThreat of abstractThreats) {
+    for (const mitigationRef of abstractThreat.mitigations ?? []) {
+      const existing = controlRefToThreatRefs.get(mitigationRef) ?? []
+      existing.push(abstractThreat['bom-ref'])
+      controlRefToThreatRefs.set(mitigationRef, existing)
+    }
+  }
+
+  // Also check control.mitigations which reference threat bom-refs
+  const controlRefToThreatRefsFromControl = new Map<string, string[]>()
+  for (const control of controlsArray) {
+    if (control.mitigations?.length) {
+      controlRefToThreatRefsFromControl.set(control['bom-ref'], control.mitigations)
+    }
+  }
+
+  return controlsArray.map((control, index) => {
+    // Find linked threat
+    let threatId = ''
+
+    // Check mitigations on the control itself (threat bom-refs)
+    const threatRefsFromControl = controlRefToThreatRefsFromControl.get(control['bom-ref']) ?? []
+    for (const threatRef of threatRefsFromControl) {
+      const abstractThreat = abstractThreats.find((t) => t['bom-ref'] === threatRef)
+      if (abstractThreat) {
+        const matchedThreatId = threatNameToId.get(abstractThreat.name)
+        if (matchedThreatId) {
+          threatId = matchedThreatId
+          break
+        }
+      }
+    }
+
+    // Fallback: check abstract threat mitigations pointing to this control
+    if (!threatId) {
+      const threatRefs = controlRefToThreatRefs.get(control['bom-ref']) ?? []
+      for (const threatRef of threatRefs) {
+        const abstractThreat = abstractThreats.find((t) => t['bom-ref'] === threatRef)
+        if (abstractThreat) {
+          const matchedThreatId = threatNameToId.get(abstractThreat.name)
+          if (matchedThreatId) {
+            threatId = matchedThreatId
+            break
+          }
+        }
+      }
+    }
+
+    const controlType = (control.category ?? 'preventive') as GuestCountermeasure['controlType']
+
+    return {
+      id: control['bom-ref'] || `countermeasure-${index}`,
+      threatId,
+      name: control.name,
+      description: control.description ?? '',
+      controlType,
+      createdAt: new Date().toISOString(),
+    }
+  })
+}
+
+/**
+ * Build a bom-ref -> node/edge ID reverse map for round-trip deserialization.
+ * Uses the blueprint's assets/flows/zones to map bom-refs to visualization node/edge IDs.
+ */
+function buildBomRefToNodeIdMap(
+  nodes: DiagramNode[],
+  edges: DiagramEdge[],
+  document: Record<string, unknown>
+): Map<string, { id: string; type: 'node' | 'edge' }> {
+  const map = new Map<string, { id: string; type: 'node' | 'edge' }>()
+
+  const blueprints = document.blueprints as CycloneDxBlueprint[] | undefined
+  const blueprint = blueprints?.[0]
+  if (!blueprint) return map
+
+  // Match assets/zones to nodes by name (since bom-refs are generated)
+  const nodesByName = new Map<string, DiagramNode>()
+  for (const node of nodes) {
+    const key = `${node.type}:${node.data.label}`
+    if (!nodesByName.has(key)) {
+      nodesByName.set(key, node)
+    }
+  }
+
+  // Map zone bom-refs to zone nodes
+  for (const zone of blueprint.zones ?? []) {
+    const node = nodesByName.get(`trustZone:${zone.name}`)
+    if (node) {
+      map.set(zone['bom-ref'], { id: node.id, type: 'node' })
+    }
+  }
+
+  // Map asset bom-refs to nodes
+  for (const asset of blueprint.assets ?? []) {
+    const nodeType = ASSET_TYPE_TO_NODE_TYPE[asset.type] ?? 'process'
+    const node = nodesByName.get(`${nodeType}:${asset.name}`)
+    if (node) {
+      map.set(asset['bom-ref'], { id: node.id, type: 'node' })
+    }
+  }
+
+  // Map flow bom-refs to edges
+  const edgesByLabel = new Map<string, DiagramEdge>()
+  for (const edge of edges) {
+    const label = (edge.data as Record<string, unknown>)?.label as string
+    if (label && !edgesByLabel.has(label)) {
+      edgesByLabel.set(label, edge)
+    }
+  }
+  for (const flow of blueprint.flows ?? []) {
+    if (flow.name) {
+      const edge = edgesByLabel.get(flow.name)
+      if (edge) {
+        map.set(flow['bom-ref'], { id: edge.id, type: 'edge' })
+      }
+    }
+  }
+
+  return map
+}
+
+function resolveTargetFromBomRef(
+  bomRef: string | undefined,
+  bomRefMap: Map<string, { id: string; type: 'node' | 'edge' }>,
+  nodes: DiagramNode[]
+): { targetId: string; targetType: GuestThreat['targetType'] } {
+  if (!bomRef) return { targetId: '', targetType: 'component' }
+
+  const mapping = bomRefMap.get(bomRef)
+  if (!mapping) return { targetId: '', targetType: 'component' }
+
+  if (mapping.type === 'edge') {
+    return { targetId: mapping.id, targetType: 'dataflow' }
+  }
+
+  const node = nodes.find((n) => n.id === mapping.id)
+  const targetType: GuestThreat['targetType'] =
+    node?.type === 'systemScope' ? 'systemScope' : 'component'
+  return { targetId: mapping.id, targetType }
+}
+
+function getCategoryName(strideId: string): string {
+  const names: Record<string, string> = {
+    spoofing: 'Spoofing',
+    tampering: 'Tampering',
+    repudiation: 'Repudiation',
+    'information-disclosure': 'Information Disclosure',
+    'denial-of-service': 'Denial of Service',
+    'elevation-of-privilege': 'Elevation of Privilege',
+  }
+  return names[strideId] ?? strideId
+}
+
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}

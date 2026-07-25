@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import { Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InlineEditableLabel } from './InlineEditableLabel'
 import type { DataStoreNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
 import { useTechnologyDisplayName } from '../../api/component-library'
@@ -10,6 +11,7 @@ import { useDFDNotation } from '../../context/DFDNotationContext'
 type DataStoreNodeType = Node<DataStoreNodeData, 'datastore'>
 
 export const DataStoreNode = memo(function DataStoreNode({
+  id,
   data,
   selected,
 }: NodeProps<DataStoreNodeType>) {
@@ -74,9 +76,13 @@ export const DataStoreNode = memo(function DataStoreNode({
             <div className="px-3 py-1 flex items-center gap-2 w-full">
               <Database className="h-3.5 w-3.5 text-purple-600 flex-shrink-0" />
               <div className="flex flex-col min-w-0 flex-1">
-                <span className="font-medium text-xs text-purple-900 truncate">
-                  {data.label}
-                </span>
+                <InlineEditableLabel
+                  nodeId={id}
+                  label={data.label}
+                  isEditing={data.isInlineEditing}
+                  className="font-medium text-xs text-purple-900 truncate"
+                  inputClassName="text-xs text-purple-900 w-full"
+                />
                 {data.technology && (
                   <span className="text-[10px] text-purple-600 truncate">
                     {technologyDisplayName}
@@ -101,9 +107,13 @@ export const DataStoreNode = memo(function DataStoreNode({
               <div className="flex items-center gap-2">
                 <Database className="h-4 w-4 text-purple-600 flex-shrink-0" />
                 <div className="flex flex-col min-w-0">
-                  <span className="font-medium text-sm text-purple-900 truncate">
-                    {data.label}
-                  </span>
+                  <InlineEditableLabel
+                    nodeId={id}
+                    label={data.label}
+                    isEditing={data.isInlineEditing}
+                    className="font-medium text-sm text-purple-900 truncate"
+                    inputClassName="text-sm text-purple-900 w-full"
+                  />
                   {data.technology && (
                     <span className="text-xs text-purple-600 truncate">
                       {technologyDisplayName}

@@ -1,11 +1,13 @@
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { cn } from '@/lib/utils'
+import { InlineEditableLabel } from './InlineEditableLabel'
 import type { HumanActorNodeData } from '../../types'
 
 type HumanActorNodeType = Node<HumanActorNodeData, 'humanActor'>
 
 export const HumanActorNode = memo(function HumanActorNode({
+  id,
   data,
   selected,
 }: NodeProps<HumanActorNodeType>) {
@@ -63,9 +65,13 @@ export const HumanActorNode = memo(function HumanActorNode({
         </div>
 
         {/* Label */}
-        <span className="font-medium text-sm text-green-900 text-center">
-          {data.label}
-        </span>
+        <InlineEditableLabel
+          nodeId={id}
+          label={data.label}
+          isEditing={data.isInlineEditing}
+          className="font-medium text-sm text-green-900 text-center"
+          inputClassName="text-sm text-green-900 text-center w-full"
+        />
       </div>
     </>
   )
