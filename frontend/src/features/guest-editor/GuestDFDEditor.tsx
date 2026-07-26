@@ -12,7 +12,7 @@ import {
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useOutletContext, useNavigate } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { CanvasOverlays } from '@/features/dfd-editor/components/CanvasOverlays'
 import { DiagramToolbar } from '@/features/dfd-editor/components/DiagramToolbar'
 import { GuestNodeEditPanel } from './components/GuestNodeEditPanel'
@@ -39,7 +39,6 @@ import type { GuestDiagramOutletContext } from './GuestLayout'
 
 function GuestDFDEditorContent() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
 
   // Consume diagram state from layout via outlet context
   const {
