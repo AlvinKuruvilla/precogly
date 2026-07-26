@@ -1,6 +1,6 @@
 import { toPng, toSvg } from 'html-to-image'
-import { getNodesBounds, getViewportForBounds } from '@xyflow/react'
-import type { Node, Viewport } from '@xyflow/react'
+import { getViewportForBounds } from '@xyflow/react'
+import type { Node, Rect, Viewport } from '@xyflow/react'
 
 const PADDING = 50
 const IMAGE_SCALE = 2 // 2x resolution for crisp output
@@ -26,6 +26,7 @@ async function withExportViewport<T>(
   nodes: Node[],
   getViewport: () => Viewport,
   setViewport: (viewport: Viewport, options?: { duration?: number }) => void,
+  getNodesBounds: (nodes: Node[]) => Rect,
   capture: (reactFlowElement: HTMLElement, paddedBounds: { width: number; height: number }) => Promise<T>,
 ): Promise<T> {
   if (nodes.length === 0) {
@@ -78,8 +79,9 @@ export async function exportDiagramImage(
   nodes: Node[],
   getViewport: () => Viewport,
   setViewport: (viewport: Viewport, options?: { duration?: number }) => void,
+  getNodesBounds: (nodes: Node[]) => Rect,
 ): Promise<void> {
-  await withExportViewport(wrapperElement, nodes, getViewport, setViewport, async (reactFlowElement, paddedBounds) => {
+  await withExportViewport(wrapperElement, nodes, getViewport, setViewport, getNodesBounds, async (reactFlowElement, paddedBounds) => {
     const imageWidth = paddedBounds.width * IMAGE_SCALE
     const imageHeight = paddedBounds.height * IMAGE_SCALE
 
@@ -113,8 +115,9 @@ export async function captureDiagramImage(
   nodes: Node[],
   getViewport: () => Viewport,
   setViewport: (viewport: Viewport, options?: { duration?: number }) => void,
+  getNodesBounds: (nodes: Node[]) => Rect,
 ): Promise<Uint8Array> {
-  return withExportViewport(wrapperElement, nodes, getViewport, setViewport, async (reactFlowElement, paddedBounds) => {
+  return withExportViewport(wrapperElement, nodes, getViewport, setViewport, getNodesBounds, async (reactFlowElement, paddedBounds) => {
     const imageWidth = paddedBounds.width * IMAGE_SCALE
     const imageHeight = paddedBounds.height * IMAGE_SCALE
 

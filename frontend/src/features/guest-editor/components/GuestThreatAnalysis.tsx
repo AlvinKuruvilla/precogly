@@ -346,11 +346,14 @@ export function GuestThreatAnalysis() {
                         const countermeasureCount =
                           guestEditor.getCountermeasureCount(threat.id)
                         return (
-                          <button
+                          <div
                             key={threat.id}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => handleSelectThreat(threat.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectThreat(threat.id) } }}
                             className={cn(
-                              'w-full flex items-center justify-between gap-2 p-2 rounded-md text-sm text-left hover:bg-muted/50 group',
+                              'w-full flex items-center justify-between gap-2 p-2 rounded-md text-sm text-left hover:bg-muted/50 cursor-pointer group',
                               selectedThreatId === threat.id && 'bg-muted'
                             )}
                           >
@@ -411,7 +414,7 @@ export function GuestThreatAnalysis() {
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
-                          </button>
+                          </div>
                         )
                       })}
                     </div>

@@ -62,7 +62,7 @@ function DFDEditorContent() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   // ReactFlow instance for coordinate conversion and edge queries
-  const { screenToFlowPosition, getEdges, getViewport, setViewport } = useReactFlow()
+  const { screenToFlowPosition, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   // Delete DFD mutation
@@ -446,7 +446,7 @@ function DFDEditorContent() {
         .replace(/[^a-zA-Z0-9-_ ]/g, '')
         .replace(/\s+/g, '-')
         .toLowerCase()
-      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport)
+      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds)
     },
     [diagramTitle, nodes, getViewport, setViewport]
   )
