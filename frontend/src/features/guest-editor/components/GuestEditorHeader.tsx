@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Download, FileText, FolderOpen, Pencil, ArrowLeft, ImageDown, Settings2, Save, ChevronDown } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Download, FileText, FolderOpen, Pencil, ArrowLeft, Layers, Save, ChevronDown, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -48,8 +48,8 @@ interface GuestEditorHeaderProps {
   onMarkSaved: () => void
   onLoadFromFile: (data: { title: string; nodes: import('@/features/dfd-editor/types').DiagramNode[]; edges: import('@/features/dfd-editor/types').DiagramEdge[]; notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle; systemContext?: import('../types').GuestSystemContext }) => void
   notationStyle?: import('@/features/dfd-editor/types/notation').DFDNotationStyle
-  onExportImage: (format: 'png' | 'svg') => void
   onCaptureImage: () => Promise<Uint8Array | null>
+  onAnalyzeThreats: () => void
   fileHandle: FileSystemFileHandle | null
   fileName: string | null
   onFileHandleChange: (handle: FileSystemFileHandle) => void
@@ -63,15 +63,17 @@ export function GuestEditorHeader({
   onMarkSaved,
   onLoadFromFile,
   notationStyle,
-  onExportImage,
   onCaptureImage,
+  onAnalyzeThreats,
   fileHandle,
   fileName,
   onFileHandleChange,
   onFileHandleClear,
 }: GuestEditorHeaderProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const guestEditor = useGuestEditor()
+  const isOnThreatsView = location.pathname === '/guest/threats'
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -258,7 +260,7 @@ export function GuestEditorHeader({
 
   const handleDownloadReport = useCallback(async () => {
     if (!guestEditor) return
-    // Capture the diagram image before generating the Word doc
+    // onCaptureImage tries live canvas capture first, falls back to cached image
     const diagramImage = await onCaptureImage() ?? undefined
     await exportGuestWordDoc({
       title,
@@ -322,13 +324,24 @@ export function GuestEditorHeader({
               <span>Unsaved</span>
             </div>
           )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100" onClick={() => setShowSystemContextModal(true)}>
+                  <Layers className="h-4 w-4 mr-2" />
+                  Context
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Define system context, data assets, and assumptions</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleOpen}>
+                <Button variant="ghost" size="sm" onClick={handleOpen}>
                   <FolderOpen className="h-4 w-4 mr-2" />
                   Open
                 </Button>
@@ -336,53 +349,12 @@ export function GuestEditorHeader({
               <TooltipContent>Open a CycloneDX JSON file</TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={() => setShowSystemContextModal(true)}>
-                  <Settings2 className="h-4 w-4 mr-2" />
-                  Context
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Define system context, data assets, and assumptions</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleDownloadReport}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Report
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Download threat model report as Word document</TooltipContent>
-            </Tooltip>
-
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <ImageDown className="h-4 w-4 mr-2" />
-                      Export Image
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Download diagram as PNG or SVG</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onExportImage('png')}>
-                  Download as PNG
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExportImage('svg')}>
-                  Download as SVG
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {/* Save button with Save As dropdown */}
             <div className="flex items-center">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
+                    variant="ghost"
                     size="sm"
                     onClick={handleSave}
                     className="rounded-r-none"
@@ -396,8 +368,9 @@ export function GuestEditorHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    variant="ghost"
                     size="sm"
-                    className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                    className="rounded-l-none px-1.5"
                   >
                     <ChevronDown className="h-3.5 w-3.5" />
                   </Button>
@@ -414,6 +387,30 @@ export function GuestEditorHeader({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+
+            {!isOnThreatsView && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="default" size="sm" onClick={onAnalyzeThreats}>
+                    <ShieldAlert className="h-4 w-4 mr-2" />
+                    Analyze Threats
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Review and manage threats based on your diagram components</TooltipContent>
+              </Tooltip>
+            )}
+
+            {isOnThreatsView && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="default" size="sm" onClick={handleDownloadReport}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Report
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Download threat model report as Word document</TooltipContent>
+              </Tooltip>
+            )}
           </TooltipProvider>
         </div>
       </div>

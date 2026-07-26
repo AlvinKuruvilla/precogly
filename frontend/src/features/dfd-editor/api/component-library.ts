@@ -3,7 +3,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, getAccessToken } from '@/lib/api'
 import type { Technology, TechnologyCategory } from '../lib/technology-registry'
 
 // Backend response type (camelCase from djangorestframework-camel-case middleware)
@@ -84,7 +84,7 @@ function transformToTechnology(item: ComponentLibraryItem): Technology {
  * Returns technologies from installed packs for the user's organization.
  * Optionally filtered by a threat model's connected packs.
  */
-export function useComponentLibrary(threatModelId?: string) {
+export function useComponentLibrary(threatModelId?: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['component-library', threatModelId],
     queryFn: async () => {
@@ -93,6 +93,7 @@ export function useComponentLibrary(threatModelId?: string) {
       return items.map(transformToTechnology)
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: options?.enabled ?? true,
   })
 }
 
@@ -100,8 +101,8 @@ export function useComponentLibrary(threatModelId?: string) {
  * Hook that provides technologies with fallback to empty array if no packs installed.
  * Use this in the TechnologyCombobox component.
  */
-export function useTechnologies(threatModelId?: string) {
-  const { data: technologies = [], isLoading, error } = useComponentLibrary(threatModelId)
+export function useTechnologies(threatModelId?: string, options?: { enabled?: boolean }) {
+  const { data: technologies = [], isLoading, error } = useComponentLibrary(threatModelId, options)
 
   return {
     technologies,
@@ -114,9 +115,11 @@ export function useTechnologies(threatModelId?: string) {
 /**
  * Resolve a technology value (slug or legacy display name) to its display name.
  * Returns the original value as fallback if no match is found (custom entries).
+ * Skips the API fetch when no auth token is present (e.g., guest editor).
  */
 export function useTechnologyDisplayName(value: string | undefined): string {
-  const { technologies } = useTechnologies()
+  const hasAuth = !!getAccessToken()
+  const { technologies } = useTechnologies(undefined, { enabled: hasAuth })
 
   if (!value) return ''
 

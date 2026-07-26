@@ -1,7 +1,13 @@
 import { memo, useCallback } from 'react'
 import type { XYPosition } from '@xyflow/react'
-import { User, Server, Cog, Database, Shield, Box, ArrowRight, LayoutTemplate, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import {
   Select,
@@ -33,6 +39,7 @@ interface DiagramToolbarProps {
   hideAnalyzeThreats?: boolean
   notationStyle?: DFDNotationStyle
   onNotationChange?: (notation: DFDNotationStyle) => void
+  onExportImage?: (format: 'png' | 'svg') => void
 }
 
 interface ToolbarButtonConfig {
@@ -100,6 +107,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   hideAnalyzeThreats,
   notationStyle = 'dfd3',
   onNotationChange,
+  onExportImage,
 }: DiagramToolbarProps) {
   const { createNode } = useCreateNode(notationStyle)
 
@@ -122,30 +130,55 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex items-center gap-1 p-2 bg-background border-b">
-        {/* Node buttons */}
-        {nodeButtons.map((button) => (
-          <Tooltip key={button.type}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn('gap-2 cursor-grab active:cursor-grabbing', button.color)}
-                onClick={() => handleAddNode(button.type)}
-                draggable
-                onDragStart={(e) => handleDragStart(e, button.type)}
-              >
-                <button.icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{button.label}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[200px]">
-              <p className="font-medium">{button.label}</p>
-              <p className="text-xs text-muted-foreground">{button.description}</p>
-            </TooltipContent>
-          </Tooltip>
-        ))}
-
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        {/* Node buttons with Trust Boundary placed after Trust Zone */}
+        {nodeButtons.flatMap((button) => {
+          const nodeBtn = (
+            <Tooltip key={button.type}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn('gap-2 cursor-grab active:cursor-grabbing', button.color)}
+                  onClick={() => handleAddNode(button.type)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, button.type)}
+                >
+                  <button.icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{button.label}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px]">
+                <p className="font-medium">{button.label}</p>
+                <p className="text-xs text-muted-foreground">{button.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          )
+          if (button.type === 'trustZone') {
+            return [
+              nodeBtn,
+              <Tooltip key="trustBoundary">
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={boundaryMode ? 'default' : 'ghost'}
+                    size="sm"
+                    className={cn('gap-2', !boundaryMode && 'text-amber-700 hover:bg-amber-50')}
+                    onClick={() => onBoundaryModeChange(!boundaryMode)}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span className="hidden sm:inline">Trust Boundary</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium">Trust Boundary</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click two trust zones to create a security boundary between them
+                  </p>
+                </TooltipContent>
+              </Tooltip>,
+            ]
+          }
+          return [nodeBtn]
+        })}
 
         {/* Connection mode toggle */}
         <Tooltip>
@@ -156,7 +189,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
               className="gap-2"
               onClick={() => onConnectionModeChange(!connectionMode)}
             >
-              <ArrowRight className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" />
               <span className="hidden sm:inline">Flow</span>
             </Button>
           </TooltipTrigger>
@@ -164,27 +197,6 @@ export const DiagramToolbar = memo(function DiagramToolbar({
             <p className="font-medium">Draw Connection</p>
             <p className="text-xs text-muted-foreground">
               Click and drag from one node to another to create a data flow
-            </p>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Trust Boundary mode toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={boundaryMode ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-2"
-              onClick={() => onBoundaryModeChange(!boundaryMode)}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Trust Boundary</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="font-medium">Trust Boundary</p>
-            <p className="text-xs text-muted-foreground">
-              Click two trust zones to create a security boundary between them
             </p>
           </TooltipContent>
         </Tooltip>
@@ -259,6 +271,32 @@ export const DiagramToolbar = memo(function DiagramToolbar({
               </TooltipContent>
             </Tooltip>
           </>
+        )}
+
+        {onExportImage && (
+          <div className="ml-auto">
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                      <ImageDown className="h-4 w-4" />
+                      <span className="hidden sm:inline">Export Image</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Download diagram as PNG or SVG</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onExportImage('png')}>
+                  Download as PNG
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExportImage('svg')}>
+                  Download as SVG
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </div>
     </TooltipProvider>

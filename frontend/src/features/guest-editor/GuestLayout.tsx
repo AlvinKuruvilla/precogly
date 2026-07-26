@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import type { NodeChange, EdgeChange } from '@xyflow/react'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 import type { DFDNotationStyle } from '@/features/dfd-editor/types/notation'
@@ -26,17 +26,20 @@ export interface GuestDiagramOutletContext {
   setNotationStyle: (notation: DFDNotationStyle) => void
   exportImageRef: React.MutableRefObject<((format: 'png' | 'svg') => void) | null>
   captureImageRef: React.MutableRefObject<(() => Promise<Uint8Array | null>) | null>
+  onCacheImage: (image: Uint8Array | null) => void
 }
 
 export function GuestLayout() {
+  const navigate = useNavigate()
   const diagramState = useGuestDiagramState()
   const threatOps = useGuestThreats()
   const countermeasureOps = useGuestCountermeasures()
   const systemContextOps = useGuestSystemContext()
-  const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('dfd3')
+  const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('yourdon')
   const fileHandleState = useFileHandle()
   const exportImageRef = useRef<((format: 'png' | 'svg') => void) | null>(null)
   const captureImageRef = useRef<(() => Promise<Uint8Array | null>) | null>(null)
+  const [cachedDiagramImage, setCachedDiagramImage] = useState<Uint8Array | null>(null)
 
   // Wrap removeThreat to cascade-delete countermeasures
   const removeThreatWithCascade = useCallback(
@@ -133,6 +136,10 @@ export function GuestLayout() {
     ]
   )
 
+  const handleCacheImage = useCallback((image: Uint8Array | null) => {
+    setCachedDiagramImage(image)
+  }, [])
+
   const outletContext: GuestDiagramOutletContext = useMemo(
     () => ({
       title: diagramState.title,
@@ -148,6 +155,7 @@ export function GuestLayout() {
       setNotationStyle,
       exportImageRef,
       captureImageRef,
+      onCacheImage: handleCacheImage,
     }),
     [
       diagramState.title,
@@ -160,19 +168,27 @@ export function GuestLayout() {
       diagramState.undo,
       diagramState.canUndo,
       notationStyle,
+      handleCacheImage,
     ]
   )
 
   const handleLoadFromFile = useCallback(
     (data: { title: string; nodes: DiagramNode[]; edges: DiagramEdge[]; notationStyle?: DFDNotationStyle; systemContext?: GuestSystemContext }) => {
       diagramState.loadFromFile(data)
-      setNotationStyle(data.notationStyle ?? 'dfd3')
+      setNotationStyle(data.notationStyle ?? 'yourdon')
+      setCachedDiagramImage(null)
       if (data.systemContext) {
         systemContextOps.loadSystemContext(data.systemContext)
       }
     },
     [diagramState.loadFromFile, systemContextOps.loadSystemContext]
   )
+
+  const handleAnalyzeThreats = useCallback(async () => {
+    const image = await captureImageRef.current?.() ?? null
+    setCachedDiagramImage(image)
+    navigate('/guest/threats')
+  }, [navigate])
 
   return (
     <GuestEditorProvider value={contextValue}>
@@ -184,8 +200,8 @@ export function GuestLayout() {
           onMarkSaved={diagramState.markSaved}
           onLoadFromFile={handleLoadFromFile}
           notationStyle={notationStyle}
-          onExportImage={(format) => exportImageRef.current?.(format)}
-          onCaptureImage={() => captureImageRef.current?.() ?? Promise.resolve(null)}
+          onCaptureImage={async () => (await captureImageRef.current?.()) ?? cachedDiagramImage}
+          onAnalyzeThreats={handleAnalyzeThreats}
           fileHandle={fileHandleState.fileHandle}
           fileName={fileHandleState.fileName}
           onFileHandleChange={fileHandleState.updateHandle}

@@ -15,7 +15,7 @@ import '@xyflow/react/dist/style.css'
 import { useOutletContext, useNavigate } from 'react-router-dom'
 import { CanvasOverlays } from '@/features/dfd-editor/components/CanvasOverlays'
 import { DiagramToolbar } from '@/features/dfd-editor/components/DiagramToolbar'
-import { NodeEditPanel } from '@/features/dfd-editor/components/panels/NodeEditPanel'
+import { GuestNodeEditPanel } from './components/GuestNodeEditPanel'
 import { EdgeEditPanel } from '@/features/dfd-editor/components/panels/EdgeEditPanel'
 import { TrustBoundaryEdgeEditPanel } from '@/features/dfd-editor/components/panels/TrustBoundaryEdgeEditPanel'
 import { DFDNotationProvider } from '@/features/dfd-editor/context/DFDNotationContext'
@@ -55,6 +55,7 @@ function GuestDFDEditorContent() {
     setNotationStyle,
     exportImageRef,
     captureImageRef,
+    onCacheImage,
   } = useOutletContext<GuestDiagramOutletContext>()
 
   // Handle notation change — resize affected nodes
@@ -96,7 +97,7 @@ function GuestDFDEditorContent() {
   const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
 
   // ReactFlow instance
-  const { screenToFlowPosition, getEdges, getViewport, setViewport } = useReactFlow()
+  const { screenToFlowPosition, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   // Parent relationship detection
@@ -181,7 +182,7 @@ function GuestDFDEditorContent() {
         .replace(/[^a-zA-Z0-9-_ ]/g, '')
         .replace(/\s+/g, '-')
         .toLowerCase()
-      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport)
+      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds)
     }
     return () => { exportImageRef.current = null }
   }, [exportImageRef, title, nodes, getViewport, setViewport])
@@ -190,10 +191,12 @@ function GuestDFDEditorContent() {
   useEffect(() => {
     captureImageRef.current = async (): Promise<Uint8Array | null> => {
       if (!reactFlowWrapper.current || nodes.length === 0) return null
-      return captureDiagramImage(reactFlowWrapper.current, nodes, getViewport, setViewport)
+      return captureDiagramImage(reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds)
     }
+    // Canvas re-mounted — invalidate cached image since user may edit the diagram
+    onCacheImage(null)
     return () => { captureImageRef.current = null }
-  }, [captureImageRef, nodes, getViewport, setViewport])
+  }, [captureImageRef, nodes, getViewport, setViewport, onCacheImage])
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -322,10 +325,12 @@ function GuestDFDEditorContent() {
         onBoundaryModeChange={handleBoundaryModeChange}
         getCanvasCenterPosition={getCanvasCenterPosition}
         onOpenTemplates={() => {}}
-        onOpenThreatAnalysis={() => navigate('/guest/threats')}
+        onOpenThreatAnalysis={() => {}}
         hideTemplates
+        hideAnalyzeThreats
         notationStyle={notationStyle}
         onNotationChange={handleNotationChange}
+        onExportImage={(format) => exportImageRef.current?.(format)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -381,7 +386,7 @@ function GuestDFDEditorContent() {
 
         {/* Edit Panels */}
         {currentSelectedNode && (
-          <NodeEditPanel
+          <GuestNodeEditPanel
             node={currentSelectedNode}
             onClose={() => setSelectedNode(null)}
             renderExtra={
