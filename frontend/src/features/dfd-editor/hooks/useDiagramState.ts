@@ -88,8 +88,8 @@ export function useDiagramState({
   const [edges, setEdgesInternal] = useState<DiagramEdge[]>([])
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [initialNotationStyle, setInitialNotationStyle] = useState<DFDNotationStyle>('dfd3')
-  const notationStyleRef = useRef<DFDNotationStyle>('dfd3')
+  const [initialNotationStyle, setInitialNotationStyle] = useState<DFDNotationStyle>('yourdon')
+  const notationStyleRef = useRef<DFDNotationStyle>('yourdon')
 
   // Track if initial data has been loaded
   const initialLoadRef = useRef(false)
@@ -220,7 +220,7 @@ export function useDiagramState({
       // Use internal setters during initial load to avoid marking as changed
       setNodesInternal((canvasData?.nodes || []) as DiagramNode[])
       setEdgesInternal((canvasData?.edges || []) as DiagramEdge[])
-      const loadedNotation = canvasData?.notationStyle ?? 'dfd3'
+      const loadedNotation = canvasData?.notationStyle ?? 'yourdon'
       setInitialNotationStyle(loadedNotation)
       notationStyleRef.current = loadedNotation
       const updatedAt = diagram.updatedAt
