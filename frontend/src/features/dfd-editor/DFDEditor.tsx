@@ -13,14 +13,8 @@ import {
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ImageDown } from 'lucide-react'
+import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { DeleteDFDDialog } from '@/features/threat-models/components'
 import {
   Tooltip,
@@ -92,7 +86,7 @@ function DFDEditorContent() {
   })
 
   // Notation style state
-  const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('dfd3')
+  const [notationStyle, setNotationStyle] = useState<DFDNotationStyle>('yourdon')
 
   // Sync notationStyle from loaded diagram data
   useEffect(() => {
@@ -557,6 +551,7 @@ function DFDEditorContent() {
 
           <Button
             size="sm"
+            variant="outline"
             onClick={() => saveNow(notationStyle)}
             disabled={isSaving || !hasUnsavedChanges}
           >
@@ -564,22 +559,18 @@ function DFDEditorContent() {
             Save
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <ImageDown className="h-4 w-4 mr-2" />
-                Export Image
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleExportImage('png')}>
-                Download as PNG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportImage('svg')}>
-                Download as SVG
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            size="sm"
+            onClick={async () => {
+              if (hasUnsavedChanges) {
+                await saveNow(notationStyle)
+              }
+              navigate(`/threat-models/${threatModelId}`)
+            }}
+          >
+            <ShieldAlert className="h-4 w-4 mr-2" />
+            Analyze Threats
+          </Button>
 
           <Button
             size="sm"
@@ -601,14 +592,11 @@ function DFDEditorContent() {
         onBoundaryModeChange={handleBoundaryModeChange}
         getCanvasCenterPosition={getCanvasCenterPosition}
         onOpenTemplates={() => setShowTemplates(true)}
-        onOpenThreatAnalysis={async () => {
-          if (hasUnsavedChanges) {
-            await saveNow(notationStyle)
-          }
-          navigate(`/threat-models/${threatModelId}`)
-        }}
+        onOpenThreatAnalysis={() => {}}
+        hideAnalyzeThreats
         notationStyle={notationStyle}
         onNotationChange={handleNotationChange}
+        onExportImage={handleExportImage}
       />
 
       <div className="flex flex-1 overflow-hidden">
