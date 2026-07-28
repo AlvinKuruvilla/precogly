@@ -40,7 +40,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useConnectionMode } from './hooks/useConnectionMode'
 import { useBoundaryMode } from './hooks/useBoundaryMode'
 import type { DiagramNode, DiagramNodeType, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
-import { useCreateNode } from './hooks/useCreateNode'
+import { useCreateNode, useHandleDrop } from './hooks/useCreateNode'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from './types/notation'
 import { exportDiagramImage } from './lib/export-diagram-image'
 
@@ -194,25 +194,14 @@ function DFDEditorContent() {
   // Drag-and-drop from toolbar
   const { createNode } = useCreateNode(notationStyle)
 
-  const handleDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-  }, [])
-
-  const handleDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault()
-      const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as DiagramNodeType
-      if (!nodeType) return
-      const dropPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-      createNode(nodeType, dropPosition)
-      // Let ReactFlow render the new node, then check parent relationships
-      requestAnimationFrame(() => {
-        updateParentRelationships(nodes, setNodes)
-      })
-    },
-    [screenToFlowPosition, createNode, nodes, setNodes, updateParentRelationships]
-  )
+  const { handleDragOver, handleDrop } = useHandleDrop({
+    screenToFlowPosition,
+    createNode,
+    nodes,
+    setNodes,
+    updateParentRelationships,
+    setSelectedNode,
+  })
 
   // Handle node click - delegates to mode hooks then falls through to selection
   const handleNodeClick = useCallback(

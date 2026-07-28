@@ -95,6 +95,11 @@ export function CanvasThreatSection({
                         <span className="text-sm font-medium leading-snug">
                           {threat.threatName || 'Unnamed threat'}
                         </span>
+                        {threat.threatDescription && (
+                          <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
+                            {threat.threatDescription}
+                          </p>
+                        )}
                         <div className="flex flex-wrap items-center gap-1">
                           {threat.inherentSeverity && (
                             <Badge

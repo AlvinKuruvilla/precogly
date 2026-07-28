@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Download, FileText, FolderOpen, Pencil, ArrowLeft, Layers, Save, ChevronDown, ShieldAlert } from 'lucide-react'
+import { Download, FileText, FolderOpen, Pencil, ArrowLeft, Save, ChevronDown, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -328,8 +328,8 @@ export function GuestEditorHeader({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="sm" className="bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100" onClick={() => setShowSystemContextModal(true)}>
-                  <Layers className="h-4 w-4 mr-2" />
-                  Context
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Add / Edit Context
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Define system context, data assets, and assumptions</TooltipContent>

@@ -77,10 +77,29 @@ export function GuestThreatSection({
               {threats.map((threat) => (
                 <div
                   key={threat.id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-md border bg-card text-sm cursor-pointer hover:bg-muted/50"
+                  className="flex flex-col gap-1.5 p-2 rounded-md border bg-card text-sm cursor-pointer hover:bg-muted/50"
                   onClick={() => handleEdit(threat)}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium leading-snug truncate">{threat.name}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-red-600"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        guestEditor.removeThreat(threat.id)
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {threat.description && (
+                    <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
+                      {threat.description}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1">
                     <Badge
                       variant="secondary"
                       className={cn('shrink-0 text-xs', SEVERITY_COLORS[threat.severity])}
@@ -99,19 +118,7 @@ export function GuestThreatSection({
                         {STRIDE_CONFIG[threat.category].label}
                       </Badge>
                     )}
-                    <span className="truncate">{threat.name}</span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-red-600"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      guestEditor.removeThreat(threat.id)
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
                 </div>
               ))}
             </div>
