@@ -65,7 +65,6 @@ import { ComponentTreeItem } from './ComponentTreeItem'
 import { useTechnologies } from '../../api/component-library'
 import { DataFlowAssetsDisplay } from './DataFlowAssetsDisplay'
 import { SortableList } from '@/components/shared/SortableList'
-import { SuggestThreatsOwl } from '@/features/ai/components/SuggestThreatsOwl'
 
 /** Assignee type for the combobox — individuals only */
 export type Assignee = { type: 'member'; userId: number; email: string; name: string | null }
@@ -120,8 +119,6 @@ interface ComponentViewProps {
   onReorderThreats?: (componentId: string, reorderedThreats: ComponentThreat[]) => void
   onReorderCountermeasures?: (componentThreatId: string, reorderedCountermeasures: ComponentThreatCountermeasure[]) => void
   isSecurityTeam?: boolean
-  /** Backend component id for the selected node, or null when the selection is not a component (e.g. a data flow). Drives the AI suggest owl. */
-  aiComponentId?: number | null
 }
 
 /**
@@ -187,7 +184,6 @@ export function ComponentView({
   onReorderThreats,
   onReorderCountermeasures,
   isSecurityTeam,
-  aiComponentId,
 }: ComponentViewProps) {
   const [showDismissedThreats, setShowDismissedThreats] = useState(false)
   // Track which countermeasure is being assigned an owner (by countermeasure instance id)
@@ -687,7 +683,6 @@ export function ComponentView({
                   {activeThreats.length} active
                 </Badge>
               )}
-              <SuggestThreatsOwl key={aiComponentId ?? 'none'} componentId={aiComponentId ?? null} />
               {selectedComponentId && (
                 <Button
                   variant="outline"

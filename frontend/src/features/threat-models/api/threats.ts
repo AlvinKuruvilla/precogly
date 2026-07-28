@@ -117,6 +117,7 @@ export interface RecalculateStatusResponse {
 export const threatKeys = {
   all: ['threats'] as const,
   componentThreats: (componentId: number) => [...threatKeys.all, 'component', componentId] as const,
+  flowThreats: (dataFlowId: number) => [...threatKeys.all, 'flow', dataFlowId] as const,
   threatCountermeasures: (threatId: number) => [...threatKeys.all, 'countermeasures', threatId] as const,
   suggestedCountermeasures: (threatId: number) => [...threatKeys.all, 'suggested', threatId] as const,
   threatLibrary: (componentId?: number | null, threatModelId?: string) =>
@@ -142,6 +143,31 @@ export function useComponentThreats(componentId: number | null) {
       return Array.isArray(response) ? response : response.results
     },
     enabled: componentId !== null,
+  })
+}
+
+/**
+ * Threats already on a data flow.
+ *
+ * The component equivalent above returns the full instance; this one is only
+ * ever used to answer "which library threats does this flow already have?", so
+ * it stays narrow rather than duplicating the whole serializer shape.
+ */
+export interface FlowInstanceThreatRef {
+  id: number
+  threatLibrary: number | null
+}
+
+export function useFlowThreats(dataFlowId: number | null) {
+  return useQuery({
+    queryKey: threatKeys.flowThreats(dataFlowId!),
+    queryFn: async () => {
+      const response = await api.get<{ results: FlowInstanceThreatRef[] } | FlowInstanceThreatRef[]>(
+        `/flow-threats/?data_flow=${dataFlowId}`
+      )
+      return Array.isArray(response) ? response : response.results
+    },
+    enabled: dataFlowId !== null,
   })
 }
 
