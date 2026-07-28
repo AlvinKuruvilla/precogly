@@ -62,7 +62,7 @@ export const DataFlowEdge = memo(function DataFlowEdge({
           className={cn(
             'absolute pointer-events-auto nodrag nopan flex flex-col items-center gap-1',
             'transform -translate-x-1/2 -translate-y-1/2 transition-opacity',
-            selected ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+            selected ? 'opacity-100' : 'opacity-100'
           )}
           style={{
             left: labelX,
@@ -71,7 +71,7 @@ export const DataFlowEdge = memo(function DataFlowEdge({
         >
           {/* Main label */}
           {data?.label && (
-            <div className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">
+            <div className="px-2 py-0.5 rounded text-xs bg-white text-gray-950 border border-gray-300 shadow-sm whitespace-nowrap font-medium">
               {data.label}
             </div>
           )}
