@@ -26,7 +26,6 @@ import { useBoundaryMode } from '@/features/dfd-editor/hooks/useBoundaryMode'
 import { exportDiagramImage, captureDiagramImage } from '@/features/dfd-editor/lib/export-diagram-image'
 import type {
   DiagramNode,
-  DiagramNodeType,
   DiagramEdge,
   DataFlowEdge,
   TrustBoundaryEdge,
