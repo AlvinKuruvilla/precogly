@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useReactFlow, type XYPosition } from '@xyflow/react'
-import type { DiagramNodeType } from '../types'
+import type { DiagramNode, DiagramNodeType } from '../types'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from '../types/notation'
 
 const defaultData: Record<DiagramNodeType, Record<string, unknown>> = {
@@ -31,7 +31,7 @@ export function useCreateNode(notationStyle: DFDNotationStyle) {
         id,
         type,
         position,
-        data: { ...defaultData[type], isNewlyInserted: true, isInlineEditing: true },
+        data: { ...defaultData[type], isNewlyInserted: true },
         style: { width: nodeSize.width, height: nodeSize.height },
       })
 
@@ -49,4 +49,60 @@ export function useCreateNode(notationStyle: DFDNotationStyle) {
   )
 
   return { createNode }
+}
+
+/**
+ * Shared drop handler for both signed-in and guest DFD editors.
+ * Creates the node, resolves parent relationships, then selects the node
+ * and enters inline editing mode so the user can start typing immediately.
+ */
+export function useHandleDrop({
+  screenToFlowPosition,
+  createNode,
+  nodes,
+  setNodes,
+  updateParentRelationships,
+  setSelectedNode,
+}: {
+  screenToFlowPosition: (position: { x: number; y: number }) => XYPosition
+  createNode: (type: DiagramNodeType, dropPosition: XYPosition) => string
+  nodes: DiagramNode[]
+  setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>
+  updateParentRelationships: (nodes: DiagramNode[], setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>) => void
+  setSelectedNode: (node: DiagramNode | null) => void
+}) {
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as DiagramNodeType
+      if (!nodeType) return
+      const dropPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      const newNodeId = createNode(nodeType, dropPosition)
+      // Let ReactFlow render the new node, then check parent relationships
+      requestAnimationFrame(() => {
+        updateParentRelationships(nodes, setNodes)
+      })
+      // After the node is fully rendered and parent relationships resolved,
+      // select it and enter inline editing mode so the user can start typing immediately
+      setTimeout(() => {
+        setNodes((currentNodes) => {
+          const newNode = currentNodes.find((n) => n.id === newNodeId)
+          if (newNode) setSelectedNode(newNode)
+          return currentNodes.map((n) =>
+            n.id === newNodeId
+              ? { ...n, data: { ...n.data, isInlineEditing: true } }
+              : n
+          )
+        })
+      }, 100)
+    },
+    [screenToFlowPosition, createNode, nodes, setNodes, updateParentRelationships, setSelectedNode]
+  )
+
+  return { handleDragOver, handleDrop }
 }

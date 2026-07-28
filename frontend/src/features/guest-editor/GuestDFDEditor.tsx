@@ -31,7 +31,7 @@ import type {
   DataFlowEdge,
   TrustBoundaryEdge,
 } from '@/features/dfd-editor/types'
-import { useCreateNode } from '@/features/dfd-editor/hooks/useCreateNode'
+import { useCreateNode, useHandleDrop } from '@/features/dfd-editor/hooks/useCreateNode'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from '@/features/dfd-editor/types/notation'
 import { GuestThreatSection } from './components/GuestThreatSection'
 import { guestNodeTypes, guestEdgeTypes } from './components/GuestNodeWrapper'
@@ -153,25 +153,14 @@ function GuestDFDEditorContent() {
   // Drag-and-drop from toolbar
   const { createNode } = useCreateNode(notationStyle)
 
-  const handleDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-  }, [])
-
-  const handleDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault()
-      const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as DiagramNodeType
-      if (!nodeType) return
-      const dropPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-      createNode(nodeType, dropPosition)
-      // Let ReactFlow render the new node, then check parent relationships
-      requestAnimationFrame(() => {
-        updateParentRelationships(nodes, setNodes)
-      })
-    },
-    [screenToFlowPosition, createNode, nodes, setNodes, updateParentRelationships]
-  )
+  const { handleDragOver, handleDrop } = useHandleDrop({
+    screenToFlowPosition,
+    createNode,
+    nodes,
+    setNodes,
+    updateParentRelationships,
+    setSelectedNode,
+  })
 
   // Register export image handler so the header can call it
   useEffect(() => {
