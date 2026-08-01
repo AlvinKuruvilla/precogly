@@ -5,10 +5,50 @@ Core permission classes for RBAC.
 from rest_framework import permissions
 
 
+def _get_organization(obj):
+    """Walk FK paths to find the organization for an object."""
+    # Direct organization FK
+    if hasattr(obj, "organization_id") and obj.organization_id:
+        return obj.organization
+
+    # threat_model -> organization
+    if hasattr(obj, "threat_model_id") and obj.threat_model_id:
+        return obj.threat_model.organization
+
+    # component -> orgsystem -> organization
+    if hasattr(obj, "component_id"):
+        component = obj.component
+        if component and hasattr(component, "orgsystem") and component.orgsystem:
+            return component.orgsystem.organization
+
+    # data_flow -> source_component -> orgsystem -> organization
+    if hasattr(obj, "source_component_id"):
+        source = obj.source_component
+        if source and source.orgsystem:
+            return source.orgsystem.organization
+
+    # orgsystem -> organization
+    if hasattr(obj, "orgsystem_id") and obj.orgsystem_id:
+        return obj.orgsystem.organization
+
+    # orgsystem (the object itself IS an Orgsystem)
+    if hasattr(obj, "organization_id") and obj.__class__.__name__ == "Orgsystem":
+        return obj.organization
+
+    return None
+
+
 class IsSecurityTeam(permissions.BasePermission):
     """
     Restricts write operations to security team members.
     Read operations are allowed for all authenticated users.
+
+    has_permission: gates on security_team role in any org (covers
+    create/list where no object exists yet).
+    has_object_permission: gates on security_team role in the
+    *object's* org, preventing cross-org privilege escalation.
+    For global resources (org unresolvable), falls through since
+    has_permission already passed.
     """
 
     def has_permission(self, request, view):
@@ -17,6 +57,17 @@ class IsSecurityTeam(permissions.BasePermission):
         if not request.user.is_authenticated:
             return False
         return request.user.organization_memberships.filter(
+            role="security_team",
+        ).exists()
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        organization = _get_organization(obj)
+        if organization is None:
+            return True
+        return request.user.organization_memberships.filter(
+            organization=organization,
             role="security_team",
         ).exists()
 
@@ -38,7 +89,7 @@ class CanWrite(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        organization = self._get_organization(obj)
+        organization = _get_organization(obj)
         if organization is None:
             return True
 
@@ -107,38 +158,5 @@ class CanWrite(permissions.BasePermission):
 
         if threat_model and hasattr(threat_model, "owning_team"):
             return threat_model.owning_team
-
-        return None
-
-    @staticmethod
-    def _get_organization(obj):
-        """Walk FK paths to find the organization for an object."""
-        # Direct organization FK
-        if hasattr(obj, "organization_id") and obj.organization_id:
-            return obj.organization
-
-        # threat_model -> organization
-        if hasattr(obj, "threat_model_id") and obj.threat_model_id:
-            return obj.threat_model.organization
-
-        # component -> orgsystem -> organization
-        if hasattr(obj, "component_id"):
-            component = obj.component
-            if component and hasattr(component, "orgsystem") and component.orgsystem:
-                return component.orgsystem.organization
-
-        # data_flow -> source_component -> orgsystem -> organization
-        if hasattr(obj, "source_component_id"):
-            source = obj.source_component
-            if source and source.orgsystem:
-                return source.orgsystem.organization
-
-        # orgsystem -> organization
-        if hasattr(obj, "orgsystem_id") and obj.orgsystem_id:
-            return obj.orgsystem.organization
-
-        # orgsystem (the object itself IS an Orgsystem)
-        if hasattr(obj, "organization_id") and obj.__class__.__name__ == "Orgsystem":
-            return obj.organization
 
         return None

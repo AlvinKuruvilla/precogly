@@ -972,7 +972,8 @@ class CycloneDxAdapter(BaseAdapter):
         }
         for threat_data in threats_block.get("threats", []):
             self._import_threat(
-                threat_data, threat_model, resolver, scenario_threat_refs
+                threat_data, threat_model, resolver, scenario_threat_refs,
+                warnings,
             )
             summary["threats"] += 1
 
@@ -1279,7 +1280,15 @@ class CycloneDxAdapter(BaseAdapter):
         bom_ref = control_data.get("bom-ref", "")
         name = control_data.get("name", bom_ref)
         cdx_status = control_data.get("status", "recommended")
+        valid_statuses = {c[0] for c in InstanceCountermeasure.Status.choices}
         status = CDX_STATUS_TO_CONTROL.get(cdx_status, "gap")
+        if status not in valid_statuses:
+            logger.warning(
+                "CycloneDX status '%s' mapped to invalid status '%s', defaulting to 'gap'.",
+                cdx_status,
+                status,
+            )
+            status = "gap"
 
         effectiveness = None
         eff_data = control_data.get("effectiveness", {})
@@ -1311,7 +1320,8 @@ class CycloneDxAdapter(BaseAdapter):
         return cm
 
     def _import_threat(
-        self, threat_data, threat_model, resolver, scenario_threat_refs
+        self, threat_data, threat_model, resolver, scenario_threat_refs,
+        warnings,
     ):
         from apps.threats.models import ThreatLibrary
 
@@ -1333,11 +1343,13 @@ class CycloneDxAdapter(BaseAdapter):
         if bom_ref not in scenario_threat_refs:
             for asset_ref in threat_data.get("affectedAssets", []):
                 self._create_instance_threat_from_abstract(
-                    threat_lib, asset_ref, threat_data, threat_model, resolver
+                    threat_lib, asset_ref, threat_data, threat_model, resolver,
+                    warnings,
                 )
 
     def _create_instance_threat_from_abstract(
-        self, threat_lib, asset_ref, threat_data, threat_model, resolver
+        self, threat_lib, asset_ref, threat_data, threat_model, resolver,
+        warnings,
     ):
         from apps.systems.models import DataFlow, OrgsystemComponent
         from apps.threats.models import (
@@ -1356,22 +1368,35 @@ class CycloneDxAdapter(BaseAdapter):
             )
             return
 
+        created = False
         if isinstance(target, OrgsystemComponent):
-            ComponentInstanceThreat.objects.create(
+            _, created = ComponentInstanceThreat.objects.get_or_create(
                 component=target,
                 threat_library=threat_lib,
-                threat_name=threat_lib.name,
-                threat_description=threat_lib.description,
-                inherent_severity="medium",
+                defaults={
+                    "threat_name": threat_lib.name,
+                    "threat_description": threat_lib.description,
+                    "inherent_severity": "medium",
+                },
             )
         elif isinstance(target, DataFlow):
-            DataFlowInstanceThreat.objects.create(
+            _, created = DataFlowInstanceThreat.objects.get_or_create(
                 data_flow=target,
                 threat_library=threat_lib,
-                threat_name=threat_lib.name,
-                threat_description=threat_lib.description,
-                inherent_severity="medium",
+                defaults={
+                    "threat_name": threat_lib.name,
+                    "threat_description": threat_lib.description,
+                    "inherent_severity": "medium",
+                },
             )
+
+        if not created and target:
+            msg = (
+                f"Duplicate threat-asset link skipped: "
+                f"threat '{threat_lib.name}' × asset '{target.name}'."
+            )
+            logger.warning(msg)
+            warnings.append(msg)
 
     def _import_scenario(self, scenario_data, threat_model, resolver):
         from apps.systems.models import DataFlow, OrgsystemComponent
