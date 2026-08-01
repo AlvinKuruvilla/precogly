@@ -13,9 +13,12 @@ from .scoring.registry import get_scoring_methods, score_to_level
 STATUS_EFFECTIVENESS_FALLBACK = {
     "verified": 1.0,
     "platform": 1.0,
+    "implemented": 0.7,
+    "in_progress": 0.3,
     "planned": 0.5,
     "gap": 0.0,
     "waived": 0.0,
+    "decommissioned": 0.0,
 }
 
 
@@ -38,8 +41,8 @@ def recalculate_threat_status(instance_threat):
 
     Status logic:
         - EXPOSED: No countermeasures applied OR any countermeasure is a gap
-        - ADDRESSABLE: Some countermeasures are planned/waived (none are gaps)
-        - MITIGATED: All countermeasures are verified or platform
+        - ADDRESSABLE: Some countermeasures are planned/waived/in_progress/decommissioned
+        - MITIGATED: All countermeasures are implemented/verified/platform
     """
     countermeasures = get_countermeasures_for_threat(instance_threat)
 
@@ -51,10 +54,9 @@ def recalculate_threat_status(instance_threat):
 
         if has_gaps:
             new_status = "exposed"
-        elif any(s in ("planned", "waived") for s in statuses):
+        elif any(s in ("planned", "waived", "in_progress", "decommissioned") for s in statuses):
             new_status = "addressable"
         else:
-            # All verified/platform
             new_status = "mitigated"
 
     if instance_threat.status != new_status:
@@ -100,7 +102,7 @@ def compute_residual_score(risk):
 
     Effectiveness comes from:
       1. User-entered value on the countermeasure (if set)
-      2. Status-derived fallback: verified=1.0, planned=0.5, gap=0.0, waived=0.0
+      2. Status-derived fallback from STATUS_EFFECTIVENESS_FALLBACK
     """
     all_effectiveness = []
     seen_countermeasure_ids = set()
