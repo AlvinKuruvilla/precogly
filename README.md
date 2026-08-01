@@ -14,7 +14,7 @@
 ### Quick Start
 
 ```bash
-  git clone --branch v0.2.0 https://github.com/precogly/precogly.git
+  git clone --branch v0.3.0 https://github.com/precogly/precogly.git
   cd precogly
   docker compose up --build
 ```
@@ -72,7 +72,7 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 
 ### Roadmap
 
-See the [v0.2.0 milestone](https://github.com/precogly/precogly/milestone/1) for what's coming next.
+See the [v0.3.0 milestone](https://github.com/precogly/precogly/milestone/1) for what's coming next.
 
 ### Contributing
 
