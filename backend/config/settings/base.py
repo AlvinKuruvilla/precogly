@@ -245,7 +245,7 @@ AUTHENTICATION_BACKENDS = [
 SPECTACULAR_SETTINGS = {
     "TITLE": "Precogly API",
     "DESCRIPTION": "Threat Modeling Platform API",
-    "VERSION": "0.2.0",
+    "VERSION": "0.3.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
