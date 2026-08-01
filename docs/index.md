@@ -40,7 +40,7 @@ cd precogly
 docker compose up --build
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and log in with `admin@precogly.dev` / `admin123`.
+Open [http://localhost:5173](http://localhost:5173) and log in with `admin@precogly.dev` / `admin123`. Two further demo accounts are seeded so roles and multi-tenancy can be exercised locally; the seed prints all three when it finishes.
 
 ## Tech Stack
 

@@ -44,7 +44,7 @@ This builds and starts three containers:
 On first launch, the backend automatically:
 
 1. Runs database migrations
-2. Seeds demo data — a superuser, a demo organization, sample library packs, and a sample threat model
+2. Seeds demo data — a superuser, two organizations, sample library packs, and sample threat models
 
 ### 3. Log in
 
@@ -54,6 +54,18 @@ Open [http://localhost:5173](http://localhost:5173) and log in with the demo cre
 | ------------ | -------------------- |
 | **Email**    | `admin@precogly.dev` |
 | **Password** | `admin123`           |
+
+Two further accounts are seeded alongside it, sharing the same password. Both exist so
+that role and multi-tenancy behaviour can be exercised locally, and neither is needed to
+work through the product:
+
+| Email                  | Organization      | Role          |
+| ---------------------- | ----------------- | ------------- |
+| `analyst@precogly.dev` | Demo Organization | Member        |
+| `contoso@precogly.dev` | Contoso Financial | Security Team |
+
+The seed prints all three as a table when it finishes, so the credentials are also in the
+`docker compose up` output.
 
 ## Environment Variables
 

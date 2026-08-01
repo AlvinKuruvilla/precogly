@@ -55,6 +55,31 @@ The first run builds the images, creates the PostgreSQL volume, runs migrations,
 
 The backend API is available at [http://localhost:8000](http://localhost:8000), and the Django admin is available at [http://localhost:8000/admin](http://localhost:8000/admin) with the same demo credentials.
 
+### The other two demo accounts
+
+The seed creates three accounts across two organizations, all sharing the password
+`admin123`. `docker compose up` prints them as a table when seeding finishes.
+
+| Email | Organization | Role |
+| --- | --- | --- |
+| `admin@precogly.dev` | Demo Organization | Security Team (superuser) |
+| `analyst@precogly.dev` | Demo Organization | Member |
+| `contoso@precogly.dev` | Contoso Financial | Security Team |
+
+`admin@precogly.dev` is the account to use for working through the product. The other two
+exist so that permission and multi-tenancy behaviour is reproducible on a fresh clone.
+
+With one organization whose one user is on the security team, every queryset is scoped to
+the organization that user belongs to, so a missing scope and a correct scope return
+identical rows — and a role check is indistinguishable from no role check at all. Neither
+class of bug can be reproduced, or regression-tested, on a database shaped like that.
+
+`analyst@precogly.dev` is a member of the demo organization and not on its security team,
+which is what makes read-versus-write permission differences observable.
+`contoso@precogly.dev` belongs to Contoso Financial and to no other organization, so a
+listing that leaks across organizations shows up as extra rows rather than as nothing at
+all.
+
 ## Verify the Stack
 
 Use `docker compose ps` to confirm that all three services are running:
