@@ -4,6 +4,10 @@ Seed the database with demo data for new contributors.
 Creates a superuser, demo organization, imports library packs,
 and creates sample threat models with DFD templates.
 
+Also creates a second organization and a member who is not on the security team, so
+that the demo database can exhibit multi-tenancy. See _create_second_org for why that
+is not optional.
+
 Usage:
     python manage.py seed
     python manage.py seed --force  (re-import packs even if they exist)
@@ -24,6 +28,15 @@ User = get_user_model()
 DEMO_EMAIL = "admin@precogly.dev"
 DEMO_PASSWORD = "admin123"
 DEMO_ORG_NAME = "Demo Organization"
+DEMO_TEAM_NAME = "My Team"
+
+# A member of the demo organization whose role is not security team.
+ANALYST_EMAIL = "analyst@precogly.dev"
+
+# A second organization, and a user who belongs to it and to nothing else.
+SECOND_ORG_NAME = "Contoso Financial"
+SECOND_ORG_TEAM_NAME = "Payments"
+SECOND_ORG_EMAIL = "contoso@precogly.dev"
 
 # Import order matters: taxonomies first, then standards, then full packs
 TAXONOMY_PACKS = [
@@ -63,6 +76,17 @@ SAMPLE_THREAT_MODELS = [
     },
 ]
 
+# Something for the second organization to own. A listing that is empty for every caller
+# cannot tell organization scoping apart from an empty database.
+SECOND_ORG_THREAT_MODELS = [
+    {
+        "name": "Payments API",
+        "description": "Card capture and settlement path for the Contoso payments API.",
+        "template_slug": None,
+        "criticality": "CRITICAL",
+    },
+]
+
 
 class Command(BaseCommand):
     help = "Seed database with demo data for development"
@@ -78,16 +102,16 @@ class Command(BaseCommand):
         force = options["force"]
 
         org = self._create_org()
-        user = self._create_superuser()
+        user = self._get_or_create_user(DEMO_EMAIL, superuser=True)
         team = self._setup_membership(org, user)
         self._import_packs(force)
-        self._create_sample_threat_models(org, team, user)
+        self._create_sample_threat_models(org, team, user, SAMPLE_THREAT_MODELS)
+        self._create_analyst(org, team)
+        # Before _connect_packs_to_threat_models, so Contoso's threat model gets the
+        # imported packs on the same run rather than on the next one.
+        self._create_second_org()
         self._connect_packs_to_threat_models()
-
-        self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("Seed complete!"))
-        self.stdout.write(f"  Login: {DEMO_EMAIL} / {DEMO_PASSWORD}")
-        self.stdout.write(f"  URL:   http://localhost:5173")
+        self._report_accounts()
 
     def _create_org(self):
         # A migration may have already created a primary org. Use it if so.
@@ -105,52 +129,122 @@ class Command(BaseCommand):
             )
             self.stdout.write(self.style.SUCCESS(f"Created organization: {DEMO_ORG_NAME}"))
 
-        # Ensure a default team exists
-        if not Team.objects.filter(organization=org, is_default=True).exists():
-            Team.objects.create(
-                organization=org,
-                name="My Team",
-                is_default=True,
-            )
+        self._ensure_default_team(org, DEMO_TEAM_NAME)
         return org
 
-    def _create_superuser(self):
-        if User.objects.filter(email=DEMO_EMAIL).exists():
-            self.stdout.write(f"Superuser already exists: {DEMO_EMAIL}")
-            return User.objects.get(email=DEMO_EMAIL)
+    def _ensure_default_team(self, org, name):
+        """Return the organization's default team, creating it as `name` if absent."""
+        team = Team.objects.filter(organization=org, is_default=True).first()
+        if team:
+            return team
+        return Team.objects.create(organization=org, name=name, is_default=True)
 
-        user = User.objects.create_superuser(
-            username=DEMO_EMAIL,
-            email=DEMO_EMAIL,
-            password=DEMO_PASSWORD,
-        )
-        self.stdout.write(self.style.SUCCESS(f"Created superuser: {DEMO_EMAIL}"))
+    def _get_or_create_user(self, email, superuser=False):
+        """Create a demo account holding DEMO_PASSWORD, or return the existing one.
+
+        Username is the lookup rather than email: it is the unique field on the default
+        user model, and every seeded account uses the address for both.
+        """
+        label = "Superuser" if superuser else "User"
+        existing = User.objects.filter(username=email).first()
+        if existing:
+            self.stdout.write(f"{label} already exists: {email}")
+            return existing
+
+        create = User.objects.create_superuser if superuser else User.objects.create_user
+        user = create(username=email, email=email, password=DEMO_PASSWORD)
+        self.stdout.write(self.style.SUCCESS(f"Created {label.lower()}: {email}"))
         return user
 
-    def _setup_membership(self, org, user):
-        # The post_save signal may have already added the user to the primary org.
-        # Ensure they have SECURITY_TEAM role.
-        membership, created = OrganizationMember.objects.get_or_create(
+    def _setup_membership(
+        self,
+        org,
+        user,
+        org_role=OrganizationMember.Role.SECURITY_TEAM,
+        team=None,
+        team_role=TeamMembership.Role.LEAD,
+    ):
+        """Give the user a role in the organization and on one of its teams.
+
+        Both rows may already exist — the post_save signal creates the organization
+        membership for new users, and an earlier seed may have created either with a
+        different role — so the role is asserted rather than assumed. Defaults to the
+        team lead on the security team, which is what the demo superuser wants.
+        """
+        membership, _ = OrganizationMember.objects.get_or_create(
             organization=org,
             user=user,
-            defaults={"role": OrganizationMember.Role.SECURITY_TEAM},
+            defaults={"role": org_role},
         )
-        if not created and membership.role != OrganizationMember.Role.SECURITY_TEAM:
-            membership.role = OrganizationMember.Role.SECURITY_TEAM
+        if membership.role != org_role:
+            membership.role = org_role
             membership.save()
 
-        default_team = Team.objects.filter(organization=org, is_default=True).first()
-        if default_team:
+        team = team or Team.objects.filter(organization=org, is_default=True).first()
+        if team:
             team_membership, _ = TeamMembership.objects.get_or_create(
-                team=default_team,
+                team=team,
                 user=user,
-                defaults={"role": TeamMembership.Role.LEAD},
+                defaults={"role": team_role},
             )
-            if team_membership.role != TeamMembership.Role.LEAD:
-                team_membership.role = TeamMembership.Role.LEAD
+            if team_membership.role != team_role:
+                team_membership.role = team_role
                 team_membership.save()
 
-        return default_team
+        return team
+
+    def _create_analyst(self, org, team):
+        """Add a member of the demo organization who is not on the security team.
+
+        IsSecurityTeam gates writes and leaves reads open. With the superuser as the only
+        account there is no caller for whom that distinction is visible, so a role check
+        and no role check at all return the same answer for every request the demo
+        database can make.
+        """
+        user = self._get_or_create_user(ANALYST_EMAIL)
+        self._setup_membership(
+            org,
+            user,
+            org_role=OrganizationMember.Role.MEMBER,
+            team=team,
+            team_role=TeamMembership.Role.MEMBER,
+        )
+
+    def _create_second_org(self):
+        """Create a second organization whose only member belongs to no other.
+
+        Seeded unconditionally rather than behind a flag, because the bugs it exposes are
+        invisible by construction on a single-organization database: every queryset is
+        scoped to the one organization the one user belongs to, so a missing scope and a
+        correct scope return the same rows. Nobody can ask for a fixture whose absence
+        they have no way to notice.
+        """
+        org, created = Organization.objects.get_or_create(
+            name=SECOND_ORG_NAME,
+            # is_primary stays False: the constraint on Organization permits one primary
+            # organization and the demo organization holds it.
+            defaults={"plan": Organization.Plan.FREE, "is_primary": False},
+        )
+        if created:
+            self.stdout.write(
+                self.style.SUCCESS(f"Created organization: {SECOND_ORG_NAME}")
+            )
+        else:
+            self.stdout.write(f"Using existing organization: {SECOND_ORG_NAME}")
+
+        team = self._ensure_default_team(org, SECOND_ORG_TEAM_NAME)
+        user = self._get_or_create_user(SECOND_ORG_EMAIL)
+        self._setup_membership(org, user, team=team)
+
+        # Undo the auto-enrolment in the demo organization that create_personal_workspace
+        # performs for every new user. Left in place, this account is a genuine member of
+        # both organizations, so a listing returning both organizations' rows is correct
+        # behaviour rather than a leak — and the two stop being distinguishable, which is
+        # the whole thing this account exists to distinguish.
+        OrganizationMember.objects.filter(user=user).exclude(organization=org).delete()
+        TeamMembership.objects.filter(user=user).exclude(team=team).delete()
+
+        self._create_sample_threat_models(org, team, user, SECOND_ORG_THREAT_MODELS)
 
     def _import_packs(self, force):
         libraries_path = get_libraries_path()
@@ -188,25 +282,30 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.WARNING(f"Skipped: {pack_slug} — {result.message}"))
 
-    def _create_sample_threat_models(self, org, team, user):
-        for sample in SAMPLE_THREAT_MODELS:
+    def _create_sample_threat_models(self, org, team, user, samples):
+        for sample in samples:
             name = sample["name"]
             if ThreatModel.objects.filter(name=name, organization=org).exists():
                 self.stdout.write(f"Threat model already exists: {name}")
                 continue
 
+            # A null template_slug means the sample deliberately has no diagram, which is
+            # not the same as a slug that failed to resolve. Only the latter is a warning.
             template_slug = sample["template_slug"]
-            template = DFDTemplatesLibrary.objects.filter(
-                qualified_slug=template_slug
-            ).first()
+            template = None
+            if template_slug:
+                template = DFDTemplatesLibrary.objects.filter(
+                    qualified_slug=template_slug
+                ).first()
+                if not template:
+                    self.stdout.write(self.style.WARNING(
+                        f"DFD template not found: {template_slug}. "
+                        "Threat model created without diagram."
+                    ))
 
             criticality = getattr(ThreatModel.Criticality, sample["criticality"])
 
             if not template:
-                self.stdout.write(self.style.WARNING(
-                    f"DFD template not found: {template_slug}. "
-                    "Threat model created without diagram."
-                ))
                 ThreatModel.objects.create(
                     organization=org,
                     owning_team=team,
@@ -215,6 +314,7 @@ class Command(BaseCommand):
                     description=sample["description"],
                     criticality=criticality,
                 )
+                self.stdout.write(self.style.SUCCESS(f"Created: {name}"))
                 continue
 
             threat_model = ThreatModel.objects.create(
@@ -273,3 +373,40 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f"Connected {all_packs.count()} packs to {all_threat_models.count()} threat models"
             ))
+
+    def _report_accounts(self):
+        """Print the seeded logins as a table.
+
+        This is the last thing `docker compose up` prints before the dev server starts,
+        and it has to be findable in a scrollback that already holds a dozen pack-import
+        lines. There are three accounts now rather than one, and which organization and
+        role each holds is the whole point of seeding them, so the summary says so.
+
+        Rows are read back out of the database rather than off the constants above, so
+        the table cannot report a role or an organization that was not actually written.
+        """
+        self.stdout.write("")
+        self.stdout.write(self.style.SUCCESS("Seed complete!"))
+        self.stdout.write("")
+        self.stdout.write("  URL:      http://localhost:5173")
+        self.stdout.write(f"  Password: {DEMO_PASSWORD}   (every account below)")
+        self.stdout.write("")
+        self.stdout.write(self.style.MIGRATE_HEADING(
+            f"  {'EMAIL':<22} {'ORGANIZATION':<20} ROLE"
+        ))
+
+        memberships = (
+            OrganizationMember.objects
+            .filter(user__username__in=[DEMO_EMAIL, ANALYST_EMAIL, SECOND_ORG_EMAIL])
+            .select_related("organization", "user")
+            .order_by("user__username")
+        )
+        for membership in memberships:
+            role = membership.get_role_display()
+            if membership.user.is_superuser:
+                role += " (superuser)"
+            self.stdout.write(
+                f"  {membership.user.username:<22} "
+                f"{membership.organization.name:<20} {role}"
+            )
+        self.stdout.write("")

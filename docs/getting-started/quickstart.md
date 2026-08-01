@@ -21,6 +21,10 @@ Make sure to change this username and password in a production environment.
 
 Open [http://localhost:5173](http://localhost:5173) and log in with `admin@precogly.dev` / `admin123`.
 
+This walkthrough uses `admin@precogly.dev` throughout. The seed creates two further
+accounts for exercising roles and multi-tenancy — see
+[Installation](installation.md#3-log-in) — and neither is needed here.
+
 ![Login screen](../assets/images/quickstart-login.png)
 
 ## 2. Explore the home screen
@@ -90,7 +94,7 @@ Taxonomy mappings come with hyperlinks to their entries, and compliance mappings
 
 ![Threat analysis screen](../assets/images/quickstart-threat-analysis-workspace.png)
 
-Select a countermeasure and assign it to a team member. In the demo environment, the only available user is `admin@precogly.dev`. You'll see that the countermeasure color turns from red (gap) to yellow (planned). Assigning all items under a countermeasure to team members causes the threat to move from "exposed" (red) to "addressable" (yellow). Do this for a few threats.
+Select a countermeasure and assign it to a team member. In the demo environment the choices are `admin@precogly.dev` and `analyst@precogly.dev`, the two members of the demo organization's team; either will do. You'll see that the countermeasure color turns from red (gap) to yellow (planned). Assigning all items under a countermeasure to team members causes the threat to move from "exposed" (red) to "addressable" (yellow). Do this for a few threats.
 
 ## 9. Check your progress
 
