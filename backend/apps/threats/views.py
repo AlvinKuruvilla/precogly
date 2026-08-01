@@ -121,8 +121,19 @@ class ThreatLibraryViewSet(viewsets.ModelViewSet):
                 return queryset
 
             if component.component_library_id:
+                # A component library maps both the threats a component carries
+                # itself and the ones its connections carry (an API gateway maps
+                # eavesdropping and replay so its *flows* inherit them). Only the
+                # component-scoped ones belong on the component, so this mirrors
+                # the filter in `apps.threats.ai.suggest.candidate_library_threats`
+                # — without it the picker offers flow threats on a component and
+                # they get added there.
                 threat_ids = ComponentLibraryThreat.objects.filter(
                     component_library_id=component.component_library_id,
+                    applies_to__in=[
+                        ComponentLibraryThreat.AppliesTo.COMPONENT,
+                        ComponentLibraryThreat.AppliesTo.BOTH,
+                    ],
                 ).values_list("threat_library_id", flat=True)
                 queryset = queryset.filter(id__in=threat_ids)
 
