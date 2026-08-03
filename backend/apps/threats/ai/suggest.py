@@ -24,6 +24,7 @@ import json
 from django.db.models import Q
 
 from apps.ai import resolve_provider_for_component
+from apps.ai.utils import extract_json_object
 from apps.threats.models import ComponentInstanceThreat, ComponentLibraryThreat
 from apps.threat_models.models import ThreatModelLibraryPack
 
@@ -221,35 +222,13 @@ def _parse_selections(raw: str) -> list[dict]:
     can't parse — a malformed reply should yield no suggestions, never an error
     that blocks the user.
     """
-    payload = _extract_json_object(raw)
+    payload = extract_json_object(raw)
     if payload is None:
         return []
     suggestions = payload.get("suggestions")
     if not isinstance(suggestions, list):
         return []
     return [item for item in suggestions if isinstance(item, dict)]
-
-
-def _extract_json_object(raw: str) -> dict | None:
-    """Parse a JSON object from a possibly-noisy model response."""
-    if not raw:
-        return None
-    text = raw.strip()
-    try:
-        result = json.loads(text)
-        return result if isinstance(result, dict) else None
-    except ValueError:
-        pass
-    # Fall back to the substring between the first '{' and last '}'.
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-    try:
-        result = json.loads(text[start : end + 1])
-        return result if isinstance(result, dict) else None
-    except ValueError:
-        return None
 
 
 def _coerce_severity(value, fallback: str) -> str:

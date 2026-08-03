@@ -13,7 +13,7 @@ import {
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ShieldAlert, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DeleteDFDDialog } from '@/features/threat-models/components'
 import {
@@ -32,6 +32,8 @@ import { CanvasThreatSection } from './components/panels/CanvasThreatSection'
 import { useThreatModelThreats } from '@/features/threat-models/api/threats'
 import { TrustBoundaryEdgeEditPanel } from './components/panels/TrustBoundaryEdgeEditPanel'
 import { TemplateBrowser } from './components/TemplateBrowser'
+import { GenerateDFDDialog } from './components/GenerateDFDDialog'
+import { OwlMark } from '@/features/ai/components/OwlMark'
 import { CanvasOverlays } from './components/CanvasOverlays'
 import { DFDNotationProvider } from './context/DFDNotationContext'
 import { useDiagramState } from './hooks/useDiagramState'
@@ -53,6 +55,7 @@ function DFDEditorContent() {
   const [selectedNode, setSelectedNode] = useState<DiagramNode | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showGenerateDFD, setShowGenerateDFD] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   // ReactFlow instance for coordinate conversion and edge queries
@@ -581,6 +584,7 @@ function DFDEditorContent() {
         onBoundaryModeChange={handleBoundaryModeChange}
         getCanvasCenterPosition={getCanvasCenterPosition}
         onOpenTemplates={() => setShowTemplates(true)}
+        onOpenGenerateDFD={() => setShowGenerateDFD(true)}
         onOpenThreatAnalysis={() => {}}
         hideAnalyzeThreats
         notationStyle={notationStyle}
@@ -635,6 +639,33 @@ function DFDEditorContent() {
               />
               <Background gap={15} size={1} />
               <Controls />
+
+              {/* Empty canvas CTA */}
+              {nodes.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <div className="pointer-events-auto bg-background/95 border rounded-xl shadow-lg p-8 text-center max-w-sm">
+                    <h3 className="text-lg font-semibold mb-2">
+                      Start building your DFD
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Drag nodes from the toolbar, use a template, or let AI generate a diagram from your architecture.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowTemplates(true)}
+                      >
+                        <LayoutTemplate className="h-4 w-4 mr-2" />
+                        Use Template
+                      </Button>
+                      <Button onClick={() => setShowGenerateDFD(true)}>
+                        <OwlMark className="h-4 w-4 mr-2" />
+                        Generate with AI
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </ReactFlow>
           </DFDNotationProvider>
         </div>
@@ -697,6 +728,14 @@ function DFDEditorContent() {
           threatModelId={threatModelId}
         />
       )}
+
+      {/* Generate DFD Dialog */}
+      <GenerateDFDDialog
+        open={showGenerateDFD}
+        onOpenChange={setShowGenerateDFD}
+        threatModelId={threatModelId}
+        onInsert={handleInsertTemplate}
+      />
 
       {/* Delete DFD Dialog */}
       <DeleteDFDDialog

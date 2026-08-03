@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { OwlMark } from '@/features/ai/components/OwlMark'
 import type { DiagramNodeType } from '../types'
 import type { DFDNotationStyle } from '../types/notation'
 import { useCreateNode } from '../hooks/useCreateNode'
@@ -35,8 +36,10 @@ interface DiagramToolbarProps {
   getCanvasCenterPosition: () => XYPosition
   onOpenTemplates: () => void
   onOpenThreatAnalysis: () => void
+  onOpenGenerateDFD?: () => void
   hideTemplates?: boolean
   hideAnalyzeThreats?: boolean
+  hideGenerateDFD?: boolean
   notationStyle?: DFDNotationStyle
   onNotationChange?: (notation: DFDNotationStyle) => void
   onExportImage?: (format: 'png' | 'svg') => void
@@ -103,8 +106,10 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   getCanvasCenterPosition,
   onOpenTemplates,
   onOpenThreatAnalysis,
+  onOpenGenerateDFD,
   hideTemplates,
   hideAnalyzeThreats,
+  hideGenerateDFD,
   notationStyle = 'dfd3',
   onNotationChange,
   onExportImage,
@@ -240,6 +245,33 @@ export const DiagramToolbar = memo(function DiagramToolbar({
                 <p className="font-medium">DFD Templates</p>
                 <p className="text-xs text-muted-foreground">
                   Browse and insert pre-built diagram templates
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
+
+        {!hideGenerateDFD && onOpenGenerateDFD && (
+          <>
+            <Separator orientation="vertical" className="h-8 mx-2" />
+
+            {/* AI Generate DFD button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={onOpenGenerateDFD}
+                >
+                  <OwlMark className="h-4 w-4" />
+                  <span className="hidden sm:inline">Generate</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-medium">Generate DFD with AI</p>
+                <p className="text-xs text-muted-foreground">
+                  Upload an architecture diagram and let AI build a DFD
                 </p>
               </TooltipContent>
             </Tooltip>

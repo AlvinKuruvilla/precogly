@@ -10,9 +10,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 
+from apps.ai.providers.base import AIDisabledError, AIProviderError
+from apps.ai.resolver import resolve_config
 from apps.core.permissions import CanWrite
 from apps.threat_models.models import ThreatModel
 
+from .ai import analyze_architecture_image, generate_dfd_from_analysis
 from .models import DFD, DFDTemplatesLibrary
 from .serializers import (
     DFDListSerializer,
@@ -20,6 +23,10 @@ from .serializers import (
     DFDTemplatesLibrarySerializer,
 )
 from .services import sync_dfd_nodes_to_components
+
+# Image types accepted for architecture diagram analysis.
+_ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 class DFDViewSet(viewsets.ModelViewSet):
@@ -170,6 +177,144 @@ class DFDViewSet(viewsets.ModelViewSet):
             "orphaned_components": orphaned_components,
             "orphaned_component_count": len(orphaned_components),
         })
+
+    @action(detail=False, methods=["get"], url_path="ai-availability")
+    def ai_availability(self, request):
+        """Report whether AI-powered DFD generation is available for an org."""
+        threat_model_id = request.query_params.get("threat_model_id")
+        if not threat_model_id:
+            return Response(
+                {"error": "threat_model_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        org_ids = request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        threat_model = ThreatModel.objects.filter(
+            id=threat_model_id, organization_id__in=org_ids
+        ).first()
+        if threat_model is None:
+            return Response(
+                {"error": "Threat model not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            resolve_config(threat_model.organization)
+        except AIDisabledError as err:
+            return Response({"available": False, "reason": str(err)})
+        return Response({"available": True, "reason": None})
+
+    @action(detail=False, methods=["post"], url_path="analyze-image")
+    def analyze_image(self, request):
+        """Analyze an architecture diagram image and extract components."""
+        image = request.FILES.get("image")
+        app_name = request.data.get("app_name", "").strip()
+        app_description = request.data.get("app_description", "").strip()
+        threat_model_id = request.data.get("threat_model_id")
+
+        if not image:
+            return Response(
+                {"error": "An image file is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not app_name:
+            return Response(
+                {"error": "app_name is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not threat_model_id:
+            return Response(
+                {"error": "threat_model_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate image type and size.
+        if image.content_type not in _ACCEPTED_IMAGE_TYPES:
+            return Response(
+                {"error": f"Unsupported image type: {image.content_type}. Accepted: JPEG, PNG, WebP."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if image.size > _MAX_IMAGE_SIZE:
+            return Response(
+                {"error": "Image must be 10 MB or smaller."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Scope threat model to user's orgs.
+        org_ids = request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        threat_model = ThreatModel.objects.filter(
+            id=threat_model_id, organization_id__in=org_ids
+        ).select_related("organization").first()
+        if threat_model is None:
+            return Response(
+                {"error": "Threat model not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            result = analyze_architecture_image(
+                image_bytes=image.read(),
+                image_content_type=image.content_type,
+                app_name=app_name,
+                app_description=app_description,
+                organization=threat_model.organization,
+                user=request.user,
+            )
+        except AIDisabledError as err:
+            return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        except AIProviderError as err:
+            return Response({"error": str(err)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        return Response(result)
+
+    @action(detail=False, methods=["post"], url_path="generate-dfd")
+    def generate_dfd(self, request):
+        """Generate DFD canvas data from an analysis and user answers."""
+        threat_model_id = request.data.get("threat_model_id")
+        analysis = request.data.get("analysis")
+        answers = request.data.get("answers", [])
+
+        if not threat_model_id:
+            return Response(
+                {"error": "threat_model_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not analysis or not isinstance(analysis, dict):
+            return Response(
+                {"error": "analysis object is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        org_ids = request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        threat_model = ThreatModel.objects.filter(
+            id=threat_model_id, organization_id__in=org_ids
+        ).select_related("organization").first()
+        if threat_model is None:
+            return Response(
+                {"error": "Threat model not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            canvas_data = generate_dfd_from_analysis(
+                analysis=analysis,
+                answers=answers if isinstance(answers, list) else [],
+                threat_model=threat_model,
+                organization=threat_model.organization,
+                user=request.user,
+            )
+        except AIDisabledError as err:
+            return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+        except AIProviderError as err:
+            return Response({"error": str(err)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        return Response(canvas_data)
 
     def destroy(self, request, *args, **kwargs):
         """

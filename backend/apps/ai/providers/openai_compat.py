@@ -11,6 +11,8 @@ operator who hasn't started their local model should see "model unreachable at
 <url>", not a generic 500.
 """
 
+from typing import Any
+
 import requests
 
 from .base import (
@@ -27,7 +29,7 @@ class OpenAICompatProvider(ChatProvider):
 
     def complete(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         *,
         temperature: float = 0.2,
         force_json: bool = True,
