@@ -11,6 +11,7 @@ operator who hasn't started their local model should see "model unreachable at
 <url>", not a generic 500.
 """
 
+import logging
 from typing import Any
 
 import requests
@@ -24,6 +25,9 @@ from .base import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class OpenAICompatProvider(ChatProvider):
     """Talk to an OpenAI-compatible server described by ``self.config``."""
 
@@ -33,6 +37,7 @@ class OpenAICompatProvider(ChatProvider):
         *,
         temperature: float = 0.2,
         force_json: bool = True,
+        max_tokens: int = 4096,
     ) -> Completion:
         # Default to a low temperature because this is a selection-and-explanation
         # task, not creative writing — we want stable, repeatable output. When
@@ -43,6 +48,7 @@ class OpenAICompatProvider(ChatProvider):
             "model": self.config.model,
             "messages": messages,
             "temperature": temperature,
+            "max_tokens": max_tokens,
         }
         if force_json:
             payload["response_format"] = {"type": "json_object"}
@@ -61,6 +67,14 @@ class OpenAICompatProvider(ChatProvider):
             and _is_response_format_error(response)
         ):
             payload.pop("response_format", None)
+            response = self._post("/chat/completions", payload)
+
+        # Newer OpenAI models (e.g. gpt-4o, gpt-5.4-nano) reject ``max_tokens``
+        # and require ``max_completion_tokens`` instead. When a server complains
+        # about max_tokens, swap the parameter name and retry once.
+        if response.status_code == 400 and _is_max_tokens_error(response):
+            payload.pop("max_tokens", None)
+            payload["max_completion_tokens"] = max_tokens
             response = self._post("/chat/completions", payload)
 
         if response.status_code != 200:
@@ -201,6 +215,17 @@ def _is_response_format_error(response: requests.Response) -> bool:
     silently retried.
     """
     return "response_format" in _safe_error_detail(response).lower()
+
+
+def _is_max_tokens_error(response: requests.Response) -> bool:
+    """Whether a 400 is the server objecting to ``max_tokens``.
+
+    Newer OpenAI models require ``max_completion_tokens`` instead. We detect the
+    complaint and swap the parameter name on retry — same pattern as the
+    ``response_format`` fallback above.
+    """
+    detail = _safe_error_detail(response).lower()
+    return "max_tokens" in detail
 
 
 def _model_count(response: requests.Response) -> int | None:

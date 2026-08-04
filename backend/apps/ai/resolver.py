@@ -86,9 +86,9 @@ class MeteringProvider(ChatProvider):
         self._feature = feature
         self._user = user
 
-    def complete(self, messages, *, temperature=0.2, force_json=True) -> Completion:
+    def complete(self, messages, *, temperature=0.2, force_json=True, max_tokens=4096) -> Completion:
         completion = self._inner.complete(
-            messages, temperature=temperature, force_json=force_json
+            messages, temperature=temperature, force_json=force_json, max_tokens=max_tokens
         )
         self._record(completion)
         return completion

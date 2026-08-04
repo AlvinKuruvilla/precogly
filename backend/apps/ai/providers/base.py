@@ -120,11 +120,19 @@ class ChatProvider(ABC):
         *,
         temperature: float = 0.2,
         force_json: bool = True,
+        max_tokens: int = 4096,
     ) -> "Completion":
         """Run one chat completion and return its content plus token usage.
 
         ``messages`` follows the OpenAI role/content shape and may include
         multimodal content parts (text, image_url) for vision-capable models.
+
+        ``max_tokens`` caps the response length. The default (4096) suits most
+        structured-JSON tasks. Callers that need larger output (e.g. full DFD
+        canvas data) should pass a higher value. Setting a limit avoids
+        providers like OpenRouter pre-authorizing the model's full context
+        window against the user's credit balance.
+
         Raises
         :class:`AIProviderError` if the endpoint is unreachable, times out, or
         returns a response the adapter cannot parse. The returned

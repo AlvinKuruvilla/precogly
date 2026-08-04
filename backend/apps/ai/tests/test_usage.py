@@ -40,7 +40,7 @@ class _FakeProvider(ChatProvider):
         self._completion = completion
         self._price = price
 
-    def complete(self, messages, *, temperature=0.2, force_json=True):
+    def complete(self, messages, *, temperature=0.2, force_json=True, max_tokens=4096):
         return self._completion
 
     def test_connection(self):
