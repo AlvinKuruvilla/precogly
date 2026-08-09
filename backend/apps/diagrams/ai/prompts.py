@@ -73,14 +73,26 @@ Analyze the provided image and return a JSON object with exactly this shape:
 }
 
 Rules:
-- Extract ALL components visible in the diagram.
+- Model at the SERVICE level, not the feature or content-type level. Each process \
+node should represent a deployable service or application (e.g. "Web Application", \
+"API Gateway"), not an internal module, UI variant, or content format.
+- Merge implementation variants into single logical nodes. For example, free-tier \
+and paid-tier frontends that share the same codebase are ONE "Web Application" \
+process; multiple content types stored in the same system are ONE datastore.
+- Aim for 6-12 components total. A DFD is a security-focused abstraction, not a \
+full architecture replica. Fewer nodes with clear trust boundaries are more useful \
+than an exhaustive inventory.
 - Classify each component as process, datastore, humanActor, or systemActor.
-- Identify data flows between components. Use the exact component names from your components list.
-- Group components into trust zones based on network boundaries, cloud regions, or security domains.
-- Ask 2-5 clarifying questions about aspects you cannot determine from the diagram alone \
-(e.g. authentication methods, encryption, data sensitivity, missing components).
+- Create ONE data flow per logical communication channel between two components. \
+Summarize multiple operations into a single flow description \
+(e.g. "HTTPS: authentication, course browsing, subscription management").
+- Group components into trust zones based on network boundaries, cloud regions, \
+or security domains.
+- Ask 1-3 clarifying questions about aspects you cannot determine from the diagram \
+alone (e.g. authentication methods, encryption, data sensitivity, missing components).
 - If technology is not identifiable, use an empty string.
-- Be thorough but accurate. Only include what you can reasonably infer.
+- Prioritize clarity over completeness. Only include components that represent \
+distinct trust or threat boundaries.
 """
 
 GENERATE_SYSTEM_PROMPT = """\
@@ -142,6 +154,12 @@ to the left or top of the diagram.
   - Right to left flow: sourceHandle="left-source", targetHandle="right-target"
   - Top to bottom flow: sourceHandle="bottom-source", targetHandle="top-target"
   - Bottom to top flow: sourceHandle="top-source", targetHandle="bottom-target"
+
+Simplification:
+- Create exactly ONE edge between any two nodes, even if the analysis lists \
+multiple data flows between them. Combine their descriptions into a single label \
+(e.g. "HTTPS: auth, course data, subscriptions").
+- Do not split a single analysis component into multiple nodes. One component = one node.
 
 Component library matching:
 - When a component_library entry matches a node's technology, add \

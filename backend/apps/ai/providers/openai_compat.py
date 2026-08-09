@@ -81,6 +81,13 @@ class OpenAICompatProvider(ChatProvider):
             # Surface the provider's own error body when present — for a hosted
             # provider this is usually the most useful thing (bad key, no quota).
             detail = _safe_error_detail(response)
+            logger.warning(
+                "AI provider %s (%s) returned HTTP %s: %s",
+                self.config.base_url,
+                self.config.model,
+                response.status_code,
+                detail[:500],
+            )
             raise AIProviderError(
                 f"The AI model returned HTTP {response.status_code}: {detail}"
             )

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 
 from apps.ai.providers.base import AIProviderError
 from apps.ai.resolver import resolve_provider
 from apps.ai.utils import extract_json_object
+
+logger = logging.getLogger(__name__)
 
 from .prompts import (
     DEFAULT_NODE_SIZES,
@@ -75,10 +78,16 @@ def generate_dfd_from_analysis(
         {"role": "user", "content": user_content},
     ]
 
-    completion = provider.complete(messages, temperature=0.2)
+    completion = provider.complete(messages, temperature=0.2, max_tokens=16384)
     result = extract_json_object(completion.content)
 
     if result is None:
+        logger.error(
+            "[generate_dfd] Model response could not be parsed as JSON. "
+            "Raw content (%d chars):\n%s",
+            len(completion.content),
+            completion.content[:2000],
+        )
         raise AIProviderError(
             "The AI model returned a response that could not be parsed as JSON. "
             "Try again or use a different model."

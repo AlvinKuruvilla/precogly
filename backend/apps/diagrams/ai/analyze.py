@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import base64
+import logging
 
 from apps.ai.providers.base import AIProviderError
 from apps.ai.resolver import resolve_provider
 from apps.ai.utils import extract_json_object
 
 from .prompts import ANALYZE_SYSTEM_PROMPT
+
+logger = logging.getLogger(__name__)
 
 # Keys we require in the analysis response.
 _REQUIRED_KEYS = {"components", "dataFlows", "trustZones", "systemScope", "questions"}
@@ -59,6 +62,12 @@ def analyze_architecture_image(
     result = extract_json_object(completion.content)
 
     if result is None:
+        logger.error(
+            "[analyze_image] Model response could not be parsed as JSON. "
+            "Raw content (%d chars):\n%s",
+            len(completion.content),
+            completion.content[:2000],
+        )
         raise AIProviderError(
             "The AI model returned a response that could not be parsed as JSON. "
             "The model may not support vision/image inputs. Try a vision-capable "
