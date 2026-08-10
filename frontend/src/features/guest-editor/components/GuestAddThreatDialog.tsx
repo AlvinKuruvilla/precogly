@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Check } from 'lucide-react'
+import { Plus, Check, AlertTriangle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,7 +30,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useGuestEditor } from '../context/GuestEditorContext'
-import type { GuestThreat } from '../types'
+import type { GuestThreat, ThreatStatus } from '../types'
+import { GUEST_THREAT_STATUS_OPTIONS, RATIONALE_REQUIRED_STATUSES } from '../types'
 import { STRIDE_CATEGORIES, type STRIDECategory } from '@/types/domain'
 
 const SEVERITY_OPTIONS = [
@@ -53,8 +64,14 @@ export function GuestThreatDialog({
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState<GuestThreat['severity']>('medium')
   const [category, setCategory] = useState('')
+  const [status, setStatus] = useState<ThreatStatus>('open')
+  const [decisionRationale, setDecisionRationale] = useState('')
+
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null)
 
   const isEditMode = !!editThreat
+  const rationaleRequired = RATIONALE_REQUIRED_STATUSES.includes(status)
+  const showRationaleWarning = rationaleRequired && !decisionRationale.trim()
 
   // Pre-fill fields when editing or reset when adding
   useEffect(() => {
@@ -64,16 +81,50 @@ export function GuestThreatDialog({
         setDescription(editThreat.description)
         setSeverity(editThreat.severity)
         setCategory(editThreat.category || '')
+        setStatus(editThreat.status || 'open')
+        setDecisionRationale(editThreat.decisionRationale || '')
       } else {
         setName('')
         setDescription('')
         setSeverity('medium')
         setCategory('')
+        setStatus('open')
+        setDecisionRationale('')
       }
     }
   }, [open, editThreat])
 
   const handleSubmit = () => {
+    if (!name.trim() || !guestEditor) return
+
+    // If rationale is required but empty, show confirmation dialog
+    if (showRationaleWarning) {
+      const statusLabel = GUEST_THREAT_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
+      setConfirmMessage(
+        `A decision rationale is recommended for "${statusLabel}" status. Are you sure you want to proceed without one?`
+      )
+      return
+    }
+
+    // If status is "mitigate", warn about countermeasures
+    if (status === 'mitigate') {
+      const countermeasureCount = isEditMode
+        ? guestEditor.getCountermeasureCount(editThreat.id)
+        : 0
+      if (countermeasureCount === 0) {
+        setConfirmMessage(
+          isEditMode
+            ? 'This threat has no countermeasures yet. At least one countermeasure is expected for "Mitigate" status. You can add countermeasures in the Threat Analysis view.'
+            : 'At least one countermeasure is expected for "Mitigate" status. You can add countermeasures in the Threat Analysis view after saving.'
+        )
+        return
+      }
+    }
+
+    commitThreat()
+  }
+
+  const commitThreat = () => {
     if (!name.trim() || !guestEditor) return
 
     if (isEditMode) {
@@ -82,6 +133,8 @@ export function GuestThreatDialog({
         description: description.trim(),
         severity,
         category: (category as STRIDECategory) || undefined,
+        status,
+        decisionRationale: decisionRationale.trim() || undefined,
       })
     } else {
       guestEditor.addThreat(
@@ -90,7 +143,9 @@ export function GuestThreatDialog({
         name.trim(),
         description.trim(),
         severity,
-        (category as STRIDECategory) || undefined
+        (category as STRIDECategory) || undefined,
+        status,
+        decisionRationale.trim() || undefined
       )
     }
     onOpenChange(false)
@@ -98,7 +153,7 @@ export function GuestThreatDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Edit Threat' : 'Add Threat'}</DialogTitle>
           <DialogDescription>
@@ -162,6 +217,46 @@ export function GuestThreatDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="threat-status">Status *</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as ThreatStatus)}>
+              <SelectTrigger id="threat-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GUEST_THREAT_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div>
+                      <span>{opt.label}</span>
+                      <span className="ml-2 text-muted-foreground text-xs">{opt.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {status !== 'open' && (
+            <div className="space-y-2">
+              <Label htmlFor="threat-rationale">
+                Decision Rationale {rationaleRequired ? '*' : '(optional)'}
+              </Label>
+              <Textarea
+                id="threat-rationale"
+                placeholder="Explain the rationale for this decision..."
+                value={decisionRationale}
+                onChange={(e) => setDecisionRationale(e.target.value)}
+                rows={2}
+              />
+              {showRationaleWarning && (
+                <div className="flex items-center gap-1.5 text-amber-600 text-xs">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>Rationale is recommended for &ldquo;{status}&rdquo; status</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -183,6 +278,25 @@ export function GuestThreatDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={confirmMessage !== null} onOpenChange={(open) => { if (!open) setConfirmMessage(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {showRationaleWarning ? 'Missing Decision Rationale' : 'Countermeasures Required'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={commitThreat}>
+              {showRationaleWarning ? 'Proceed Anyway' : 'Proceed'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

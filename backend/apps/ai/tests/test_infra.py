@@ -191,6 +191,46 @@ class OpenAICompatCompleteTests(SimpleTestCase):
             self.provider.complete([{"role": "user", "content": "hi"}], force_json=True)
         self.assertEqual(post.call_count, 1)
 
+    @mock.patch.object(openai_compat.requests, "post")
+    def test_max_tokens_is_sent_in_payload(self, post):
+        post.return_value = _response(json_body=self._ok_body())
+        self.provider.complete([{"role": "user", "content": "hi"}])
+        self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 4096)
+
+    @mock.patch.object(openai_compat.requests, "post")
+    def test_custom_max_tokens_is_sent(self, post):
+        post.return_value = _response(json_body=self._ok_body())
+        self.provider.complete([{"role": "user", "content": "hi"}], max_tokens=16384)
+        self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 16384)
+
+    @mock.patch.object(openai_compat.requests, "post")
+    def test_retries_with_max_completion_tokens_when_max_tokens_rejected(self, post):
+        rejected = _response(
+            status_code=400,
+            json_body={
+                "error": {
+                    "message": "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."
+                }
+            },
+        )
+        ok = _response(json_body=self._ok_body("recovered"))
+        responses = [rejected, ok]
+        sent_payloads = []
+
+        def record_and_respond(*args, **kwargs):
+            sent_payloads.append(deepcopy(kwargs["json"]))
+            return responses.pop(0)
+
+        post.side_effect = record_and_respond
+        result = self.provider.complete([{"role": "user", "content": "hi"}])
+        self.assertEqual(result.content, "recovered")
+        self.assertEqual(post.call_count, 2)
+        # First attempt uses max_tokens; the retry swaps to max_completion_tokens.
+        self.assertIn("max_tokens", sent_payloads[0])
+        self.assertNotIn("max_completion_tokens", sent_payloads[0])
+        self.assertNotIn("max_tokens", sent_payloads[1])
+        self.assertEqual(sent_payloads[1]["max_completion_tokens"], 4096)
+
 
 class OpenAICompatTestConnectionTests(SimpleTestCase):
     def setUp(self):

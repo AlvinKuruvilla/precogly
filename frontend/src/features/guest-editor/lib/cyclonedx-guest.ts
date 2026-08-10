@@ -12,6 +12,7 @@ import type {
   GuestSystemContext,
   GuestDataAsset,
   GuestAssumption,
+  ThreatStatus,
 } from '../types'
 import type {
   CycloneDxDocument,
@@ -26,6 +27,7 @@ import type {
   CycloneDxVisualization,
   CycloneDxDataSet,
   CycloneDxAssumption,
+  CycloneDxProperty,
 } from './cyclonedx-types'
 import {
   NODE_TYPE_TO_ASSET_TYPE,
@@ -276,6 +278,18 @@ export function serializeGuestToCycloneDx(
     }
     if (affectedRef) abstractThreat.affectedAssets = [affectedRef]
 
+    // Serialize status and decision rationale as CycloneDX properties
+    const threatProperties: CycloneDxProperty[] = []
+    if (threat.status && threat.status !== 'open') {
+      threatProperties.push({ name: 'precogly:threat-status', value: threat.status })
+    }
+    if (threat.decisionRationale?.trim()) {
+      threatProperties.push({ name: 'precogly:decision-rationale', value: threat.decisionRationale.trim() })
+    }
+    if (threatProperties.length > 0) {
+      abstractThreat.properties = threatProperties
+    }
+
     // Link mitigations from countermeasures that reference this threat
     const mitigationRefs = countermeasures
       .filter((c) => c.threatId === threat.id)
@@ -442,6 +456,11 @@ function deserializeFromVisualization(
         nodes
       )
 
+      // Extract status and rationale from properties
+      const { status, decisionRationale } = extractStatusFromProperties(
+        abstractThreat?.properties
+      )
+
       return {
         id: scenario['bom-ref'] || `threat-${index}`,
         targetId,
@@ -450,6 +469,8 @@ function deserializeFromVisualization(
         description: abstractThreat?.description ?? '',
         severity,
         ...(category ? { category } : {}),
+        status,
+        ...(decisionRationale ? { decisionRationale } : {}),
         createdAt: new Date().toISOString(),
       }
     }
@@ -654,6 +675,11 @@ function deserializeFromStructure(
         }
       }
 
+      // Extract status and rationale from properties
+      const { status, decisionRationale } = extractStatusFromProperties(
+        abstractThreat?.properties
+      )
+
       return {
         id: scenario['bom-ref'] || `threat-${index}`,
         targetId,
@@ -662,6 +688,8 @@ function deserializeFromStructure(
         description: abstractThreat?.description ?? '',
         severity,
         ...(category ? { category } : {}),
+        status,
+        ...(decisionRationale ? { decisionRationale } : {}),
         createdAt: new Date().toISOString(),
       }
     }
@@ -876,6 +904,21 @@ function resolveTargetFromBomRef(
   const targetType: GuestThreat['targetType'] =
     node?.type === 'systemScope' ? 'systemScope' : 'component'
   return { targetId: mapping.id, targetType }
+}
+
+function extractStatusFromProperties(
+  properties?: CycloneDxProperty[]
+): { status: ThreatStatus; decisionRationale?: string } {
+  const statusProp = properties?.find((p) => p.name === 'precogly:threat-status')
+  const rationaleProp = properties?.find((p) => p.name === 'precogly:decision-rationale')
+  const validStatuses: ThreatStatus[] = ['open', 'accept', 'mitigate', 'delegate', 'eliminate']
+  const status: ThreatStatus = validStatuses.includes(statusProp?.value as ThreatStatus)
+    ? (statusProp!.value as ThreatStatus)
+    : 'open'
+  return {
+    status,
+    ...(rationaleProp?.value ? { decisionRationale: rationaleProp.value } : {}),
+  }
 }
 
 function getCategoryName(strideId: string): string {

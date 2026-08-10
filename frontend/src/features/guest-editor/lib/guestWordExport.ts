@@ -8,7 +8,8 @@ import {
 } from 'docx'
 import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 import { isDataFlowEdge } from '@/features/dfd-editor/types'
-import type { GuestThreat, GuestCountermeasure, GuestSystemContext } from '../types'
+import type { GuestThreat, GuestCountermeasure, GuestSystemContext, ThreatStatus } from '../types'
+import { GUEST_THREAT_STATUS_OPTIONS } from '../types'
 import { STRIDE_CONFIG } from '@/types/domain'
 import type { STRIDECategory } from '@/types/domain'
 import {
@@ -90,6 +91,12 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
+/** Format a ThreatStatus to its display label. */
+function formatThreatStatus(status: ThreatStatus | undefined): string {
+  if (!status) return 'Open'
+  return GUEST_THREAT_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? capitalize(status)
+}
+
 // ---------------------------------------------------------------------------
 // Section: Diagram Overview
 // ---------------------------------------------------------------------------
@@ -126,10 +133,16 @@ function buildDiagramImageSection(diagramImage: Uint8Array): (Paragraph | Table)
   const pngWidth = (widthBytes[0] << 24) | (widthBytes[1] << 16) | (widthBytes[2] << 8) | widthBytes[3]
   const pngHeight = (heightBytes[0] << 24) | (heightBytes[1] << 16) | (heightBytes[2] << 8) | heightBytes[3]
 
+  // The diagram is captured at 2x resolution (IMAGE_SCALE = 2 in export-diagram-image.ts).
+  // Use logical (1x) dimensions so the image displays at its intended on-screen size.
+  const IMAGE_CAPTURE_SCALE = 2
+  const logicalWidth = pngWidth / IMAGE_CAPTURE_SCALE
+  const logicalHeight = pngHeight / IMAGE_CAPTURE_SCALE
+
   // Scale to fit page content width while maintaining aspect ratio
-  const scale = Math.min(1, CONTENT_WIDTH_PX / pngWidth)
-  const displayWidth = Math.round(pngWidth * scale)
-  const displayHeight = Math.round(pngHeight * scale)
+  const scale = CONTENT_WIDTH_PX / logicalWidth
+  const displayWidth = Math.round(logicalWidth * scale)
+  const displayHeight = Math.round(logicalHeight * scale)
 
   return [
     h1('Data Flow Diagram'),
@@ -351,17 +364,22 @@ function buildThreatAnalysisSection(data: GuestReportData, sectionNum: number): 
   // Summary stats
   const severityCounts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 }
   const strideCounts: Record<string, number> = {}
+  const statusCounts: Record<string, number> = { open: 0, accept: 0, mitigate: 0, delegate: 0, eliminate: 0 }
 
   for (const threat of data.threats) {
     severityCounts[threat.severity] = (severityCounts[threat.severity] ?? 0) + 1
+    const threatStatus = threat.status || 'open'
+    statusCounts[threatStatus] = (statusCounts[threatStatus] ?? 0) + 1
     if (threat.category) {
       const label = formatStrideCategory(threat.category)
       strideCounts[label] = (strideCounts[label] ?? 0) + 1
     }
   }
 
+  let subSectionNum = 1
+
   children.push(
-    h2(`${sectionNum}.1 Summary`),
+    h2(`${sectionNum}.${subSectionNum} Summary`),
     spacer(),
     buildTable(
       [4680, 4680],
@@ -376,11 +394,28 @@ function buildThreatAnalysisSection(data: GuestReportData, sectionNum: number): 
     ),
     spacer(),
   )
+  subSectionNum++
+
+  // Status distribution
+  children.push(
+    h2(`${sectionNum}.${subSectionNum} Status Distribution`),
+    spacer(),
+    buildTable(
+      [4680, 4680],
+      ['Status', 'Count'],
+      GUEST_THREAT_STATUS_OPTIONS.map((opt) => [
+        opt.label,
+        String(statusCounts[opt.value] ?? 0),
+      ]),
+    ),
+    spacer(),
+  )
+  subSectionNum++
 
   // STRIDE distribution
   if (Object.keys(strideCounts).length > 0) {
     children.push(
-      h2(`${sectionNum}.2 STRIDE Distribution`),
+      h2(`${sectionNum}.${subSectionNum} STRIDE Distribution`),
       spacer(),
       buildTable(
         [4680, 4680],
@@ -389,21 +424,23 @@ function buildThreatAnalysisSection(data: GuestReportData, sectionNum: number): 
       ),
       spacer(),
     )
+    subSectionNum++
   }
 
-  // Main threats table
+  // Main threats table with Status and Rationale columns
   children.push(
-    h2(`${sectionNum}.3 Threat Details`),
+    h2(`${sectionNum}.${subSectionNum} Threat Details`),
     spacer(),
     buildTable(
-      [1800, 1560, 1200, 1560, 1080, 2160],
-      ['Threat Name', 'Target', 'Target Type', 'STRIDE', 'Severity', 'Description'],
+      [1800, 1440, 1200, 900, 900, 1560, 1560],
+      ['Threat Name', 'Target', 'STRIDE', 'Severity', 'Status', 'Rationale', 'Description'],
       data.threats.map((threat) => [
         threat.name,
         resolveTargetName(threat.targetId, data.nodes, data.edges),
-        capitalize(threat.targetType),
         formatStrideCategory(threat.category),
         capitalize(threat.severity),
+        formatThreatStatus(threat.status),
+        threat.decisionRationale || '—',
         threat.description || '—',
       ]),
     ),
@@ -498,33 +535,50 @@ function buildCoverageSummarySection(data: GuestReportData, sectionNum: number):
 
   const rows = data.threats.map((threat) => {
     const cmCount = countermeasuresByThreat.get(threat.id) ?? 0
+    const threatStatus = threat.status || 'open'
+    // Only "mitigate" threats require countermeasures for coverage
+    const needsCoverage = threatStatus === 'mitigate'
+    let coveredLabel: string
+    if (!needsCoverage) {
+      coveredLabel = `N/A (${formatThreatStatus(threatStatus)})`
+    } else {
+      coveredLabel = cmCount > 0 ? 'Yes' : 'No'
+    }
     return [
       threat.name,
       capitalize(threat.severity),
+      formatThreatStatus(threatStatus),
       String(cmCount),
-      cmCount > 0 ? 'Yes' : 'No',
+      coveredLabel,
     ]
   })
 
-  const gapCount = data.threats.filter((t) => !countermeasuresByThreat.has(t.id)).length
+  // Only count gaps for threats with "mitigate" status
+  const mitigateThreats = data.threats.filter((t) => (t.status || 'open') === 'mitigate')
+  const gapCount = mitigateThreats.filter((t) => !countermeasuresByThreat.has(t.id)).length
 
   children.push(
     buildTable(
-      [3120, 1560, 2160, 2520],
-      ['Threat Name', 'Severity', '# Countermeasures', 'Covered?'],
+      [2400, 1200, 1200, 1800, 2760],
+      ['Threat Name', 'Severity', 'Status', '# Countermeasures', 'Covered?'],
       rows,
     ),
     spacer(),
   )
 
-  if (gapCount > 0) {
+  if (mitigateThreats.length === 0) {
     children.push(
-      para(`${gapCount} threat${gapCount > 1 ? 's' : ''} without countermeasures — review recommended.`, { bold: true }),
+      para('No threats are set to "Mitigate" status — countermeasure coverage analysis is not applicable.', { italic: true }),
+      spacer(),
+    )
+  } else if (gapCount > 0) {
+    children.push(
+      para(`${gapCount} threat${gapCount > 1 ? 's' : ''} with "Mitigate" status without countermeasures — review recommended.`, { bold: true }),
       spacer(),
     )
   } else {
     children.push(
-      para('All identified threats have at least one countermeasure.', { italic: true }),
+      para('All threats with "Mitigate" status have at least one countermeasure.', { italic: true }),
       spacer(),
     )
   }

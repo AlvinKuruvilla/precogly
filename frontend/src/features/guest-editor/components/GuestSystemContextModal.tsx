@@ -520,40 +520,83 @@ function AssetsView() {
 // --- Assumptions View ---
 function AssumptionsView() {
   const guestEditor = useGuestEditor()
-  const [newDescription, setNewDescription] = useState('')
-  const [newValidity, setNewValidity] = useState<GuestAssumption['validity']>('unconfirmed')
-  const [newTopicsInput, setNewTopicsInput] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [formData, setFormData] = useState<Omit<GuestAssumption, 'id'>>({
+    description: '',
+    validity: 'unconfirmed',
+    topics: [],
+  })
+  const [topicInput, setTopicInput] = useState('')
 
   if (!guestEditor) return null
 
-  const handleAdd = () => {
-    if (!newDescription.trim()) return
-    const topics = newTopicsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean)
-    guestEditor.addAssumption({ description: newDescription.trim(), validity: newValidity, topics })
-    setNewDescription('')
-    setNewValidity('unconfirmed')
-    setNewTopicsInput('')
+  const resetForm = () => {
+    setFormData({ description: '', validity: 'unconfirmed', topics: [] })
+    setTopicInput('')
+    setShowAddForm(false)
+    setEditingId(null)
   }
+
+  const handleSave = () => {
+    if (!formData.description.trim()) return
+    if (editingId) {
+      guestEditor.updateAssumption(editingId, formData)
+    } else {
+      guestEditor.addAssumption(formData)
+    }
+    resetForm()
+  }
+
+  const handleEdit = (assumption: GuestAssumption) => {
+    setFormData({
+      description: assumption.description,
+      validity: assumption.validity,
+      topics: [...assumption.topics],
+    })
+    setTopicInput('')
+    setEditingId(assumption.id)
+    setShowAddForm(true)
+  }
+
+  const handleAddTopic = () => {
+    const trimmed = topicInput.trim()
+    if (trimmed && !formData.topics.includes(trimmed)) {
+      setFormData({ ...formData, topics: [...formData.topics, trimmed] })
+      setTopicInput('')
+    }
+  }
+
+  const validityLabel = (validity: GuestAssumption['validity']) =>
+    GUEST_ASSUMPTION_VALIDITY.find((o) => o.value === validity)?.label ?? validity
 
   return (
     <div className="space-y-4">
-      {/* Existing assumptions */}
+      {/* Existing assumptions list */}
       {guestEditor.assumptions.length > 0 && (
         <div className="space-y-2 max-h-[250px] overflow-y-auto">
           {guestEditor.assumptions.map((assumption) => (
-            <div key={assumption.id} className="p-2 rounded border bg-muted/30 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <Textarea
-                  rows={2}
-                  value={assumption.description}
-                  onChange={(e) =>
-                    guestEditor.updateAssumption(assumption.id, { description: e.target.value })
-                  }
-                  className="flex-1 text-sm"
-                />
+            <div
+              key={assumption.id}
+              className="flex items-center justify-between p-2 rounded border bg-muted/30"
+            >
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-sm">{assumption.description}</p>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Badge variant="outline" className="text-xs">
+                    {validityLabel(assumption.validity)}
+                  </Badge>
+                  {assumption.topics.map((topic) => (
+                    <Badge key={topic} variant="secondary" className="text-xs">
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 ml-2">
+                <Button variant="ghost" size="sm" onClick={() => handleEdit(assumption)}>
+                  Edit
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -562,75 +605,100 @@ function AssumptionsView() {
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={assumption.validity}
-                  onValueChange={(value) =>
-                    guestEditor.updateAssumption(assumption.id, {
-                      validity: value as GuestAssumption['validity'],
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-[140px] h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GUEST_ASSUMPTION_VALIDITY.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex flex-wrap gap-1">
-                  {assumption.topics.map((topic) => (
-                    <Badge key={topic} variant="secondary" className="text-xs">
-                      {topic}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add new assumption */}
-      <div className="border rounded p-3 space-y-2">
-        <Textarea
-          rows={2}
-          value={newDescription}
-          onChange={(e) => setNewDescription(e.target.value)}
-          placeholder="Describe the assumption..."
-        />
-        <div className="flex items-center gap-2">
-          <Select
-            value={newValidity}
-            onValueChange={(value) => setNewValidity(value as GuestAssumption['validity'])}
-          >
-            <SelectTrigger className="w-[140px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {GUEST_ASSUMPTION_VALIDITY.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            value={newTopicsInput}
-            onChange={(e) => setNewTopicsInput(e.target.value)}
-            placeholder="Topics (comma-separated)"
-            className="flex-1 h-8 text-xs"
-          />
+      {/* Add/Edit form */}
+      {showAddForm ? (
+        <div className="space-y-3 border rounded p-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Description *</Label>
+            <Textarea
+              rows={2}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Describe the assumption..."
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Validity</Label>
+            <Select
+              value={formData.validity}
+              onValueChange={(value) =>
+                setFormData({ ...formData, validity: value as GuestAssumption['validity'] })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GUEST_ASSUMPTION_VALIDITY.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Topics</Label>
+            <div className="flex gap-2">
+              <Input
+                value={topicInput}
+                onChange={(e) => setTopicInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddTopic()
+                  }
+                }}
+                placeholder="e.g. authentication, encryption, networking"
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={handleAddTopic}>
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+            {formData.topics.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {formData.topics.map((topic) => (
+                  <Badge key={topic} variant="secondary" className="text-xs gap-1">
+                    {topic}
+                    <button
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          topics: formData.topics.filter((t) => t !== topic),
+                        })
+                      }
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={resetForm}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={!formData.description.trim()}>
+              {editingId ? 'Update' : 'Add'} Assumption
+            </Button>
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleAdd} disabled={!newDescription.trim()}>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Assumption
         </Button>
-      </div>
+      )}
     </div>
   )
 }

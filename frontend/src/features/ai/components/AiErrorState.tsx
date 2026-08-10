@@ -7,8 +7,9 @@
  * ```text
  *   400   configured -> unconfigured between the availability check and the
  *         request. Nothing to retry; the user needs to set up a provider.
- *   503   configured but unreachable. Retrying is exactly right once they have
- *         started the model or fixed the URL.
+ *   503   provider error — the backend reached the provider but got back an
+ *         error (billing, auth, model not found, unreachable, …). The real
+ *         error message is surfaced from the response body when available.
  *   else  unknown. Offer the retry and say plainly what was being attempted.
  *   ```
  *
@@ -32,6 +33,14 @@ interface AiErrorStateProps {
   onRetry: () => void
 }
 
+/** Extract the provider error message from a 503 response body, if available. */
+function extractProviderMessage(error: unknown): string | undefined {
+  if (!(error instanceof ApiError) || !error.data) return undefined
+  const data = error.data as Record<string, unknown>
+  if (typeof data.error === 'string') return data.error
+  return undefined
+}
+
 export function AiErrorState({ error, fallbackMessage, onRetry }: AiErrorStateProps) {
   const navigate = useNavigate()
   const status = error instanceof ApiError ? error.status : undefined
@@ -39,7 +48,7 @@ export function AiErrorState({ error, fallbackMessage, onRetry }: AiErrorStatePr
   if (status === 400) {
     return (
       <div className="space-y-2 p-4 py-10 text-center text-sm">
-        <p className="text-muted-foreground">AI isn’t configured for this organization.</p>
+        <p className="text-muted-foreground">AI isn't configured for this organization.</p>
         <Button size="sm" variant="outline" onClick={() => navigate(AI_PROVIDER_SETTINGS_PATH)}>
           Set up a provider
         </Button>
@@ -47,13 +56,13 @@ export function AiErrorState({ error, fallbackMessage, onRetry }: AiErrorStatePr
     )
   }
 
+  const providerMessage = status === 503 ? extractProviderMessage(error) : undefined
+
   return (
     <div className="space-y-2 p-4 py-10 text-center text-sm">
       <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
         <AlertTriangle className="h-4 w-4" />
-        {status === 503
-          ? 'The AI model is unreachable. Start it, or check the provider URL.'
-          : fallbackMessage}
+        {providerMessage ?? fallbackMessage}
       </div>
       <Button size="sm" variant="outline" className="gap-1.5" onClick={onRetry}>
         <RefreshCw className="h-3.5 w-3.5" />
