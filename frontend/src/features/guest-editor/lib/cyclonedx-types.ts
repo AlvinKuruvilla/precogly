@@ -111,6 +111,11 @@ export interface CycloneDxThreatsBlock {
   methodologies?: { type: string }[]
 }
 
+export interface CycloneDxProperty {
+  name: string
+  value: string
+}
+
 export interface CycloneDxThreat {
   'bom-ref': string
   name: string
@@ -118,6 +123,7 @@ export interface CycloneDxThreat {
   categories?: CycloneDxThreatCategory[]
   affectedAssets?: string[]
   mitigations?: string[]
+  properties?: CycloneDxProperty[]
 }
 
 export interface CycloneDxThreatCategory {

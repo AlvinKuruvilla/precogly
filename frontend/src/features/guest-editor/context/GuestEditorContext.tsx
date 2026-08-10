@@ -9,6 +9,7 @@ import type {
   GuestAssumption,
   GuestOutOfScopeItem,
   GuestSystemContext,
+  ThreatStatus,
 } from '../types'
 import type { STRIDECategory } from '@/types/domain'
 
@@ -25,11 +26,13 @@ interface GuestEditorContextType {
     name: string,
     description: string,
     severity: GuestThreat['severity'],
-    category?: STRIDECategory
+    category?: STRIDECategory,
+    status?: ThreatStatus,
+    decisionRationale?: string
   ) => void
   updateThreat: (
     threatId: string,
-    updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity' | 'category'>>
+    updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity' | 'category' | 'status' | 'decisionRationale'>>
   ) => void
   removeThreat: (threatId: string) => void
   getThreatsForTarget: (targetId: string) => GuestThreat[]

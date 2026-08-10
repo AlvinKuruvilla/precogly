@@ -12,6 +12,8 @@ import {
   Trash2,
   Pencil,
   Shield,
+  AlertTriangle,
+  Info,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,11 +23,20 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useGuestEditor } from '../context/GuestEditorContext'
 import { GuestThreatDialog } from './GuestAddThreatDialog'
 import { GuestCountermeasureDialog } from './GuestCountermeasureDialog'
 import type { GuestThreat, GuestCountermeasure } from '../types'
+import { STATUS_COLORS, getThreatWarning, GUEST_THREAT_STATUS_OPTIONS } from '../types'
 import { STRIDE_CONFIG } from '@/types/domain'
 
 const SEVERITY_COLORS: Record<GuestThreat['severity'], string> = {
@@ -61,6 +72,22 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   systemScope: 'System Scope',
 }
 
+type ThreatSortField = 'status' | 'severity' | 'name'
+
+const SORT_OPTIONS: { value: ThreatSortField; label: string }[] = [
+  { value: 'status', label: 'Status' },
+  { value: 'severity', label: 'Severity' },
+  { value: 'name', label: 'Name' },
+]
+
+const STATUS_SORT_ORDER: Record<string, number> = {
+  open: 0, mitigate: 1, accept: 2, delegate: 3, eliminate: 4,
+}
+
+const SEVERITY_SORT_ORDER: Record<string, number> = {
+  critical: 0, high: 1, medium: 2, low: 3,
+}
+
 interface ComponentItem {
   id: string
   label: string
@@ -74,6 +101,7 @@ export function GuestThreatAnalysis() {
 
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null)
+  const [sortField, setSortField] = useState<ThreatSortField>('status')
 
   // Threat dialog state
   const [showThreatDialog, setShowThreatDialog] = useState(false)
@@ -136,6 +164,22 @@ export function GuestThreatAnalysis() {
   const threatsForSelected = selectedComponentId
     ? guestEditor.getThreatsForTarget(selectedComponentId)
     : []
+
+  // Sorted threats for display
+  const sortedThreats = useMemo(() => {
+    const sorted = [...threatsForSelected]
+    sorted.sort((a, b) => {
+      switch (sortField) {
+        case 'status':
+          return (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99)
+        case 'severity':
+          return (SEVERITY_SORT_ORDER[a.severity] ?? 99) - (SEVERITY_SORT_ORDER[b.severity] ?? 99)
+        case 'name':
+          return a.name.localeCompare(b.name)
+      }
+    })
+    return sorted
+  }, [threatsForSelected, sortField])
 
   // Find selected threat
   const selectedThreat = selectedThreatId
@@ -324,10 +368,26 @@ export function GuestThreatAnalysis() {
                   )}
                 </div>
                 {selectedComponent && (
-                  <Button size="sm" variant="outline" onClick={handleAddThreat} className="gap-1">
-                    <Plus className="h-3 w-3" />
-                    Add
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    {threatsForSelected.length > 1 && (
+                      <Select value={sortField} onValueChange={(v) => setSortField(v as ThreatSortField)}>
+                        <SelectTrigger className="h-7 w-[110px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SORT_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              Sort: {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Button size="sm" variant="outline" onClick={handleAddThreat} className="gap-1">
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </Button>
+                  </div>
                 )}
               </div>
               <ScrollArea className="flex-1">
@@ -342,9 +402,10 @@ export function GuestThreatAnalysis() {
                     </p>
                   ) : (
                     <div className="space-y-1">
-                      {threatsForSelected.map((threat) => {
+                      {sortedThreats.map((threat) => {
                         const countermeasureCount =
                           guestEditor.getCountermeasureCount(threat.id)
+                        const warning = getThreatWarning(threat, countermeasureCount)
                         return (
                           <div
                             key={threat.id}
@@ -358,6 +419,15 @@ export function GuestThreatAnalysis() {
                             )}
                           >
                             <div className="flex items-center gap-2 min-w-0">
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  'shrink-0 text-xs capitalize',
+                                  STATUS_COLORS[threat.status]
+                                )}
+                              >
+                                {threat.status}
+                              </Badge>
                               <Badge
                                 variant="secondary"
                                 className={cn(
@@ -382,6 +452,16 @@ export function GuestThreatAnalysis() {
                               <span className="truncate">{threat.name}</span>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {warning && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p className="text-xs">{warning}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
                               {countermeasureCount > 0 && (
                                 <Badge
                                   variant="outline"
@@ -457,13 +537,21 @@ export function GuestThreatAnalysis() {
               </div>
               <ScrollArea className="flex-1">
                 <div className="p-2">
+                  {selectedThreat && selectedThreat.status !== 'mitigate' && selectedThreat.status !== 'open' && (
+                    <div className="flex items-start gap-2 p-2 mb-2 rounded-md bg-muted/50 border text-xs text-muted-foreground">
+                      <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        This threat&apos;s status is &ldquo;{GUEST_THREAT_STATUS_OPTIONS.find((o) => o.value === selectedThreat.status)?.label ?? selectedThreat.status}&rdquo; — countermeasures are optional.
+                      </span>
+                    </div>
+                  )}
                   {!selectedThreat ? (
                     <p className="text-xs text-muted-foreground px-2 py-4 text-center">
                       Select a threat to view its countermeasures.
                     </p>
                   ) : countermeasuresForThreat.length === 0 ? (
                     <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-                      No countermeasures yet. Click "Add" to create one.
+                      No countermeasures yet. Click &ldquo;Add&rdquo; to create one.
                     </p>
                   ) : (
                     <div className="space-y-1">

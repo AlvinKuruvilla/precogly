@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import type { GuestThreat } from '../types'
+import type { GuestThreat, ThreatStatus } from '../types'
 import type { STRIDECategory } from '@/types/domain'
 
 export function useGuestThreats() {
@@ -12,7 +12,9 @@ export function useGuestThreats() {
       name: string,
       description: string,
       severity: GuestThreat['severity'],
-      category?: STRIDECategory
+      category?: STRIDECategory,
+      status: ThreatStatus = 'open',
+      decisionRationale?: string
     ) => {
       const newThreat: GuestThreat = {
         id: crypto.randomUUID(),
@@ -22,6 +24,8 @@ export function useGuestThreats() {
         description,
         severity,
         ...(category && { category }),
+        status,
+        ...(decisionRationale && { decisionRationale }),
         createdAt: new Date().toISOString(),
       }
       setThreats((prev) => [...prev, newThreat])
@@ -30,7 +34,7 @@ export function useGuestThreats() {
   )
 
   const updateThreat = useCallback(
-    (threatId: string, updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity' | 'category'>>) => {
+    (threatId: string, updates: Partial<Pick<GuestThreat, 'name' | 'description' | 'severity' | 'category' | 'status' | 'decisionRationale'>>) => {
       setThreats((prev) =>
         prev.map((t) => (t.id === threatId ? { ...t, ...updates } : t))
       )
@@ -55,7 +59,11 @@ export function useGuestThreats() {
   const getAllThreats = useCallback(() => threats, [threats])
 
   const loadThreats = useCallback((newThreats: GuestThreat[]) => {
-    setThreats(newThreats)
+    const normalized = newThreats.map((t) => ({
+      ...t,
+      status: t.status || 'open' as ThreatStatus,
+    }))
+    setThreats(normalized)
   }, [])
 
   return {
