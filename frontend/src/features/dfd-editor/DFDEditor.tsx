@@ -44,7 +44,7 @@ import { useBoundaryMode } from './hooks/useBoundaryMode'
 import type { DiagramNode, DiagramEdge, DataFlowEdge, TrustBoundaryEdge } from './types'
 import { useCreateNode, useHandleDrop } from './hooks/useCreateNode'
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from './types/notation'
-import { exportDiagramImage } from './lib/export-diagram-image'
+import { exportDiagramImage, type ExportImageOptions } from './lib/export-diagram-image'
 
 function DFDEditorContent() {
   const { diagramId, id: threatModelId } = useParams<{ id: string; diagramId: string }>()
@@ -430,13 +430,13 @@ function DFDEditorContent() {
 
   // Export diagram as image
   const handleExportImage = useCallback(
-    (format: 'png' | 'svg') => {
+    (format: 'png' | 'svg', options?: ExportImageOptions) => {
       if (!reactFlowWrapper.current) return
       const filename = (diagramTitle || 'diagram')
         .replace(/[^a-zA-Z0-9-_ ]/g, '')
         .replace(/\s+/g, '-')
         .toLowerCase()
-      exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds)
+      return exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds, options)
     },
     [diagramTitle, nodes, getViewport, setViewport]
   )
