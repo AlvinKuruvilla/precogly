@@ -86,7 +86,9 @@ Precogly can suggest threats for components using any OpenAI-compatible chat-com
 
 ### How It Works
 
-When enabled, the AI ranks threats from your installed library packs against each component and explains why each applies. It never invents threats — suggestions are grounded in real pack data, and any hallucinated IDs are silently dropped.
+When enabled, the AI connects Precogly to a language model that can assist with threat modeling tasks. The current implementation ranks threats from your installed library packs against each component and explains why each applies — future AI features may use different approaches depending on the task.
+
+![AI provider settings in the organization settings page](../assets/images/ai-provider-settings.png)
 
 Provider resolution follows a two-tier chain:
 
@@ -135,6 +137,14 @@ AI_API_KEY=sk-your-key-here
 ### Per-Organization Overrides
 
 Organizations can bring their own model by saving an AI provider config through the settings UI (**Settings → AI Providers**). This overrides the operator fallback for that organization only. The stored API key is encrypted at rest using `AI_SECRET_KEY`.
+
+![Per-organization AI provider configuration in settings](../assets/images/ai-org-provider-config.png)
+
+### Using AI Suggestions
+
+Once a provider is configured, an owl icon appears next to components in the threat analysis workspace. Click it to get AI-generated threat suggestions for that component.
+
+![The owl icon in the threat analysis workspace triggers AI suggestions](../assets/images/ai-owl-suggestion.png)
 
 !!! note
     `AI_SECRET_KEY` is separate from Django's `SECRET_KEY` so it can be rotated independently. Rotating it invalidates any stored per-org API keys, which must then be re-entered.
