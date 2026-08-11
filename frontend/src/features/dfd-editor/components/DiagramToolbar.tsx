@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { XYPosition } from '@xyflow/react'
 import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { OwlMark } from '@/features/ai/components/OwlMark'
+import { AI_PROVIDER_SETTINGS_PATH } from '@/features/ai/constants'
 import type { DiagramNodeType } from '../types'
 import type { DFDNotationStyle } from '../types/notation'
 import { useCreateNode } from '../hooks/useCreateNode'
@@ -43,6 +45,7 @@ interface DiagramToolbarProps {
   notationStyle?: DFDNotationStyle
   onNotationChange?: (notation: DFDNotationStyle) => void
   onExportImage?: (format: 'png' | 'svg') => void
+  aiAvailable?: boolean
 }
 
 interface ToolbarButtonConfig {
@@ -113,7 +116,9 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   notationStyle = 'dfd3',
   onNotationChange,
   onExportImage,
+  aiAvailable = true,
 }: DiagramToolbarProps) {
+  const navigate = useNavigate()
   const { createNode } = useCreateNode(notationStyle)
 
   const handleAddNode = useCallback(
@@ -261,18 +266,24 @@ export const DiagramToolbar = memo(function DiagramToolbar({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2"
-                  onClick={onOpenGenerateDFD}
+                  className={cn('gap-2', !aiAvailable && 'text-muted-foreground')}
+                  onClick={aiAvailable ? onOpenGenerateDFD : () => navigate(AI_PROVIDER_SETTINGS_PATH)}
                 >
                   <OwlMark className="h-4 w-4" />
                   <span className="hidden sm:inline">Generate</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="font-medium">Generate DFD with AI</p>
-                <p className="text-xs text-muted-foreground">
-                  Upload an architecture diagram and let AI build a DFD
-                </p>
+                {aiAvailable ? (
+                  <>
+                    <p className="font-medium">Generate DFD with AI</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload an architecture diagram and let AI build a DFD
+                    </p>
+                  </>
+                ) : (
+                  <p>Set up an AI provider to use this</p>
+                )}
               </TooltipContent>
             </Tooltip>
           </>
