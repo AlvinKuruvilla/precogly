@@ -53,6 +53,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "dj_rest_auth",
     "dj_rest_auth.registration",
+    "oauth2_provider",
 ]
 
 LOCAL_APPS = [
@@ -167,6 +168,12 @@ SITE_ID = 1
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        # Order matters here. simplejwt's `get_validated_token`
+        # raises InvalidToken on anything that is not one of its own JWTs, and DRF
+        # does not catch it, so a class listed before this one ends the chain for
+        # every OAuth access token. django-oauth-toolkit's returns None when the
+        # token is not its own, so a JWT falls through it to simplejwt below.
+        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         # SessionAuthentication removed - it causes CSRF errors when stale sessionid
         # cookies are present during login. Since we use JWT, sessions aren't needed.
@@ -239,6 +246,59 @@ AUTHENTICATION_BACKENDS = [
     # allauth specific authentication methods, such as login by email
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
+
+# Where django-oauth-toolkit's authorize view sends an unauthenticated user.
+# Django's default is "/accounts/login/", which resolved to nothing here until
+# allauth's URLs were routed in config.urls — the authorize endpoint answered a
+# 404 rather than a login page.
+LOGIN_URL = "/accounts/login/"
+
+
+# OAuth 2.1 authorization server. Precogly issues the tokens; the MCP server is
+# a resource server that validates them and holds no credential of its own.
+OAUTH2_PROVIDER = {
+    # These strings are the consent screen. A user deciding whether to connect
+    # an agent reads them and nothing else, so they name what is at stake rather
+    # than restating the verb.
+    "SCOPES": {
+        "read": "Read your threat models, diagrams and installed libraries",
+        "write": "Create and change threat models on your behalf",
+    },
+    # The default is ["__all__"], which would hand every new client write access
+    # without anyone choosing it. A client that wants to write has to ask.
+    "DEFAULT_SCOPES": ["read"],
+    # RFC 8252 exempts loopback redirects from port matching, because a native
+    # client binds whatever ephemeral port is free. django-oauth-toolkit applies
+    # the exemption to 127.0.0.1 and ::1 but withholds it from the hostname
+    # "localhost", which §8.3 marks NOT RECOMMENDED. Clients spell it "localhost"
+    # anyway, so without this the first authorization succeeds and every later
+    # one fails on a redirect_uri mismatch that the request does not explain.
+    "ALLOW_LOCALHOST_LOOPBACK": True,
+    # Dynamic client registration (RFC 7591). Off by default, and the metadata
+    # document gates `registration_endpoint` on this rather than on the URL
+    # resolving — so with it off a client discovers a server it cannot register
+    # with, and stops there.
+    "DCR_ENABLED": True,
+    # RFC 9700 (OAuth 2.0 Security Best Current Practice) hardening. Each of
+    # these is enforced in `oauth2_validators`, not merely reflected in the
+    # metadata document: without them this server advertises and accepts the
+    # implicit and password grants and the "plain" PKCE challenge method, none
+    # of which any client here has a reason to use.
+    "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
+    # Registration has to be open, because a client registers itself before any
+    # browser opens — there is no session to authenticate it with at that point.
+    # The default, IsAuthenticatedDCRPermission, wants a session and so refuses
+    # every MCP client. The cost is a public write endpoint on each deployment:
+    # anyone who can reach it can create an Application row. That grants nothing
+    # on its own — a registered client still has no token until a user logs in
+    # and consents — but it is a surface, and it is worth rate-limiting before a
+    # deployment is reachable from the internet.
+    "DCR_REGISTRATION_PERMISSION_CLASSES": (
+        "oauth2_provider.dcr.AllowAllDCRPermission",
+    ),
+}
 
 
 # DRF Spectacular (OpenAPI/Swagger)
