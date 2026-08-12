@@ -150,6 +150,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# The two server-rendered OAuth pages are the only thing here that needs static
+# files; everything else a user sees is served by Vite. `css/auth.css` is built
+# from the frontend's own tokens by `npm run build:auth-css` and committed,
+# because this image has no Node in it.
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
