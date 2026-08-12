@@ -13,8 +13,45 @@ from apps.systems.models import Orgsystem
 from apps.compliance.models import StandardFramework
 
 
+class ThreatModelQuerySet(models.QuerySet):
+    """Queries about who may read which threat models."""
+
+    def visible_to(self, user):
+        """Narrow to the threat models `user` is allowed to read.
+
+        Organization membership is the outer bound. Within it, a security team member
+        reads every model; everyone else reads the models their teams own, plus the
+        ones owned by no team — `owning_team` is nullable for records predating the
+        field, and there is no team on them to check against.
+
+        This queryset is the entire read boundary. `CanWrite` and `IsSecurityTeam` both
+        return `True` for safe methods (`apps/core/permissions.py`), so nothing else
+        narrows a read, and the MCP endpoint has no permission classes running at all —
+        it resolves a user from a bearer token and calls this.
+        """
+        org_ids = user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        visible = self.filter(organization_id__in=org_ids)
+
+        # Security team status is not scoped to an organization: being on one
+        # organization's security team grants full visibility in every organization the
+        # user belongs to, including ones where they are a plain member. That is
+        # precogly/precogly#209, still open. Reproduced here deliberately — this method
+        # exists to give the rule one home, not to change it.
+        if user.organization_memberships.filter(role="security_team").exists():
+            return visible
+
+        team_ids = user.team_memberships.values_list("team_id", flat=True)
+        return visible.filter(
+            models.Q(owning_team_id__in=team_ids) | models.Q(owning_team__isnull=True)
+        )
+
+
 class ThreatModel(TimestampedModel):
     """Threat model."""
+
+    objects = ThreatModelQuerySet.as_manager()
 
     class Criticality(models.TextChoices):
         LOW = "low", "Low"

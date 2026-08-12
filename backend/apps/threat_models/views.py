@@ -39,28 +39,15 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Filter threat models by user's team memberships within their orgs.
-        Security team members see all threat models in their org."""
-        user = self.request.user
-        org_ids = user.organization_memberships.values_list("organization_id", flat=True)
+        Security team members see all threat models in their org.
 
-        # Security team sees all threat models in their org
-        if user.organization_memberships.filter(role="security_team").exists():
-            queryset = ThreatModel.objects.filter(
-                organization_id__in=org_ids
-            ).select_related("created_by", "organization", "owning_team", "owning_team__business_unit")
-        else:
-            # Get teams the user belongs to
-            from apps.organizations.models import TeamMembership
-            user_team_ids = TeamMembership.objects.filter(
-                user=user
-            ).values_list("team_id", flat=True)
-
-            # Show threat models owned by user's teams + unassigned (legacy)
-            queryset = ThreatModel.objects.filter(
-                organization_id__in=org_ids
-            ).filter(
-                Q(owning_team_id__in=user_team_ids) | Q(owning_team__isnull=True)
-            ).select_related("created_by", "organization", "owning_team", "owning_team__business_unit")
+        Who may read what is `ThreatModelQuerySet.visible_to`, which the MCP endpoint
+        calls as well — it has no request and no permission classes, so the rule has to
+        live somewhere both can reach.
+        """
+        queryset = ThreatModel.objects.visible_to(self.request.user).select_related(
+            "created_by", "organization", "owning_team", "owning_team__business_unit"
+        )
 
         # Optional further filter by specific team
         owning_team_id = self.request.query_params.get("owning_team")
