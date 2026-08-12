@@ -18,6 +18,14 @@ dependencies = [
     "requests>=2.32,<3.0",
     # OAuth 2.1 authorization server, for MCP clients delegating a user's access.
     "django-oauth-toolkit>=3.4,<4.0",
+    # The MCP endpoint, served from this process (config/mcp_mount.py). a2wsgi
+    # bridges the MCP server's ASGI app into this WSGI application, which is only
+    # affordable because that app is configured for JSON responses and never
+    # streams.
+    #
+    # TODO: precogly-mcp itself is not pinned here yet: it is unreleased, and
+    # development installs it from a working copy.
+    "a2wsgi>=1.10,<2.0",
     "django-cors-headers>=4.4,<5.0",
     "django-environ>=0.11,<1.0",
     # API documentation and case transformation (snake_case <-> camelCase)

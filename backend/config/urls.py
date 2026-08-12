@@ -13,6 +13,25 @@ from drf_spectacular.views import (
 )
 from oauth2_provider.urls import metadata_urlpatterns
 
+# django-oauth-toolkit publishes two kinds of metadata: RFC 8414 for the authorization
+# server, and RFC 9728 for a protected resource. Only the first describes this server.
+# The second describes /mcp, and the MCP endpoint publishes its own at
+# /.well-known/oauth-protected-resource/mcp, out of the same AuthSettings that its token
+# verifier enforces — so the scopes it advertises are the scopes it requires. Routing
+# both put two documents on that one path: Django builds its from
+# OAUTH2_PROVIDER["SCOPES"], so it named /o as the authorization server and advertised
+# `write` for an endpoint with no write tool, and the dispatch order in config/wsgi.py
+# decided which one a client saw.
+#
+# Selected by name, since the resource patterns are the ones to leave out and the URL
+# shapes belong to django-oauth-toolkit. A protected resource served by Django itself —
+# /api/, say — would want them back, with /mcp excluded.
+_authorization_server_metadata = [
+    pattern
+    for pattern in metadata_urlpatterns
+    if pattern.name.startswith("oauth-server-metadata")
+]
+
 urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
@@ -41,11 +60,11 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     # OAuth 2.1 authorization server, for MCP clients.
     path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
-    # RFC 8414 and RFC 9728 put the metadata documents at the origin root rather
-    # than under the prefix above, and strict clients look nowhere else. Serving
-    # them from both mounts is safe: the views reverse their endpoint URLs, so
-    # both describe the same "/o/" endpoints.
-    path("", include((metadata_urlpatterns, "oauth2_provider_metadata"))),
+    # RFC 8414 puts this document at the origin root rather than under the prefix
+    # above, and strict clients look nowhere else. Serving it from both mounts is
+    # safe: the views reverse their endpoint URLs, so both describe the same "/o/"
+    # endpoints.
+    path("", include((_authorization_server_metadata, "oauth2_provider_metadata"))),
     # App APIs
     path("api/", include("apps.threat_models.urls")),  # threat-models, reference-images
     path("api/", include("apps.diagrams.urls")),  # diagrams, dfd-templates
@@ -63,14 +82,18 @@ urlpatterns = [
 
 # Debug toolbar (development only)
 if settings.DEBUG:
-    try:
-        import debug_toolbar
+    # Checked as well as imported: the package stays importable with the app out
+    # of INSTALLED_APPS, so an import guard on its own would mount `__debug__/`
+    # with no middleware behind it.
+    if getattr(settings, "DEBUG_TOOLBAR", False):
+        try:
+            import debug_toolbar
 
-        urlpatterns = [
-            path("__debug__/", include(debug_toolbar.urls)),
-        ] + urlpatterns
-    except ImportError:
-        pass
+            urlpatterns = [
+                path("__debug__/", include(debug_toolbar.urls)),
+            ] + urlpatterns
+        except ImportError:
+            pass
 
     # Serve media files in development
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

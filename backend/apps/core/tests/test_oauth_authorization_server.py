@@ -87,11 +87,21 @@ class TestDiscovery(TestCase):
         assert "password" not in document["grant_types_supported"]
         assert "implicit" not in document["grant_types_supported"]
 
-    def test_the_protected_resource_document_names_this_server(self):
-        document = self.client.get("/.well-known/oauth-protected-resource").json()
-
-        assert document["authorization_servers"]
-        assert set(document["scopes_supported"]) == {"read", "write"}
+    def test_django_does_not_answer_for_a_protected_resource(self):
+        # django-oauth-toolkit publishes RFC 9728 metadata too, and config.urls leaves
+        # those two patterns out on purpose. The only protected resource here is /mcp,
+        # which publishes its own document out of the same AuthSettings its token
+        # verifier enforces. Routed as well, Django answered the same path from
+        # OAUTH2_PROVIDER["SCOPES"] — advertising `write` for an endpoint with no write
+        # tool — and the dispatch order in config.wsgi decided which one a client saw.
+        #
+        # 404 here rather than at the endpoint: the MCP app is dispatched to before
+        # Django, so a request that arrives at the URLconf at all has already missed it.
+        assert self.client.get("/.well-known/oauth-protected-resource").status_code == 404
+        assert (
+            self.client.get("/.well-known/oauth-protected-resource/mcp").status_code
+            == 404
+        )
 
 
 class TestTheLoginTheAuthorizeViewNeeds(TestCase):

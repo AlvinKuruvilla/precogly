@@ -24,6 +24,10 @@ services:
     volumes:
       - ./backend:/app
       - ./libraries:/libraries
+      # The MCP server is served from this process (backend/config/mcp_mount.py).
+      # Mounted from a working copy because precogly-mcp is not released yet; it
+      # becomes an ordinary requirement once it is.
+      - ../precogly-mcp:/precogly-mcp
     ports:
       - "8000:8000"
     env_file:

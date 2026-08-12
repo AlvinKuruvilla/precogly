@@ -305,6 +305,15 @@ OAUTH2_PROVIDER = {
     ),
 }
 
+# The MCP endpoint, served from this process by config.mcp_mount.
+#
+# MCP_RESOURCE_URL is an identity, not a routing hint: it is the audience a client
+# names in its RFC 8707 `resource` parameter and the string the verifier requires to
+# be on a token. It has to be the URL clients actually reach this deployment at, or
+# every token is issued for one audience and checked against another.
+MCP_RESOURCE_URL = env("MCP_RESOURCE_URL", default="http://localhost:8000/mcp")
+MCP_ISSUER_URL = env("MCP_ISSUER_URL", default="http://localhost:8000")
+
 
 # DRF Spectacular (OpenAPI/Swagger)
 SPECTACULAR_SETTINGS = {

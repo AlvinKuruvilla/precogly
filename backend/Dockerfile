@@ -34,7 +34,16 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed && python manage.py runserver 0.0.0.0:8000"]
+# precogly-mcp is installed at container start, not at build time: it is
+# unreleased, so it comes from the working copy that docker-compose mounts at
+# /precogly-mcp, which does not exist while the image is being built. Installing
+# it here rather than by hand is what keeps `docker compose up` sufficient.
+#
+# `uv pip`, not `pip`: uv sync builds a venv without pip in it, so plain pip
+# would either not resolve or land in the system interpreter. --python names the
+# target because uv pip reads VIRTUAL_ENV, which UV_PROJECT_ENVIRONMENT does not
+# set.
+CMD ["sh", "-c", "uv pip install --python /opt/venv --no-cache-dir -e /precogly-mcp && python manage.py migrate --noinput && python manage.py seed && python manage.py runserver 0.0.0.0:8000"]
 
 # ---- Production ----
 FROM base AS prod
