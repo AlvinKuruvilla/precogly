@@ -107,7 +107,9 @@ class TrustBoundaryViewSet(viewsets.ModelViewSet):
         )
         return TrustBoundary.objects.filter(
             Q(zone_a__components__orgsystem__organization_id__in=org_ids)
+            | Q(zone_a__components__threat_model__organization_id__in=org_ids)
             | Q(zone_b__components__orgsystem__organization_id__in=org_ids)
+            | Q(zone_b__components__threat_model__organization_id__in=org_ids)
         ).distinct()
 
 
@@ -165,17 +167,15 @@ class OrgsystemComponentViewSet(viewsets.ModelViewSet):
                 instance.save(update_fields=["orgsystem"])
 
     def get_queryset(self):
-        """
-        Filter by user's organizations.
-
-        Includes components where:
-        - orgsystem belongs to user's organization, OR
-        - orgsystem is NULL (unassigned components)
-        """
+        """Filter by organizations reachable through orgsystem or threat model."""
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
         return OrgsystemComponent.objects.filter(
-            Q(orgsystem__organization_id__in=org_ids) | Q(orgsystem__isnull=True)
+            Q(orgsystem__organization_id__in=org_ids)
+            | Q(
+                orgsystem__isnull=True,
+                threat_model__organization_id__in=org_ids,
+            )
         ).select_related("component_library", "trust_zone")
 
     @action(detail=True, methods=["patch"])
@@ -273,7 +273,11 @@ class DataFlowViewSet(viewsets.ModelViewSet):
         user = self.request.user
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
         return DataFlow.objects.filter(
-            source_component__orgsystem__organization_id__in=org_ids
+            Q(source_component__orgsystem__organization_id__in=org_ids)
+            | Q(
+                source_component__orgsystem__isnull=True,
+                source_component__threat_model__organization_id__in=org_ids,
+            )
         ).select_related("source_component", "dest_component")
 
 
@@ -310,7 +314,10 @@ class ComponentDataAssetViewSet(viewsets.ModelViewSet):
         org_ids = user.organization_memberships.values_list("organization_id", flat=True)
         return ComponentDataAsset.objects.filter(
             Q(component__orgsystem__organization_id__in=org_ids)
-            | Q(component__orgsystem__isnull=True)
+            | Q(
+                component__orgsystem__isnull=True,
+                component__threat_model__organization_id__in=org_ids,
+            )
         ).select_related("component", "data_asset")
 
 
