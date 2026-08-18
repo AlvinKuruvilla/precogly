@@ -5,6 +5,24 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # --from-ref resolves against the base branch, which a shallow clone
+          # does not fetch.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pre-commit
+      - run: |
+          pre-commit run \
+            --from-ref origin/${{ github.base_ref }} \
+            --to-ref HEAD \
+            --show-diff-on-failure
+
   backend:
     runs-on: ubuntu-latest
     steps:
