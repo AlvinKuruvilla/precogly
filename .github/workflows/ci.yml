@@ -21,3 +21,24 @@ jobs:
           node-version: '22'
       - run: cd frontend && npm ci
       - run: cd frontend && npx tsc --noEmit
+
+  # Django's deployment checklist, run against the production settings module.
+  deploy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Every deployment finding is a WARNING and the check framework only fails
+      # on ERROR, so use --fail-level. --tag security drops drf_spectacular's schema warnings.
+      # --no-deps skips the database: the security checks read settings only.
+      #
+      # SECRET_KEY and ALLOWED_HOSTS come from the environment in a deployment,
+      # so with no values here the run fails on security.W009 and W020. A
+      # throwaway key satisfies W009's length and entropy test without a real one
+      # living in CI. This buys a regression guard on the settings module
+      # but does not protect against a weak SECRET_KEY on a running deployment.
+      - run: |
+          docker compose run --rm --no-deps \
+            -e DJANGO_SETTINGS_MODULE=config.settings.production \
+            -e SECRET_KEY="$(openssl rand -base64 48)" \
+            -e ALLOWED_HOSTS=precogly.example.com \
+            backend python manage.py check --deploy --tag security --fail-level WARNING
