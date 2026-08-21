@@ -272,21 +272,24 @@ Click **Add Custom Countermeasure** to create one manually. You write the name a
 
 Each countermeasure has a status that drives the overall threat status:
 
-| Status   | Meaning                                     | Color  |
-| -------- | ------------------------------------------- | ------ |
-| Gap      | Not implemented                             | Red    |
-| Planned  | Implementation scheduled or in progress     | Yellow |
-| Verified | Confirmed by security team                  | Green  |
-| Platform | Handled at platform/infrastructure level    | Green  |
-| Waived   | Risk accepted with documented justification | Blue   |
+| Status         | Meaning                                     | Color  |
+| -------------- | ------------------------------------------- | ------ |
+| Gap            | Not implemented                             | Red    |
+| Planned        | Implementation scheduled                    | Yellow |
+| In Progress    | Implementation underway                     | Yellow |
+| Implemented    | Deployed, not yet verified                  | Yellow |
+| Verified       | Confirmed by security team                  | Green  |
+| Platform       | Handled at platform/infrastructure level    | Green  |
+| Waived         | Risk accepted with documented justification | Blue   |
+| Decommissioned | No longer active                            | Gray   |
 
 The threat's overall status is derived from its countermeasures:
 
-| Threat status | Condition                                            |
-| ------------- | ---------------------------------------------------- |
-| Exposed       | At least one countermeasure is a gap                 |
-| Addressable   | All countermeasures are planned, waived, or platform |
-| Mitigated     | All countermeasures are verified or platform         |
+| Threat status | Condition                                                          |
+| ------------- | ------------------------------------------------------------------ |
+| Exposed       | No countermeasures applied, or at least one countermeasure is a gap |
+| Addressable   | All countermeasures are planned, in progress, waived, or decommissioned |
+| Mitigated     | All countermeasures are implemented, verified, or platform         |
 
 !!! note
     **Platform** status can only be set by **Security Team** members. This is used for controls managed centrally (e.g., WAF, DDoS protection, SSO). See [Platform Controls](../concepts/platform-controls.md).
