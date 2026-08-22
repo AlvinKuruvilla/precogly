@@ -6,7 +6,7 @@ The DFD editor is where you visually model your system — place components, dra
 
 ## Toolbar
 
-![DFD editor toolbar](../assets/images/dfd-component-types.png)
+![DFD editor showing the current toolbar and an AWS serverless diagram](../assets/images/dfd-component-types.png)
 
 | Button | What it does |
 |--------|-------------|
