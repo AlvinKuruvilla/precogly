@@ -21,6 +21,8 @@ Open `/guest` on your Precogly installation. Click the model title to rename it,
 
 This context is included in the saved CycloneDX file and the guest Word report.
 
+![Guest Editor system context dialog](../assets/images/guest-editor-context.png)
+
 ## Draw the data flow diagram
 
 Use the toolbar to add processes, data stores, human and system actors, trust zones, and
