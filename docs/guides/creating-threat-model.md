@@ -317,19 +317,21 @@ Navigate to the **Risk Analysis** tab to aggregate threats into business-level r
 
 ### Select a scoring method
 
-Choose the risk scoring methodology for this threat model:
+Choose the risk scoring methodology for this threat model. The selector shows planned methods as disabled until their scoring engines are available:
 
-| Method                  | Description                             |
-| ----------------------- | --------------------------------------- |
-| TM Library (5x5 Matrix) | Likelihood x Impact grid                |
-| FAIR                    | Factor Analysis of Information Risk     |
-| OWASP Risk Rating       | OWASP methodology with multiple factors |
-| Mozilla RRA             | Mozilla Rapid Risk Assessment           |
-| Custom                  | Manual score assignment                 |
+| Method                  | Availability | Description                             |
+| ----------------------- | ------------ | --------------------------------------- |
+| TM Library (5x5 Matrix) | Available    | Likelihood x Impact grid                |
+| FAIR                    | Coming soon  | Factor Analysis of Information Risk     |
+| OWASP Risk Rating       | Coming soon  | OWASP methodology with multiple factors |
+| Mozilla RRA             | Coming soon  | Mozilla Rapid Risk Assessment           |
+| Custom                  | Coming soon  | Manual score assignment                 |
 
 ### Create and score risks
 
 Create named risks (e.g., "Customer data breach", "Service availability loss") and link them to specific threats. Precogly computes both inherent and residual risk scores based on threat severity and countermeasure effectiveness.
+
+Use **Table View** to compare scores, owners, responses, and linked-threat counts. Select multiple rows to update their owner or response together. Use **Kanban View** to organize risks by response: Unresponded, Mitigate, Transfer, Accept, or Avoid. Drag a risk between columns to change its response.
 
 ![Risk Analysis](../assets/images/creating-tm-risk-analysis.png)
 
