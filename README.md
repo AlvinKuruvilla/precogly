@@ -72,7 +72,7 @@ Precogly is designed for enterprise workflows, but smaller organizations can als
 
 ### Roadmap
 
-See the [v0.3.0 milestone](https://github.com/precogly/precogly/milestone/1) for what's coming next.
+See the [GitHub milestones](https://github.com/precogly/precogly/milestones) for current and upcoming release work.
 
 ### Security
 
