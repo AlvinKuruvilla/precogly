@@ -48,6 +48,9 @@ Precogly uses split settings for different environments:
 
 Set the active module via `DJANGO_SETTINGS_MODULE`.
 
+!!! note "Development overrides"
+    The development settings module explicitly enables `DEBUG`, allows all CORS origins, and fixes the accepted host list for the local containers. Changing `DEBUG`, `CORS_ALLOWED_ORIGINS`, or `ALLOWED_HOSTS` in `.env` does not override those development-only values. Use `config.settings.production` and the production Compose configuration when validating deployment settings.
+
 ## Production Deployment
 
 Use the production Docker Compose file:
