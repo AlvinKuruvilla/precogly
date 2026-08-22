@@ -86,7 +86,10 @@ Precogly can suggest threats for components using any OpenAI-compatible chat-com
 
 ### How It Works
 
-When enabled, the AI connects Precogly to a language model that can assist with threat modeling tasks. The current implementation ranks threats from your installed library packs against each component and explains why each applies — future AI features may use different approaches depending on the task.
+When enabled, the AI connects Precogly to a language model for two workflows:
+
+- **Threat suggestions** rank threats from your installed library packs against a component and explain why each applies.
+- **DFD generation** analyzes an uploaded architecture image, lets you review the detected structure and clarifying questions, and creates an editable data flow diagram.
 
 ![AI provider settings in the organization settings page](../assets/images/ai-provider-settings.png)
 
@@ -145,6 +148,14 @@ Organizations can bring their own model by saving an AI provider config through 
 Once a provider is configured, an owl icon appears next to components in the threat analysis workspace. Click it to get AI-generated threat suggestions for that component.
 
 ![The owl icon in the threat analysis workspace triggers AI suggestions](../assets/images/ai-owl-suggestion.png)
+
+### Generating a DFD with AI
+
+Open a DFD and click **Generate** in the editor toolbar. Enter the application context, upload a JPEG, PNG, or WebP architecture diagram, review the detected components and flows, then generate the editable DFD. See the [DFD editor guide](../concepts/dfd-editor.md#generate-a-dfd-from-an-image) for the full workflow.
+
+### Reviewing AI Usage
+
+Organization settings include an **AI Usage** report with total cost, total tokens, average tokens per call, and usage over time. Breakdowns show usage by feature, user, and model/provider. Self-hosted providers can report token activity without a dollar cost.
 
 !!! note
     `AI_SECRET_KEY` is separate from Django's `SECRET_KEY` so it can be rotated independently. Rotating it invalidates any stored per-org API keys, which must then be re-entered.
