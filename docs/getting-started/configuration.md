@@ -37,6 +37,30 @@ The values below reflect what `.env.example` provides for local development.
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost`          | Origins allowed for API requests |
 | `FRONTEND_URL`         | `http://localhost:5173`                          | Used for password reset links     |
 
+### AI model endpoints
+
+Organizations configure their own model endpoint in the settings UI and Precogly
+fetches that URL from the server, so `AI_PROVIDER_URL_POLICY` bounds where those
+requests can go.
+
+| Value            | Permits                                          | Default in    |
+| ---------------- | ------------------------------------------------ | ------------- |
+| `allow-loopback` | `127.0.0.0/8` and `::1`, plus public addresses    | development   |
+| `deny-private`   | Public addresses only                            | production    |
+
+You do not normally set this. A local install runs a model on the same host, so
+development settings permit loopback; production settings do not, because any
+member can save an endpoint and new signups join the primary organization
+automatically — a permissive policy there would let anyone who can register make
+the server issue requests from inside your network.
+
+Set it explicitly to override, most often `allow-loopback` in production when the
+model really does run beside Precogly.
+
+Neither value permits private or link-local ranges: `169.254.169.254` and
+`10.0.0.0/8` are refused under both. `allow-loopback` reaches a model on the same
+host; it does not reach the cloud metadata service.
+
 ## Settings Modules
 
 Precogly uses split settings for different environments:
