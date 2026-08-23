@@ -1,0 +1,22 @@
+# Hooks run from the repository root, so every path here is repo-root-relative
+# even though the only Python lives under `backend/`. Ruff's own settings are in
+# `backend/ruff.toml`, which it finds by walking up from each file.
+#
+# Keep `rev` in step with the ruff pin in `backend/requirements/development.txt`.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      # Lint first so the formatter's output is what actually lands in the commit.
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+# Django regenerates migrations in its own style, so formatting them would
+# rewrite every new one on the commit that creates it. `backend/ruff.toml`
+# excludes them too, but that only takes effect for runs whose working
+# directory is `backend/` — see the note beside `force-exclude` there.
+exclude: |
+  (?x)^(
+    backend/.*/migrations/.*
+  )$
