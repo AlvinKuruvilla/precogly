@@ -42,6 +42,7 @@ body:
         - MCP Server
         - Integrations & Export
         - Documentation / Tooling
+        - Infrastructure / Docker
     validations:
       required: false
   - type: checkboxes

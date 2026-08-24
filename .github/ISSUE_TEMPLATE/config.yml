@@ -6,6 +6,3 @@ contact_links:
   - name: Discord Community
     url: https://discord.gg/uBFZGJzpYa
     about: Join the real-time community chat on Discord.
-  - name: Security Vulnerability Reporting
-    url: https://github.com/precogly/precogly/security/advisories/new
-    about: Privately report a security vulnerability.
