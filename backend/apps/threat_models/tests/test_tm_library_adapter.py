@@ -12,6 +12,8 @@ from apps.threats.models import (
     ComponentInstanceThreat,
     Risk,
     RiskThreat,
+    ThreatPersona,
+    ThreatPersonaLink,
 )
 
 from ..adapters import TmLibraryAdapter
@@ -188,3 +190,283 @@ class TestRiskScoring(TmLibraryAdapterTestMixin, TestCase):
         # Engine: possible(3) * moderate(3) = 9 → 9/25*100 = 36 → medium
         # Export: round(36/100*25) = 9
         self.assertEqual(risk["score"], 9)
+
+
+class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
+    """Test that per-instance threat details survive export/import roundtrip."""
+
+    def test_divergent_severity_metadata_survives_roundtrip(self):
+        """Two components with the same threat but different severity metadata
+        should both appear in the export and restore correctly on re-import."""
+        json_data = {
+            "scope": {"title": "Severity Test"},
+            "components": [
+                {"symbolic_name": "comp-a", "title": "Component A"},
+                {"symbolic_name": "comp-b", "title": "Component B"},
+            ],
+            "threats": [
+                {
+                    "symbolic_name": "shared-threat",
+                    "title": "Shared Threat",
+                    "components_affected": ["comp-a", "comp-b"],
+                    "inherent_severity": "medium",
+                },
+            ],
+        }
+        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
+
+        # Set divergent severity_scoring_metadata on each instance
+        comp_a = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component A")
+        comp_b = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component B")
+
+        threat_a = ComponentInstanceThreat.objects.get(component=comp_a, threat_name="Shared Threat")
+        threat_a.severity_scoring_metadata = {
+            "likelihood": "certain",
+            "impact": "severe",
+            "rationale": "User-facing input",
+        }
+        threat_a.save(update_fields=["severity_scoring_metadata"])
+
+        threat_b = ComponentInstanceThreat.objects.get(component=comp_b, threat_name="Shared Threat")
+        threat_b.severity_scoring_metadata = {
+            "likelihood": "rare",
+            "impact": "negligible",
+            "rationale": "Internal service",
+        }
+        threat_b.save(update_fields=["severity_scoring_metadata"])
+
+        # Export
+        exported = self.adapter.export_data(threat_model)
+
+        # Verify both instances appear in the extension
+        threat_details = exported["extensions"]["precogly.org/threat-details"]
+        self.assertIn("shared-threat", threat_details)
+        instance_details = threat_details["shared-threat"]["instance_details"]
+        self.assertEqual(len(instance_details), 2)
+
+        details_by_affected = {d["affected"]: d for d in instance_details}
+        self.assertIn("comp-a", details_by_affected)
+        self.assertIn("comp-b", details_by_affected)
+        self.assertEqual(
+            details_by_affected["comp-a"]["severity_scoring_metadata"]["likelihood"],
+            "certain",
+        )
+        self.assertEqual(
+            details_by_affected["comp-b"]["severity_scoring_metadata"]["likelihood"],
+            "rare",
+        )
+
+        # Re-import into a fresh threat model and verify metadata is restored
+        reimported_model, _ = self.adapter.import_data(exported, self.org, self.user)
+
+        reimported_comp_a = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component A"
+        )
+        reimported_comp_b = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component B"
+        )
+
+        reimported_threat_a = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_a, threat_name="Shared Threat"
+        )
+        reimported_threat_b = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_b, threat_name="Shared Threat"
+        )
+
+        self.assertEqual(reimported_threat_a.severity_scoring_metadata["likelihood"], "certain")
+        self.assertEqual(reimported_threat_a.severity_scoring_metadata["impact"], "severe")
+        self.assertEqual(reimported_threat_b.severity_scoring_metadata["likelihood"], "rare")
+        self.assertEqual(reimported_threat_b.severity_scoring_metadata["impact"], "negligible")
+
+    def test_divergent_severity_and_impact_survives_roundtrip(self):
+        """Per-instance inherent_severity, residual_severity, and impact_description
+        should all survive export/import roundtrip."""
+        json_data = {
+            "scope": {"title": "Full Per-Instance Test"},
+            "components": [
+                {"symbolic_name": "comp-a", "title": "Component A"},
+                {"symbolic_name": "comp-b", "title": "Component B"},
+            ],
+            "threats": [
+                {
+                    "symbolic_name": "shared-threat",
+                    "title": "Shared Threat",
+                    "components_affected": ["comp-a", "comp-b"],
+                    "inherent_severity": "medium",
+                },
+            ],
+        }
+        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
+
+        comp_a = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component A")
+        comp_b = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component B")
+
+        threat_a = ComponentInstanceThreat.objects.get(component=comp_a, threat_name="Shared Threat")
+        threat_a.inherent_severity = "critical"
+        threat_a.residual_severity = "high"
+        threat_a.impact_description = "Total system compromise"
+        threat_a.save(update_fields=["inherent_severity", "residual_severity", "impact_description"])
+
+        threat_b = ComponentInstanceThreat.objects.get(component=comp_b, threat_name="Shared Threat")
+        threat_b.inherent_severity = "low"
+        threat_b.residual_severity = ""
+        threat_b.impact_description = "Minor data exposure"
+        threat_b.save(update_fields=["inherent_severity", "residual_severity", "impact_description"])
+
+        # Export
+        exported = self.adapter.export_data(threat_model)
+
+        threat_details = exported["extensions"]["precogly.org/threat-details"]
+        instance_details = threat_details["shared-threat"]["instance_details"]
+        details_by_affected = {d["affected"]: d for d in instance_details}
+
+        # Verify per-instance fields in export
+        self.assertEqual(details_by_affected["comp-a"]["inherent_severity"], "critical")
+        self.assertEqual(details_by_affected["comp-a"]["residual_severity"], "high")
+        self.assertEqual(details_by_affected["comp-a"]["event"], "Total system compromise")
+        self.assertEqual(details_by_affected["comp-b"]["inherent_severity"], "low")
+        self.assertNotIn("residual_severity", details_by_affected["comp-b"])
+        self.assertEqual(details_by_affected["comp-b"]["event"], "Minor data exposure")
+
+        # Re-import and verify
+        reimported_model, _ = self.adapter.import_data(exported, self.org, self.user)
+
+        reimported_comp_a = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component A"
+        )
+        reimported_comp_b = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component B"
+        )
+
+        reimported_threat_a = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_a, threat_name="Shared Threat"
+        )
+        reimported_threat_b = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_b, threat_name="Shared Threat"
+        )
+
+        self.assertEqual(reimported_threat_a.inherent_severity, "critical")
+        self.assertEqual(reimported_threat_a.residual_severity, "high")
+        self.assertEqual(reimported_threat_a.impact_description, "Total system compromise")
+        self.assertEqual(reimported_threat_b.inherent_severity, "low")
+        self.assertEqual(reimported_threat_b.impact_description, "Minor data exposure")
+
+    def test_divergent_persona_survives_roundtrip(self):
+        """Per-instance threat_persona links should survive export/import roundtrip."""
+        json_data = {
+            "scope": {"title": "Persona Test"},
+            "components": [
+                {"symbolic_name": "comp-a", "title": "Component A"},
+                {"symbolic_name": "comp-b", "title": "Component B"},
+            ],
+            "threat_personas": [
+                {
+                    "symbolic_name": "insider",
+                    "title": "Malicious Insider",
+                    "description": "Employee with access",
+                    "is_person": True,
+                    "malicious_intent": True,
+                },
+                {
+                    "symbolic_name": "external",
+                    "title": "External Attacker",
+                    "description": "Remote attacker",
+                    "is_person": True,
+                    "malicious_intent": True,
+                },
+            ],
+            "threats": [
+                {
+                    "symbolic_name": "shared-threat",
+                    "title": "Shared Threat",
+                    "components_affected": ["comp-a", "comp-b"],
+                    "inherent_severity": "medium",
+                },
+            ],
+        }
+        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
+
+        comp_a = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component A")
+        comp_b = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component B")
+        threat_a = ComponentInstanceThreat.objects.get(component=comp_a, threat_name="Shared Threat")
+        threat_b = ComponentInstanceThreat.objects.get(component=comp_b, threat_name="Shared Threat")
+
+        # Link different personas to each instance
+        insider = ThreatPersona.objects.get(threat_model=threat_model, symbolic_name="insider")
+        external = ThreatPersona.objects.get(threat_model=threat_model, symbolic_name="external")
+        ThreatPersonaLink.objects.create(persona=insider, component_threat=threat_a)
+        ThreatPersonaLink.objects.create(persona=external, component_threat=threat_b)
+
+        # Export
+        exported = self.adapter.export_data(threat_model)
+
+        threat_details = exported["extensions"]["precogly.org/threat-details"]
+        instance_details = threat_details["shared-threat"]["instance_details"]
+        details_by_affected = {d["affected"]: d for d in instance_details}
+
+        self.assertEqual(details_by_affected["comp-a"]["threat_persona"], "insider")
+        self.assertEqual(details_by_affected["comp-b"]["threat_persona"], "external")
+
+        # Re-import and verify persona links are restored
+        reimported_model, _ = self.adapter.import_data(exported, self.org, self.user)
+
+        reimported_comp_a = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component A"
+        )
+        reimported_comp_b = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component B"
+        )
+        reimported_threat_a = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_a, threat_name="Shared Threat"
+        )
+        reimported_threat_b = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_b, threat_name="Shared Threat"
+        )
+
+        persona_a = ThreatPersonaLink.objects.get(component_threat=reimported_threat_a)
+        persona_b = ThreatPersonaLink.objects.get(component_threat=reimported_threat_b)
+        self.assertEqual(persona_a.persona.symbolic_name, "insider")
+        self.assertEqual(persona_b.persona.symbolic_name, "external")
+
+    def test_legacy_flat_metadata_import(self):
+        """Old exports with flat severity_scoring_metadata (no instance_details)
+        should still apply metadata to all instances."""
+        json_data = {
+            "scope": {"title": "Legacy Test"},
+            "components": [
+                {"symbolic_name": "comp-x", "title": "Component X"},
+                {"symbolic_name": "comp-y", "title": "Component Y"},
+            ],
+            "threats": [
+                {
+                    "symbolic_name": "legacy-threat",
+                    "title": "Legacy Threat",
+                    "components_affected": ["comp-x", "comp-y"],
+                    "inherent_severity": "high",
+                },
+            ],
+            "extensions": {
+                "precogly.org/threat-details": {
+                    "legacy-threat": {
+                        "severity_scoring_metadata": {
+                            "likelihood": "likely",
+                            "impact": "major",
+                            "rationale": "Legacy format",
+                        }
+                    }
+                }
+            },
+        }
+        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
+
+        comp_x = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component X")
+        comp_y = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component Y")
+
+        threat_x = ComponentInstanceThreat.objects.get(component=comp_x, threat_name="Legacy Threat")
+        threat_y = ComponentInstanceThreat.objects.get(component=comp_y, threat_name="Legacy Threat")
+
+        # Both should have the same metadata (legacy flat format applies to all)
+        self.assertEqual(threat_x.severity_scoring_metadata["likelihood"], "likely")
+        self.assertEqual(threat_y.severity_scoring_metadata["likelihood"], "likely")
+        self.assertEqual(threat_x.severity_scoring_metadata["rationale"], "Legacy format")
+        self.assertEqual(threat_y.severity_scoring_metadata["rationale"], "Legacy format")
