@@ -1446,6 +1446,12 @@ def _import_pack(
         with transaction.atomic():
             # Hard delete existing items if forcing reinstall
             if existing and force:
+                logger.warning(
+                    "Force reimporting pack '%s' — existing component, threat,"
+                    " and countermeasure instance links will be orphaned"
+                    " (set to NULL).",
+                    slug,
+                )
                 _hard_delete_pack_items(existing)
 
             # Create/update LibraryPack
