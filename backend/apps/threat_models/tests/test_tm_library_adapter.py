@@ -4,6 +4,7 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework.exceptions import ValidationError
 
 from apps.organizations.models import (
     Organization,
@@ -11,19 +12,17 @@ from apps.organizations.models import (
     Team,
     TeamMembership,
 )
-from apps.systems.models import DataAsset, DataFlow, OrgsystemComponent, TrustZone
+from apps.systems.models import OrgsystemComponent
 from apps.threats.models import (
+    ComponentInstanceThreat,
     DataFlowInstanceThreat,
     InstanceCountermeasure,
-    ComponentInstanceThreat,
     Risk,
-    RiskThreat,
     ThreatPersona,
     ThreatPersonaLink,
 )
 
 from ..adapters import TmLibraryAdapter
-from ..models import ThreatModel
 
 User = get_user_model()
 
@@ -51,24 +50,26 @@ class TestValidation(TmLibraryAdapterTestMixin, TestCase):
     """Test validation of input data."""
 
     def test_missing_scope_raises_error(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.adapter.import_data({"threats": []}, self.org, self.user)
 
     def test_invalid_json_raises_error(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.adapter.validate("not a dict")
 
     def test_missing_scope_title_raises_error(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.adapter.validate({"scope": {}})
 
     def test_valid_minimal_input(self):
         json_data = {
             "scope": {"title": "Minimal Model"},
         }
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
+        threat_model, _summary = self.adapter.import_data(
+            json_data, self.org, self.user
+        )
         self.assertEqual(threat_model.name, "Minimal Model")
-        self.assertEqual(summary["threats"], 0)
+        self.assertEqual(_summary["threats"], 0)
 
 
 class TestEnumMappings(TmLibraryAdapterTestMixin, TestCase):
@@ -85,7 +86,9 @@ class TestEnumMappings(TmLibraryAdapterTestMixin, TestCase):
                 },
             ],
         }
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
+        threat_model, _summary = self.adapter.import_data(
+            json_data, self.org, self.user
+        )
         actor = OrgsystemComponent.objects.get(
             threat_model=threat_model, name="Unknown"
         )
@@ -156,7 +159,9 @@ class TestMultiThreatControl(TmLibraryAdapterTestMixin, TestCase):
                 },
             ],
         }
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
+        threat_model, _summary = self.adapter.import_data(
+            json_data, self.org, self.user
+        )
 
         # Should have 1 shared countermeasure instance linked to 2 threats
         cm_count = InstanceCountermeasure.objects.filter(
@@ -606,9 +611,6 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         comp_a = OrgsystemComponent.objects.get(
             threat_model=threat_model, name="Component A"
         )
-        comp_b = OrgsystemComponent.objects.get(
-            threat_model=threat_model, name="Component B"
-        )
 
         # Dismiss one instance, leave the other active
         threat_a = ComponentInstanceThreat.objects.get(
@@ -618,9 +620,6 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         threat_a.dismissal_reason = "Not applicable to this component"
         threat_a.save(update_fields=["is_dismissed", "dismissal_reason"])
 
-        threat_b = ComponentInstanceThreat.objects.get(
-            component=comp_b, threat_name="Shared Threat"
-        )
         # threat_b stays active (is_dismissed=False, default)
 
         # Export

@@ -1106,7 +1106,7 @@ class TmLibraryAdapter(BaseAdapter):
                         scoring_meta = detail_data.get("severity_scoring_metadata")
                         if not scoring_meta:
                             continue
-                        for threat_type, threat_instance in instances:
+                        for _threat_type, threat_instance in instances:
                             threat_instance.severity_scoring_metadata = scoring_meta
                             threat_instance.save(
                                 update_fields=["severity_scoring_metadata"]
@@ -1150,8 +1150,8 @@ class TmLibraryAdapter(BaseAdapter):
                                 )
 
             # 14c. precogly.org/compliance-mappings → restore instance standards
-            from apps.threats.models import InstanceCountermeasureStandard
             from apps.compliance.models import StandardRequirement
+            from apps.threats.models import InstanceCountermeasureStandard
 
             compliance_ext = extensions.get("precogly.org/compliance-mappings", {})
             if compliance_ext:
@@ -1188,8 +1188,8 @@ class TmLibraryAdapter(BaseAdapter):
                             )
 
             # 14d. precogly.org/pack-lineage → reconnect to library packs
-            from apps.systems.models import ComponentLibrary
             from apps.packs.models import LibraryPack
+            from apps.systems.models import ComponentLibrary
 
             pack_lineage_ext = extensions.get("precogly.org/pack-lineage", {})
             if pack_lineage_ext:
@@ -1241,7 +1241,6 @@ class TmLibraryAdapter(BaseAdapter):
         from apps.threats.models import (
             ComponentInstanceThreat,
             DataFlowInstanceThreat,
-            InstanceCountermeasure,
             Risk,
             ThreatLibraryTaxonomyEntry,
             ThreatPersona,
@@ -1524,7 +1523,8 @@ class TmLibraryAdapter(BaseAdapter):
 
         # Group threats by threat_library_id (or by name+desc for custom)
         # Each group becomes one threat entry in the export
-        threat_groups = {}  # group_key → { symbolic_name, title, desc, ..., components_affected, data_flows_affected, instances }
+        # group_key -> { symbolic_name, title, desc, ..., instances }
+        threat_groups = {}
 
         def _threat_group_key(threat_instance):
             """Determine grouping key for a threat instance."""
@@ -1829,7 +1829,7 @@ class TmLibraryAdapter(BaseAdapter):
             result["threats"].append(threat_entry)
 
             # Collect countermeasures from all instances in the group (via junction table)
-            for threat_type, threat_instance in group["instances"]:
+            for _threat_type, threat_instance in group["instances"]:
                 from apps.threats.services import get_countermeasures_for_threat
 
                 countermeasures = get_countermeasures_for_threat(threat_instance)
