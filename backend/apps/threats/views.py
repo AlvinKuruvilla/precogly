@@ -936,11 +936,31 @@ class RiskViewSet(viewsets.ModelViewSet):
         component_threat_ids = request.data.get("component_threat_ids", [])
         flow_threat_ids = request.data.get("flow_threat_ids", [])
 
+        valid_component_ids = set(
+            ComponentInstanceThreat.objects.filter(
+                id__in=component_threat_ids,
+                component__threat_model_id=threat_model_pk,
+            ).values_list("id", flat=True)
+        )
+        valid_flow_ids = set(
+            DataFlowInstanceThreat.objects.filter(
+                id__in=flow_threat_ids,
+                data_flow__source_component__threat_model_id=threat_model_pk,
+            ).values_list("id", flat=True)
+        )
+
+        rejected = (set(component_threat_ids) - valid_component_ids) | (set(flow_threat_ids) - valid_flow_ids)
+        if rejected:
+            return Response(
+                {"error": "Some threat IDs do not belong to this threat model.", "rejected_ids": sorted(rejected)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         risk_threat_rows = []
-        for threat_id in component_threat_ids:
+        for threat_id in valid_component_ids:
             if not RiskThreat.objects.filter(risk=risk, component_threat_id=threat_id).exists():
                 risk_threat_rows.append(RiskThreat(risk=risk, component_threat_id=threat_id))
-        for threat_id in flow_threat_ids:
+        for threat_id in valid_flow_ids:
             if not RiskThreat.objects.filter(risk=risk, flow_threat_id=threat_id).exists():
                 risk_threat_rows.append(RiskThreat(risk=risk, flow_threat_id=threat_id))
 
