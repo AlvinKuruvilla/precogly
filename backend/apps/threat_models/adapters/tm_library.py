@@ -330,6 +330,58 @@ class TmLibraryAdapter(BaseAdapter):
 
         return warnings
 
+    @staticmethod
+    def _apply_instance_detail(threat_instance, detail, persona_map):
+        """Apply per-instance fields from an instance_details entry to a threat instance."""
+        from apps.threats.models import ThreatPersonaLink
+
+        update_fields = []
+
+        scoring_meta = detail.get("severity_scoring_metadata")
+        if scoring_meta:
+            threat_instance.severity_scoring_metadata = scoring_meta
+            update_fields.append("severity_scoring_metadata")
+
+        inherent_severity = detail.get("inherent_severity")
+        if inherent_severity:
+            threat_instance.inherent_severity = inherent_severity
+            update_fields.append("inherent_severity")
+
+        residual_severity = detail.get("residual_severity")
+        if residual_severity:
+            threat_instance.residual_severity = residual_severity
+            update_fields.append("residual_severity")
+
+        impact_description = detail.get("event")
+        if impact_description:
+            threat_instance.impact_description = impact_description
+            update_fields.append("impact_description")
+
+        if update_fields:
+            threat_instance.save(update_fields=update_fields)
+
+        # Restore per-instance persona link (replaces any top-level default)
+        persona_ref = detail.get("threat_persona")
+        if persona_ref and persona_ref in persona_map:
+            persona = persona_map[persona_ref]
+            if hasattr(threat_instance, "component_id"):
+                # Remove any existing links from top-level default
+                ThreatPersonaLink.objects.filter(
+                    component_threat=threat_instance,
+                ).exclude(persona=persona).delete()
+                ThreatPersonaLink.objects.get_or_create(
+                    persona=persona,
+                    component_threat=threat_instance,
+                )
+            elif hasattr(threat_instance, "data_flow_id"):
+                ThreatPersonaLink.objects.filter(
+                    flow_threat=threat_instance,
+                ).exclude(persona=persona).delete()
+                ThreatPersonaLink.objects.get_or_create(
+                    persona=persona,
+                    flow_threat=threat_instance,
+                )
+
     def import_data(self, json_data, organization, created_by):
         validation_warnings = self.validate(json_data) or []
 
@@ -938,17 +990,50 @@ class TmLibraryAdapter(BaseAdapter):
             # 14. Consume Precogly extensions (round-trip restore)
             extensions = json_data.get("extensions", {})
 
-            # 14a. precogly.org/threat-details → restore severity_scoring_metadata
+            # 14a. precogly.org/threat-details → restore per-instance fields
             threat_details_ext = extensions.get("precogly.org/threat-details", {})
             if threat_details_ext:
                 for threat_sym, detail_data in threat_details_ext.items():
                     instances = threat_component_map.get(threat_sym, [])
-                    scoring_meta = detail_data.get("severity_scoring_metadata")
-                    if not scoring_meta:
-                        continue
-                    for threat_type, threat_instance in instances:
-                        threat_instance.severity_scoring_metadata = scoring_meta
-                        threat_instance.save(update_fields=["severity_scoring_metadata"])
+                    instance_details = detail_data.get("instance_details")
+                    if instance_details:
+                        # Per-instance format: match by affected name
+                        for detail in instance_details:
+                            affected_name = detail.get("affected")
+                            affected_type = detail.get("affected_type")
+                            if not affected_name or not affected_type:
+                                continue
+                            # Resolve the symbolic name to a DB object
+                            if affected_type == "component":
+                                affected_obj = (
+                                    resolver.resolve("component", affected_name)
+                                    or resolver.resolve("actor", affected_name)
+                                    or resolver.resolve("data_store", affected_name)
+                                )
+                                if not affected_obj:
+                                    continue
+                                for threat_type, threat_instance in instances:
+                                    if threat_type == "component" and threat_instance.component_id == affected_obj.pk:
+                                        self._apply_instance_detail(
+                                            threat_instance, detail, persona_map
+                                        )
+                            elif affected_type == "flow":
+                                affected_obj = resolver.resolve("data_flow", affected_name)
+                                if not affected_obj:
+                                    continue
+                                for threat_type, threat_instance in instances:
+                                    if threat_type == "flow" and threat_instance.data_flow_id == affected_obj.pk:
+                                        self._apply_instance_detail(
+                                            threat_instance, detail, persona_map
+                                        )
+                    else:
+                        # Legacy flat format: apply to all instances
+                        scoring_meta = detail_data.get("severity_scoring_metadata")
+                        if not scoring_meta:
+                            continue
+                        for threat_type, threat_instance in instances:
+                            threat_instance.severity_scoring_metadata = scoring_meta
+                            threat_instance.save(update_fields=["severity_scoring_metadata"])
 
             # 14b. precogly.org/taxonomy-references → create ThreatLibraryTaxonomyEntry
             from apps.threats.models import (
@@ -1398,13 +1483,13 @@ class TmLibraryAdapter(BaseAdapter):
                 threat_entry["data_flows_affected"] = group["data_flows_affected"]
             threat_entry.update(group["tm_library_fields"])
 
-            # Export event from DB (impact_description field)
+            # Use first instance for top-level threat entry fields and taxonomy
             first_instance = group["instances"][0][1] if group["instances"] else None
             if first_instance:
                 if first_instance.impact_description:
                     threat_entry["event"] = first_instance.impact_description
 
-                # Export threat_persona from DB (ThreatPersonaLink records)
+                # Export threat_persona from first instance (top-level default)
                 first_type, first_inst = group["instances"][0]
                 if first_type == "component":
                     persona_link = ThreatPersonaLink.objects.filter(
@@ -1417,7 +1502,7 @@ class TmLibraryAdapter(BaseAdapter):
                 if persona_link:
                     threat_entry["threat_persona"] = persona_link.persona.symbolic_name
 
-                # Export severity
+                # Export severity (top-level default from first instance)
                 threat_entry["inherent_severity"] = first_instance.inherent_severity
                 if first_instance.residual_severity:
                     threat_entry["residual_severity"] = first_instance.residual_severity
@@ -1473,13 +1558,55 @@ class TmLibraryAdapter(BaseAdapter):
                             threat_tax["mitre_attack"] = attack_entries
                         ext_taxonomy[threat_sym] = threat_tax
 
-                # Extensions: severity scoring metadata
-                if first_instance.severity_scoring_metadata:
+                # Extensions: per-instance threat details
+                instance_details = []
+                for threat_type, threat_instance in group["instances"]:
+                    if threat_type == "component":
+                        affected_sym = comp_reverse.get(threat_instance.component_id)
+                        affected_name = affected_sym[1] if affected_sym else None
+                    else:
+                        affected_name = flow_reverse.get(threat_instance.data_flow_id)
+                    if not affected_name:
+                        continue
+
+                    detail_entry = {
+                        "affected": affected_name,
+                        "affected_type": threat_type,
+                    }
+
+                    # Per-instance severity
+                    detail_entry["inherent_severity"] = threat_instance.inherent_severity
+                    if threat_instance.residual_severity:
+                        detail_entry["residual_severity"] = threat_instance.residual_severity
+
+                    # Per-instance impact description
+                    if threat_instance.impact_description:
+                        detail_entry["event"] = threat_instance.impact_description
+
+                    # Per-instance severity scoring metadata
+                    if threat_instance.severity_scoring_metadata:
+                        detail_entry["severity_scoring_metadata"] = threat_instance.severity_scoring_metadata
+
+                    # Per-instance threat persona
+                    if threat_type == "component":
+                        inst_persona_link = ThreatPersonaLink.objects.filter(
+                            component_threat=threat_instance,
+                        ).select_related("persona").first()
+                    else:
+                        inst_persona_link = ThreatPersonaLink.objects.filter(
+                            flow_threat=threat_instance,
+                        ).select_related("persona").first()
+                    if inst_persona_link:
+                        detail_entry["threat_persona"] = inst_persona_link.persona.symbolic_name
+
+                    instance_details.append(detail_entry)
+
+                if instance_details:
                     ext_details = extensions.setdefault(
                         "precogly.org/threat-details", {}
                     )
                     ext_details[threat_sym] = {
-                        "severity_scoring_metadata": first_instance.severity_scoring_metadata,
+                        "instance_details": instance_details,
                     }
 
             # Export sources from DB (ThreatSourceLink records)
