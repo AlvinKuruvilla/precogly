@@ -357,6 +357,14 @@ class TmLibraryAdapter(BaseAdapter):
             threat_instance.impact_description = impact_description
             update_fields.append("impact_description")
 
+        if detail.get("is_dismissed"):
+            threat_instance.is_dismissed = True
+            update_fields.append("is_dismissed")
+            dismissal_reason = detail.get("dismissal_reason", "")
+            if dismissal_reason:
+                threat_instance.dismissal_reason = dismissal_reason
+                update_fields.append("dismissal_reason")
+
         if update_fields:
             threat_instance.save(update_fields=update_fields)
 
@@ -1414,12 +1422,28 @@ class TmLibraryAdapter(BaseAdapter):
                 return fm["symbolic_name"]
             return f"custom_{threat_instance.threat_name}_{hash(threat_instance.threat_description or '')}"
 
+        # Track used symbolic names to detect and resolve collisions
+        used_threat_syms = set()
+
+        def _unique_threat_sym(base_sym):
+            """Ensure symbolic name uniqueness by appending a suffix if needed."""
+            if base_sym not in used_threat_syms:
+                used_threat_syms.add(base_sym)
+                return base_sym
+            counter = 2
+            while f"{base_sym}_{counter}" in used_threat_syms:
+                counter += 1
+            unique_sym = f"{base_sym}_{counter}"
+            used_threat_syms.add(unique_sym)
+            return unique_sym
+
         for threat in comp_threats:
             group_key = _threat_group_key(threat)
             threat_fm = (threat.format_metadata or {}).get("tm_library", {})
 
             if group_key not in threat_groups:
-                threat_sym = threat_fm.get("symbolic_name") or f"threat_{threat.pk}"
+                base_sym = threat_fm.get("symbolic_name") or f"threat_{threat.threat_library_id or f'c{threat.pk}'}"
+                threat_sym = _unique_threat_sym(base_sym)
                 threat_groups[group_key] = {
                     "symbolic_name": threat_sym,
                     "title": threat.threat_name or (threat.threat_library.name if threat.threat_library else ""),
@@ -1446,7 +1470,8 @@ class TmLibraryAdapter(BaseAdapter):
             threat_fm = (threat.format_metadata or {}).get("tm_library", {})
 
             if group_key not in threat_groups:
-                threat_sym = threat_fm.get("symbolic_name") or f"threat_{threat.pk}"
+                base_sym = threat_fm.get("symbolic_name") or f"threat_{threat.threat_library_id or f'f{threat.pk}'}"
+                threat_sym = _unique_threat_sym(base_sym)
                 threat_groups[group_key] = {
                     "symbolic_name": threat_sym,
                     "title": threat.threat_name or (threat.threat_library.name if threat.threat_library else ""),
@@ -1586,6 +1611,12 @@ class TmLibraryAdapter(BaseAdapter):
                     # Per-instance severity scoring metadata
                     if threat_instance.severity_scoring_metadata:
                         detail_entry["severity_scoring_metadata"] = threat_instance.severity_scoring_metadata
+
+                    # Per-instance dismissal state
+                    if threat_instance.is_dismissed:
+                        detail_entry["is_dismissed"] = True
+                        if threat_instance.dismissal_reason:
+                            detail_entry["dismissal_reason"] = threat_instance.dismissal_reason
 
                     # Per-instance threat persona
                     if threat_type == "component":
