@@ -4,22 +4,28 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework.exceptions import ValidationError
 
-from apps.organizations.models import Organization, OrganizationMember, Team, TeamMembership
-from apps.systems.models import DataAsset, DataFlow, OrgsystemComponent, TrustZone
+from apps.organizations.models import (
+    Organization,
+    OrganizationMember,
+    Team,
+    TeamMembership,
+)
+from apps.systems.models import OrgsystemComponent
 from apps.threats.models import (
-    InstanceCountermeasure,
     ComponentInstanceThreat,
+    DataFlowInstanceThreat,
+    InstanceCountermeasure,
     Risk,
-    RiskThreat,
     ThreatPersona,
     ThreatPersonaLink,
 )
 
 from ..adapters import TmLibraryAdapter
-from ..models import ThreatModel
 
 User = get_user_model()
+
 
 class TmLibraryAdapterTestMixin:
     """Shared setup for adapter tests."""
@@ -44,24 +50,26 @@ class TestValidation(TmLibraryAdapterTestMixin, TestCase):
     """Test validation of input data."""
 
     def test_missing_scope_raises_error(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.adapter.import_data({"threats": []}, self.org, self.user)
 
     def test_invalid_json_raises_error(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.adapter.validate("not a dict")
 
     def test_missing_scope_title_raises_error(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.adapter.validate({"scope": {}})
 
     def test_valid_minimal_input(self):
         json_data = {
             "scope": {"title": "Minimal Model"},
         }
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
+        threat_model, _summary = self.adapter.import_data(
+            json_data, self.org, self.user
+        )
         self.assertEqual(threat_model.name, "Minimal Model")
-        self.assertEqual(summary["threats"], 0)
+        self.assertEqual(_summary["threats"], 0)
 
 
 class TestEnumMappings(TmLibraryAdapterTestMixin, TestCase):
@@ -71,21 +79,49 @@ class TestEnumMappings(TmLibraryAdapterTestMixin, TestCase):
         json_data = {
             "scope": {"title": "Test"},
             "actors": [
-                {"symbolic_name": "unknown-actor", "title": "Unknown", "type": "quantum_computer"},
+                {
+                    "symbolic_name": "unknown-actor",
+                    "title": "Unknown",
+                    "type": "quantum_computer",
+                },
             ],
         }
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
-        actor = OrgsystemComponent.objects.get(threat_model=threat_model, name="Unknown")
+        threat_model, _summary = self.adapter.import_data(
+            json_data, self.org, self.user
+        )
+        actor = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Unknown"
+        )
         self.assertIsNone(actor.category)
 
     def test_control_status_mappings(self):
         json_data = {
             "scope": {"title": "Test"},
             "controls": [
-                {"symbolic_name": "ctrl-1", "title": "Active Control", "status": "active", "threats": []},
-                {"symbolic_name": "ctrl-2", "title": "Assumed Control", "status": "assumed", "threats": []},
-                {"symbolic_name": "ctrl-3", "title": "Unknown Control", "status": "unknown", "threats": []},
-                {"symbolic_name": "ctrl-4", "title": "Retired Control", "status": "retired", "threats": []},
+                {
+                    "symbolic_name": "ctrl-1",
+                    "title": "Active Control",
+                    "status": "active",
+                    "threats": [],
+                },
+                {
+                    "symbolic_name": "ctrl-2",
+                    "title": "Assumed Control",
+                    "status": "assumed",
+                    "threats": [],
+                },
+                {
+                    "symbolic_name": "ctrl-3",
+                    "title": "Unknown Control",
+                    "status": "unknown",
+                    "threats": [],
+                },
+                {
+                    "symbolic_name": "ctrl-4",
+                    "title": "Retired Control",
+                    "status": "retired",
+                    "threats": [],
+                },
             ],
         }
         self.adapter.import_data(json_data, self.org, self.user)
@@ -103,14 +139,29 @@ class TestMultiThreatControl(TmLibraryAdapterTestMixin, TestCase):
                 {"symbolic_name": "comp-a", "title": "Component A"},
             ],
             "threats": [
-                {"symbolic_name": "t1", "title": "Threat 1", "components_affected": ["comp-a"]},
-                {"symbolic_name": "t2", "title": "Threat 2", "components_affected": ["comp-a"]},
+                {
+                    "symbolic_name": "t1",
+                    "title": "Threat 1",
+                    "components_affected": ["comp-a"],
+                },
+                {
+                    "symbolic_name": "t2",
+                    "title": "Threat 2",
+                    "components_affected": ["comp-a"],
+                },
             ],
             "controls": [
-                {"symbolic_name": "shared-ctrl", "title": "Shared Control", "threats": ["t1", "t2"], "status": "active"},
+                {
+                    "symbolic_name": "shared-ctrl",
+                    "title": "Shared Control",
+                    "threats": ["t1", "t2"],
+                    "status": "active",
+                },
             ],
         }
-        threat_model, summary = self.adapter.import_data(json_data, self.org, self.user)
+        threat_model, _summary = self.adapter.import_data(
+            json_data, self.org, self.user
+        )
 
         # Should have 1 shared countermeasure instance linked to 2 threats
         cm_count = InstanceCountermeasure.objects.filter(
@@ -122,7 +173,9 @@ class TestMultiThreatControl(TmLibraryAdapterTestMixin, TestCase):
         exported = self.adapter.export_data(threat_model)
         control_names = [c["symbolic_name"] for c in exported["controls"]]
         self.assertEqual(control_names.count("shared-ctrl"), 1)
-        shared_ctrl = next(c for c in exported["controls"] if c["symbolic_name"] == "shared-ctrl")
+        shared_ctrl = next(
+            c for c in exported["controls"] if c["symbolic_name"] == "shared-ctrl"
+        )
         self.assertEqual(len(shared_ctrl["threats"]), 2)
 
 
@@ -216,10 +269,16 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
 
         # Set divergent severity_scoring_metadata on each instance
-        comp_a = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component A")
-        comp_b = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component B")
+        comp_a = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component A"
+        )
+        comp_b = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component B"
+        )
 
-        threat_a = ComponentInstanceThreat.objects.get(component=comp_a, threat_name="Shared Threat")
+        threat_a = ComponentInstanceThreat.objects.get(
+            component=comp_a, threat_name="Shared Threat"
+        )
         threat_a.severity_scoring_metadata = {
             "likelihood": "certain",
             "impact": "severe",
@@ -227,7 +286,9 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_a.save(update_fields=["severity_scoring_metadata"])
 
-        threat_b = ComponentInstanceThreat.objects.get(component=comp_b, threat_name="Shared Threat")
+        threat_b = ComponentInstanceThreat.objects.get(
+            component=comp_b, threat_name="Shared Threat"
+        )
         threat_b.severity_scoring_metadata = {
             "likelihood": "rare",
             "impact": "negligible",
@@ -273,10 +334,18 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
             component=reimported_comp_b, threat_name="Shared Threat"
         )
 
-        self.assertEqual(reimported_threat_a.severity_scoring_metadata["likelihood"], "certain")
-        self.assertEqual(reimported_threat_a.severity_scoring_metadata["impact"], "severe")
-        self.assertEqual(reimported_threat_b.severity_scoring_metadata["likelihood"], "rare")
-        self.assertEqual(reimported_threat_b.severity_scoring_metadata["impact"], "negligible")
+        self.assertEqual(
+            reimported_threat_a.severity_scoring_metadata["likelihood"], "certain"
+        )
+        self.assertEqual(
+            reimported_threat_a.severity_scoring_metadata["impact"], "severe"
+        )
+        self.assertEqual(
+            reimported_threat_b.severity_scoring_metadata["likelihood"], "rare"
+        )
+        self.assertEqual(
+            reimported_threat_b.severity_scoring_metadata["impact"], "negligible"
+        )
 
     def test_divergent_severity_and_impact_survives_roundtrip(self):
         """Per-instance inherent_severity, residual_severity, and impact_description
@@ -298,20 +367,40 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
 
-        comp_a = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component A")
-        comp_b = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component B")
+        comp_a = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component A"
+        )
+        comp_b = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component B"
+        )
 
-        threat_a = ComponentInstanceThreat.objects.get(component=comp_a, threat_name="Shared Threat")
+        threat_a = ComponentInstanceThreat.objects.get(
+            component=comp_a, threat_name="Shared Threat"
+        )
         threat_a.inherent_severity = "critical"
         threat_a.residual_severity = "high"
         threat_a.impact_description = "Total system compromise"
-        threat_a.save(update_fields=["inherent_severity", "residual_severity", "impact_description"])
+        threat_a.save(
+            update_fields=[
+                "inherent_severity",
+                "residual_severity",
+                "impact_description",
+            ]
+        )
 
-        threat_b = ComponentInstanceThreat.objects.get(component=comp_b, threat_name="Shared Threat")
+        threat_b = ComponentInstanceThreat.objects.get(
+            component=comp_b, threat_name="Shared Threat"
+        )
         threat_b.inherent_severity = "low"
         threat_b.residual_severity = ""
         threat_b.impact_description = "Minor data exposure"
-        threat_b.save(update_fields=["inherent_severity", "residual_severity", "impact_description"])
+        threat_b.save(
+            update_fields=[
+                "inherent_severity",
+                "residual_severity",
+                "impact_description",
+            ]
+        )
 
         # Export
         exported = self.adapter.export_data(threat_model)
@@ -323,7 +412,9 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         # Verify per-instance fields in export
         self.assertEqual(details_by_affected["comp-a"]["inherent_severity"], "critical")
         self.assertEqual(details_by_affected["comp-a"]["residual_severity"], "high")
-        self.assertEqual(details_by_affected["comp-a"]["event"], "Total system compromise")
+        self.assertEqual(
+            details_by_affected["comp-a"]["event"], "Total system compromise"
+        )
         self.assertEqual(details_by_affected["comp-b"]["inherent_severity"], "low")
         self.assertNotIn("residual_severity", details_by_affected["comp-b"])
         self.assertEqual(details_by_affected["comp-b"]["event"], "Minor data exposure")
@@ -347,7 +438,9 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
 
         self.assertEqual(reimported_threat_a.inherent_severity, "critical")
         self.assertEqual(reimported_threat_a.residual_severity, "high")
-        self.assertEqual(reimported_threat_a.impact_description, "Total system compromise")
+        self.assertEqual(
+            reimported_threat_a.impact_description, "Total system compromise"
+        )
         self.assertEqual(reimported_threat_b.inherent_severity, "low")
         self.assertEqual(reimported_threat_b.impact_description, "Minor data exposure")
 
@@ -386,14 +479,26 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
 
-        comp_a = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component A")
-        comp_b = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component B")
-        threat_a = ComponentInstanceThreat.objects.get(component=comp_a, threat_name="Shared Threat")
-        threat_b = ComponentInstanceThreat.objects.get(component=comp_b, threat_name="Shared Threat")
+        comp_a = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component A"
+        )
+        comp_b = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component B"
+        )
+        threat_a = ComponentInstanceThreat.objects.get(
+            component=comp_a, threat_name="Shared Threat"
+        )
+        threat_b = ComponentInstanceThreat.objects.get(
+            component=comp_b, threat_name="Shared Threat"
+        )
 
         # Link different personas to each instance
-        insider = ThreatPersona.objects.get(threat_model=threat_model, symbolic_name="insider")
-        external = ThreatPersona.objects.get(threat_model=threat_model, symbolic_name="external")
+        insider = ThreatPersona.objects.get(
+            threat_model=threat_model, symbolic_name="insider"
+        )
+        external = ThreatPersona.objects.get(
+            threat_model=threat_model, symbolic_name="external"
+        )
         ThreatPersonaLink.objects.create(persona=insider, component_threat=threat_a)
         ThreatPersonaLink.objects.create(persona=external, component_threat=threat_b)
 
@@ -459,14 +564,173 @@ class TestPerInstanceThreatDetails(TmLibraryAdapterTestMixin, TestCase):
         }
         threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
 
-        comp_x = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component X")
-        comp_y = OrgsystemComponent.objects.get(threat_model=threat_model, name="Component Y")
+        comp_x = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component X"
+        )
+        comp_y = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component Y"
+        )
 
-        threat_x = ComponentInstanceThreat.objects.get(component=comp_x, threat_name="Legacy Threat")
-        threat_y = ComponentInstanceThreat.objects.get(component=comp_y, threat_name="Legacy Threat")
+        threat_x = ComponentInstanceThreat.objects.get(
+            component=comp_x, threat_name="Legacy Threat"
+        )
+        threat_y = ComponentInstanceThreat.objects.get(
+            component=comp_y, threat_name="Legacy Threat"
+        )
 
         # Both should have the same metadata (legacy flat format applies to all)
         self.assertEqual(threat_x.severity_scoring_metadata["likelihood"], "likely")
         self.assertEqual(threat_y.severity_scoring_metadata["likelihood"], "likely")
-        self.assertEqual(threat_x.severity_scoring_metadata["rationale"], "Legacy format")
-        self.assertEqual(threat_y.severity_scoring_metadata["rationale"], "Legacy format")
+        self.assertEqual(
+            threat_x.severity_scoring_metadata["rationale"], "Legacy format"
+        )
+        self.assertEqual(
+            threat_y.severity_scoring_metadata["rationale"], "Legacy format"
+        )
+
+    def test_dismissal_state_survives_roundtrip(self):
+        """Per-instance is_dismissed and dismissal_reason should survive
+        export/import roundtrip."""
+        json_data = {
+            "scope": {"title": "Dismissal Test"},
+            "components": [
+                {"symbolic_name": "comp-a", "title": "Component A"},
+                {"symbolic_name": "comp-b", "title": "Component B"},
+            ],
+            "threats": [
+                {
+                    "symbolic_name": "shared-threat",
+                    "title": "Shared Threat",
+                    "components_affected": ["comp-a", "comp-b"],
+                    "inherent_severity": "medium",
+                },
+            ],
+        }
+        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
+
+        comp_a = OrgsystemComponent.objects.get(
+            threat_model=threat_model, name="Component A"
+        )
+
+        # Dismiss one instance, leave the other active
+        threat_a = ComponentInstanceThreat.objects.get(
+            component=comp_a, threat_name="Shared Threat"
+        )
+        threat_a.is_dismissed = True
+        threat_a.dismissal_reason = "Not applicable to this component"
+        threat_a.save(update_fields=["is_dismissed", "dismissal_reason"])
+
+        # threat_b stays active (is_dismissed=False, default)
+
+        # Export
+        exported = self.adapter.export_data(threat_model)
+
+        threat_details = exported["extensions"]["precogly.org/threat-details"]
+        instance_details = threat_details["shared-threat"]["instance_details"]
+        details_by_affected = {d["affected"]: d for d in instance_details}
+
+        # Verify export: comp-a is dismissed, comp-b is not
+        self.assertTrue(details_by_affected["comp-a"]["is_dismissed"])
+        self.assertEqual(
+            details_by_affected["comp-a"]["dismissal_reason"],
+            "Not applicable to this component",
+        )
+        self.assertNotIn("is_dismissed", details_by_affected["comp-b"])
+        self.assertNotIn("dismissal_reason", details_by_affected["comp-b"])
+
+        # Re-import and verify
+        reimported_model, _ = self.adapter.import_data(exported, self.org, self.user)
+
+        reimported_comp_a = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component A"
+        )
+        reimported_comp_b = OrgsystemComponent.objects.get(
+            threat_model=reimported_model, name="Component B"
+        )
+
+        reimported_threat_a = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_a, threat_name="Shared Threat"
+        )
+        reimported_threat_b = ComponentInstanceThreat.objects.get(
+            component=reimported_comp_b, threat_name="Shared Threat"
+        )
+
+        self.assertTrue(reimported_threat_a.is_dismissed)
+        self.assertEqual(
+            reimported_threat_a.dismissal_reason,
+            "Not applicable to this component",
+        )
+        self.assertFalse(reimported_threat_b.is_dismissed)
+        self.assertEqual(reimported_threat_b.dismissal_reason, "")
+
+
+class TestSymbolicNameCollision(TmLibraryAdapterTestMixin, TestCase):
+    """Test that component and flow threats don't produce colliding symbolic names."""
+
+    def test_component_and_flow_threats_get_unique_symbolic_names(self):
+        """When a component threat and a flow threat both lack stored symbolic
+        names, the export should not produce duplicate symbolic_name entries."""
+        json_data = {
+            "scope": {"title": "Collision Test"},
+            "components": [
+                {"symbolic_name": "comp-a", "title": "Component A"},
+                {"symbolic_name": "comp-b", "title": "Component B"},
+            ],
+            "data_flows": [
+                {
+                    "symbolic_name": "flow-ab",
+                    "title": "A to B",
+                    "source": {"type": "component", "name": "comp-a"},
+                    "destination": {"type": "component", "name": "comp-b"},
+                },
+            ],
+            "threats": [
+                {
+                    "symbolic_name": "comp-threat",
+                    "title": "Component Threat",
+                    "components_affected": ["comp-a"],
+                    "inherent_severity": "medium",
+                },
+                {
+                    "symbolic_name": "flow-threat",
+                    "title": "Flow Threat",
+                    "data_flows_affected": ["flow-ab"],
+                    "inherent_severity": "medium",
+                },
+            ],
+        }
+        threat_model, _ = self.adapter.import_data(json_data, self.org, self.user)
+
+        # Clear format_metadata symbolic names to simulate natively-created threats
+        ComponentInstanceThreat.objects.filter(
+            component__threat_model=threat_model
+        ).update(format_metadata={})
+        DataFlowInstanceThreat.objects.filter(
+            data_flow__source_component__threat_model=threat_model
+        ).update(format_metadata={})
+
+        # Export
+        exported = self.adapter.export_data(threat_model)
+
+        # Verify no duplicate symbolic names
+        threat_syms = [t["symbolic_name"] for t in exported["threats"]]
+        self.assertEqual(
+            len(threat_syms),
+            len(set(threat_syms)),
+            f"Duplicate symbolic names found: {threat_syms}",
+        )
+
+        # Verify roundtrip works
+        reimported, _ = self.adapter.import_data(exported, self.org, self.user)
+        self.assertEqual(
+            ComponentInstanceThreat.objects.filter(
+                component__threat_model=reimported
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            DataFlowInstanceThreat.objects.filter(
+                data_flow__source_component__threat_model=reimported
+            ).count(),
+            1,
+        )
