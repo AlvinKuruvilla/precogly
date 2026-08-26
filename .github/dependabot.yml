@@ -17,8 +17,9 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-  - package-ecosystem: "pip"
-    directory: "/backend/requirements"
+  # Directory is where pyproject.toml and uv.lock live.
+  - package-ecosystem: "uv"
+    directory: "/backend"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
