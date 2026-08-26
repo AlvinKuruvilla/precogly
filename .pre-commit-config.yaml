@@ -12,8 +12,8 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  # The hook scans staged content only; the Security workflow scans all of
-  # history. That split is deliberate — this one has to be fast enough that
+  # The hook scans staged content only; the Security workflow scans the PR's
+  # commits. That split is deliberate — this one has to be fast enough that
   # nobody disables it, and CI is where the authoritative scan belongs.
   #
   # Keep `rev` in step with GITLEAKS_VERSION in

@@ -20,7 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-        # Scan the whole repo history (all commits)
+          # Depth 0 fetches `refs/heads/*`; a shallow clone has no
+          # `origin/main` for the scan range below to resolve against.
           fetch-depth: 0
 
       # Installed from the release archive rather than through
@@ -45,11 +46,12 @@ jobs:
           tar -xzf "$archive" gitleaks
           sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
 
-      # --log-opts=--all walks every ref, not just the PR head.
+      # Only the PR's own commits. All 397 commits of history were scanned once,
+      # clean, on 2026-08-22; everything since passes through this gate. Not
+      # `--all` per PR: a gitleaks version bump would then fail whichever PR
+      # runs next over an old commit its author cannot act on.
       #
-      # Failing here blocks the merge, which is affordable only because the
-      # history is clean as of 2026-08-22: the first failure will be a real
-      # finding, not a backlog. No suppression policy yet — there is nothing to
-      # suppress. Use `.gitleaksignore` if that changes before one exists.
-      - name: Scan history for secrets
-        run: gitleaks git . --log-opts=--all --redact --verbose --no-banner
+      # No suppression policy yet — there is nothing to suppress. Use
+      # `.gitleaksignore` if that changes before one exists.
+      - name: Scan PR commits for secrets
+        run: gitleaks git . --log-opts=origin/main..HEAD --redact --verbose --no-banner
