@@ -35,12 +35,14 @@ interface UseDiagramStateReturn {
   updateTitle: (title: string) => Promise<void>
   // Undo feature - remove this line to disable undo functionality
   undo: () => void
+  redo: () => void
 
   // State
   hasUnsavedChanges: boolean
   lastSaved: Date | null
   // Undo feature - remove this line to disable undo functionality
   canUndo: boolean
+  canRedo: boolean
 }
 
 async function fetchDiagram(diagramId: string): Promise<Diagram> {
@@ -117,7 +119,7 @@ export function useDiagramState({
   )
 
   // Undo feature - remove this block to disable undo functionality
-  const { pushToHistory, undo: undoFromHistory, canUndo } = useUndoHistory()
+  const { pushToHistory, undo: undoFromHistory, redo: redoFromHistory, canUndo, canRedo } = useUndoHistory()
   const nodesRef = useRef<DiagramNode[]>(nodes)
   const edgesRef = useRef<DiagramEdge[]>(edges)
   // Keep refs in sync for undo access
@@ -291,13 +293,22 @@ export function useDiagramState({
 
   // Undo feature - remove this block to disable undo functionality
   const undo = useCallback(() => {
-    const previousState = undoFromHistory()
+    const previousState = undoFromHistory({ nodes: nodesRef.current, edges: edgesRef.current })
     if (previousState) {
       setNodes(previousState.nodes)
       setEdges(previousState.edges)
       setHasUnsavedChanges(true)
     }
-  }, [undoFromHistory])
+  }, [undoFromHistory, setNodes, setEdges])
+
+  const redo = useCallback(() => {
+    const nextState = redoFromHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+    if (nextState) {
+      setNodes(nextState.nodes)
+      setEdges(nextState.edges)
+      setHasUnsavedChanges(true)
+    }
+  }, [redoFromHistory, setNodes, setEdges])
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -330,6 +341,8 @@ export function useDiagramState({
     // Undo feature - remove these lines to disable undo functionality
     undo,
     canUndo: canUndo(),
+    redo,
+    canRedo: canRedo(),
     hasUnsavedChanges,
     lastSaved,
   }
