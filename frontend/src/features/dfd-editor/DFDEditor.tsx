@@ -11,6 +11,7 @@ import {
   type Connection,
   type XYPosition,
   addEdge,
+  reconnectEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ShieldAlert } from 'lucide-react'
@@ -312,6 +313,13 @@ function DFDEditorContent() {
     [nodes, setEdges]
   )
 
+  const handleReconnect = useCallback(
+    (oldEdge: DiagramEdge, connection: Connection) => {
+      setEdges((currentEdges) => reconnectEdge(oldEdge, connection, currentEdges) as DiagramEdge[])
+    },
+    [setEdges]
+  )
+
   // Handle template insertion
   const handleInsertTemplate = useCallback(
     (templateNodes: DiagramNode[], templateEdges: DiagramEdge[]) => {
@@ -607,6 +615,8 @@ function DFDEditorContent() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
+              onReconnect={handleReconnect}
+              edgesReconnectable
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
