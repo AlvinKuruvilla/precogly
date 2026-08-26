@@ -12,6 +12,18 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  # The hook scans staged content only; the Security workflow scans the PR's
+  # commits. That split is deliberate — this one has to be fast enough that
+  # nobody disables it, and CI is where the authoritative scan belongs.
+  #
+  # Keep `rev` in step with GITLEAKS_VERSION in
+  # `.github/workflows/security.yml`, or a commit can pass locally under one
+  # rule set and fail in CI under another.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
 # Django regenerates migrations in its own style, so formatting them would
 # rewrite every new one on the commit that creates it. `backend/ruff.toml`
 # excludes them too, but that only takes effect for runs whose working
