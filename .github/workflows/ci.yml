@@ -13,7 +13,9 @@ jobs:
           # --from-ref resolves against the base branch, which a shallow clone
           # does not fetch.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10
+      # Pinned to an exact release: setup-uv stopped publishing floating major
+      # tags after v7, so @v10 does not resolve.
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.13'
       # uvx builds an ephemeral environment, so there is no interpreter to set
