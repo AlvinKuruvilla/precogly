@@ -240,7 +240,7 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
         """Extract component_ids, dataflow_ids, and canvas metadata from DFD data."""
         from apps.systems.models import OrgsystemComponent
 
-        dfds = instance.dfds.all()
+        dfds = instance.dfds.filter(is_primary=True)
         component_ids = set()
         dataflow_ids = set()
         has_process_or_datastore = False
@@ -276,6 +276,15 @@ class ThreatModelSerializer(ThreatModelFieldsMixin, serializers.ModelSerializer)
             id__in=component_ids
         ).values_list("id", flat=True)
         component_ids.update(analysis_component_ids)
+
+        # Include trust zones from components in scope (DB-level, DFD-independent)
+        db_zone_ids = OrgsystemComponent.objects.filter(
+            threat_model=instance,
+            trust_zone__isnull=False,
+        ).values_list("trust_zone_id", flat=True).distinct()
+        db_zone_count = len(db_zone_ids)
+        trust_zone_count = max(trust_zone_count, db_zone_count)
+        has_trust_zone = has_trust_zone or db_zone_count > 0
 
         return {
             "component_ids": list(component_ids),

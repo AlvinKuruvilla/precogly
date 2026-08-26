@@ -36,7 +36,7 @@ def _get_scoped_ids(threat_model):
     Extract component_ids and dataflow_ids from DFD canvas data,
     including analysis-only components and their flows.
     """
-    dfds = threat_model.dfds.all()
+    dfds = threat_model.dfds.filter(is_primary=True)
     component_ids = set()
     dataflow_ids = set()
 

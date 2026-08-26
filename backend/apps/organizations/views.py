@@ -633,8 +633,10 @@ class MagicLinkAccessView(APIView):
         )
         gaps_count = sum(1 for cm in all_countermeasures if cm.get("status") == "gap")
 
-        # Count components from DFD canvas nodes
-        dfds = threat_model.dfds.all()
+        # Count components from primary DFD canvas nodes
+        from apps.systems.models import OrgsystemComponent
+
+        dfds = threat_model.dfds.filter(is_primary=True)
         processes = 0
         datastores = 0
         human_actors = 0
@@ -658,6 +660,13 @@ class MagicLinkAccessView(APIView):
                     boundaries += 1
             if canvas_data.get("edges"):
                 has_data_flows = True
+
+        # Include trust zones from components (DB-level, DFD-independent)
+        db_zone_count = OrgsystemComponent.objects.filter(
+            threat_model=threat_model,
+            trust_zone__isnull=False,
+        ).values_list("trust_zone_id", flat=True).distinct().count()
+        boundaries = max(boundaries, db_zone_count)
 
         # Compute progress checklist
         workspace_data = threat_model.workspace_data or {}
