@@ -2,21 +2,22 @@
 Views for threats app.
 """
 
+import contextlib
+
 from django.db.models import Prefetch, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from rest_framework.exceptions import PermissionDenied
-
+from apps.ai import AIDisabledError, AIProviderError
+from apps.ai.resolver import organization_for_component, resolve_config
 from apps.core.permissions import CanWrite, IsSecurityTeam
 from apps.systems.models import OrgsystemComponent
 from apps.threat_models.models import ThreatModel
-from apps.ai import AIDisabledError, AIProviderError
-from apps.ai.resolver import organization_for_component, resolve_config
 from apps.threats.ai.suggest import suggest_component_threats
 
 from .models import (
@@ -317,7 +318,7 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
                     {"error": "Countermeasure instance not found"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            link, link_created = CountermeasureThreatLink.objects.get_or_create(
+            _link, link_created = CountermeasureThreatLink.objects.get_or_create(
                 countermeasure=existing_cm,
                 component_threat=instance_threat,
             )
@@ -589,7 +590,7 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
                     {"error": "Countermeasure instance not found"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            link, link_created = CountermeasureThreatLink.objects.get_or_create(
+            _link, link_created = CountermeasureThreatLink.objects.get_or_create(
                 countermeasure=existing_cm,
                 flow_threat=flow_threat,
             )
@@ -1010,10 +1011,8 @@ class RiskViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         threat_model_pk = self.kwargs.get("threat_model_pk")
         if threat_model_pk:
-            try:
+            with contextlib.suppress(ThreatModel.DoesNotExist):
                 context["threat_model"] = ThreatModel.objects.get(pk=threat_model_pk)
-            except ThreatModel.DoesNotExist:
-                pass
         return context
 
     def perform_create(self, serializer):
