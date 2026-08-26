@@ -80,6 +80,14 @@ export interface SystemScopeNodeData extends BaseNodeData {
   orgsystemId?: number
 }
 
+export type StickyNoteColor = 'yellow' | 'blue' | 'green' | 'pink' | 'orange'
+
+export interface StickyNoteNodeData extends BaseNodeData {
+  noteColor?: StickyNoteColor
+  bold?: boolean
+  italic?: boolean
+}
+
 // Union type for all node data
 export type DiagramNodeData =
   | ProcessNodeData
@@ -88,6 +96,7 @@ export type DiagramNodeData =
   | SystemActorNodeData
   | TrustZoneNodeData
   | SystemScopeNodeData
+  | StickyNoteNodeData
 
 // Edge Data
 export interface DataFlowEdgeData {

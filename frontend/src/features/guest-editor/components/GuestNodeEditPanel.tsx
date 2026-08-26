@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import {
   Select,
@@ -45,6 +46,7 @@ const nodeTypeConfig: Record<
   systemActor: { label: 'System Actor', icon: Server, color: 'text-slate-600' },
   trustZone: { label: 'Trust Zone', icon: Shield, color: 'text-orange-600' },
   systemScope: { label: 'System Scope', icon: Box, color: 'text-gray-600' },
+  stickyNote: { label: 'Sticky Note', icon: Box, color: 'text-amber-700' },
 }
 
 export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
@@ -143,6 +145,26 @@ export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
         </div>
 
         <Separator />
+
+        {node.type === 'stickyNote' && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Note Color</Label>
+              <Select value={(node.data as { noteColor?: string }).noteColor || 'yellow'} onValueChange={(value) => updateNodeData({ noteColor: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yellow">Yellow</SelectItem>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="pink">Pink</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!(node.data as { bold?: boolean }).bold} onCheckedChange={(checked) => updateNodeData({ bold: checked === true })} />Bold text</label>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!(node.data as { italic?: boolean }).italic} onCheckedChange={(checked) => updateNodeData({ italic: checked === true })} />Italic text</label>
+          </div>
+        )}
 
         {/* Process / Datastore fields */}
         {(node.type === 'process' || node.type === 'datastore') && (

@@ -1,7 +1,7 @@
 import { memo, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { XYPosition } from '@xyflow/react'
-import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown } from 'lucide-react'
+import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown, StickyNote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -94,6 +94,13 @@ const nodeButtons: ToolbarButtonConfig[] = [
     icon: Box,
     color: 'text-gray-600 hover:bg-gray-50',
     description: 'Visual grouping for related components (defines analysis scope)',
+  },
+  {
+    type: 'stickyNote',
+    label: 'Sticky Note',
+    icon: StickyNote,
+    color: 'text-amber-700 hover:bg-amber-50',
+    description: 'Add a movable note to document design decisions or context',
   },
 ]
 
