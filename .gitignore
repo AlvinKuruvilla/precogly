@@ -10,8 +10,10 @@ __pycache__/
 *.pyo
 *.egg-info/
 backend/venv/
+backend/.venv/
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
 htmlcov/
 .coverage
 

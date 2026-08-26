@@ -38,7 +38,7 @@ Install:
 | Docker and Docker Compose | Running the application stack |
 | Git | Cloning the repository and preparing pull requests |
 | Node.js 22+ | Optional direct frontend workflow |
-| Python 3.12+ | Optional direct backend workflow |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | Optional direct backend workflow, and the docs build. Installs its own Python, so a system 3.12 is not needed |
 
 ## Start the Stack
 
@@ -155,28 +155,31 @@ docker compose exec backend python manage.py seed
 docker compose exec backend python -m pytest
 ```
 
-For direct local backend work, create a virtual environment, install development requirements from `backend/requirements/development.txt`, set `DJANGO_SETTINGS_MODULE=config.settings.development`, and run commands from `backend/`.
-
-## Documentation Workflow
-
-The documentation uses MkDocs Material. From the repository root, create a virtual environment and install the docs dependencies:
+For direct local backend work, install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run commands from `backend/`:
 
 ```bash
-python3 -m venv backend/venv
-source backend/venv/bin/activate
-python -m pip install -r docs/requirements.txt
+cd backend
+uv sync                                # creates .venv from uv.lock
+uv run python manage.py migrate
+uv run python -m pytest
 ```
+
+`uv sync` installs the base and `dev` dependency groups; add `--group prod` for the deployment runtime (gunicorn, celery, sentry). `uv run` picks up `DJANGO_SETTINGS_MODULE` from `pyproject.toml`'s pytest settings for tests, and `manage.py` defaults to the development module otherwise.
+
+To add or remove a dependency, use `uv add` / `uv remove` rather than editing `pyproject.toml` by hand.
+
+## Documentation Workflow
 
 Preview documentation changes locally:
 
 ```bash
-mkdocs serve
+uvx --from 'mkdocs-material>=9.5,<10.0' mkdocs serve
 ```
 
 Before opening a documentation pull request, run the strict build to catch broken links, invalid navigation, and Markdown configuration errors:
 
 ```bash
-mkdocs build --strict
+uvx --from 'mkdocs-material>=9.5,<10.0' mkdocs build --strict
 ```
 
 ## Troubleshooting

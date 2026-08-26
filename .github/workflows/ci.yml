@@ -13,12 +13,14 @@ jobs:
           # --from-ref resolves against the base branch, which a shallow clone
           # does not fetch.
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10
         with:
-          python-version: '3.12'
-      - run: pip install pre-commit
+          version: '0.9.13'
+      # uvx builds an ephemeral environment, so there is no interpreter to set
+      # up. The range matches the dev group in backend/pyproject.toml, so a
+      # pre-commit release cannot change the merge gate on an unrelated PR.
       - run: |
-          pre-commit run \
+          uvx --from 'pre-commit>=4.0,<5.0' pre-commit run \
             --from-ref origin/${{ github.base_ref }} \
             --to-ref HEAD \
             --show-diff-on-failure
