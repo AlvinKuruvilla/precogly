@@ -11,6 +11,8 @@ interface UseKeyboardShortcutsOptions {
   onDelete?: () => void
   onCopy?: () => void
   onPaste?: () => void
+  onPasteText?: (text: string) => void
+  onStartNodeEditing?: (initialText: string) => void
   onDuplicate?: () => void
   enabled?: boolean
 }
@@ -32,6 +34,8 @@ export function useKeyboardShortcuts({
   onDelete,
   onCopy,
   onPaste,
+  onPasteText,
+  onStartNodeEditing,
   onDuplicate,
   enabled = true,
 }: UseKeyboardShortcutsOptions = {}) {
@@ -241,8 +245,27 @@ export function useKeyboardShortcuts({
       // Paste: Cmd/Ctrl + V
       if (isMod && key === 'v') {
         event.preventDefault()
-        ;(onPaste || handlePaste)()
+        const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
+        const selectedEdges = (getEdges() as DiagramEdge[]).filter((e) => e.selected)
+        if (selectedNodes.length === 1 && selectedEdges.length === 0 && onPasteText) {
+          void navigator.clipboard?.readText().then((text) => {
+            if (text) onPasteText(text)
+          })
+        } else {
+          ;(onPaste || handlePaste)()
+        }
         return
+      }
+
+      // Replace a selected node label with the first typed character.
+      if (!isMod && event.key.length === 1) {
+        const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
+        const selectedEdges = (getEdges() as DiagramEdge[]).filter((e) => e.selected)
+        if (selectedNodes.length === 1 && selectedEdges.length === 0 && onStartNodeEditing) {
+          event.preventDefault()
+          onStartNodeEditing(event.key)
+          return
+        }
       }
 
       // Duplicate: Cmd/Ctrl + D
@@ -272,6 +295,8 @@ export function useKeyboardShortcuts({
     onDelete,
     onCopy,
     onPaste,
+    onPasteText,
+    onStartNodeEditing,
     onDuplicate,
     handleSelectAll,
     handleDeselect,

@@ -373,6 +373,22 @@ function DFDEditorContent() {
     }
   }, [boundaryMode, cancelBoundaryMode])
 
+  const startNodeEditing = useCallback((initialText: string) => {
+    setNodes((currentNodes) => currentNodes.map((node) =>
+      node.selected
+        ? { ...node, data: { ...node.data, label: initialText, isInlineEditing: true } }
+        : node
+    ))
+  }, [setNodes])
+
+  const pasteNodeLabel = useCallback((text: string) => {
+    setNodes((currentNodes) => currentNodes.map((node) =>
+      node.selected
+        ? { ...node, data: { ...node.data, label: text, isInlineEditing: true } }
+        : node
+    ))
+  }, [setNodes])
+
   // Wrap saveNow for keyboard shortcut to pass notation style
   const handleKeyboardSave = useCallback(async () => {
     await saveNow(notationStyle)
@@ -383,6 +399,8 @@ function DFDEditorContent() {
     onSave: handleKeyboardSave,
     onUndo: undo,
     onDeselect: handleDeselect,
+    onStartNodeEditing: startNodeEditing,
+    onPasteText: pasteNodeLabel,
     enabled: true,
   })
 
