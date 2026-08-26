@@ -4,6 +4,7 @@ import {
   Table,
   TextRun,
   HeadingLevel,
+  ImageRun,
 } from 'docx'
 import type { ReportData, ReportThreat } from '../types/report'
 import {
@@ -50,6 +51,76 @@ function flattenThreats(data: ReportData): ThreatWithContext[] {
     for (const threat of threats) out.push({ threat, context })
   }
   return out
+}
+
+type CanvasNodeForExport = {
+  id: string
+  type?: string
+  position?: { x?: number; y?: number }
+  style?: { width?: number | string; height?: number | string }
+  data?: { label?: string }
+}
+
+type CanvasEdgeForExport = { source: string; target: string }
+
+function escapeXml(value: string): string {
+  return value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '\"': '&quot;' }[character] || character))
+}
+
+async function renderDfdPng(canvasData: { nodes?: unknown[]; edges?: unknown[] }): Promise<Uint8Array | null> {
+  const nodes = (canvasData.nodes || []) as CanvasNodeForExport[]
+  if (nodes.length === 0) return null
+  const edges = (canvasData.edges || []) as CanvasEdgeForExport[]
+  const positions = nodes.map((node) => ({
+    node,
+    x: node.position?.x ?? 0,
+    y: node.position?.y ?? 0,
+    width: Number(node.style?.width) || 150,
+    height: Number(node.style?.height) || 70,
+  }))
+  const minX = Math.min(...positions.map((item) => item.x))
+  const minY = Math.min(...positions.map((item) => item.y))
+  const maxX = Math.max(...positions.map((item) => item.x + item.width))
+  const maxY = Math.max(...positions.map((item) => item.y + item.height))
+  const padding = 32
+  const width = Math.max(640, maxX - minX + padding * 2)
+  const height = Math.max(360, maxY - minY + padding * 2)
+  const byId = new Map(positions.map((item) => [item.node.id, item]))
+  const colors: Record<string, string> = { process: '#dbeafe', datastore: '#f3e8ff', humanActor: '#dcfce7', systemActor: '#e2e8f0', stickyNote: '#fef9c3' }
+  const strokes: Record<string, string> = { process: '#3b82f6', datastore: '#a855f7', humanActor: '#16a34a', systemActor: '#64748b', stickyNote: '#eab308' }
+  const edgeMarkup = edges.map((edge) => {
+    const source = byId.get(edge.source)
+    const target = byId.get(edge.target)
+    if (!source || !target) return ''
+    const x1 = source.x - minX + padding + source.width / 2
+    const y1 = source.y - minY + padding + source.height / 2
+    const x2 = target.x - minX + padding + target.width / 2
+    const y2 = target.y - minY + padding + target.height / 2
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>`
+  }).join('')
+  const nodeMarkup = positions.map(({ node, x, y, width: nodeWidth, height: nodeHeight }) => {
+    const left = x - minX + padding
+    const top = y - minY + padding
+    const type = node.type || 'process'
+    const label = escapeXml(node.data?.label || type)
+    return `<g><rect x="${left}" y="${top}" width="${nodeWidth}" height="${nodeHeight}" rx="8" fill="${colors[type] || '#f8fafc'}" stroke="${strokes[type] || '#64748b'}" stroke-width="2"/><text x="${left + nodeWidth / 2}" y="${top + nodeHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="14" fill="#1e293b">${label}</text></g>`
+  }).join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/></marker></defs>${edgeMarkup}${nodeMarkup}</svg>`
+  const response = await fetch(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
+  const blob = await response.blob()
+  const image = await createImageBitmap(blob)
+  const canvas = document.createElement('canvas')
+  const scale = Math.min(2, 1200 / width)
+  canvas.width = Math.round(width * scale)
+  canvas.height = Math.round(height * scale)
+  const context = canvas.getContext('2d')
+  if (!context) return null
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  image.close()
+  const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+  return png ? new Uint8Array(await png.arrayBuffer()) : null
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +243,7 @@ function buildScopeSection(data: ReportData): (Paragraph | Table)[] {
   return children
 }
 
-function buildArchitectureSection(data: ReportData): (Paragraph | Table)[] {
+function buildArchitectureSection(data: ReportData, dfdImages: Map<string, Uint8Array>): (Paragraph | Table)[] {
   const arch = data.architecture
   const children: (Paragraph | Table)[] = [h1('4. System Architecture'), spacer()]
 
@@ -199,7 +270,9 @@ function buildArchitectureSection(data: ReportData): (Paragraph | Table)[] {
     arch.dfds.forEach((dfd, idx) => {
       children.push(
         h3(`Figure ${idx + 1}: ${dfd.name}${dfd.isPrimary ? ' (Primary)' : ''}`),
-        placeholder(`Insert DFD diagram screenshot here — ${dfd.name}`),
+        ...(dfdImages.get(dfd.id)
+          ? [new Paragraph({ children: [new ImageRun({ data: dfdImages.get(dfd.id)!, transformation: { width: 600, height: 360 } })] })]
+          : [placeholder(`DFD diagram unavailable — ${dfd.name}`)]),
         spacer(),
       )
 
@@ -473,6 +546,14 @@ function buildComplianceSection(data: ReportData): (Paragraph | Table)[] {
 // ---------------------------------------------------------------------------
 
 export async function exportWordDoc(data: ReportData, modelName: string): Promise<void> {
+  const dfdImages = new Map<string, Uint8Array>()
+  for (const dfd of data.architecture.dfds) {
+    if (dfd.canvasData) {
+      const image = await renderDfdPng(dfd.canvasData)
+      if (image) dfdImages.set(dfd.id, image)
+    }
+  }
+
   const children: (Paragraph | Table)[] = [
     // Title page
     new Paragraph({
@@ -498,7 +579,7 @@ export async function exportWordDoc(data: ReportData, modelName: string): Promis
       ],
     }),
     spacer(),
-    placeholder('This document is auto-generated. Review all sections and insert DFD diagrams before submission.'),
+    placeholder('This document is auto-generated. Review all sections before submission.'),
     pageBreak(),
 
     // Sections
@@ -508,7 +589,7 @@ export async function exportWordDoc(data: ReportData, modelName: string): Promis
     pageBreak(),
     ...buildScopeSection(data),
     pageBreak(),
-    ...buildArchitectureSection(data),
+    ...buildArchitectureSection(data, dfdImages),
     pageBreak(),
     ...buildDataAssetsSection(data),
     pageBreak(),
