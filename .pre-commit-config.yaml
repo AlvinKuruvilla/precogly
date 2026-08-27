@@ -1,10 +1,11 @@
-# Hooks run from the repository root, so every path here is repo-root-relative
-# even though the only Python lives under `backend/`. Ruff's own settings are in
-# `[tool.ruff]` in `backend/pyproject.toml`, which it finds by walking up from
-# each file.
+# Hooks run from the repository root, so every path here is repo-root-relative.
+# Ruff finds its settings by walking up from each file, which means `backend/`
+# and `mcp/` are each linted under their own `[tool.ruff]` — the two differ, and
+# neither is repo-wide.
 #
-# Keep `rev` in step with the ruff version in `backend/uv.lock`, or a commit can
-# pass under `uv run ruff` and fail here under a different rule set.
+# Keep `rev` in step with the ruff version in `uv.lock`, or a commit can pass
+# under `uv run ruff` and fail here under a different rule set. One workspace
+# means one resolved ruff, so both members move together.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.4

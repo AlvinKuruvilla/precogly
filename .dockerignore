@@ -1,0 +1,26 @@
+# The backend image builds from the repository root (backend/Dockerfile explains
+# why), so this file governs what is sent to the daemon. The Dockerfile copies
+# only pyproject.toml, uv.lock, backend/ and mcp/ — everything else here is
+# transfer cost rather than correctness, and node_modules is most of it.
+.git/
+frontend/
+docs/
+site/
+libraries/
+
+venv/
+# uv's default location. A host venv holds host-platform wheels.
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+backend/staticfiles/
+backend/media/

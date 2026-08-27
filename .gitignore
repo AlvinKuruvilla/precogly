@@ -9,7 +9,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+build/
 backend/venv/
+# uv puts the workspace venv at the root; backend/.venv predates that.
+.venv/
 backend/.venv/
 .mypy_cache/
 .pytest_cache/

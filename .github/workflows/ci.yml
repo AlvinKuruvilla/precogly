@@ -34,6 +34,25 @@ jobs:
       - run: docker compose up -d db
       - run: docker compose run --rm backend python -m pytest
 
+  # The MCP package's own gates. Separate from `backend` because these tests
+  # import no Django — they run the tools against a stub reader — and because
+  # mypy is strict here and unconfigured on the backend side. Ruff is not run
+  # here: `lint` already covers the whole tree.
+  mcp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.13'
+      # From inside the member, uv installs that member's dependencies only, not
+      # the whole workspace — Django and psycopg never enter this job.
+      - run: uv run mypy src
+      - run: uv run pytest
+
   frontend:
     runs-on: ubuntu-latest
     steps:

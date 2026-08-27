@@ -17,9 +17,12 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-  # Directory is where pyproject.toml and uv.lock live.
+  # Directory is where pyproject.toml and uv.lock live. That is the repository
+  # root since `backend` and `mcp` became one uv workspace: a workspace has a
+  # single lock, and dependabot follows the lock. Pointing this at /backend
+  # instead finds a pyproject with no lock beside it and updates nothing.
   - package-ecosystem: "uv"
-    directory: "/backend"
+    directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
