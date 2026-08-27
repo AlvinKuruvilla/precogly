@@ -42,17 +42,29 @@ WSGIApplication = Callable[[dict[str, Any], Callable[..., Any]], Iterable[bytes]
 _METADATA_PATH = "/.well-known/oauth-protected-resource/mcp"
 
 
+# The running lifespan task, one per worker process. This reference is what keeps
+# it alive: asyncio tracks tasks in a WeakSet, and every other reference the task
+# has forms a cycle — task -> the lifespan coroutine's frame -> the `receive`
+# closure -> the queue it is blocked on -> that waiter's callback -> back to the
+# task. A cycle reachable only weakly from outside is exactly what the cyclic
+# collector reclaims, and losing it closes the session manager's task group: every
+# later request fails with "Task group is not initialized", at whatever point a
+# collection happens to run.
+_lifespan_task: asyncio.Task[Any] | None = None
+
+
 def _start_lifespan(app: Any, loop: asyncio.AbstractEventLoop) -> None:
     """Run the ASGI lifespan once, and leave it running.
 
     Without this every request fails with "Task group is not initialized": the MCP
     session manager's task group is started by Starlette's lifespan, and a bridge
-    that only ever dispatches requests never runs it. The task below is deliberately
-    never awaited — after startup it blocks reading the next lifespan message, and
-    that is what holds the task group open for the life of the process.
+    that only ever dispatches requests never runs it. The task is deliberately never
+    awaited — after startup it blocks reading the next lifespan message, which is
+    what holds the task group open for the life of the process.
     """
+    global _lifespan_task
 
-    async def run() -> None:
+    async def run() -> asyncio.Task[Any]:
         incoming: asyncio.Queue[dict[str, str]] = asyncio.Queue()
         started = asyncio.Event()
         await incoming.put({"type": "lifespan.startup"})
@@ -64,12 +76,13 @@ def _start_lifespan(app: Any, loop: asyncio.AbstractEventLoop) -> None:
             if message["type"].startswith("lifespan.startup."):
                 started.set()
 
-        asyncio.ensure_future(
+        task = asyncio.ensure_future(
             app({"type": "lifespan", "asgi": {"version": "3.0"}}, receive, send)
         )
         await started.wait()
+        return task
 
-    asyncio.run_coroutine_threadsafe(run(), loop).result(timeout=10)
+    _lifespan_task = asyncio.run_coroutine_threadsafe(run(), loop).result(timeout=10)
 
 
 def mount(django_application: WSGIApplication) -> WSGIApplication:
