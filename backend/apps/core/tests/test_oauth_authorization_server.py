@@ -27,6 +27,7 @@ from oauth2_provider.models import get_application_model
 User = get_user_model()
 Application = get_application_model()
 
+
 def heading(response):
     """The text of the page's `h1`, with markup and attributes ignored.
 
@@ -97,7 +98,9 @@ class TestDiscovery(TestCase):
         #
         # 404 here rather than at the endpoint: the MCP app is dispatched to before
         # Django, so a request that arrives at the URLconf at all has already missed it.
-        assert self.client.get("/.well-known/oauth-protected-resource").status_code == 404
+        assert (
+            self.client.get("/.well-known/oauth-protected-resource").status_code == 404
+        )
         assert (
             self.client.get("/.well-known/oauth-protected-resource/mcp").status_code
             == 404
@@ -114,11 +117,11 @@ class TestTheLoginTheAuthorizeViewNeeds(TestCase):
         # URLs were never included.
         try:
             resolve("/accounts/login/")
-        except Resolver404:  # pragma: no cover - the failure this test exists for
+        except Resolver404 as err:  # pragma: no cover - what this test exists for
             raise AssertionError(
                 "/accounts/login/ does not resolve, so the authorize view "
                 "redirects an unauthenticated user to a 404"
-            )
+            ) from err
 
         assert self.client.get("/accounts/login/").status_code == 200
 
@@ -307,9 +310,7 @@ class TestSigningInDuringAuthorization(TestCase):
         #    is what {{ redirect_field }} in the login template buys; without it
         #    the user authenticates and the authorization is silently abandoned.
         assert signed_in.status_code == 200
-        assert "oauth2_provider/authorize.html" in [
-            t.name for t in signed_in.templates
-        ]
+        assert "oauth2_provider/authorize.html" in [t.name for t in signed_in.templates]
         self.assertContains(signed_in, 'name="allow"')
         assert signed_in.redirect_chain[-1][0].startswith(
             reverse("oauth2_provider:authorize")

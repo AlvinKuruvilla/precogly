@@ -109,7 +109,9 @@ class VisibleToTests(TestCase):
         assert names(ThreatModel.objects.visible_to(user)) == ["Contoso ledger"]
 
     def test_an_account_with_no_membership_reads_nothing(self):
-        assert list(ThreatModel.objects.visible_to(account("nobody@kestrel.test"))) == []
+        assert (
+            list(ThreatModel.objects.visible_to(account("nobody@kestrel.test"))) == []
+        )
 
 
 class SecurityTeamIsNotScopedToAnOrganizationTests(TestCase):

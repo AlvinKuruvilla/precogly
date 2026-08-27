@@ -208,7 +208,9 @@ class ORMReader:
         return list(ThreatLibraryListSerializer(queryset, many=True).data)
 
     async def countermeasure_library(self) -> list[dict[str, Any]]:
-        return await sync_to_async(self._countermeasure_library, thread_sensitive=True)()
+        return await sync_to_async(
+            self._countermeasure_library, thread_sensitive=True
+        )()
 
     def _countermeasure_library(self) -> list[dict[str, Any]]:
         queryset = CountermeasureLibrary.objects.select_related("source_pack").order_by(
@@ -222,7 +224,9 @@ class ORMReader:
     def _component_library(self) -> list[dict[str, Any]]:
         # This route has no list serializer — the viewset declares `serializer_class`
         # outright — so the rows carry timestamps the projection drops.
-        queryset = ComponentLibrary.objects.select_related("source_pack").order_by("name")
+        queryset = ComponentLibrary.objects.select_related("source_pack").order_by(
+            "name"
+        )
         return list(ComponentLibrarySerializer(queryset, many=True).data)
 
 

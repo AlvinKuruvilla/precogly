@@ -17,7 +17,7 @@ INSTALLED_APPS += ["django_extensions"]  # noqa: F405
 DEBUG_TOOLBAR = env.bool("DEBUG_TOOLBAR", default=True)  # noqa: F405
 
 if DEBUG_TOOLBAR:
-    INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
+    INSTALLED_APPS += ["debug_toolbar"]
     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa: F405
     INTERNAL_IPS = ["127.0.0.1"]
 

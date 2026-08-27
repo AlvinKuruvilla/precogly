@@ -55,9 +55,7 @@ def account(email, organization, role="security_team"):
     user = User.objects.create_user(username=email, email=email, password="testpass123")
     user.organization_memberships.all().delete()
     user.team_memberships.all().delete()
-    OrganizationMember.objects.create(
-        organization=organization, user=user, role=role
-    )
+    OrganizationMember.objects.create(organization=organization, user=user, role=role)
     return user
 
 
@@ -115,7 +113,10 @@ class ThreatModelReadingTests(TestCase):
     def test_an_organization_id_narrows_to_that_organization(self):
         listing = self.read(self.insider, organization_id=self.org.pk)
 
-        assert [row["name"] for row in listing.rows] == ["Card vault", "Ingest pipeline"]
+        assert [row["name"] for row in listing.rows] == [
+            "Card vault",
+            "Ingest pipeline",
+        ]
 
     def test_an_organization_the_caller_cannot_read_comes_back_empty(self):
         # Narrowing an already-scoped queryset, so this is empty rather than an error.
@@ -250,6 +251,4 @@ class ReaderForTests(TestCase):
             reader_for(None)
 
         with self.assertRaises(RuntimeError):
-            reader_for(
-                AccessToken(token="opaque", client_id="probe", scopes=["read"])
-            )
+            reader_for(AccessToken(token="opaque", client_id="probe", scopes=["read"]))

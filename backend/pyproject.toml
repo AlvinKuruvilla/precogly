@@ -148,8 +148,13 @@ max-line-length = 120
 known-first-party = ["apps", "config"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S105", "S106"]
-"**/tests.py" = ["S105", "S106"]
+# S101 is bandit's `assert` rule, and it exists because `python -O` strips
+# asserts — a production concern. pytest's whole idiom is the bare assert, and
+# it does not run under -O. The Django-style tests here use `self.assertEqual`
+# and never tripped it; the pytest-style ones added with the MCP work do, 51
+# times in three files.
+"**/tests/**" = ["S101", "S105", "S106"]
+"**/tests.py" = ["S101", "S105", "S106"]
 
 [tool.pytest.ini_options]
 # Wire pytest-django to the same settings manage.py uses by default. The
