@@ -1754,19 +1754,41 @@ def _import_pack(
             # Phase 5: Load frameworks and requirements (for compliance packs)
             _load_frameworks(library_pack, pack_data, import_warnings)
 
-            return ImportResult(
-                success=True,
-                pack_slug=slug,
-                pack_name=name,
-                version=version,
-                message=f"Successfully imported {name} v{version} (v2 format)",
-                components_created=components_count,
-                threats_created=threats_count,
-                countermeasures_created=countermeasures_count,
-                templates_created=templates_count,
-                taxonomies_created=taxonomies_count,
-                warnings=import_warnings,
+        # Outside the transaction, so this reads committed data.
+        #
+        # `import_single` imports one pack at a time and never reached the
+        # third pass in `sync_all_packs_from_source()`, so importing a
+        # taxonomy pack on its own left every referencing pack's joins
+        # unresolved, and re-importing one CASCADE-deleted the joins pointing
+        # into it with nothing to rebuild them. Reconciling after the commit
+        # is what makes a single-pack import see the rest of the catalog as
+        # it now stands, rather than re-reading the same snapshot that
+        # produced the gap.
+        #
+        # Best effort: this pack's own import has already committed and
+        # succeeded, so a failure here is logged rather than raised.
+        try:
+            reconcile_taxonomy_joins_from_source()
+        except Exception:
+            logger.exception(
+                f"Taxonomy join reconciliation failed after importing pack "
+                f"'{slug}'. The pack itself imported successfully; only the "
+                f"catalog-wide retry failed."
             )
+
+        return ImportResult(
+            success=True,
+            pack_slug=slug,
+            pack_name=name,
+            version=version,
+            message=f"Successfully imported {name} v{version} (v2 format)",
+            components_created=components_count,
+            threats_created=threats_count,
+            countermeasures_created=countermeasures_count,
+            templates_created=templates_count,
+            taxonomies_created=taxonomies_count,
+            warnings=import_warnings,
+        )
 
     except Exception as e:
         logger.exception(f"Failed to import v2 pack {slug}")
@@ -1845,24 +1867,68 @@ def sync_all_packs_from_source(
             for join_file in joins_dir.glob("requirements-*.yaml"):
                 _load_requirement_overlay(pack, join_file)
 
-        # Third pass: re-apply taxonomy joins.
-        # Same ordering issue as requirement overlays — taxonomy packs may
-        # be re-imported after the threat packs that reference them, causing
-        # CASCADE deletes to destroy the mappings. Re-loading from disk
-        # after all taxonomies exist fixes this.
-        for pack_info in packs:
-            pack = LibraryPack.objects.filter(slug=pack_info.slug).first()
-            if not pack:
-                continue
-            joins_dir = Path(pack_info.path) / "joins"
-            if not joins_dir.exists():
-                continue
-            for join_file in joins_dir.glob("threats-*.yaml"):
-                if join_file.name == "threats-countermeasures.yaml":
-                    continue
-                _load_threat_taxonomy_joins(pack, join_file)
+    # Third pass: re-apply taxonomy joins.
+    # Same ordering issue as requirement overlays — taxonomy packs may
+    # be re-imported after the threat packs that reference them, causing
+    # CASCADE deletes to destroy the mappings. Re-loading from disk
+    # after all taxonomies exist fixes this.
+    #
+    # Deliberately outside the `if force:` block above. A non-forced sync
+    # skips any pack whose version is unchanged, but it still re-imports
+    # packs whose version *did* change — and a taxonomy pack's re-import
+    # CASCADE-deletes every join pointing into it. If the pack carrying
+    # those joins was skipped, nothing rebuilds them, so the taxonomy is
+    # left correct with nothing referring to it. Re-reading the joins is
+    # idempotent (`_load_threat_taxonomy_joins` writes through
+    # get_or_create/update_or_create), so running it unconditionally only
+    # costs the re-read.
+    reconcile_taxonomy_joins_from_source(packs)
 
     return results
+
+
+def reconcile_taxonomy_joins_from_source(
+    packs: list["PackInfo"] | None = None,
+) -> int:
+    """Re-apply every pack's threat-taxonomy joins from disk.
+
+    A threat-taxonomy join is resolved by looking up the referenced
+    `TaxonomyEntry` at the moment its own pack is imported. That lookup can
+    fail for reasons outside the pack being imported: most often the taxonomy
+    pack owning the referenced code has not been imported yet, or is
+    re-imported afterwards to add the code in question. The join is then
+    recorded as a `PendingTaxonomyOverlay` with a warning, and the pack's own
+    import still reports success.
+
+    Re-reading every pack's joins once the whole catalog is in its final state
+    closes that gap. Every write is get_or_create/update_or_create, so
+    re-running it for a join that already resolved is a no-op.
+
+    Args:
+        packs: Packs to reconcile. Runs its own `discover_packs_from_source()`
+            if omitted.
+
+    Returns:
+        Number of threat-taxonomy join matches resolved across every pack,
+        including joins that already existed and were simply re-confirmed.
+    """
+    if packs is None:
+        packs = discover_packs_from_source()
+
+    total = 0
+    for pack_info in packs:
+        pack = LibraryPack.objects.filter(slug=pack_info.slug).first()
+        if not pack:
+            continue
+        joins_dir = Path(pack_info.path) / "joins"
+        if not joins_dir.exists():
+            continue
+        for join_file in joins_dir.glob("threats-*.yaml"):
+            if join_file.name == "threats-countermeasures.yaml":
+                continue
+            total += _load_threat_taxonomy_joins(pack, join_file)
+
+    return total
 
 
 # =============================================================================
