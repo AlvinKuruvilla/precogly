@@ -106,9 +106,12 @@ async function renderDfdPng(canvasData: { nodes?: unknown[]; edges?: unknown[] }
     return `<g><rect x="${left}" y="${top}" width="${nodeWidth}" height="${nodeHeight}" rx="8" fill="${colors[type] || '#f8fafc'}" stroke="${strokes[type] || '#64748b'}" stroke-width="2"/><text x="${left + nodeWidth / 2}" y="${top + nodeHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="14" fill="#1e293b">${label}</text></g>`
   }).join('')
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/></marker></defs>${edgeMarkup}${nodeMarkup}</svg>`
-  const response = await fetch(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
-  const blob = await response.blob()
-  const image = await createImageBitmap(blob)
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const imageElement = new Image()
+    imageElement.onload = () => resolve(imageElement)
+    imageElement.onerror = () => reject(new Error('Unable to decode generated DFD image'))
+    imageElement.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  })
   const canvas = document.createElement('canvas')
   const scale = Math.min(2, 1200 / width)
   canvas.width = Math.round(width * scale)
@@ -118,7 +121,6 @@ async function renderDfdPng(canvasData: { nodes?: unknown[]; edges?: unknown[] }
   context.fillStyle = '#ffffff'
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.drawImage(image, 0, 0, canvas.width, canvas.height)
-  image.close()
   const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   return png ? new Uint8Array(await png.arrayBuffer()) : null
 }
@@ -271,7 +273,7 @@ function buildArchitectureSection(data: ReportData, dfdImages: Map<string, Uint8
       children.push(
         h3(`Figure ${idx + 1}: ${dfd.name}${dfd.isPrimary ? ' (Primary)' : ''}`),
         ...(dfdImages.get(dfd.id)
-          ? [new Paragraph({ children: [new ImageRun({ data: dfdImages.get(dfd.id)!, transformation: { width: 600, height: 360 } })] })]
+          ? [new Paragraph({ children: [new ImageRun({ data: dfdImages.get(dfd.id)!, type: 'png', transformation: { width: 600, height: 360 } })] })]
           : [placeholder(`DFD diagram unavailable — ${dfd.name}`)]),
         spacer(),
       )
