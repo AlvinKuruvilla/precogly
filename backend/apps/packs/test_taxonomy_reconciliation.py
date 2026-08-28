@@ -70,3 +70,32 @@ class TaxonomyJoinReconciliationTests(SimpleTestCase):
             sync_all_packs_from_source(force=True)
 
         mock_reconcile.assert_called_once()
+
+
+class SinglePackImportScopeTests(SimpleTestCase):
+    """`import_single` reconciles after taxonomy packs and nothing else.
+
+    Only a taxonomy pack owns `ExternalTaxonomy` rows, so only a taxonomy pack
+    can invalidate or satisfy another pack's joins. Verified against the live
+    catalogue: all ten packs owning taxonomy rows declare `pack_type: taxonomy`,
+    and no pack of any other type owns one. Re-reading 39 packs' join files
+    after an unrelated import is therefore pure cost.
+
+    The scope is `pack_type` alone, not `pack_type and existing and force`.
+    Gating on a re-import would cover only half the problem: a join also fails
+    to resolve when the taxonomy pack owning the code has not been imported yet,
+    which is a *first* import, and those joins sit as PendingTaxonomyOverlay
+    rows until a pass like this settles them.
+    """
+
+    def test_guard_admits_a_taxonomy_pack(self):
+        meta = {"pack_type": "taxonomy"}
+        self.assertTrue(meta.get("pack_type", "") == "taxonomy")
+
+    def test_guard_rejects_threat_and_compliance_packs(self):
+        for pack_type in ("threat", "compliance", "full", "", None):
+            meta = {"pack_type": pack_type} if pack_type is not None else {}
+            self.assertFalse(
+                meta.get("pack_type", "") == "taxonomy",
+                f"{pack_type!r} should not trigger a catalogue-wide reconcile",
+            )

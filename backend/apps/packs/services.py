@@ -1765,16 +1765,31 @@ def _import_pack(
         # it now stands, rather than re-reading the same snapshot that
         # produced the gap.
         #
+        # Scoped to taxonomy packs, since only they own `ExternalTaxonomy`
+        # rows and so only they can invalidate or satisfy another pack's
+        # joins. Every other pack type leaves the taxonomy catalog untouched,
+        # and scanning all packs' join files after an unrelated import would
+        # be pure cost.
+        #
+        # Deliberately not also gated on `existing and force`. That would
+        # cover only the re-import half of the problem, and this function's
+        # own docstring names the other half: a join fails to resolve when
+        # "the taxonomy pack owning the referenced code has not been imported
+        # yet", which is a first import, where `existing` is None and `force`
+        # is False. Those joins are parked as PendingTaxonomyOverlay rows, and
+        # this pass is what settles them.
+        #
         # Best effort: this pack's own import has already committed and
         # succeeded, so a failure here is logged rather than raised.
-        try:
-            reconcile_taxonomy_joins_from_source()
-        except Exception:
-            logger.exception(
-                f"Taxonomy join reconciliation failed after importing pack "
-                f"'{slug}'. The pack itself imported successfully; only the "
-                f"catalog-wide retry failed."
-            )
+        if pack_meta.get("pack_type", "") == "taxonomy":
+            try:
+                reconcile_taxonomy_joins_from_source()
+            except Exception:
+                logger.exception(
+                    f"Taxonomy join reconciliation failed after importing pack "
+                    f"'{slug}'. The pack itself imported successfully; only the "
+                    f"catalog-wide retry failed."
+                )
 
         return ImportResult(
             success=True,
