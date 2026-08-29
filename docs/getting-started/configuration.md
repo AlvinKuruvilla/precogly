@@ -109,9 +109,9 @@ The production settings module automatically configures HTTPS redirect, HSTS, se
 
 ## AI Threat Suggestions (Bring Your Own Model)
 
-Precogly can suggest threats for components using any OpenAI-compatible chat-completions endpoint. The feature is **off by default** — nothing reaches out to a model until you opt in.
+For the complete user-facing guide—including how to set up an AI provider, AI threat suggestions, AI-powered DFD generation, usage reporting, and key handling—see [AI Features](../guides/ai-features.md).
 
-### How It Works
+The operator-wide fallback provider is configured with these environment variables:
 
 When enabled, the AI connects Precogly to a language model for two workflows:
 
