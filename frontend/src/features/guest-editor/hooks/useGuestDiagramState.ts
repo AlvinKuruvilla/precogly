@@ -39,6 +39,7 @@ export function useGuestDiagramState(): UseGuestDiagramStateReturn {
   const { pushToHistory, undo: undoFromHistory, redo: redoFromHistory, canUndo, canRedo } = useUndoHistory()
   const nodesRef = useRef<DiagramNode[]>(nodes)
   const edgesRef = useRef<DiagramEdge[]>(edges)
+  const nodeDragHistoryRef = useRef(false)
 
   useEffect(() => {
     nodesRef.current = nodes
@@ -71,9 +72,24 @@ export function useGuestDiagramState(): UseGuestDiagramStateReturn {
       const hasRealChanges = changes.some(
         (c) => c.type !== 'select' && c.type !== 'dimensions'
       )
+      const hasDraggingChange = changes.some(
+        (c) => c.type === 'position' && c.dragging === true
+      )
+      const hasPositionChange = changes.some((c) => c.type === 'position')
+      const endsDragging = changes.some(
+        (c) => c.type === 'position' && c.dragging === false
+      )
       if (hasRealChanges) {
-        pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+        if (hasDraggingChange) {
+          if (!nodeDragHistoryRef.current) {
+            pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+          }
+          nodeDragHistoryRef.current = true
+        } else if (!hasPositionChange || !nodeDragHistoryRef.current) {
+          pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+        }
       }
+      if (endsDragging) nodeDragHistoryRef.current = false
       setNodesInternal((nds) => applyNodeChanges(changes, nds) as DiagramNode[])
       if (hasRealChanges) {
         setHasUnsavedChanges(true)

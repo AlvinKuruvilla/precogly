@@ -122,6 +122,7 @@ export function useDiagramState({
   const { pushToHistory, undo: undoFromHistory, redo: redoFromHistory, canUndo, canRedo } = useUndoHistory()
   const nodesRef = useRef<DiagramNode[]>(nodes)
   const edgesRef = useRef<DiagramEdge[]>(edges)
+  const nodeDragHistoryRef = useRef(false)
   // Keep refs in sync for undo access
   useEffect(() => {
     nodesRef.current = nodes
@@ -242,10 +243,25 @@ export function useDiagramState({
     const hasRealChanges = changes.some(
       (c) => c.type !== 'select' && c.type !== 'dimensions'
     )
+    const hasDraggingChange = changes.some(
+      (c) => c.type === 'position' && c.dragging === true
+    )
+    const hasPositionChange = changes.some((c) => c.type === 'position')
+    const endsDragging = changes.some(
+      (c) => c.type === 'position' && c.dragging === false
+    )
     // Undo feature - push to history before meaningful changes
     if (hasRealChanges) {
-      pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+      if (hasDraggingChange) {
+        if (!nodeDragHistoryRef.current) {
+          pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+        }
+        nodeDragHistoryRef.current = true
+      } else if (!hasPositionChange || !nodeDragHistoryRef.current) {
+        pushToHistory({ nodes: nodesRef.current, edges: edgesRef.current })
+      }
     }
+    if (endsDragging) nodeDragHistoryRef.current = false
     // Use internal setter - we handle hasUnsavedChanges manually for selective detection
     setNodesInternal((nds) => applyNodeChanges(changes, nds) as DiagramNode[])
     if (hasRealChanges) {
