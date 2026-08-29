@@ -299,6 +299,42 @@ OAUTH2_PROVIDER = {
     "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": True,
     "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT": True,
     "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
+    # RFC 9700 §4.3.2 / RFC 6750 §5.3: an access token in the query string lands in
+    # browser history, proxy logs and Referer headers. Nothing here sends one that
+    # way — `/mcp` reads the header only, and the gate this sets
+    # (`oauth2_backends.py:266`) fires solely on `access_token` in `request.GET` — so
+    # this refuses a transport no client of ours uses.
+    "COMPLIANT_BCP_RFC9700_ACCESS_TOKEN_TRANSPORT": True,
+    # RFC 9207: name this server in the authorization response, so a client that
+    # talks to several cannot be tricked into sending a code to the wrong one. Depends
+    # on OIDC_ISS_ENDPOINT being pinned below — django-oauth-toolkit otherwise derives
+    # `iss` from the prefixed metadata mount while the client read the root one, and
+    # RFC 8414 compares issuers as exact strings, so a strict client rejects its own
+    # authorization response.
+    "COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS": True,
+    # RFC 9700 §4.14.2 defines refresh token rotation as invalidating the presented
+    # token *and* revoking the active one once a replay proves the token is held by
+    # two parties: "the authorization server cannot determine which party submitted
+    # the invalid refresh token, but it will revoke the active refresh token."
+    # Rotation alone does the first half, so a stolen token outlives the client it
+    # was stolen from — the thief keeps rotating while the victim silently
+    # re-authorizes.
+    #
+    # The grace period is not optional alongside it. At 0 every replay is an attack,
+    # including a client retrying after its connection dropped once the server had
+    # already committed the rotation, and that costs a user their session over a lost
+    # packet. 30s is Okta's default (Okta caps at 60, Ory Hydra at 300); it is
+    # borrowed, not measured against how MCP clients actually retry.
+    "REFRESH_TOKEN_REUSE_PROTECTION": True,
+    "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 30,
+    # Inactivity, not a deadline: `validate_refresh_token` puts the cutoff at the
+    # access token's expiry plus this, and rotation mints a fresh access token, so a
+    # client in daily use never expires and seven days of silence kills it. Left
+    # unset, refresh tokens never expire at all, which RFC 10017 §6.3.2 forbids —
+    # a maximum lifetime or an inactivity window, and django-oauth-toolkit can only
+    # express the second. Seven days is Okta's inactivity window on the same sliding
+    # mechanism.
+    "REFRESH_TOKEN_EXPIRE_SECONDS": 60 * 60 * 24 * 7,
     # Registration has to be open, because a client registers itself before any
     # browser opens — there is no session to authenticate it with at that point.
     # The default, IsAuthenticatedDCRPermission, wants a session and so refuses
@@ -330,6 +366,31 @@ MCP_ISSUER_URL = env("MCP_ISSUER_URL", default="http://localhost:8000")
 # with MCP_ISSUER_URL, which is what the MCP endpoint advertises, and one variable
 # is what keeps them from drifting.
 OAUTH2_PROVIDER["OIDC_ISS_ENDPOINT"] = MCP_ISSUER_URL
+
+# Two RFC 9700 deployment findings this deployment answers with a reason rather than
+# a setting. `manage.py check --deploy` is a merge gate (.github/workflows/ci.yml),
+# so leaving them to be re-triaged on every run costs more than recording why.
+#
+# W008 — plaintext `http` redirect URIs. Removing "http" from
+# ALLOWED_REDIRECT_URI_SCHEMES also disallows the RFC 8252 loopback callback, which
+# is `http://127.0.0.1:<ephemeral>` for every native MCP client there is; the hint on
+# the check says so itself. ALLOW_LOCALHOST_LOOPBACK above exists to support exactly
+# that flow, so this is the scheme the product depends on, not one nobody removed.
+#
+# W006 — plaintext token storage. Wanted, and it breaks concurrent refresh. Measured
+# 2026-08-28 against the dev stack: two simultaneous refreshes of the same token
+# return one 200 and one 500, `AccessToken matching query does not exist`. The second
+# request reaches the grace branch of `_save_bearer_token` (:1039-1058), which hands
+# back `previous_access_token.token` — blank under hashed storage — and
+# `authorization_flow_token_response` (views/base.py:505) then looks that empty string
+# up with an unguarded `.get()`. django-oauth-toolkit's own E001 catches the same
+# collision only when REFRESH_TOKEN_GRACE_PERIOD_SECONDS is non-zero; concurrency
+# reaches the branch at any grace setting, so the check does not cover this. Revisit
+# when that `.get()` is guarded upstream.
+SILENCED_SYSTEM_CHECKS = [
+    "oauth2_provider.W006",
+    "oauth2_provider.W008",
+]
 
 
 # DRF Spectacular (OpenAPI/Swagger)

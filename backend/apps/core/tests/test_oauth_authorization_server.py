@@ -17,16 +17,20 @@ import hashlib
 import json
 import re
 import secrets
+from datetime import timedelta
 from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import Resolver404, resolve, reverse
-from oauth2_provider.models import get_application_model
+from django.utils import timezone
+from oauth2_provider.models import get_application_model, get_refresh_token_model
+from oauth2_provider.settings import oauth2_settings
 
 User = get_user_model()
 Application = get_application_model()
+RefreshToken = get_refresh_token_model()
 
 
 def heading(response):
@@ -447,3 +451,120 @@ class TestTheGrant(TestCase):
         )
 
         assert response.status_code == 400
+
+
+class TestRefreshTokenRotation(TestCase):
+    """What happens when a refresh token is presented twice.
+
+    RFC 9700 §4.14.2 defines rotation as invalidating the presented token *and*
+    revoking the active one once a replay proves two parties hold it: "the
+    authorization server cannot determine which party submitted the invalid refresh
+    token, but it will revoke the active refresh token." Rotation alone does only the
+    first half, which leaves a stolen token outliving the client it was taken from.
+
+    The grace window is what separates a breach from a client that retried after its
+    connection dropped once the server had committed the rotation. Both cases are
+    covered here, because enabling replay detection without the window turns the
+    second into the first.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="rotator", email="rotate@test.org", password="testpass123"
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.client_id = self.client.post(
+            reverse("oauth2_provider:dcr-register"),
+            data=json.dumps(
+                {
+                    "client_name": "Claude Code",
+                    "redirect_uris": [REGISTERED_REDIRECT],
+                    "grant_types": ["authorization_code", "refresh_token"],
+                    "token_endpoint_auth_method": "none",
+                }
+            ),
+            content_type="application/json",
+        ).json()["client_id"]
+        self.verifier, self.challenge = pkce_pair()
+
+    def first_refresh_token(self):
+        params = {
+            "response_type": "code",
+            "client_id": self.client_id,
+            "redirect_uri": REGISTERED_REDIRECT,
+            "scope": "read",
+            "state": "opaque-state",
+            "code_challenge": self.challenge,
+            "code_challenge_method": "S256",
+        }
+        self.client.get(reverse("oauth2_provider:authorize"), params)
+        consent = self.client.post(
+            reverse("oauth2_provider:authorize"), {**params, "allow": "Authorize"}
+        )
+        code = parse_qs(urlparse(consent.headers["Location"]).query)["code"][0]
+        return self.client.post(
+            reverse("oauth2_provider:token"),
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": REGISTERED_REDIRECT,
+                "client_id": self.client_id,
+                "code_verifier": self.verifier,
+            },
+        ).json()["refresh_token"]
+
+    def refresh(self, token):
+        return self.client.post(
+            reverse("oauth2_provider:token"),
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": token,
+                "client_id": self.client_id,
+            },
+        )
+
+    def age_out_of_grace(self, token):
+        """Back-date the rotation so the grace window has passed.
+
+        Sleeping the window instead would put REFRESH_TOKEN_GRACE_PERIOD_SECONDS of
+        real time in the suite, and rewriting `revoked` reaches the same branch:
+        `validate_refresh_token` compares it against `now - grace`.
+        """
+        row = RefreshToken.objects.get(
+            token_checksum=hashlib.sha256(token.encode()).hexdigest()
+        )
+        row.revoked = timezone.now() - timedelta(
+            seconds=oauth2_settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS + 1
+        )
+        row.save(update_fields=["revoked"])
+
+    def test_a_replayed_token_takes_the_whole_family_with_it(self):
+        first = self.first_refresh_token()
+        second = self.refresh(first).json()["refresh_token"]
+        self.age_out_of_grace(first)
+
+        replayed = self.refresh(first)
+
+        assert replayed.status_code == 400
+        assert replayed.json()["error"] == "invalid_grant"
+        # The half REFRESH_TOKEN_REUSE_PROTECTION adds. Without it this token keeps
+        # working, so a thief who replayed the old one is refused once and continues
+        # from the chain they already hold.
+        assert self.refresh(second).status_code == 400
+
+    def test_a_retry_inside_the_grace_window_is_not_treated_as_a_breach(self):
+        # The reason the grace period cannot be left at 0 alongside replay detection:
+        # a client whose connection dropped after the server committed the rotation
+        # replays in good faith, and revoking its family would cost a user their
+        # session over a lost packet. Inside the window it is handed the pair the
+        # rotation already minted.
+        first = self.first_refresh_token()
+        second = self.refresh(first).json()["refresh_token"]
+
+        retried = self.refresh(first)
+
+        assert retried.status_code == 200
+        assert self.refresh(second).status_code == 200
