@@ -70,13 +70,19 @@ urlpatterns = [
     path("api/", include("apps.diagrams.urls")),  # diagrams, dfd-templates
     path("api/", include("apps.systems.urls")),  # systems, components, data-flows
     path("api/", include("apps.compliance.urls")),  # frameworks, requirements
-    path("api/", include("apps.threats.urls")),  # threat/countermeasure libraries, instances
+    path(
+        "api/", include("apps.threats.urls")
+    ),  # threat/countermeasure libraries, instances
     path("api/", include("apps.organizations.urls")),  # organizations, memberships
     path("api/", include("apps.packs.urls")),  # library packs, installations
     path("api/", include("apps.ai.urls")),  # per-tenant AI provider configs
     # API documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
@@ -91,7 +97,8 @@ if settings.DEBUG:
 
             urlpatterns = [
                 path("__debug__/", include(debug_toolbar.urls)),
-            ] + urlpatterns
+                *urlpatterns,
+            ]
         except ImportError:
             pass
 
