@@ -1,6 +1,6 @@
 # 0009: The authorization pages are built, not copied
 
-Status: accepted
+Status: accepted; the "Moving consent into the SPA" rejection amended 2026-08-28
 Date: 2026-08-11
 Relates to: [0004](0004-where-the-user-authorizes.md)
 Supersedes: the drift trade-off in [0004](0004-where-the-user-authorizes.md)
@@ -65,10 +65,41 @@ in the package onto the same shell.
   path untouched. Rejected for what it costs at the point of use: ~150KB of JavaScript to
   render a two-field form, on the most security-sensitive page in the product.
 
-- **Moving consent into the SPA.** Still the right answer eventually, and still gated on
-  the trigger 0004 named — consent carrying product logic rather than styling. It would
-  mean writing the endpoint that issues authorization codes, taking that off
-  django-oauth-toolkit's tested view and onto ours.
+- **Moving consent into the SPA.** Still worth revisiting, on the trigger 0004 named —
+  consent carrying product logic rather than styling.
+
+  *Amended 2026-08-28: the cost stated here was wrong.* Issuing the authorization code
+  does not move off django-oauth-toolkit. `AuthorizationView.form_valid` marshals form
+  fields into a `credentials` dict and ends in a single `OAuthLibMixin` call,
+  `create_authorization_response()` (`views/mixins.py:101`); the GET side is
+  `validate_authorization_request()` (`:92`). Two DRF views over those two methods leave
+  oauthlib minting the code, `save_authorization_code` writing the `Grant`, and PKCE,
+  `redirect_uri`, `resource` and scope validation in `oauth2_validators.py` untouched.
+
+  What would move onto Precogly:
+
+  - Re-validating credentials the client echoes back. `form_valid` re-checks the
+    `resource` values because "the hidden form field can be tampered with"; an SPA
+    round-trips the same values over the same untrusted path, and missing the check fails
+    nothing.
+  - `AuthorizationForm`'s field validation, rewritten as a serializer.
+  - The error and prompt paths: `error_response`, `redirect`, `handle_prompt_login`,
+    `handle_prompt_create`. Dropping the last two loses OIDC `prompt` handling silently.
+  - **What authenticates the consent POST.** A DRF view authenticates with a JWT, which
+    proves someone signed in up to sixty minutes ago and cannot be revoked in the
+    interval. [0007](0007-re-authenticating-at-consent.md) requires consent to be granted
+    by a session that has *just* authenticated. The SPA would have to re-authenticate
+    before the POST — rebuilding the second sign-in inside itself, and saving only the
+    templates.
+
+  So the gate is not "consent carries product logic" alone. Product logic is what makes
+  the SPA attractive; the fourth item is what makes it expensive. Reopen when there is an
+  answer to how the SPA proves recent authentication — a short-lived re-auth token from a
+  password re-entry, or 0007's deferred bridge endpoint minting a fresh session.
+
+  Read against django-oauth-toolkit 3.4.1. The first three items are read off the
+  library; the fourth is reasoned, not built. A spike — one DRF view calling
+  `create_authorization_response` — would settle it before anyone plans around it.
 
 - **Leaving the hand-written CSS** and re-syncing when someone notices. Rejected because
   the three defects above are what "when someone notices" looks like.

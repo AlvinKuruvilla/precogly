@@ -42,19 +42,22 @@ urlpatterns = [
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     # A second, server-rendered login, because the React one yields a JWT and no
     # Django session and the authorize view needs a session. LOGIN_URL points here.
-    # TODO: could there be one login instead of two? It would mean the React login
-    #       establishing a Django session as well as issuing its JWT, which puts a
-    #       `sessionid` cookie back on the browser. SessionAuthentication was taken
-    #       out of the DRF chain for that exact reason — stale `sessionid` cookies
-    #       broke login with CSRF errors — so reintroducing the cookie without
-    #       reintroducing the bug is the whole of the work.
     #
-    #       Already decided: the sign-in at consent stays, because consent granted by a session that has
-    #       not just authenticated says nothing about who granted it (precogly-mcp
-    #       docs/0007); and the styling half is solved, since these pages are built
-    #       from the frontend's own design tokens by `npm run build:auth-css`
-    #       (docs/0009). So "we can't leverage what we've built" holds for the
-    #       session and not for the look.
+    # The second sign-in is deliberate, not a gap to close: `mcp/docs/0007` keeps it
+    # because consent granted by a session that has not just authenticated says nothing
+    # about who granted it. `POST /api/auth/login/` already sets a `sessionid` —
+    # dj_rest_auth's SESSION_LOGIN defaults to True — and the SPA discards it by sending
+    # no `credentials: "include"`. Unifying would add a line, not remove one.
+    #
+    # TODO: the open question is the templates, not the logins. Five Django templates and
+    #       a second CSS build target exist only to render this flow, and they go away
+    #       only if consent moves into the SPA. `mcp/docs/0009` rejects that for now and
+    #       its 2026-08-28 amendment says what the gate actually is: not the authorization
+    #       code, which stays in django-oauth-toolkit behind one `OAuthLibMixin` call, but
+    #       what would authenticate the consent POST. A DRF view authenticates with a JWT,
+    #       and a JWT proves someone signed in up to an hour ago — which is the thing 0007
+    #       refuses. Reopen when there is an answer to that: a short-lived re-auth token,
+    #       or 0007's deferred bridge endpoint minting a fresh session.
     #
     #       Unowned, no issue filed.
     path("accounts/", include("allauth.urls")),
