@@ -64,9 +64,22 @@ urlpatterns = [
     # OAuth 2.1 authorization server, for MCP clients.
     path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
     # RFC 8414 puts this document at the origin root rather than under the prefix
-    # above, and strict clients look nowhere else. Serving it from both mounts is
-    # safe: the views reverse their endpoint URLs, so both describe the same "/o/"
-    # endpoints.
+    # above, and strict clients look nowhere else.
+    #
+    # Both mounts describe the same "/o/" endpoints, because the views reverse their
+    # endpoint URLs. They do not agree on `issuer`, which RFC 8414 makes the server's
+    # identity: `oauth2_metadata_issuer` derives it from `request.path`, so each mount
+    # names itself — "http://host" at the root and "http://host/o" under the prefix.
+    #
+    # Nothing routes a client to the prefixed copy today, so the two never meet:
+    # discovery runs protected-resource document -> `authorization_servers` -> the root
+    # document, which is self-consistent. It stops being latent the moment
+    # COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS is set, because the `iss` parameter comes
+    # from `oauth2_authorization_server_issuer`, which reverses
+    # `oauth2_provider:oauth-server-metadata` and therefore resolves to the prefixed
+    # mount. A client that read the root document then rejects its own authorization
+    # response — RFC 9207 compares the two, and RFC 8414 comparison is exact string
+    # comparison. Set OIDC_ISS_ENDPOINT alongside that flag and all three agree.
     path("", include((_authorization_server_metadata, "oauth2_provider_metadata"))),
     # App APIs
     path("api/", include("apps.threat_models.urls")),  # threat-models, reference-images

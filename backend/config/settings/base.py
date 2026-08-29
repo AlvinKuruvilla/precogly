@@ -321,6 +321,16 @@ OAUTH2_PROVIDER = {
 MCP_RESOURCE_URL = env("MCP_RESOURCE_URL", default="http://localhost:8000/mcp")
 MCP_ISSUER_URL = env("MCP_ISSUER_URL", default="http://localhost:8000")
 
+# Pin the issuer instead of letting django-oauth-toolkit derive one per request.
+# `config/urls.py` mounts the RFC 8414 document twice, and the derivation names
+# whichever mount served it — so the root copy called this server
+# "http://host" and the prefixed copy called it "http://host/o". RFC 8414 makes
+# `issuer` the server's identity and compares it by exact string, so two names is
+# one too many. Set here rather than in the block above because it has to agree
+# with MCP_ISSUER_URL, which is what the MCP endpoint advertises, and one variable
+# is what keeps them from drifting.
+OAUTH2_PROVIDER["OIDC_ISS_ENDPOINT"] = MCP_ISSUER_URL
+
 
 # DRF Spectacular (OpenAPI/Swagger)
 SPECTACULAR_SETTINGS = {

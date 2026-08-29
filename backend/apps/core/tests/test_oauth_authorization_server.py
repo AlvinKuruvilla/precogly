@@ -19,6 +19,7 @@ import re
 import secrets
 from urllib.parse import parse_qs, urlparse
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import Resolver404, resolve, reverse
@@ -67,6 +68,26 @@ class TestDiscovery(TestCase):
         assert document["authorization_endpoint"].endswith("/o/authorize/")
         assert document["token_endpoint"].endswith("/o/token/")
         assert document["introspection_endpoint"].endswith("/o/introspect/")
+
+    def test_both_mounts_name_the_server_the_same_thing(self):
+        # RFC 8414 makes `issuer` the server's identity and §3.3 compares it by exact
+        # string, so the two mounts of this document cannot each name themselves.
+        # Without OIDC_ISS_ENDPOINT they do: django-oauth-toolkit derives the issuer
+        # from `request.path`, which gave "http://host" at the root and "http://host/o"
+        # under the prefix.
+        #
+        # Latent while nothing sends a client to the prefixed copy — discovery runs
+        # protected-resource document -> `authorization_servers` -> the root document.
+        # It becomes a live failure the moment COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS
+        # is set, because the `iss` parameter is built from the *prefixed* mount
+        # (`oauth2_authorization_server_issuer` reverses the namespaced URL), so a
+        # client that read the root document rejects its own authorization response
+        # under RFC 9207 — the opposite of the mix-up defence that flag adds.
+        root = self.client.get("/.well-known/oauth-authorization-server").json()
+        prefixed = self.client.get("/o/.well-known/oauth-authorization-server").json()
+
+        assert root["issuer"] == prefixed["issuer"]
+        assert root["issuer"] == settings.MCP_ISSUER_URL
 
     def test_the_registration_endpoint_is_advertised(self):
         # Regression: the metadata view gates this on DCR_ENABLED rather than on
