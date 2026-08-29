@@ -203,7 +203,7 @@ export const DiagramToolbar = memo(function DiagramToolbar({
           <TooltipContent side="bottom">
             <p className="font-medium">Draw Connection</p>
             <p className="text-xs text-muted-foreground">
-              Click and drag from one node to another to create a data flow
+              Click one node, then another, to create a data flow
             </p>
           </TooltipContent>
         </Tooltip>
