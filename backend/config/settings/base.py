@@ -2,8 +2,10 @@
 Base Django settings for Precogly backend.
 """
 
-import environ
+from datetime import timedelta
 from pathlib import Path
+
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -209,13 +211,18 @@ REST_FRAMEWORK = {
 # CamelCase parser settings - ignore auth fields used by dj-rest-auth
 JSON_CAMEL_CASE = {
     "JSON_UNDERSCOREIZE": {
-        "ignore_keys": ("password1", "password2", "new_password1", "new_password2", "email"),
+        "ignore_keys": (
+            "password1",
+            "password2",
+            "new_password1",
+            "new_password2",
+            "email",
+        ),
     },
 }
 
 
 # JWT Settings
-from datetime import timedelta
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
