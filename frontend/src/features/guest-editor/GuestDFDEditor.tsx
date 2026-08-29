@@ -172,7 +172,7 @@ function GuestDFDEditorContent() {
       return exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds, options)
     }
     return () => { exportImageRef.current = null }
-  }, [exportImageRef, title, nodes, getViewport, setViewport])
+  }, [exportImageRef, title, nodes, getNodesBounds, getViewport, setViewport])
 
   // Register capture image handler so the header can capture PNG bytes for the Word report
   useEffect(() => {
@@ -183,7 +183,7 @@ function GuestDFDEditorContent() {
     // Canvas re-mounted — invalidate cached image since user may edit the diagram
     onCacheImage(null)
     return () => { captureImageRef.current = null }
-  }, [captureImageRef, nodes, getViewport, setViewport, onCacheImage])
+  }, [captureImageRef, nodes, getNodesBounds, getViewport, setViewport, onCacheImage])
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -211,6 +211,28 @@ function GuestDFDEditorContent() {
     []
   )
 
+  const startEdgeEditing = useCallback((initialText: string) => {
+    setEdges((currentEdges) => currentEdges.map((edge) =>
+      edge.selected
+        ? { ...edge, data: { ...edge.data, label: initialText, isInlineEditing: true } }
+        : edge
+    ))
+  }, [setEdges])
+
+  const handleEdgeDoubleClick = useCallback(
+    (_event: React.MouseEvent, edge: DiagramEdge) => {
+      if (edge.type !== 'dataFlow') return
+      setEdges((currentEdges) => currentEdges.map((currentEdge) => {
+        if (currentEdge.type !== 'dataFlow') return currentEdge
+        return {
+          ...currentEdge,
+          data: { ...currentEdge.data, isInlineEditing: currentEdge.id === edge.id },
+        }
+      }))
+    },
+    [setEdges]
+  )
+
   // Handle double-click on node to enable inline label editing
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
@@ -236,7 +258,14 @@ function GuestDFDEditorContent() {
           )
         : nds
     )
-  }, [handlePaneClickForConnection, setNodes])
+    setEdges((eds) =>
+      eds.some((edge) => edge.data?.isInlineEditing)
+        ? eds.map((edge) =>
+            edge.data?.isInlineEditing ? { ...edge, data: { ...edge.data, isInlineEditing: false } } : edge
+          )
+        : eds
+    )
+  }, [handlePaneClickForConnection, setEdges, setNodes])
 
   const handleNodeDragStop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -291,6 +320,7 @@ function GuestDFDEditorContent() {
   useKeyboardShortcuts({
     onUndo: undo,
     onDeselect: handleDeselect,
+    onStartEdgeEditing: startEdgeEditing,
     enabled: true,
   })
 
@@ -333,6 +363,7 @@ function GuestDFDEditorContent() {
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
+              onEdgeDoubleClick={handleEdgeDoubleClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}
               nodeTypes={guestNodeTypes}

@@ -242,6 +242,28 @@ function DFDEditorContent() {
     []
   )
 
+  const startEdgeEditing = useCallback((initialText: string) => {
+    setEdges((currentEdges) => currentEdges.map((edge) =>
+      edge.selected
+        ? { ...edge, data: { ...edge.data, label: initialText, isInlineEditing: true } }
+        : edge
+    ))
+  }, [setEdges])
+
+  const handleEdgeDoubleClick = useCallback(
+    (_event: React.MouseEvent, edge: DiagramEdge) => {
+      if (edge.type !== 'dataFlow') return
+      setEdges((currentEdges) => currentEdges.map((currentEdge) => {
+        if (currentEdge.type !== 'dataFlow') return currentEdge
+        return {
+          ...currentEdge,
+          data: { ...currentEdge.data, isInlineEditing: currentEdge.id === edge.id },
+        }
+      }))
+    },
+    [setEdges]
+  )
+
   // Handle double-click on node to enable inline label editing
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
@@ -268,9 +290,16 @@ function DFDEditorContent() {
           )
         : nds
     )
+    setEdges((eds) =>
+      eds.some((edge) => edge.data?.isInlineEditing)
+        ? eds.map((edge) =>
+            edge.data?.isInlineEditing ? { ...edge, data: { ...edge.data, isInlineEditing: false } } : edge
+          )
+        : eds
+    )
     // Boundary source is NOT cleared here — React Flow fires onPaneClick
     // alongside onNodeClick for container nodes (trust zones)
-  }, [handlePaneClickForConnection, setNodes])
+  }, [handlePaneClickForConnection, setEdges, setNodes])
 
   // Handle node drag end - update parent relationships
   const handleNodeDragStop = useCallback(
@@ -383,6 +412,7 @@ function DFDEditorContent() {
     onSave: handleKeyboardSave,
     onUndo: undo,
     onDeselect: handleDeselect,
+    onStartEdgeEditing: startEdgeEditing,
     enabled: true,
   })
 
@@ -438,7 +468,7 @@ function DFDEditorContent() {
         .toLowerCase()
       return exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds, options)
     },
-    [diagramTitle, nodes, getViewport, setViewport]
+    [diagramTitle, getNodesBounds, getViewport, nodes, setViewport]
   )
 
   // Handle DFD deletion
@@ -610,6 +640,7 @@ function DFDEditorContent() {
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
+              onEdgeDoubleClick={handleEdgeDoubleClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}
               nodeTypes={canvasNodeTypes}

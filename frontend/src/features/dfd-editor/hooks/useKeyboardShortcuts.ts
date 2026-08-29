@@ -11,6 +11,7 @@ interface UseKeyboardShortcutsOptions {
   onDelete?: () => void
   onCopy?: () => void
   onPaste?: () => void
+  onStartEdgeEditing?: (initialText: string) => void
   onDuplicate?: () => void
   enabled?: boolean
 }
@@ -32,6 +33,7 @@ export function useKeyboardShortcuts({
   onDelete,
   onCopy,
   onPaste,
+  onStartEdgeEditing,
   onDuplicate,
   enabled = true,
 }: UseKeyboardShortcutsOptions = {}) {
@@ -245,6 +247,17 @@ export function useKeyboardShortcuts({
         return
       }
 
+      // Start editing a selected data flow with the first typed character.
+      if (!isMod && event.key.length === 1 && onStartEdgeEditing) {
+        const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
+        const selectedEdges = (getEdges() as DiagramEdge[]).filter((e) => e.selected)
+        if (selectedNodes.length === 0 && selectedEdges.length === 1) {
+          event.preventDefault()
+          onStartEdgeEditing(event.key)
+          return
+        }
+      }
+
       // Duplicate: Cmd/Ctrl + D
       if (isMod && key === 'd') {
         event.preventDefault()
@@ -272,6 +285,7 @@ export function useKeyboardShortcuts({
     onDelete,
     onCopy,
     onPaste,
+    onStartEdgeEditing,
     onDuplicate,
     handleSelectAll,
     handleDeselect,
@@ -279,6 +293,8 @@ export function useKeyboardShortcuts({
     handleCopy,
     handlePaste,
     handleDuplicate,
+    getNodes,
+    getEdges,
   ])
 
   return {

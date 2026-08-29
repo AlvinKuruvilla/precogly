@@ -105,7 +105,7 @@ export const InlineEditableLabel = memo(function InlineEditableLabel({
   }, [])
 
   if (!isEditing) {
-    return <span title={label} className={className}>{label}</span>
+    return <span title={label} className={cn('whitespace-pre-line', className)}>{label}</span>
   }
 
   return (
