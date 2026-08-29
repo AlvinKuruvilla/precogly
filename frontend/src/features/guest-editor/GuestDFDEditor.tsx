@@ -96,7 +96,7 @@ function GuestDFDEditorContent() {
   const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
 
   // ReactFlow instance
-  const { screenToFlowPosition, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
+  const { screenToFlowPosition, getNodes, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
   const guestEditor = useGuestEditor()
 
@@ -349,7 +349,7 @@ function GuestDFDEditorContent() {
 
     setNodes(updatedNodes)
     setEdges(updatedEdges)
-  }, [getEdges, guestEditor, setEdges, setNodes])
+  }, [getEdges, getNodes, guestEditor, setEdges, setNodes])
 
   // Keyboard shortcuts (save is a no-op in guest — handled by header download)
   useKeyboardShortcuts({
