@@ -36,9 +36,10 @@ from apps.core.mcp import DjangoAccessTokenVerifier, reader_for
 
 WSGIApplication = Callable[[dict[str, Any], Callable[..., Any]], Iterable[bytes]]
 
-# Requests the MCP app answers. Everything else belongs to Django. The metadata
-# document is listed because RFC 9728 puts it at the origin root — not under the
-# resource path — so it cannot be reached by prefix-matching `/mcp`.
+# Requests the MCP app answers. Everything else belongs to Django. Two literals
+# rather than a prefix, because RFC 9728 puts the metadata document at the origin
+# root and it shares no prefix with `/mcp`. Match only `/mcp` and the 401 challenge
+# points at a URL that 404s, so discovery dies at the first hop.
 _METADATA_PATH = "/.well-known/oauth-protected-resource/mcp"
 
 
