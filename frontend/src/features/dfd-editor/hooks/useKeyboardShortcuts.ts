@@ -41,6 +41,18 @@ export function useKeyboardShortcuts({
 }: UseKeyboardShortcutsOptions = {}) {
   const { getNodes, getEdges, setNodes, setEdges } = useReactFlow()
 
+  const isEditingTarget = useCallback((target: EventTarget | null) => {
+    const element = target as HTMLElement | null
+    return Boolean(
+      element && (
+        element.tagName === 'INPUT' ||
+        element.tagName === 'TEXTAREA' ||
+        element.isContentEditable ||
+        element.closest?.('[role="dialog"], [role="alertdialog"]')
+      )
+    )
+  }, [])
+
   // Default delete handler
   const handleDelete = useCallback(() => {
     const nodes = getNodes() as DiagramNode[]
@@ -180,15 +192,7 @@ export function useKeyboardShortcuts({
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't handle shortcuts when typing in inputs or while focus is
       // inside a modal — canvas edits behind an open dialog are invisible
-      const target = event.target as HTMLElement
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable ||
-        target.closest?.('[role="dialog"], [role="alertdialog"]')
-      ) {
-        return
-      }
+      if (isEditingTarget(event.target)) return
 
       const isMod = event.metaKey || event.ctrlKey
       const key = event.key.toLowerCase()
@@ -244,14 +248,14 @@ export function useKeyboardShortcuts({
 
       // Paste: Cmd/Ctrl + V
       if (isMod && key === 'v') {
-        event.preventDefault()
         const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
         const selectedEdges = (getEdges() as DiagramEdge[]).filter((e) => e.selected)
         if (selectedNodes.length === 1 && selectedEdges.length === 0 && onPasteText) {
-          void navigator.clipboard?.readText().then((text) => {
-            if (text) onPasteText(text)
-          })
+          // Let the browser dispatch its trusted paste event. The clipboard
+          // payload is read there, avoiding a permissions prompt from
+          // navigator.clipboard.readText().
         } else {
+          event.preventDefault()
           ;(onPaste || handlePaste)()
         }
         return
@@ -283,8 +287,26 @@ export function useKeyboardShortcuts({
       }
     }
 
+    const handlePasteEvent = (event: ClipboardEvent) => {
+      if (isEditingTarget(event.target)) return
+
+      const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
+      const selectedEdges = (getEdges() as DiagramEdge[]).filter((e) => e.selected)
+      if (selectedNodes.length !== 1 || selectedEdges.length > 0 || !onPasteText) return
+
+      const text = event.clipboardData?.getData('text/plain') ?? ''
+      if (!text) return
+
+      event.preventDefault()
+      onPasteText(text)
+    }
+
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener('paste', handlePasteEvent)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('paste', handlePasteEvent)
+    }
   }, [
     enabled,
     onSave,
@@ -298,12 +320,15 @@ export function useKeyboardShortcuts({
     onPasteText,
     onStartNodeEditing,
     onDuplicate,
+    isEditingTarget,
     handleSelectAll,
     handleDeselect,
     handleDelete,
     handleCopy,
     handlePaste,
     handleDuplicate,
+    getNodes,
+    getEdges,
   ])
 
   return {
