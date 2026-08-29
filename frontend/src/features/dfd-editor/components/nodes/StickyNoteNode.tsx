@@ -3,41 +3,27 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { StickyNote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InlineEditableLabel } from './InlineEditableLabel'
-import { STICKY_NOTE_COLOR_CONFIG, type StickyNoteNodeData } from '../../types'
+import type { StickyNoteNodeData, StickyNoteColor, StickyNoteTextSize } from '../../types'
 
 type StickyNoteNodeType = Node<StickyNoteNodeData, 'stickyNote'>
 
-const TEXT_ALIGN_CLASSES = {
-  left: 'text-left',
-  center: 'text-center',
-  right: 'text-right',
-} as const
+const NOTE_COLORS: Record<StickyNoteColor, { background: string; border: string; text: string }> = {
+  yellow: { background: '#fef9c3', border: '#eab308', text: '#713f12' },
+  blue: { background: '#dbeafe', border: '#3b82f6', text: '#1e3a8a' },
+  green: { background: '#dcfce7', border: '#22c55e', text: '#14532d' },
+  pink: { background: '#fce7f3', border: '#ec4899', text: '#831843' },
+  orange: { background: '#ffedd5', border: '#f97316', text: '#7c2d12' },
+}
 
-const VERTICAL_ALIGN_CLASSES = {
-  top: 'justify-start',
-  middle: 'justify-center',
-  bottom: 'justify-end',
-} as const
-
-const TEXT_SIZE_CLASSES = {
+const TEXT_SIZE_CLASSES: Record<StickyNoteTextSize, string> = {
   small: 'text-xs',
   medium: 'text-sm',
   large: 'text-base',
-  extraLarge: 'text-lg',
-} as const
-
-const FONT_FAMILY_CLASSES = {
-  sans: 'font-sans',
-  serif: 'font-serif',
-  mono: 'font-mono',
-} as const
+}
 
 export const StickyNoteNode = memo(function StickyNoteNode({ id, data, selected }: NodeProps<StickyNoteNodeType>) {
-  const colors = STICKY_NOTE_COLOR_CONFIG[data.noteColor || 'yellow']
-  const textAlign = data.textAlign || 'left'
-  const verticalAlign = data.verticalAlign || 'top'
+  const colors = NOTE_COLORS[data.noteColor || 'yellow']
   const textSize = data.textSize || 'medium'
-  const fontFamily = data.fontFamily || 'sans'
   const handleClass = '!w-2 !h-2 !min-w-0 !min-h-0'
 
   return (
@@ -51,36 +37,16 @@ export const StickyNoteNode = memo(function StickyNoteNode({ id, data, selected 
       <Handle id="left-target" type="target" position={Position.Left} className={cn(handleClass, '!bg-amber-500')} />
       <Handle id="left-source" type="source" position={Position.Left} className={cn(handleClass, '!bg-amber-500')} />
       <div
-        className={cn('relative flex h-full w-full flex-col rounded-sm border-2 p-3 shadow-sm transition-shadow', VERTICAL_ALIGN_CLASSES[verticalAlign], selected && 'shadow-md ring-2 ring-amber-300')}
-        style={{
-          backgroundColor: data.backgroundColor || colors.background,
-          borderColor: data.borderColor || colors.border,
-          color: data.textColor || colors.text,
-        }}
+        className={cn('relative h-full w-full rounded-sm border-2 p-3 shadow-sm transition-shadow', selected && 'shadow-md ring-2 ring-amber-300')}
+        style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.text }}
       >
         <StickyNote className="absolute right-2 top-2 h-4 w-4 opacity-60" />
         <InlineEditableLabel
           nodeId={id}
           label={data.label}
           isEditing={data.isInlineEditing}
-          className={cn(
-            'block w-full max-w-[140px] whitespace-pre-line break-words',
-            TEXT_ALIGN_CLASSES[textAlign],
-            TEXT_SIZE_CLASSES[textSize],
-            FONT_FAMILY_CLASSES[fontFamily],
-            data.bold && 'font-bold',
-            data.italic && 'italic',
-            data.underline && 'underline'
-          )}
-          inputClassName={cn(
-            'w-full',
-            TEXT_ALIGN_CLASSES[textAlign],
-            TEXT_SIZE_CLASSES[textSize],
-            FONT_FAMILY_CLASSES[fontFamily],
-            data.bold && 'font-bold',
-            data.italic && 'italic',
-            data.underline && 'underline'
-          )}
+          className={cn('block max-w-[140px] whitespace-pre-line break-words', TEXT_SIZE_CLASSES[textSize], data.bold && 'font-bold', data.italic && 'italic')}
+          inputClassName={cn('w-full', TEXT_SIZE_CLASSES[textSize], data.bold && 'font-bold', data.italic && 'italic')}
         />
       </div>
     </>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import {
   Select,
@@ -15,12 +16,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SuggestionCombobox } from '@/features/dfd-editor/components/suggestion-combobox'
-import { StickyNoteFormattingFields } from '@/features/dfd-editor/components/panels/StickyNoteFormattingFields'
 import type {
   DiagramNode,
   DiagramNodeType,
   DataSensitivity,
-  StickyNoteNodeData,
+  StickyNoteTextSize,
 } from '@/features/dfd-editor/types'
 import {
   DATA_SENSITIVITY_CONFIG,
@@ -148,10 +148,37 @@ export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
         <Separator />
 
         {node.type === 'stickyNote' && (
-          <StickyNoteFormattingFields
-            data={node.data as StickyNoteNodeData}
-            onChange={updateNodeData}
-          />
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Note Color</Label>
+              <Select value={(node.data as { noteColor?: string }).noteColor || 'yellow'} onValueChange={(value) => updateNodeData({ noteColor: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yellow">Yellow</SelectItem>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="pink">Pink</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Text Size</Label>
+              <Select
+                value={(node.data as { textSize?: StickyNoteTextSize }).textSize || 'medium'}
+                onValueChange={(value) => updateNodeData({ textSize: value as StickyNoteTextSize })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="small">Small</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="large">Large</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!(node.data as { bold?: boolean }).bold} onCheckedChange={(checked) => updateNodeData({ bold: checked === true })} />Bold text</label>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!(node.data as { italic?: boolean }).italic} onCheckedChange={(checked) => updateNodeData({ italic: checked === true })} />Italic text</label>
+          </div>
         )}
 
         {/* Process / Datastore fields */}
