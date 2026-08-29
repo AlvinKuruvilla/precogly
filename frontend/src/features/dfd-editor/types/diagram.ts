@@ -82,10 +82,35 @@ export interface SystemScopeNodeData extends BaseNodeData {
 
 export type StickyNoteColor = 'yellow' | 'blue' | 'green' | 'pink' | 'orange'
 
+export type StickyNoteTextAlign = 'left' | 'center' | 'right'
+export type StickyNoteVerticalAlign = 'top' | 'middle' | 'bottom'
+export type StickyNoteTextSize = 'small' | 'medium' | 'large' | 'extraLarge'
+export type StickyNoteFontFamily = 'sans' | 'serif' | 'mono'
+
+export const STICKY_NOTE_COLOR_CONFIG: Record<StickyNoteColor, {
+  background: string
+  border: string
+  text: string
+}> = {
+  yellow: { background: '#fef9c3', border: '#eab308', text: '#713f12' },
+  blue: { background: '#dbeafe', border: '#3b82f6', text: '#1e3a8a' },
+  green: { background: '#dcfce7', border: '#22c55e', text: '#14532d' },
+  pink: { background: '#fce7f3', border: '#ec4899', text: '#831843' },
+  orange: { background: '#ffedd5', border: '#f97316', text: '#7c2d12' },
+}
+
 export interface StickyNoteNodeData extends BaseNodeData {
   noteColor?: StickyNoteColor
+  backgroundColor?: string
+  borderColor?: string
+  textColor?: string
+  textAlign?: StickyNoteTextAlign
+  verticalAlign?: StickyNoteVerticalAlign
+  textSize?: StickyNoteTextSize
+  fontFamily?: StickyNoteFontFamily
   bold?: boolean
   italic?: boolean
+  underline?: boolean
 }
 
 // Union type for all node data
