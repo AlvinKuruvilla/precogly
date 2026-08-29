@@ -7,10 +7,10 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
+from apps.compliance.models import StandardFramework
 from apps.core.models import TimestampedModel
 from apps.organizations.models import Organization
 from apps.systems.models import Orgsystem
-from apps.compliance.models import StandardFramework
 
 
 class ThreatModelQuerySet(models.QuerySet):
@@ -175,7 +175,11 @@ class ThreatModelRelationship(TimestampedModel):
     relation_type = models.CharField(max_length=20, choices=RelationType.choices)
 
     class Meta:
-        unique_together = ["source_threat_model", "target_threat_model", "relation_type"]
+        unique_together = [
+            "source_threat_model",
+            "target_threat_model",
+            "relation_type",
+        ]
 
     def __str__(self):
         return f"{self.source_threat_model} {self.relation_type} {self.target_threat_model}"
