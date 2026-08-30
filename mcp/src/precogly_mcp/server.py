@@ -24,7 +24,7 @@ only thing that knows how its own tokens are stored or where its rows live.
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Any, Literal
@@ -317,7 +317,7 @@ def build_server(
     """
 
     @asynccontextmanager
-    async def lifespan(_: MCPServer) -> AsyncIterator[ReaderFor]:
+    async def lifespan(_: MCPServer) -> AsyncGenerator[ReaderFor]:
         yield reader_for
 
     server = MCPServer(
