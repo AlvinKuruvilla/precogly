@@ -1664,7 +1664,7 @@ requires-dist = [
     { name = "drf-spectacular", specifier = ">=0.28,<1.0" },
     { name = "pillow", specifier = ">=11.0,<12.0" },
     { name = "precogly-mcp", editable = "mcp" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4.0" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3.4,<4.0" },
     { name = "python-dateutil", specifier = ">=2.9,<3.0" },
     { name = "requests", specifier = ">=2.32,<3.0" },
 ]
