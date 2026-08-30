@@ -4,6 +4,7 @@ import {
   Table,
   TextRun,
   HeadingLevel,
+  ImageRun,
 } from 'docx'
 import type { ReportData, ReportThreat } from '../types/report'
 import {
@@ -172,7 +173,7 @@ function buildScopeSection(data: ReportData): (Paragraph | Table)[] {
   return children
 }
 
-function buildArchitectureSection(data: ReportData): (Paragraph | Table)[] {
+function buildArchitectureSection(data: ReportData, dfdImages: Map<string, Uint8Array>): (Paragraph | Table)[] {
   const arch = data.architecture
   const children: (Paragraph | Table)[] = [h1('4. System Architecture'), spacer()]
 
@@ -199,7 +200,9 @@ function buildArchitectureSection(data: ReportData): (Paragraph | Table)[] {
     arch.dfds.forEach((dfd, idx) => {
       children.push(
         h3(`Figure ${idx + 1}: ${dfd.name}${dfd.isPrimary ? ' (Primary)' : ''}`),
-        placeholder(`Insert DFD diagram screenshot here — ${dfd.name}`),
+        ...(dfdImages.get(dfd.id)
+          ? [new Paragraph({ children: [new ImageRun({ data: dfdImages.get(dfd.id)!, type: 'png', transformation: { width: 600, height: 360 } })] })]
+          : [placeholder(`DFD diagram unavailable — ${dfd.name}`)]),
         spacer(),
       )
 
@@ -472,7 +475,11 @@ function buildComplianceSection(data: ReportData): (Paragraph | Table)[] {
 // Main export
 // ---------------------------------------------------------------------------
 
-export async function exportWordDoc(data: ReportData, modelName: string): Promise<void> {
+export async function exportWordDoc(
+  data: ReportData,
+  modelName: string,
+  dfdImages: Map<string, Uint8Array>,
+): Promise<void> {
   const children: (Paragraph | Table)[] = [
     // Title page
     new Paragraph({
@@ -498,7 +505,7 @@ export async function exportWordDoc(data: ReportData, modelName: string): Promis
       ],
     }),
     spacer(),
-    placeholder('This document is auto-generated. Review all sections and insert DFD diagrams before submission.'),
+    placeholder('This document is auto-generated. Review all sections before submission.'),
     pageBreak(),
 
     // Sections
@@ -508,7 +515,7 @@ export async function exportWordDoc(data: ReportData, modelName: string): Promis
     pageBreak(),
     ...buildScopeSection(data),
     pageBreak(),
-    ...buildArchitectureSection(data),
+    ...buildArchitectureSection(data, dfdImages),
     pageBreak(),
     ...buildDataAssetsSection(data),
     pageBreak(),
