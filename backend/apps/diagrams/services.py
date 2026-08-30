@@ -1030,7 +1030,9 @@ def _sync_nodes_to_trust_zones(dfd, nodes, threat_model):
 
         if existing_trust_zone_id:
             try:
-                trust_zone = TrustZone.objects.get(id=existing_trust_zone_id)
+                trust_zone = TrustZone.objects.get(
+                    id=existing_trust_zone_id, organization_id=org_id
+                )
                 trust_zone.name = label
                 trust_zone.trust_level = trust_level
                 trust_zone.description = description
@@ -1236,7 +1238,9 @@ def _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map, threat_model):
 
         if existing_boundary_id:
             try:
-                boundary = TrustBoundary.objects.get(id=existing_boundary_id)
+                boundary = TrustBoundary.objects.get(
+                    id=existing_boundary_id, organization_id=org_id
+                )
                 boundary.zone_a_id = zone_a_id
                 boundary.zone_b_id = zone_b_id
                 boundary.label = label

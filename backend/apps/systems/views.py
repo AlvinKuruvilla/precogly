@@ -85,17 +85,17 @@ class TrustZoneViewSet(viewsets.ModelViewSet):
         org_ids = self.request.user.organization_memberships.values_list(
             "organization_id", flat=True
         )
+        # The organization filter applies before the threat_model narrowing, not
+        # instead of it. Passing `?threat_model=` used to replace the org join
+        # rather than add to it, which returned any tenant's zones to any
+        # authenticated caller — precogly/precogly#404.
+        queryset = TrustZone.objects.filter(organization_id__in=org_ids)
         threat_model_id = self.request.query_params.get("threat_model")
         if threat_model_id:
-            # Scoped: zones that have components belonging to this threat model
-            return TrustZone.objects.filter(
+            queryset = queryset.filter(
                 components__threat_model_id=threat_model_id
             ).distinct()
-        # Default: zones reachable through any component in user's org
-        return TrustZone.objects.filter(
-            Q(components__orgsystem__organization_id__in=org_ids)
-            | Q(components__threat_model__organization_id__in=org_ids)
-        ).distinct()
+        return queryset
 
 
 class TrustBoundaryViewSet(viewsets.ModelViewSet):
@@ -111,12 +111,7 @@ class TrustBoundaryViewSet(viewsets.ModelViewSet):
         org_ids = self.request.user.organization_memberships.values_list(
             "organization_id", flat=True
         )
-        return TrustBoundary.objects.filter(
-            Q(zone_a__components__orgsystem__organization_id__in=org_ids)
-            | Q(zone_a__components__threat_model__organization_id__in=org_ids)
-            | Q(zone_b__components__orgsystem__organization_id__in=org_ids)
-            | Q(zone_b__components__threat_model__organization_id__in=org_ids)
-        ).distinct()
+        return TrustBoundary.objects.filter(organization_id__in=org_ids)
 
 
 class ComponentLibraryViewSet(viewsets.ModelViewSet):
