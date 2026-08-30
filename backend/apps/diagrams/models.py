@@ -6,10 +6,13 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import TimestampedModel
+from apps.core.tenancy import Tenancy
 
 
 class DFDTemplatesLibrary(TimestampedModel):
     """DFD template library."""
+
+    tenancy = Tenancy.MIXED
 
     class DiagramType(models.TextChoices):
         CONTEXT = "context", "Context"
@@ -100,6 +103,8 @@ class DFDTemplatesLibrary(TimestampedModel):
 
 class DFD(TimestampedModel):
     """Data Flow Diagram."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     class DiagramType(models.TextChoices):
         CONTEXT = "context", "Context"

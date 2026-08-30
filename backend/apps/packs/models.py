@@ -11,6 +11,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps.core.models import TimestampedModel
+from apps.core.tenancy import Tenancy
 
 
 class LibraryPack(TimestampedModel):
@@ -18,6 +19,11 @@ class LibraryPack(TimestampedModel):
     A bundle of library items (technologies, threats, countermeasures, templates)
     that can be installed together by an organization.
     """
+
+    # A pack is the unit of shipped content. "Installed by an organization" above
+    # describes a link recorded elsewhere (`ThreatModelLibraryPack`), not ownership of
+    # the pack row.
+    tenancy = Tenancy.SHARED_REFERENCE
 
     class PackType(models.TextChoices):
         TECHNOLOGY = "technology", "Technology Pack"
@@ -68,6 +74,8 @@ class LibraryPack(TimestampedModel):
 class LibraryPackDependency(TimestampedModel):
     """Explicit dependency between packs."""
 
+    tenancy = Tenancy.SHARED_REFERENCE
+
     pack = models.ForeignKey(
         LibraryPack,
         on_delete=models.CASCADE,
@@ -98,6 +106,10 @@ class PendingFrameworkOverlay(TimestampedModel):
     When a framework is later installed, pending overlays for that framework
     can be activated automatically.
     """
+
+    # Staging for a pack import, keyed only by pack and slug. No organization is
+    # involved on either side.
+    tenancy = Tenancy.SHARED_REFERENCE
 
     pack = models.ForeignKey(
         LibraryPack,
@@ -140,6 +152,8 @@ class PendingRequirementOverlay(TimestampedModel):
     When a framework is later installed, pending requirement overlays
     referencing that framework can be activated automatically.
     """
+
+    tenancy = Tenancy.SHARED_REFERENCE
 
     pack = models.ForeignKey(
         LibraryPack,
@@ -189,6 +203,8 @@ class PendingTaxonomyOverlay(TimestampedModel):
     When a taxonomy is later installed, pending overlays for that taxonomy
     can be activated automatically.
     """
+
+    tenancy = Tenancy.SHARED_REFERENCE
 
     pack = models.ForeignKey(
         LibraryPack,

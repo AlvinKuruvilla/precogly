@@ -9,10 +9,14 @@ from django.db import models
 from django.utils import timezone
 
 from apps.core.models import TimestampedModel
+from apps.core.tenancy import Tenancy
 
 
 class Organization(TimestampedModel):
     """Organization/tenant model."""
+
+    # The tenant itself: a row belongs to the organization it is.
+    tenancy = Tenancy.TENANT_OWNED
 
     class Plan(models.TextChoices):
         FREE = "free", "Free"
@@ -45,6 +49,8 @@ class Organization(TimestampedModel):
 
 class OrganizationMember(TimestampedModel):
     """Organization membership with roles."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     class Role(models.TextChoices):
         SECURITY_TEAM = "security_team", "Security Team"
@@ -85,6 +91,8 @@ class BusinessUnit(TimestampedModel):
     Display label is configurable per organization.
     """
 
+    tenancy = Tenancy.TENANT_OWNED
+
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -120,6 +128,8 @@ class Team(TimestampedModel):
     """
     The functional unit of work. Owns threat models.
     """
+
+    tenancy = Tenancy.TENANT_OWNED
 
     organization = models.ForeignKey(
         Organization,
@@ -158,6 +168,11 @@ class TeamMembership(TimestampedModel):
     Users can belong to multiple teams.
     """
 
+    # The team side carries the organization. A user may be in teams belonging to
+    # several organizations, so the membership row belongs to the team's, not the
+    # user's.
+    tenancy = Tenancy.TENANT_OWNED
+
     class Role(models.TextChoices):
         LEAD = "lead", "Team Lead"
         MEMBER = "member", "Member"
@@ -189,6 +204,8 @@ class TeamInvitation(TimestampedModel):
     Invitation for users who haven't signed up yet.
     Converted to TeamMembership when user registers.
     """
+
+    tenancy = Tenancy.TENANT_OWNED
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -249,6 +266,10 @@ class MagicLink(TimestampedModel):
     Tokenized URL for read-only threat model sharing.
     """
 
+    # Owned by the shared threat model's organization, and readable without any
+    # membership: the token is the credential. Scoping reads to members breaks it.
+    tenancy = Tenancy.TENANT_OWNED
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     threat_model = models.ForeignKey(
         "threat_models.ThreatModel",
@@ -281,6 +302,10 @@ class SharedWithMe(TimestampedModel):
     Tracks threat models shared with a user via magic link.
     When a logged-in user accesses a magic link, the threat model is added here.
     """
+
+    # Owned by the shared threat model's organization, and readable by the user
+    # outside it that the row grants access to.
+    tenancy = Tenancy.TENANT_OWNED
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -7,11 +7,14 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import TimestampedModel
+from apps.core.tenancy import Tenancy
 from apps.organizations.models import Organization
 
 
 class Orgsystem(TimestampedModel):
     """Organizational system being modeled."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     class Criticality(models.TextChoices):
         LOW = "low", "Low"
@@ -54,6 +57,8 @@ class Orgsystem(TimestampedModel):
 class IntegrationSource(TimestampedModel):
     """External integration source for component discovery."""
 
+    tenancy = Tenancy.TENANT_OWNED
+
     class SourceType(models.TextChoices):
         GITHUB = "github", "GitHub"
         CSPM = "cspm", "CSPM"
@@ -91,6 +96,13 @@ class IntegrationSource(TimestampedModel):
 class TrustZone(TimestampedModel):
     """Trust zone (named security region)."""
 
+    # Tenant-owned, and the only model here with no foreign key saying so — a zone is
+    # reached in reverse through `components`. Created per diagram sync and per import,
+    # never deduplicated by name, and deleted when it falls out of its diagram
+    # (apps/diagrams/services.py:161), so it belongs to one threat model in every path
+    # that touches it. The missing key is what #404 read and #406 wrote through.
+    tenancy = Tenancy.TENANT_OWNED
+
     name = models.CharField(max_length=255)
     trust_level = models.IntegerField(default=50, help_text="0-100 scale")
     description = models.TextField(blank=True)
@@ -113,6 +125,9 @@ class TrustZone(TimestampedModel):
 
 class TrustBoundary(TimestampedModel):
     """Security boundary between two trust zones."""
+
+    # Same position as TrustZone: customer data with no forward path to an organization.
+    tenancy = Tenancy.TENANT_OWNED
 
     zone_a = models.ForeignKey(
         TrustZone,
@@ -157,6 +172,10 @@ class TrustBoundary(TimestampedModel):
 
 class ComponentLibrary(TimestampedModel):
     """Reusable component templates."""
+
+    # `customization_status` records one tenant's edits to a shipped row, and every
+    # tenant then reads the edited row.
+    tenancy = Tenancy.MIXED
 
     class Category(models.TextChoices):
         PROCESS = "process", "Process"
@@ -315,6 +334,11 @@ class ComponentLibrary(TimestampedModel):
 class OrgsystemComponent(TimestampedModel):
     """Component instance, optionally linked to an orgsystem."""
 
+    # "Optionally linked" is the nullable `orgsystem` that made #227 possible: with it
+    # null the organization is reached through `threat_model` instead, and the queryset
+    # has to cover both.
+    tenancy = Tenancy.TENANT_OWNED
+
     orgsystem = models.ForeignKey(
         Orgsystem,
         on_delete=models.CASCADE,
@@ -405,6 +429,8 @@ class OrgsystemComponent(TimestampedModel):
 class DataAsset(TimestampedModel):
     """Data asset with classification."""
 
+    tenancy = Tenancy.TENANT_OWNED
+
     class Sensitivity(models.TextChoices):
         LOW = "low", "Low"
         MEDIUM = "medium", "Medium"
@@ -461,6 +487,8 @@ class DataAsset(TimestampedModel):
 class ComponentDataAsset(TimestampedModel):
     """Association between component and data asset."""
 
+    tenancy = Tenancy.TENANT_OWNED
+
     class DataState(models.TextChoices):
         AT_REST = "at_rest", "At Rest"
         PROCESSED = "processed", "Processed"
@@ -492,6 +520,8 @@ class ComponentDataAsset(TimestampedModel):
 
 class DataFlow(TimestampedModel):
     """Data flow between components."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     source_component = models.ForeignKey(
         OrgsystemComponent,
@@ -547,6 +577,8 @@ class DataFlow(TimestampedModel):
 
 class DataFlowAsset(TimestampedModel):
     """Data assets transported in a data flow."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     class ProtectionMethod(models.TextChoices):
         ENCRYPTED = "encrypted", "Encrypted"

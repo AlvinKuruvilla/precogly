@@ -9,6 +9,7 @@ from django.dispatch import receiver
 
 from apps.compliance.models import StandardFramework
 from apps.core.models import TimestampedModel
+from apps.core.tenancy import Tenancy
 from apps.organizations.models import Organization
 from apps.systems.models import Orgsystem
 
@@ -50,6 +51,10 @@ class ThreatModelQuerySet(models.QuerySet):
 
 class ThreatModel(TimestampedModel):
     """Threat model."""
+
+    # One of the seven models carrying `organization` directly, and the anchor most of
+    # the rest of the schema reaches an organization through.
+    tenancy = Tenancy.TENANT_OWNED
 
     objects = ThreatModelQuerySet.as_manager()
 
@@ -114,6 +119,8 @@ class ThreatModel(TimestampedModel):
 class ThreatModelOrgsystem(models.Model):
     """Association between threat model and orgsystem."""
 
+    tenancy = Tenancy.TENANT_OWNED
+
     threat_model = models.ForeignKey(
         ThreatModel,
         on_delete=models.CASCADE,
@@ -135,6 +142,10 @@ class ThreatModelOrgsystem(models.Model):
 class ThreatModelLibraryPack(models.Model):
     """Association between threat model and library pack."""
 
+    # The link is tenant-owned even though the pack it names is not: which packs a
+    # threat model has connected is that organization's business.
+    tenancy = Tenancy.TENANT_OWNED
+
     threat_model = models.ForeignKey(
         ThreatModel,
         on_delete=models.CASCADE,
@@ -155,6 +166,8 @@ class ThreatModelLibraryPack(models.Model):
 
 class ThreatModelRelationship(TimestampedModel):
     """Relationship between threat models."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     class RelationType(models.TextChoices):
         DEPENDS_ON = "depends_on", "Depends On"
@@ -188,6 +201,8 @@ class ThreatModelRelationship(TimestampedModel):
 class ThreatModelFramework(models.Model):
     """Association between threat model and compliance framework."""
 
+    tenancy = Tenancy.TENANT_OWNED
+
     threat_model = models.ForeignKey(
         ThreatModel,
         on_delete=models.CASCADE,
@@ -208,6 +223,8 @@ class ThreatModelFramework(models.Model):
 
 class ThreatModelReferenceImage(TimestampedModel):
     """Reference image for threat model (whiteboard photos, architecture diagrams, etc.)."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     threat_model = models.ForeignKey(
         ThreatModel,
@@ -247,6 +264,8 @@ class ThreatModelReferenceImage(TimestampedModel):
 class OutOfScopeItem(TimestampedModel):
     """Out-of-scope item for a threat model."""
 
+    tenancy = Tenancy.TENANT_OWNED
+
     threat_model = models.ForeignKey(
         ThreatModel,
         on_delete=models.CASCADE,
@@ -264,6 +283,8 @@ class OutOfScopeItem(TimestampedModel):
 
 class UseCase(TimestampedModel):
     """Use case associated with a threat model (CycloneDX 2.0 TM-BOM)."""
+
+    tenancy = Tenancy.TENANT_OWNED
 
     threat_model = models.ForeignKey(
         ThreatModel,
