@@ -17,11 +17,9 @@ from .cyclonedx_enum_maps import (
     ASSET_TYPE_TO_CATEGORY,
     CATEGORY_TO_ASSET_TYPE,
     CDX_STATUS_TO_CONTROL,
-    CDX_TO_DATA_STORE_TYPE,
     CDX_TO_LEVEL,
     CDX_TO_RESPONSE,
     CONTROL_STATUS_TO_CDX,
-    DATA_STORE_TYPE_TO_CDX,
     LEVEL_TO_CDX,
     RESPONSE_TO_CDX,
     SEVERITY_TO_CDX_RISK_LEVEL,
@@ -144,13 +142,9 @@ class CycloneDxAdapter(BaseAdapter):
         ).select_related("source_component", "dest_component")
 
         zone_ids = set(
-            components.exclude(trust_zone=None).values_list(
-                "trust_zone_id", flat=True
-            )
+            components.exclude(trust_zone=None).values_list("trust_zone_id", flat=True)
         )
-        trust_zones = TrustZone.objects.filter(id__in=zone_ids).select_related(
-            "parent"
-        )
+        trust_zones = TrustZone.objects.filter(id__in=zone_ids).select_related("parent")
 
         trust_boundaries = TrustBoundary.objects.filter(
             Q(zone_a_id__in=zone_ids) | Q(zone_b_id__in=zone_ids)
@@ -204,10 +198,9 @@ class CycloneDxAdapter(BaseAdapter):
 
         from apps.diagrams.models import DFD
 
-        primary_dfd = (
-            DFD.objects.filter(threat_model=threat_model, is_primary=True)
-            .first()
-        )
+        primary_dfd = DFD.objects.filter(
+            threat_model=threat_model, is_primary=True
+        ).first()
 
         return {
             "components": list(components),
@@ -321,9 +314,7 @@ class CycloneDxAdapter(BaseAdapter):
             data_stores = []
             for component in datastore_components:
                 data_stores.append(
-                    self._build_data_store(
-                        component, data_asset_map, resolver
-                    )
+                    self._build_data_store(component, data_asset_map, resolver)
                 )
             blueprint["dataStores"] = data_stores
 
@@ -363,12 +354,14 @@ class CycloneDxAdapter(BaseAdapter):
         visualizations = []
         primary_dfd = prefetch.get("primary_dfd")
         if primary_dfd and primary_dfd.canvas_data:
-            visualizations.append({
-                "type": "precogly-dfd",
-                "name": primary_dfd.name,
-                "diagramType": primary_dfd.diagram_type,
-                "data": primary_dfd.canvas_data,
-            })
+            visualizations.append(
+                {
+                    "type": "precogly-dfd",
+                    "name": primary_dfd.name,
+                    "diagramType": primary_dfd.diagram_type,
+                    "data": primary_dfd.canvas_data,
+                }
+            )
 
         # Re-emit Tier 3 blueprint-level passthrough data
         cyclonedx_meta = threat_model.format_metadata.get("cyclonedx", {})
@@ -532,9 +525,7 @@ class CycloneDxAdapter(BaseAdapter):
         result = []
         for i, assumption in enumerate(assumptions):
             if isinstance(assumption, str):
-                result.append(
-                    {"bom-ref": f"assumption-{i}", "description": assumption}
-                )
+                result.append({"bom-ref": f"assumption-{i}", "description": assumption})
             elif isinstance(assumption, dict):
                 entry = {"bom-ref": assumption.get("id", f"assumption-{i}")}
                 if "description" in assumption:
@@ -568,20 +559,14 @@ class CycloneDxAdapter(BaseAdapter):
         scenarios = []
 
         for _library_id, instances in threats_by_library.items():
-            first_type, first_instance = instances[0]
+            _first_type, first_instance = instances[0]
             threat_lib = first_instance.threat_library
 
             # Abstract threat
-            abstract_ref = resolver.register(
-                "threat", threat_lib or first_instance
-            )
+            abstract_ref = resolver.register("threat", threat_lib or first_instance)
             abstract_threat = {
                 "bom-ref": abstract_ref,
-                "name": (
-                    threat_lib.name
-                    if threat_lib
-                    else first_instance.threat_name
-                ),
+                "name": (threat_lib.name if threat_lib else first_instance.threat_name),
                 "description": (
                     threat_lib.description
                     if threat_lib
@@ -610,9 +595,7 @@ class CycloneDxAdapter(BaseAdapter):
             mitigation_refs = set()
             for _, inst in instances:
                 for link in inst.countermeasure_links.all():
-                    ctrl_ref = resolver.get_ref(
-                        "control", link.countermeasure
-                    )
+                    ctrl_ref = resolver.get_ref("control", link.countermeasure)
                     if ctrl_ref:
                         mitigation_refs.add(ctrl_ref)
             if mitigation_refs:
@@ -644,9 +627,7 @@ class CycloneDxAdapter(BaseAdapter):
                 # Actor
                 persona_links = list(inst.persona_links.all())
                 if persona_links:
-                    persona_ref = resolver.get_ref(
-                        "persona", persona_links[0].persona
-                    )
+                    persona_ref = resolver.get_ref("persona", persona_links[0].persona)
                     if persona_ref:
                         scenario["actor"] = persona_ref
 
@@ -732,13 +713,9 @@ class CycloneDxAdapter(BaseAdapter):
             # Related threats
             related_threats = set()
             for risk_threat in risk.risk_threats.all():
-                threat_inst = (
-                    risk_threat.component_threat or risk_threat.flow_threat
-                )
+                threat_inst = risk_threat.component_threat or risk_threat.flow_threat
                 if threat_inst and threat_inst.threat_library:
-                    ref = resolver.get_ref(
-                        "threat", threat_inst.threat_library
-                    )
+                    ref = resolver.get_ref("threat", threat_inst.threat_library)
                     if ref:
                         related_threats.add(ref)
             if related_threats:
@@ -769,9 +746,7 @@ class CycloneDxAdapter(BaseAdapter):
                 responses = []
                 for resp in risk_responses:
                     response_entry = {
-                        "strategy": RESPONSE_TO_CDX.get(
-                            resp.strategy, resp.strategy
-                        ),
+                        "strategy": RESPONSE_TO_CDX.get(resp.strategy, resp.strategy),
                     }
                     if resp.description:
                         response_entry["description"] = resp.description
@@ -788,9 +763,7 @@ class CycloneDxAdapter(BaseAdapter):
                     if resp.owner:
                         response_entry["owner"] = resp.owner.email
                     if resp.target_date:
-                        response_entry["targetDate"] = (
-                            resp.target_date.isoformat()
-                        )
+                        response_entry["targetDate"] = resp.target_date.isoformat()
                     responses.append(response_entry)
                 entry["responses"] = responses
 
@@ -834,9 +807,7 @@ class CycloneDxAdapter(BaseAdapter):
                 "bom-ref": ref,
                 "name": cm.countermeasure_name
                 or (
-                    cm.countermeasure_library.name
-                    if cm.countermeasure_library
-                    else ""
+                    cm.countermeasure_library.name if cm.countermeasure_library else ""
                 ),
                 "status": CONTROL_STATUS_TO_CDX.get(cm.status, cm.status),
             }
@@ -872,9 +843,7 @@ class CycloneDxAdapter(BaseAdapter):
                     if asset_ref:
                         applies_to.add(asset_ref)
                 elif link.flow_threat:
-                    flow_ref = resolver.get_ref(
-                        "flow", link.flow_threat.data_flow
-                    )
+                    flow_ref = resolver.get_ref("flow", link.flow_threat.data_flow)
                     if flow_ref:
                         applies_to.add(flow_ref)
             if applies_to:
@@ -884,9 +853,7 @@ class CycloneDxAdapter(BaseAdapter):
             satisfies = []
             for mapping in cm.instance_standard_mappings.all():
                 if mapping.requirement:
-                    req_ref = resolver.get_ref(
-                        "requirement", mapping.requirement
-                    )
+                    req_ref = resolver.get_ref("requirement", mapping.requirement)
                     if req_ref:
                         satisfies.append(req_ref)
             if satisfies:
@@ -917,9 +884,7 @@ class CycloneDxAdapter(BaseAdapter):
         summary["threat_model"] = 1
 
         # 2. Orgsystem
-        orgsystem = self._import_orgsystem(
-            blueprint, threat_model, organization
-        )
+        orgsystem = self._import_orgsystem(blueprint, threat_model, organization)
         summary["orgsystems"] = 1
 
         # 3. Zones
@@ -939,9 +904,7 @@ class CycloneDxAdapter(BaseAdapter):
 
         # 6. DataStores -> merge into components
         for store_data in blueprint.get("dataStores", []):
-            self._import_data_store(
-                store_data, orgsystem, threat_model, resolver
-            )
+            self._import_data_store(store_data, orgsystem, threat_model, resolver)
 
         # 7. DataSets -> DataAsset
         for dataset_data in blueprint.get("dataSets", []):
@@ -972,7 +935,10 @@ class CycloneDxAdapter(BaseAdapter):
         }
         for threat_data in threats_block.get("threats", []):
             self._import_threat(
-                threat_data, threat_model, resolver, scenario_threat_refs,
+                threat_data,
+                threat_model,
+                resolver,
+                scenario_threat_refs,
                 warnings,
             )
             summary["threats"] += 1
@@ -989,9 +955,7 @@ class CycloneDxAdapter(BaseAdapter):
             summary["risks"] += 1
 
         # 13. Resolve control → threat links from mitigations
-        self._resolve_control_threat_links(
-            threats_block, threat_model, resolver
-        )
+        self._resolve_control_threat_links(threats_block, threat_model, resolver)
 
         # 14. Tier 3 passthrough
         self._store_tier3_data(threat_model, json_data, blueprint, resolver)
@@ -1003,9 +967,7 @@ class CycloneDxAdapter(BaseAdapter):
 
     # --- Import helpers ---
 
-    def _import_threat_model(
-        self, blueprint, json_data, organization, created_by
-    ):
+    def _import_threat_model(self, blueprint, json_data, organization, created_by):
         from apps.threat_models.models import ThreatModel
 
         name = blueprint.get("name", "Imported CycloneDX Model")
@@ -1015,7 +977,9 @@ class CycloneDxAdapter(BaseAdapter):
             created_by=created_by,
             name=name,
             description=blueprint.get("description", ""),
-            format_metadata={"cyclonedx": {"spec_version": json_data.get("specVersion", "2.0")}},
+            format_metadata={
+                "cyclonedx": {"spec_version": json_data.get("specVersion", "2.0")}
+            },
         )
         return threat_model
 
@@ -1059,12 +1023,8 @@ class CycloneDxAdapter(BaseAdapter):
 
         bom_ref = boundary_data.get("bom-ref", "")
         zone_refs = boundary_data.get("zones", [])
-        zone_a = (
-            resolver.resolve("zone", zone_refs[0]) if len(zone_refs) > 0 else None
-        )
-        zone_b = (
-            resolver.resolve("zone", zone_refs[1]) if len(zone_refs) > 1 else None
-        )
+        zone_a = resolver.resolve("zone", zone_refs[0]) if len(zone_refs) > 0 else None
+        zone_b = resolver.resolve("zone", zone_refs[1]) if len(zone_refs) > 1 else None
 
         if not zone_a or not zone_b:
             logger.warning(
@@ -1089,15 +1049,11 @@ class CycloneDxAdapter(BaseAdapter):
             format_metadata={
                 "cyclonedx": {
                     "bom_ref": bom_ref,
-                    "session_management": boundary_data.get(
-                        "sessionManagement"
-                    ),
+                    "session_management": boundary_data.get("sessionManagement"),
                     "crossing_details": {
                         k: v
                         for k, v in {
-                            "dataTransformation": crossing.get(
-                                "dataTransformation"
-                            ),
+                            "dataTransformation": crossing.get("dataTransformation"),
                             "protocols": crossing.get("protocols"),
                         }.items()
                         if v is not None
@@ -1129,13 +1085,15 @@ class CycloneDxAdapter(BaseAdapter):
 
         # Build Tier 3 metadata
         cdx_meta = {"bom_ref": bom_ref}
-        if isinstance(asset_type, str) and asset_type not in (
-            "component",
-            "data-store",
-            "actor",
-        ):
-            cdx_meta["asset_type"] = asset_type
-        elif isinstance(asset_type, dict):
+        if (
+            isinstance(asset_type, str)
+            and asset_type
+            not in (
+                "component",
+                "data-store",
+                "actor",
+            )
+        ) or isinstance(asset_type, dict):
             cdx_meta["asset_type"] = asset_type
         for key in ("interfaces", "classification", "authentication", "authorization"):
             if asset_data.get(key):
@@ -1153,9 +1111,7 @@ class CycloneDxAdapter(BaseAdapter):
         resolver.register("asset", bom_ref, component)
         return component
 
-    def _import_data_store(
-        self, store_data, orgsystem, threat_model, resolver
-    ):
+    def _import_data_store(self, store_data, orgsystem, threat_model, resolver):
         """Import a dataStore — merge into existing asset or create new component."""
         from apps.systems.models import OrgsystemComponent
 
@@ -1164,11 +1120,14 @@ class CycloneDxAdapter(BaseAdapter):
 
         # Try to merge with existing component of same name
         existing = None
-        for ref_key, (entity_type, obj) in resolver._ref_to_obj.items():
-            if entity_type == "asset" and isinstance(obj, OrgsystemComponent):
-                if obj.name == name:
-                    existing = obj
-                    break
+        for entity_type, obj in resolver._ref_to_obj.values():
+            if (
+                entity_type == "asset"
+                and isinstance(obj, OrgsystemComponent)
+                and obj.name == name
+            ):
+                existing = obj
+                break
 
         if existing:
             # Merge: update store type if available
@@ -1320,7 +1279,11 @@ class CycloneDxAdapter(BaseAdapter):
         return cm
 
     def _import_threat(
-        self, threat_data, threat_model, resolver, scenario_threat_refs,
+        self,
+        threat_data,
+        threat_model,
+        resolver,
+        scenario_threat_refs,
         warnings,
     ):
         from apps.threats.models import ThreatLibrary
@@ -1343,12 +1306,21 @@ class CycloneDxAdapter(BaseAdapter):
         if bom_ref not in scenario_threat_refs:
             for asset_ref in threat_data.get("affectedAssets", []):
                 self._create_instance_threat_from_abstract(
-                    threat_lib, asset_ref, threat_data, threat_model, resolver,
+                    threat_lib,
+                    asset_ref,
+                    threat_data,
+                    threat_model,
+                    resolver,
                     warnings,
                 )
 
     def _create_instance_threat_from_abstract(
-        self, threat_lib, asset_ref, threat_data, threat_model, resolver,
+        self,
+        threat_lib,
+        asset_ref,
+        threat_data,
+        threat_model,
+        resolver,
         warnings,
     ):
         from apps.systems.models import DataFlow, OrgsystemComponent
@@ -1393,7 +1365,7 @@ class CycloneDxAdapter(BaseAdapter):
         if not created and target:
             msg = (
                 f"Duplicate threat-asset link skipped: "
-                f"threat '{threat_lib.name}' × asset '{target.name}'."
+                f"threat '{threat_lib.name}' x asset '{target.name}'."
             )
             logger.warning(msg)
             warnings.append(msg)
@@ -1407,9 +1379,7 @@ class CycloneDxAdapter(BaseAdapter):
 
         bom_ref = scenario_data.get("bom-ref", "")
         threat_ref = scenario_data.get("threat")
-        threat_lib = (
-            resolver.resolve("threat", threat_ref) if threat_ref else None
-        )
+        threat_lib = resolver.resolve("threat", threat_ref) if threat_ref else None
 
         severity = "medium"
         risk_score = scenario_data.get("riskScore", {})
@@ -1426,9 +1396,9 @@ class CycloneDxAdapter(BaseAdapter):
                 scenario_meta[key] = scenario_data[key]
 
         for asset_ref in scenario_data.get("affectedAssets", []):
-            target = resolver.resolve(
-                "asset", asset_ref
-            ) or resolver.resolve("flow", asset_ref)
+            target = resolver.resolve("asset", asset_ref) or resolver.resolve(
+                "flow", asset_ref
+            )
             if not target:
                 logger.warning(
                     "Scenario '%s' references unknown asset '%s'.",
@@ -1446,9 +1416,7 @@ class CycloneDxAdapter(BaseAdapter):
                     component=target,
                     threat_library=threat_lib,
                     threat_name=threat_lib.name if threat_lib else "",
-                    threat_description=(
-                        threat_lib.description if threat_lib else ""
-                    ),
+                    threat_description=(threat_lib.description if threat_lib else ""),
                     inherent_severity=severity,
                     intent=intent,
                     access_level=access_level,
@@ -1460,9 +1428,7 @@ class CycloneDxAdapter(BaseAdapter):
                     data_flow=target,
                     threat_library=threat_lib,
                     threat_name=threat_lib.name if threat_lib else "",
-                    threat_description=(
-                        threat_lib.description if threat_lib else ""
-                    ),
+                    threat_description=(threat_lib.description if threat_lib else ""),
                     inherent_severity=severity,
                     intent=intent,
                     access_level=access_level,
@@ -1499,9 +1465,7 @@ class CycloneDxAdapter(BaseAdapter):
         risk = Risk.objects.create(
             threat_model=threat_model,
             name=name,
-            description=risk_data.get(
-                "statement", risk_data.get("description", "")
-            ),
+            description=risk_data.get("statement", risk_data.get("description", "")),
             inherent_score=inherent_score,
             inherent_level=inherent_level,
             residual_score=residual_score if residual_score else None,
@@ -1538,15 +1502,11 @@ class CycloneDxAdapter(BaseAdapter):
                 "priority",
                 "targetDate",
             }
-            extra_meta = {
-                k: v for k, v in resp_data.items() if k not in known_keys
-            }
+            extra_meta = {k: v for k, v in resp_data.items() if k not in known_keys}
 
             eff_data = resp_data.get("effectiveness", {})
             effectiveness = (
-                eff_data.get("percentage")
-                if isinstance(eff_data, dict)
-                else None
+                eff_data.get("percentage") if isinstance(eff_data, dict) else None
             )
 
             RiskResponse.objects.create(
@@ -1558,9 +1518,7 @@ class CycloneDxAdapter(BaseAdapter):
                 cost=resp_data.get("cost", ""),
                 priority=resp_data.get("priority", ""),
                 target_date=target_date,
-                format_metadata=(
-                    {"cyclonedx": extra_meta} if extra_meta else {}
-                ),
+                format_metadata=({"cyclonedx": extra_meta} if extra_meta else {}),
             )
 
         # Link to threats via relatedThreats
@@ -1571,16 +1529,12 @@ class CycloneDxAdapter(BaseAdapter):
                     threat_library=threat_lib,
                     component__threat_model=threat_model,
                 ):
-                    RiskThreat.objects.get_or_create(
-                        risk=risk, component_threat=ct
-                    )
+                    RiskThreat.objects.get_or_create(risk=risk, component_threat=ct)
                 for ft in DataFlowInstanceThreat.objects.filter(
                     threat_library=threat_lib,
                     data_flow__source_component__threat_model=threat_model,
                 ):
-                    RiskThreat.objects.get_or_create(
-                        risk=risk, flow_threat=ft
-                    )
+                    RiskThreat.objects.get_or_create(risk=risk, flow_threat=ft)
 
     def _extract_risk_score(self, rating):
         """Extract (score, level) from a CycloneDX risk rating."""
@@ -1594,16 +1548,12 @@ class CycloneDxAdapter(BaseAdapter):
         if score is not None:
             score = min(100, max(0, int(score)))
         else:
-            score = {"low": 20, "medium": 45, "high": 70, "critical": 90}.get(
-                level, 45
-            )
+            score = {"low": 20, "medium": 45, "high": 70, "critical": 90}.get(level, 45)
 
         precogly_level = CDX_TO_LEVEL.get(level, "medium")
         return score, precogly_level
 
-    def _resolve_control_threat_links(
-        self, threats_block, threat_model, resolver
-    ):
+    def _resolve_control_threat_links(self, threats_block, threat_model, resolver):
         """Create CountermeasureThreatLink records from threat mitigations."""
         from apps.threats.models import (
             ComponentInstanceThreat,
@@ -1694,9 +1644,7 @@ class CycloneDxAdapter(BaseAdapter):
             tier3["visualizations"] = passthrough_visualizations
 
         if tier3:
-            threat_model.format_metadata.setdefault("cyclonedx", {}).update(
-                tier3
-            )
+            threat_model.format_metadata.setdefault("cyclonedx", {}).update(tier3)
             threat_model.save(update_fields=["format_metadata"])
 
     def _import_dfd(self, vis_data, threat_model, resolver):
