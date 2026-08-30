@@ -41,7 +41,9 @@ class LibraryPack(TimestampedModel):
     pack_type = models.CharField(max_length=20, choices=PackType.choices)
 
     # Versioning
-    version = models.CharField(max_length=20, help_text="Semantic version, e.g., '1.2.0'")
+    version = models.CharField(
+        max_length=20, help_text="Semantic version, e.g., '1.2.0'"
+    )
 
     # Metadata
     author = models.CharField(max_length=255, help_text="Author or organization name")

@@ -32,7 +32,11 @@ class ThreatLibrary(TimestampedModel):
         blank=True,
         help_text="Unique identifier within pack, e.g., 'sql-injection'",
     )
-    qualified_slug = models.CharField(
+    # `null=True` is required by `unique_threat_qualified_slug` below. Postgres treats
+    # NULLs as distinct under a unique index, so any number of rows may carry no
+    # qualified slug; `blank=True` with `""` would make the second such row collide
+    # with the first. DJ001 cannot see the constraint.
+    qualified_slug = models.CharField(  # noqa: DJ001
         max_length=200,
         null=True,
         blank=True,
@@ -84,7 +88,6 @@ class ThreatLibrary(TimestampedModel):
             else:
                 self.qualified_slug = f"custom/{self.slug}"
         super().save(*args, **kwargs)
-
 
 
 class ExternalTaxonomy(TimestampedModel):
@@ -214,7 +217,9 @@ class CountermeasureLibrary(TimestampedModel):
         blank=True,
         help_text="Unique identifier within pack, e.g., 'encryption-at-rest'",
     )
-    qualified_slug = models.CharField(
+    # `null=True` is required by `unique_countermeasure_qualified_slug` below, for the
+    # same reason as `ThreatLibrary.qualified_slug`.
+    qualified_slug = models.CharField(  # noqa: DJ001
         max_length=200,
         null=True,
         blank=True,
@@ -574,7 +579,9 @@ class InstanceCountermeasure(TimestampedModel):
         help_text="User-assessed control effectiveness (0.0-1.0). Null = not yet assessed.",
     )
     priority = models.CharField(max_length=10, default="none", blank=True)
-    due_date = models.DateField(null=True, blank=True, help_text="Target completion date")
+    due_date = models.DateField(
+        null=True, blank=True, help_text="Target completion date"
+    )
     external_ticket_url = models.URLField(
         blank=True, help_text="Link to Jira/GitHub/etc. ticket"
     )
@@ -851,7 +858,15 @@ class Risk(TimestampedModel):
         choices=Level.choices,
         blank=True,
     )
-    response = models.CharField(
+    # TODO: drop `null=True` and migrate existing NULLs to "". `residual_level` two
+    # fields up is the same shape and spells "not set" as `blank=True` alone, so this
+    # model carries two spellings for it.
+    #
+    # Backend and frontend have to land together. `RiskAssessmentViewSet.bulk_update`
+    # writes NULL deliberately — `request.data["response"] or None` — and the risk
+    # board filters with `r.response === col.response` against a column whose key is
+    # `null`, so a stored "" would drop every cleared risk off the board.
+    response = models.CharField(  # noqa: DJ001
         max_length=20,
         choices=Response.choices,
         null=True,

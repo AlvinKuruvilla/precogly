@@ -182,7 +182,11 @@ class ComponentLibrary(TimestampedModel):
         blank=True,
         help_text="Unique identifier within pack, e.g., 'aws-s3'",
     )
-    qualified_slug = models.CharField(
+    # `null=True` is required by `unique_component_qualified_slug` below. Postgres
+    # treats NULLs as distinct under a unique index, so any number of rows may carry no
+    # qualified slug; `blank=True` with `""` would make the second such row collide
+    # with the first. DJ001 cannot see the constraint.
+    qualified_slug = models.CharField(  # noqa: DJ001
         max_length=200,
         null=True,
         blank=True,
@@ -264,9 +268,7 @@ class ComponentLibrary(TimestampedModel):
         current = self.parent
         while current is not None:
             if current.pk in visited:
-                raise ValidationError(
-                    {"parent": "Circular parent reference detected."}
-                )
+                raise ValidationError({"parent": "Circular parent reference detected."})
             visited.add(current.pk)
             current = current.parent
 
@@ -367,7 +369,16 @@ class OrgsystemComponent(TimestampedModel):
     format_metadata = models.JSONField(default=dict, blank=True)
 
     # Metadata copied from library on creation (for self-sufficiency if orphaned)
-    category = models.CharField(
+    # TODO: drop `null=True` and migrate existing NULLs to "". `component_type` and
+    # `provider` below are copied from the library the same way and both spell "not
+    # set" as `blank=True` alone, so this field is the odd one of the three.
+    #
+    # The migration changes .tm export output. `adapters/tm_library.py` exports a
+    # component as an actor when `comp.category is None` and its format_metadata
+    # carries an `original_type`; migrating the NULLs stops that branch firing, and
+    # relaxing it to `not comp.category` newly catches rows already holding "".
+    # No test covers either direction.
+    category = models.CharField(  # noqa: DJ001
         max_length=30,
         blank=True,
         null=True,

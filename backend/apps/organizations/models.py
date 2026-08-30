@@ -74,9 +74,8 @@ class OrganizationMember(TimestampedModel):
         """Return True when demoting/removing this member would leave zero security team members."""
         return (
             self.role == self.Role.SECURITY_TEAM
-            and self.organization.members.filter(
-                role=self.Role.SECURITY_TEAM
-            ).count() <= 1
+            and self.organization.members.filter(role=self.Role.SECURITY_TEAM).count()
+            <= 1
         )
 
 
@@ -234,7 +233,7 @@ class TeamInvitation(TimestampedModel):
 
     def accept(self, user):
         """Convert invitation to membership."""
-        membership, created = TeamMembership.objects.get_or_create(
+        membership, _created = TeamMembership.objects.get_or_create(
             team=self.team,
             user=user,
             defaults={"role": self.role},
@@ -311,5 +310,3 @@ class SharedWithMe(TimestampedModel):
 
     def __str__(self):
         return f"{self.threat_model} shared with {self.user}"
-
-

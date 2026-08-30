@@ -98,7 +98,9 @@ class CountermeasureLibraryStandard(models.Model):
         unique_together = ["countermeasure_library", "requirement"]
 
     def __str__(self):
-        return f"{self.countermeasure_library} -> {self.requirement} ({self.sufficiency})"
+        return (
+            f"{self.countermeasure_library} -> {self.requirement} ({self.sufficiency})"
+        )
 
 
 class StandardRequirementMapping(models.Model):
