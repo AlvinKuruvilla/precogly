@@ -11,16 +11,15 @@ DEBUG = True
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "backend"]  # noqa: S104
 
 # Development-only apps
-INSTALLED_APPS += [  # noqa: F405
-    "debug_toolbar",
-    "django_extensions",
-]
+INSTALLED_APPS += ["django_extensions"]  # noqa: F405
 
-# Debug toolbar middleware (should be early in the list)
-MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa: F405
+# Set DEBUG_TOOLBAR=false in .env to turn it off for a machine.
+DEBUG_TOOLBAR = env.bool("DEBUG_TOOLBAR", default=True)  # noqa: F405
 
-# Debug toolbar settings
-INTERNAL_IPS = ["127.0.0.1"]
+if DEBUG_TOOLBAR:
+    INSTALLED_APPS += ["debug_toolbar"]
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa: F405
+    INTERNAL_IPS = ["127.0.0.1"]
 
 # More permissive CORS for development
 CORS_ALLOW_ALL_ORIGINS = True
