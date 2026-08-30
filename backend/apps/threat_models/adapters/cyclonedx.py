@@ -889,12 +889,12 @@ class CycloneDxAdapter(BaseAdapter):
 
         # 3. Zones
         for zone_data in blueprint.get("zones", []):
-            self._import_zone(zone_data, resolver)
+            self._import_zone(zone_data, resolver, organization)
             summary["zones"] += 1
 
         # 4. Boundaries (depends on zones)
         for boundary_data in blueprint.get("boundaries", []):
-            self._import_boundary(boundary_data, resolver)
+            self._import_boundary(boundary_data, resolver, organization)
             summary["boundaries"] += 1
 
         # 5. Assets -> OrgsystemComponent
@@ -998,7 +998,7 @@ class CycloneDxAdapter(BaseAdapter):
         )
         return orgsystem
 
-    def _import_zone(self, zone_data, resolver):
+    def _import_zone(self, zone_data, resolver, organization):
         from apps.systems.models import TrustZone
 
         bom_ref = zone_data.get("bom-ref", "")
@@ -1010,6 +1010,7 @@ class CycloneDxAdapter(BaseAdapter):
             parent = resolver.resolve("zone", parent_ref)
 
         zone = TrustZone.objects.create(
+            organization=organization,
             name=name,
             description=zone_data.get("description", ""),
             trust_level=zone_data.get("trustLevel"),
@@ -1018,7 +1019,7 @@ class CycloneDxAdapter(BaseAdapter):
         resolver.register("zone", bom_ref, zone)
         return zone
 
-    def _import_boundary(self, boundary_data, resolver):
+    def _import_boundary(self, boundary_data, resolver, organization):
         from apps.systems.models import TrustBoundary
 
         bom_ref = boundary_data.get("bom-ref", "")
@@ -1036,6 +1037,7 @@ class CycloneDxAdapter(BaseAdapter):
         crossing = boundary_data.get("crossingRequirements", {})
 
         boundary = TrustBoundary.objects.create(
+            organization=organization,
             zone_a=zone_a,
             zone_b=zone_b,
             label=boundary_data.get("name", ""),

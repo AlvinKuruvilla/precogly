@@ -249,7 +249,7 @@ def sync_dfd_nodes_to_components(dfd, threat_model, old_canvas_data=None):
 
     with transaction.atomic():
         # Sync trust zone nodes first (zones must exist before component assignment)
-        zone_result = _sync_nodes_to_trust_zones(dfd, nodes)
+        zone_result = _sync_nodes_to_trust_zones(dfd, nodes, threat_model)
         node_zone_map = zone_result["node_zone_map"]
 
         # Sync system scope nodes to Orgsystem records
@@ -518,7 +518,9 @@ def sync_dfd_nodes_to_components(dfd, threat_model, old_canvas_data=None):
         flow_result = _sync_edges_to_dataflows(dfd, edges, node_component_map)
 
         # Sync trust boundary edges to TrustBoundary DB records
-        boundary_result = _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map)
+        boundary_result = _sync_edges_to_trust_boundaries(
+            dfd, edges, node_zone_map, threat_model
+        )
 
         # Clean up orphaned records (nodes/edges removed since last save)
         if old_canvas_data:
@@ -1001,13 +1003,19 @@ def _generate_threats_for_dataflow(dataflow):
     return created_count
 
 
-def _sync_nodes_to_trust_zones(dfd, nodes):
+def _sync_nodes_to_trust_zones(dfd, nodes, threat_model):
     """Sync trust zone canvas nodes to TrustZone DB records."""
     trust_zone_nodes = [node for node in nodes if node.get("type") == "trustZone"]
 
     synced_count = 0
     created_count = 0
     node_zone_map = {}  # canvas node_id -> TrustZone DB id
+
+    # `trust_zone_id` below is caller-supplied canvas data, so the lookup is scoped
+    # to the diagram's own organization. Unscoped it renamed and reclassified another
+    # tenant's zone — precogly/precogly#406. Taken from the threat model rather than
+    # `dfd.threat_model`, which is nullable.
+    org_id = threat_model.organization_id
 
     for node in trust_zone_nodes:
         node_id = node.get("id")
@@ -1030,6 +1038,7 @@ def _sync_nodes_to_trust_zones(dfd, nodes):
                 synced_count += 1
             except TrustZone.DoesNotExist:
                 trust_zone = TrustZone.objects.create(
+                    organization_id=org_id,
                     name=label,
                     trust_level=trust_level,
                     description=description,
@@ -1037,6 +1046,7 @@ def _sync_nodes_to_trust_zones(dfd, nodes):
                 created_count += 1
         else:
             trust_zone = TrustZone.objects.create(
+                organization_id=org_id,
                 name=label,
                 trust_level=trust_level,
                 description=description,
@@ -1179,11 +1189,15 @@ def _update_canvas_with_orgsystem_ids(dfd, node_system_map):
         dfd.save(update_fields=["canvas_data"])
 
 
-def _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map):
+def _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map, threat_model):
     """Sync trust boundary edges to TrustBoundary DB records."""
     synced_count = 0
     created_count = 0
     edge_boundary_map = {}
+
+    # Same reason as `_sync_nodes_to_trust_zones`: `trust_boundary_id` arrives in the
+    # canvas payload, so the lookup is scoped rather than taken on trust.
+    org_id = threat_model.organization_id
 
     for edge in edges:
         if edge.get("type") != "trustBoundary":
@@ -1232,6 +1246,7 @@ def _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map):
                 synced_count += 1
             except TrustBoundary.DoesNotExist:
                 boundary = TrustBoundary.objects.create(
+                    organization_id=org_id,
                     zone_a_id=zone_a_id,
                     zone_b_id=zone_b_id,
                     label=label,
@@ -1241,6 +1256,7 @@ def _sync_edges_to_trust_boundaries(dfd, edges, node_zone_map):
                 created_count += 1
         else:
             boundary = TrustBoundary.objects.create(
+                organization_id=org_id,
                 zone_a_id=zone_a_id,
                 zone_b_id=zone_b_id,
                 label=label,

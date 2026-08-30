@@ -96,13 +96,16 @@ class IntegrationSource(TimestampedModel):
 class TrustZone(TimestampedModel):
     """Trust zone (named security region)."""
 
-    # Tenant-owned, and the only model here with no foreign key saying so — a zone is
-    # reached in reverse through `components`. Created per diagram sync and per import,
-    # never deduplicated by name, and deleted when it falls out of its diagram
-    # (apps/diagrams/services.py:161), so it belongs to one threat model in every path
-    # that touches it. The missing key is what #404 read and #406 wrote through.
     tenancy = Tenancy.TENANT_OWNED
 
+    # A zone used to be reached only in reverse, through `components`, and both hops
+    # to an organization were nullable. #404 read across tenants that way and #406
+    # wrote through it. This column is the boundary now; nothing should re-derive it.
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="trust_zones",
+    )
     name = models.CharField(max_length=255)
     trust_level = models.IntegerField(default=50, help_text="0-100 scale")
     description = models.TextField(blank=True)
@@ -126,9 +129,16 @@ class TrustZone(TimestampedModel):
 class TrustBoundary(TimestampedModel):
     """Security boundary between two trust zones."""
 
-    # Same position as TrustZone: customer data with no forward path to an organization.
     tenancy = Tenancy.TENANT_OWNED
 
+    # Carries its own owner rather than reading it off `zone_a`: the two zones are
+    # separate rows and nothing but this column stops a boundary being drawn between
+    # organizations. Lifecycle still comes from the zones, which cascade.
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="trust_boundaries",
+    )
     zone_a = models.ForeignKey(
         TrustZone,
         on_delete=models.CASCADE,
