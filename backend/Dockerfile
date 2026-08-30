@@ -47,6 +47,10 @@ ENV DJANGO_SETTINGS_MODULE=config.settings.development
 
 COPY backend/ backend/
 COPY mcp/ mcp/
+# The pack sources settings.LIBRARIES_PATH points at. Copied rather than left to a
+# mount, because production runs this image with no volumes and an image that
+# cannot seed its libraries comes up with every catalog empty.
+COPY libraries/ libraries/
 
 # Now that mcp/ exists, install the member itself. uv installs workspace members
 # editable — a .pth pointing at /app/mcp — so the compose mount over that path is
@@ -71,6 +75,10 @@ ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
 COPY backend/ backend/
 COPY mcp/ mcp/
+# The pack sources settings.LIBRARIES_PATH points at. Copied rather than left to a
+# mount, because production runs this image with no volumes and an image that
+# cannot seed its libraries comes up with every catalog empty.
+COPY libraries/ libraries/
 
 RUN uv sync --frozen --no-default-groups --group prod
 
