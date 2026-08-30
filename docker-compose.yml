@@ -26,7 +26,8 @@ services:
     container_name: precogly-backend
     volumes:
       - ./backend:/app/backend
-      - ./libraries:/libraries
+      # settings.LIBRARIES_PATH defaults here; the mount keeps pack edits live.
+      - ./libraries:/app/libraries
       # The MCP server is served from this process (backend/config/mcp_mount.py).
       # uv installs the workspace member editable, so this mount is what makes an
       # edit under mcp/ take effect without a rebuild.

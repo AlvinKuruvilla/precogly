@@ -162,6 +162,15 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 
+# Library packs
+#
+# The directory holding the pack sources, containing `packs/`. It is one setting
+# rather than a search of paths relative to BASE_DIR, because the container mounts
+# it somewhere BASE_DIR cannot reach: a guess that misses leaves every library
+# catalog empty, which reads as an empty database rather than as a missing mount.
+LIBRARIES_PATH = Path(env("LIBRARIES_PATH", default=str(BASE_DIR.parent / "libraries")))
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 

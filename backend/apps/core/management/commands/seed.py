@@ -14,7 +14,7 @@ Usage:
 """
 
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.diagrams.models import DFD, DFDTemplatesLibrary
 from apps.diagrams.services import sync_dfd_nodes_to_components
@@ -260,10 +260,13 @@ class Command(BaseCommand):
     def _import_packs(self, force):
         libraries_path = get_libraries_path()
         if not libraries_path.exists():
-            self.stdout.write(
-                self.style.ERROR(f"Libraries path not found: {libraries_path}")
+            # Loud on purpose. Returning here seeds every organization, user and
+            # sample threat model while importing no packs at all, and a database
+            # whose libraries are empty looks seeded from the outside.
+            raise CommandError(
+                f"Libraries path not found: {libraries_path}. "
+                "Set LIBRARIES_PATH to the directory holding packs/."
             )
-            return
 
         all_packs = TAXONOMY_PACKS + STANDARD_PACKS + FULL_PACKS
         for pack_slug in all_packs:
