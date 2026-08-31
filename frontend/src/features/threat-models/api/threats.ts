@@ -61,6 +61,8 @@ export interface ComponentInstanceCountermeasure {
   threatModel: number | string
   countermeasureLibrary: number
   countermeasureName: string
+  countermeasureDescription?: string
+  controlType?: string
   status: BackendCountermeasureStatus
   priority: string
   dueDate?: string | null
