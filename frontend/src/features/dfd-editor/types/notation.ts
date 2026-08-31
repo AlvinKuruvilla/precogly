@@ -9,6 +9,7 @@ export const NOTATION_NODE_SIZES: Record<DFDNotationStyle, Record<string, { widt
     systemActor: { width: 100, height: 90 },
     trustZone: { width: 300, height: 200 },
     systemScope: { width: 300, height: 200 },
+    stickyNote: { width: 180, height: 120 },
   },
   yourdon: {
     process: { width: 100, height: 100 },
@@ -17,5 +18,6 @@ export const NOTATION_NODE_SIZES: Record<DFDNotationStyle, Record<string, { widt
     systemActor: { width: 100, height: 90 },
     trustZone: { width: 300, height: 200 },
     systemScope: { width: 300, height: 200 },
+    stickyNote: { width: 180, height: 120 },
   },
 }
