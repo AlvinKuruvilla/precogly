@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { XYPosition } from '@xyflow/react'
-import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown, HelpCircle } from 'lucide-react'
+import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown, Undo2, Redo2, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -48,6 +48,10 @@ interface DiagramToolbarProps {
   notationStyle?: DFDNotationStyle
   onNotationChange?: (notation: DFDNotationStyle) => void
   onExportImage?: (format: 'png' | 'svg', options?: ExportImageOptions) => void | Promise<void>
+  onUndo?: () => void
+  onRedo?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
   aiAvailable?: boolean
 }
 
@@ -132,6 +136,10 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   onNotationChange,
   onExportImage,
   aiAvailable = true,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }: DiagramToolbarProps) {
   const navigate = useNavigate()
   const { createNode } = useCreateNode(notationStyle)
@@ -219,6 +227,27 @@ export const DiagramToolbar = memo(function DiagramToolbar({
           }
           return [nodeBtn]
         })}
+
+        {(onUndo || onRedo) && (
+          <div className="flex items-center gap-0.5 ml-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onUndo} disabled={!canUndo} aria-label="Undo">
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Undo (Ctrl/Cmd + Z)</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onRedo} disabled={!canRedo} aria-label="Redo">
+                  <Redo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Redo (Ctrl/Cmd + Shift + Z)</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
 
         {/* Connection mode toggle */}
         <Tooltip>

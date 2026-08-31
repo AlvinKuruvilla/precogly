@@ -50,6 +50,9 @@ function GuestDFDEditorContent() {
     onNodesChange,
     onEdgesChange,
     undo,
+    redo,
+    canUndo,
+    canRedo,
     notationStyle,
     setNotationStyle,
     exportImageRef,
@@ -343,6 +346,7 @@ function GuestDFDEditorContent() {
   // Keyboard shortcuts (save is a no-op in guest — handled by header download)
   useKeyboardShortcuts({
     onUndo: undo,
+    onRedo: redo,
     onDeselect: handleDeselect,
     onStartEdgeEditing: startEdgeEditing,
     onStartNodeEditing: startNodeEditing,
@@ -374,6 +378,10 @@ function GuestDFDEditorContent() {
         notationStyle={notationStyle}
         onNotationChange={handleNotationChange}
         onExportImage={(format, options) => exportImageRef.current?.(format, options)}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       <div className="flex flex-1 overflow-hidden">

@@ -82,6 +82,9 @@ function DFDEditorContent() {
     saveNow,
     updateTitle,
     undo,
+    redo,
+    canUndo,
+    canRedo,
     hasUnsavedChanges,
     lastSaved,
   } = useDiagramState({
@@ -435,6 +438,7 @@ function DFDEditorContent() {
   useKeyboardShortcuts({
     onSave: handleKeyboardSave,
     onUndo: undo,
+    onRedo: redo,
     onDeselect: handleDeselect,
     onStartEdgeEditing: startEdgeEditing,
     onStartNodeEditing: startNodeEditing,
@@ -661,6 +665,10 @@ function DFDEditorContent() {
         notationStyle={notationStyle}
         onNotationChange={handleNotationChange}
         onExportImage={handleExportImage}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       <div className="flex flex-1 overflow-hidden">
