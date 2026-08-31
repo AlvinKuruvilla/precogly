@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import type { ComponentThreat, ComponentThreatCountermeasure, CountermeasureStatus } from '@/features/dfd-editor/types/threat-analysis'
 import type { TaxonomyEntry } from '@/types/domain'
 import { componentKeys } from './components'
+import { riskKeys } from './risks'
 
 // Backend countermeasure status (aligned with frontend CountermeasureStatus)
 type BackendCountermeasureStatus = 'platform' | 'gap' | 'planned' | 'verified' | 'waived'
@@ -317,6 +318,7 @@ export function useCreateCountermeasure() {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
       queryClient.invalidateQueries({ queryKey: ['countermeasures-in-use'] })
+      queryClient.invalidateQueries({ queryKey: riskKeys.all })
     },
   })
 }
@@ -357,6 +359,7 @@ export function useApplyCountermeasure() {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
       queryClient.invalidateQueries({ queryKey: ['countermeasures-in-use'] })
+      queryClient.invalidateQueries({ queryKey: riskKeys.all })
     },
   })
 }
@@ -534,6 +537,7 @@ export function useUpdateCountermeasure() {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+      queryClient.invalidateQueries({ queryKey: riskKeys.all })
     },
   })
 }
@@ -553,6 +557,7 @@ export function useDeleteCountermeasure() {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
       queryClient.invalidateQueries({ queryKey: ['countermeasures-in-use'] })
+      queryClient.invalidateQueries({ queryKey: riskKeys.all })
     },
   })
 }
@@ -843,6 +848,7 @@ export function useLinkCountermeasure() {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['countermeasures-in-use'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+      queryClient.invalidateQueries({ queryKey: riskKeys.all })
     },
   })
 }
@@ -872,6 +878,7 @@ export function useUnlinkCountermeasure() {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['countermeasures-in-use'] })
       queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+      queryClient.invalidateQueries({ queryKey: riskKeys.all })
     },
   })
 }
