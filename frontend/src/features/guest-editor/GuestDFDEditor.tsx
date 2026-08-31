@@ -10,6 +10,7 @@ import {
   type Connection,
   type XYPosition,
   addEdge,
+  reconnectEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useOutletContext } from 'react-router-dom'
@@ -270,6 +271,13 @@ function GuestDFDEditorContent() {
     [nodes, setEdges]
   )
 
+  const handleReconnect = useCallback(
+    (oldEdge: DiagramEdge, connection: Connection) => {
+      setEdges((currentEdges) => reconnectEdge(oldEdge, connection, currentEdges) as DiagramEdge[])
+    },
+    [setEdges]
+  )
+
   // Sync selected node/edge with current data
   const currentSelectedNode = selectedNode
     ? (nodes.find((n) => n.id === selectedNode.id) as DiagramNode | undefined)
@@ -348,6 +356,8 @@ function GuestDFDEditorContent() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
+              onReconnect={handleReconnect}
+              edgesReconnectable
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
