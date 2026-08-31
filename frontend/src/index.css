@@ -30,3 +30,18 @@
 .animate-lock-pulse {
   animation: lock-pulse 0.4s ease-out;
 }
+
+/* Connection handles are interaction affordances, not part of the diagram
+ * artwork. Keep the canvas clean until the user hovers a node or enables Flow
+ * mode. The handles remain in the DOM so React Flow can attach connections. */
+.react-flow .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+.react-flow__node:hover .react-flow__handle,
+.connection-mode .react-flow .react-flow__handle {
+  opacity: 1;
+  pointer-events: auto;
+}
