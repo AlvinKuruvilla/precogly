@@ -11,9 +11,10 @@ import {
   type Connection,
   type XYPosition,
   addEdge,
+  reconnectEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Save, Clock, Loader2, Pencil, Trash2, ShieldAlert, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DeleteDFDDialog } from '@/features/threat-models/components'
 import {
@@ -312,6 +313,13 @@ function DFDEditorContent() {
     [nodes, setEdges]
   )
 
+  const handleReconnect = useCallback(
+    (oldEdge: DiagramEdge, connection: Connection) => {
+      setEdges((currentEdges) => reconnectEdge(oldEdge, connection, currentEdges) as DiagramEdge[])
+    },
+    [setEdges]
+  )
+
   // Handle template insertion
   const handleInsertTemplate = useCallback(
     (templateNodes: DiagramNode[], templateEdges: DiagramEdge[]) => {
@@ -373,6 +381,22 @@ function DFDEditorContent() {
     }
   }, [boundaryMode, cancelBoundaryMode])
 
+  const startNodeEditing = useCallback((initialText: string) => {
+    setNodes((currentNodes) => currentNodes.map((node) =>
+      node.selected
+        ? { ...node, data: { ...node.data, label: initialText, isInlineEditing: true } }
+        : node
+    ))
+  }, [setNodes])
+
+  const pasteNodeLabel = useCallback((text: string) => {
+    setNodes((currentNodes) => currentNodes.map((node) =>
+      node.selected
+        ? { ...node, data: { ...node.data, label: text, isInlineEditing: true } }
+        : node
+    ))
+  }, [setNodes])
+
   // Wrap saveNow for keyboard shortcut to pass notation style
   const handleKeyboardSave = useCallback(async () => {
     await saveNow(notationStyle)
@@ -383,6 +407,8 @@ function DFDEditorContent() {
     onSave: handleKeyboardSave,
     onUndo: undo,
     onDeselect: handleDeselect,
+    onStartNodeEditing: startNodeEditing,
+    onPasteText: pasteNodeLabel,
     enabled: true,
   })
 
@@ -580,6 +606,16 @@ function DFDEditorContent() {
         </div>
       </div>
 
+      {/* Reference diagram banner */}
+      {diagram && !diagram.isPrimary && (
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-sm">
+          <Info className="h-4 w-4 shrink-0" />
+          <span>
+            This is a reference diagram. Components here are not synced to threat analysis.
+          </span>
+        </div>
+      )}
+
       {/* Toolbar */}
       <DiagramToolbar
         connectionMode={connectionMode}
@@ -607,6 +643,8 @@ function DFDEditorContent() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
+              onReconnect={handleReconnect}
+              edgesReconnectable
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
