@@ -35,6 +35,7 @@ import { useCreateNode, useHandleDrop } from '@/features/dfd-editor/hooks/useCre
 import { type DFDNotationStyle, NOTATION_NODE_SIZES } from '@/features/dfd-editor/types/notation'
 import { GuestThreatSection } from './components/GuestThreatSection'
 import { guestNodeTypes, guestEdgeTypes } from './components/GuestNodeWrapper'
+import { useGuestEditor } from './context/GuestEditorContext'
 import type { GuestDiagramOutletContext } from './GuestLayout'
 
 function GuestDFDEditorContent() {
@@ -99,8 +100,9 @@ function GuestDFDEditorContent() {
   const [selectedEdge, setSelectedEdge] = useState<DiagramEdge | null>(null)
 
   // ReactFlow instance
-  const { screenToFlowPosition, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
+  const { screenToFlowPosition, getNodes, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
   const { x: viewportX, y: viewportY, zoom } = useViewport()
+  const guestEditor = useGuestEditor()
 
   // Parent relationship detection
   const { updateParentRelationships } = useParentRelationships()
@@ -327,6 +329,67 @@ function GuestDFDEditorContent() {
     }
   }, [boundaryMode, cancelBoundaryMode])
 
+  // Keep keyboard deletion in sync with the guest threat state. React Flow
+  // only removes canvas items, while threats and countermeasures are held in
+  // separate guest-editor stores and are included in exports.
+  const handleDelete = useCallback(() => {
+    const currentNodes = getNodes() as DiagramNode[]
+    const currentEdges = getEdges() as DiagramEdge[]
+    const selectedNodes = currentNodes.filter((node) => node.selected)
+    const selectedEdges = currentEdges.filter((edge) => edge.selected)
+
+    if (selectedNodes.length === 0 && selectedEdges.length === 0) return
+
+    const selectedNodeIds = new Set(selectedNodes.map((node) => node.id))
+    const deletedTargetIds = new Set([
+      ...selectedNodeIds,
+      ...selectedEdges.map((edge) => edge.id),
+      ...currentEdges
+        .filter((edge) => selectedNodeIds.has(edge.source) || selectedNodeIds.has(edge.target))
+        .map((edge) => edge.id),
+    ])
+
+    if (guestEditor) {
+      for (const targetId of deletedTargetIds) {
+        for (const threat of guestEditor.getThreatsForTarget(targetId)) {
+          guestEditor.removeThreat(threat.id)
+        }
+      }
+    }
+
+    const boundaryIds = selectedNodes
+      .filter((node) => node.type === 'trustZone' || node.type === 'systemScope')
+      .map((node) => node.id)
+
+    const updatedNodes = currentNodes
+      .filter((node) => !selectedNodeIds.has(node.id))
+      .map((node) => {
+        if (node.parentId && boundaryIds.includes(node.parentId)) {
+          const parent = currentNodes.find((candidate) => candidate.id === node.parentId)
+          if (parent) {
+            return {
+              ...node,
+              parentId: undefined,
+              position: {
+                x: node.position.x + parent.position.x,
+                y: node.position.y + parent.position.y,
+              },
+            }
+          }
+        }
+        return node
+      })
+
+    const updatedEdges = currentEdges.filter(
+      (edge) =>
+        !selectedEdges.some((selectedEdge) => selectedEdge.id === edge.id) &&
+        !selectedNodeIds.has(edge.source) &&
+        !selectedNodeIds.has(edge.target)
+    )
+
+    setNodes(updatedNodes)
+    setEdges(updatedEdges)
+  }, [getEdges, getNodes, guestEditor, setEdges, setNodes])
   const startNodeEditing = useCallback((initialText: string) => {
     setNodes((currentNodes) => currentNodes.map((node) =>
       node.selected
@@ -348,6 +411,7 @@ function GuestDFDEditorContent() {
     onUndo: undo,
     onRedo: redo,
     onDeselect: handleDeselect,
+    onDelete: handleDelete,
     onStartEdgeEditing: startEdgeEditing,
     onStartNodeEditing: startNodeEditing,
     onPasteText: pasteNodeLabel,
