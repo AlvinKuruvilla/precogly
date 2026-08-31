@@ -22,6 +22,7 @@ import type {
   DataSensitivity,
   StickyNoteTextSize,
 } from '@/features/dfd-editor/types'
+import { useGuestEditor } from '../context/GuestEditorContext'
 import {
   DATA_SENSITIVITY_CONFIG,
   ZONE_COLOR_OPTIONS,
@@ -56,6 +57,7 @@ export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
   renderExtra,
 }: GuestNodeEditPanelProps) {
   const { setNodes, getNodes, getEdges, setEdges } = useReactFlow()
+  const guestEditor = useGuestEditor()
 
   const typeConfig = nodeTypeConfig[node.type as DiagramNodeType]
   const Icon = typeConfig?.icon || Cog
@@ -75,6 +77,23 @@ export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
 
   const handleDelete = () => {
     const nodes = getNodes() as DiagramNode[]
+    const edges = getEdges()
+
+    // Threats and countermeasures live outside React Flow's node state. Clean
+    // up this node and its connected flows before removing the canvas items.
+    if (guestEditor) {
+      const deletedTargetIds = new Set([
+        node.id,
+        ...edges
+          .filter((edge) => edge.source === node.id || edge.target === node.id)
+          .map((edge) => edge.id),
+      ])
+      for (const targetId of deletedTargetIds) {
+        for (const threat of guestEditor.getThreatsForTarget(targetId)) {
+          guestEditor.removeThreat(threat.id)
+        }
+      }
+    }
 
     // For container nodes (boundaries or process containers), convert children to root nodes
     const hasChildren = nodes.some((n) => n.parentId === node.id)
@@ -101,8 +120,8 @@ export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
     }
 
     // Remove connected edges
-    setEdges((edges) =>
-      edges.filter((e) => e.source !== node.id && e.target !== node.id)
+    setEdges((currentEdges) =>
+      currentEdges.filter((e) => e.source !== node.id && e.target !== node.id)
     )
 
     onClose()
