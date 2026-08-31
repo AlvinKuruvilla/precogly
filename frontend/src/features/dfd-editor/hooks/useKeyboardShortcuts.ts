@@ -11,6 +11,7 @@ interface UseKeyboardShortcutsOptions {
   onDelete?: () => void
   onCopy?: () => void
   onPaste?: () => void
+  onStartEdgeEditing?: (initialText: string) => void
   onPasteText?: (text: string) => void
   onStartNodeEditing?: (initialText: string) => void
   onDuplicate?: () => void
@@ -34,6 +35,7 @@ export function useKeyboardShortcuts({
   onDelete,
   onCopy,
   onPaste,
+  onStartEdgeEditing,
   onPasteText,
   onStartNodeEditing,
   onDuplicate,
@@ -261,6 +263,16 @@ export function useKeyboardShortcuts({
         return
       }
 
+      // Start editing a selected data flow with the first typed character.
+      if (!isMod && event.key.length === 1 && onStartEdgeEditing) {
+        const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
+        const selectedEdges = (getEdges() as DiagramEdge[]).filter((e) => e.selected)
+        if (selectedNodes.length === 0 && selectedEdges.length === 1) {
+          event.preventDefault()
+          onStartEdgeEditing(event.key)
+          return
+        }
+      }
       // Replace a selected node label with the first typed character.
       if (!isMod && event.key.length === 1) {
         const selectedNodes = (getNodes() as DiagramNode[]).filter((n) => n.selected)
@@ -317,6 +329,7 @@ export function useKeyboardShortcuts({
     onDelete,
     onCopy,
     onPaste,
+    onStartEdgeEditing,
     onPasteText,
     onStartNodeEditing,
     onDuplicate,
