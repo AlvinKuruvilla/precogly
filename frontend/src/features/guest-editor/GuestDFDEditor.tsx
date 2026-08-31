@@ -10,6 +10,7 @@ import {
   type Connection,
   type XYPosition,
   addEdge,
+  reconnectEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useOutletContext } from 'react-router-dom'
@@ -49,6 +50,9 @@ function GuestDFDEditorContent() {
     onNodesChange,
     onEdgesChange,
     undo,
+    redo,
+    canUndo,
+    canRedo,
     notationStyle,
     setNotationStyle,
     exportImageRef,
@@ -172,7 +176,7 @@ function GuestDFDEditorContent() {
       return exportDiagramImage(format, filename, reactFlowWrapper.current, nodes, getViewport, setViewport, getNodesBounds, options)
     }
     return () => { exportImageRef.current = null }
-  }, [exportImageRef, title, nodes, getViewport, setViewport])
+  }, [exportImageRef, title, nodes, getNodesBounds, getViewport, setViewport])
 
   // Register capture image handler so the header can capture PNG bytes for the Word report
   useEffect(() => {
@@ -183,7 +187,7 @@ function GuestDFDEditorContent() {
     // Canvas re-mounted — invalidate cached image since user may edit the diagram
     onCacheImage(null)
     return () => { captureImageRef.current = null }
-  }, [captureImageRef, nodes, getViewport, setViewport, onCacheImage])
+  }, [captureImageRef, nodes, getNodesBounds, getViewport, setViewport, onCacheImage])
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -211,6 +215,28 @@ function GuestDFDEditorContent() {
     []
   )
 
+  const startEdgeEditing = useCallback((initialText: string) => {
+    setEdges((currentEdges) => currentEdges.map((edge) =>
+      edge.selected
+        ? { ...edge, data: { ...edge.data, label: initialText, isInlineEditing: true } }
+        : edge
+    ))
+  }, [setEdges])
+
+  const handleEdgeDoubleClick = useCallback(
+    (_event: React.MouseEvent, edge: DiagramEdge) => {
+      if (edge.type !== 'dataFlow') return
+      setEdges((currentEdges) => currentEdges.map((currentEdge) => {
+        if (currentEdge.type !== 'dataFlow') return currentEdge
+        return {
+          ...currentEdge,
+          data: { ...currentEdge.data, isInlineEditing: currentEdge.id === edge.id },
+        }
+      }))
+    },
+    [setEdges]
+  )
+
   // Handle double-click on node to enable inline label editing
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: DiagramNode) => {
@@ -236,7 +262,14 @@ function GuestDFDEditorContent() {
           )
         : nds
     )
-  }, [handlePaneClickForConnection, setNodes])
+    setEdges((eds) =>
+      eds.some((edge) => edge.data?.isInlineEditing)
+        ? eds.map((edge) =>
+            edge.data?.isInlineEditing ? { ...edge, data: { ...edge.data, isInlineEditing: false } } : edge
+          )
+        : eds
+    )
+  }, [handlePaneClickForConnection, setEdges, setNodes])
 
   const handleNodeDragStop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -270,6 +303,13 @@ function GuestDFDEditorContent() {
     [nodes, setEdges]
   )
 
+  const handleReconnect = useCallback(
+    (oldEdge: DiagramEdge, connection: Connection) => {
+      setEdges((currentEdges) => reconnectEdge(oldEdge, connection, currentEdges) as DiagramEdge[])
+    },
+    [setEdges]
+  )
+
   // Sync selected node/edge with current data
   const currentSelectedNode = selectedNode
     ? (nodes.find((n) => n.id === selectedNode.id) as DiagramNode | undefined)
@@ -287,10 +327,30 @@ function GuestDFDEditorContent() {
     }
   }, [boundaryMode, cancelBoundaryMode])
 
+  const startNodeEditing = useCallback((initialText: string) => {
+    setNodes((currentNodes) => currentNodes.map((node) =>
+      node.selected
+        ? { ...node, data: { ...node.data, label: initialText, isInlineEditing: true } }
+        : node
+    ))
+  }, [setNodes])
+
+  const pasteNodeLabel = useCallback((text: string) => {
+    setNodes((currentNodes) => currentNodes.map((node) =>
+      node.selected
+        ? { ...node, data: { ...node.data, label: text, isInlineEditing: true } }
+        : node
+    ))
+  }, [setNodes])
+
   // Keyboard shortcuts (save is a no-op in guest — handled by header download)
   useKeyboardShortcuts({
     onUndo: undo,
+    onRedo: redo,
     onDeselect: handleDeselect,
+    onStartEdgeEditing: startEdgeEditing,
+    onStartNodeEditing: startNodeEditing,
+    onPasteText: pasteNodeLabel,
     enabled: true,
   })
 
@@ -318,6 +378,10 @@ function GuestDFDEditorContent() {
         notationStyle={notationStyle}
         onNotationChange={handleNotationChange}
         onExportImage={(format, options) => exportImageRef.current?.(format, options)}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -330,9 +394,12 @@ function GuestDFDEditorContent() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={handleConnect}
+              onReconnect={handleReconnect}
+              edgesReconnectable
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onEdgeClick={handleEdgeClick}
+              onEdgeDoubleClick={handleEdgeDoubleClick}
               onPaneClick={handlePaneClick}
               onNodeDragStop={handleNodeDragStop}
               nodeTypes={guestNodeTypes}
