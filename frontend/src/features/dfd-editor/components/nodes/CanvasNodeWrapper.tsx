@@ -60,7 +60,7 @@ export const canvasNodeTypes = {
   systemActor: withThreatBadge(SystemActorNode),
   trustZone: withThreatBadge(TrustZoneNode),
   systemScope: withThreatBadge(SystemScopeNode),
-  stickyNote: withThreatBadge(StickyNoteNode),
+  stickyNote: StickyNoteNode,
 } as const
 
 // Edge wrapper that adds a threat count badge

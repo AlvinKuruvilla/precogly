@@ -143,26 +143,41 @@ export const GuestNodeEditPanel = memo(function GuestNodeEditPanel({
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Common fields */}
-        <div className="space-y-2">
-          <Label htmlFor="node-label">Name</Label>
-          <Input
-            id="node-label"
-            value={node.data.label || ''}
-            onChange={(e) => updateNodeData({ label: e.target.value })}
-            placeholder={node.type === 'trustZone' ? 'e.g., Production VPC, DMZ...' : 'Enter name...'}
-          />
-        </div>
+        {node.type === 'stickyNote' ? (
+          <div className="space-y-2">
+            <Label htmlFor="node-label">Message</Label>
+            <Textarea
+              id="node-label"
+              value={node.data.label || ''}
+              onChange={(e) => updateNodeData({ label: e.target.value })}
+              placeholder="Enter note text..."
+              rows={3}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="node-label">Name</Label>
+              <Input
+                id="node-label"
+                value={node.data.label || ''}
+                onChange={(e) => updateNodeData({ label: e.target.value })}
+                placeholder={node.type === 'trustZone' ? 'e.g., Production VPC, DMZ...' : 'Enter name...'}
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="node-description">Description</Label>
-          <Textarea
-            id="node-description"
-            value={node.data.description || ''}
-            onChange={(e) => updateNodeData({ description: e.target.value })}
-            placeholder="Enter description..."
-            rows={3}
-          />
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="node-description">Description</Label>
+              <Textarea
+                id="node-description"
+                value={node.data.description || ''}
+                onChange={(e) => updateNodeData({ description: e.target.value })}
+                placeholder="Enter description..."
+                rows={3}
+              />
+            </div>
+          </>
+        )}
 
         <Separator />
 

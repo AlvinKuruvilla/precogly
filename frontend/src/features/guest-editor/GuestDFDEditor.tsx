@@ -508,7 +508,7 @@ function GuestDFDEditorContent() {
             node={currentSelectedNode}
             onClose={() => setSelectedNode(null)}
             renderExtra={
-              currentSelectedNode.type !== 'trustZone' ? (
+              currentSelectedNode.type !== 'trustZone' && currentSelectedNode.type !== 'stickyNote' ? (
                 <GuestThreatSection
                   targetId={currentSelectedNode.id}
                   targetType={getNodeTargetType(currentSelectedNode)}

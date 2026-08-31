@@ -733,7 +733,7 @@ function DFDEditorContent() {
             onClose={() => setSelectedNode(null)}
             threatModelId={threatModelId}
             renderExtra={
-              currentSelectedNode.type !== 'trustZone' ? (
+              currentSelectedNode.type !== 'trustZone' && currentSelectedNode.type !== 'stickyNote' ? (
                 <CanvasThreatSection
                   threatModelId={threatModelId}
                   canvasId={currentSelectedNode.id}
