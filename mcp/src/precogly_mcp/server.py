@@ -23,8 +23,9 @@ only thing that knows how its own tokens are stored or where its rows live.
 
 from __future__ import annotations
 
+import functools
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Any, Literal
@@ -35,7 +36,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.context import Context
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from starlette.applications import Starlette
 
 # Absolute rather than relative, so this module loads both as `python -m
@@ -43,6 +44,7 @@ from starlette.applications import Starlette
 # `spec_from_file_location`, which gives it no parent package, and a relative import
 # there fails with "attempted relative import with no known parent package".
 from precogly_mcp.access import HTTPReader, PrecoglyReader, ReaderFor
+from precogly_mcp.client import PrecoglyAPIError
 from precogly_mcp.models import (
     LibraryComponent,
     LibraryComponentMatches,
@@ -69,6 +71,26 @@ def http_client() -> httpx2.AsyncClient:
     replace this to supply a `MockTransport`.
     """
     return httpx2.AsyncClient(timeout=10)
+
+
+def _surface_api_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Return PrecoglyAPIError as a tool-level error instead of letting it propagate.
+
+    mcp >=2.1 wraps unhandled tool exceptions in a generic message. These errors
+    are written for the calling agent and must survive the boundary.
+    """
+
+    @functools.wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await fn(*args, **kwargs)
+        except PrecoglyAPIError as exc:
+            return CallToolResult(
+                content=[TextContent(type="text", text=str(exc))],
+                is_error=True,
+            )
+
+    return wrapper
 
 
 def _read(ctx: Context[ReaderFor, Any]) -> PrecoglyReader:
@@ -100,6 +122,7 @@ _LIST_ANNOTATIONS = ToolAnnotations(
 )
 
 
+@_surface_api_errors
 async def list_threat_models(
     ctx: Context[ReaderFor, Any],
     organization_id: int | None = None,
@@ -149,6 +172,7 @@ _CATALOG_ANNOTATIONS = ToolAnnotations(
 )
 
 
+@_surface_api_errors
 async def search_threat_library(
     ctx: Context[ReaderFor, Any], query: str | None = None
 ) -> LibraryThreatMatches:
@@ -198,6 +222,7 @@ async def search_threat_library(
     )
 
 
+@_surface_api_errors
 async def search_countermeasure_library(
     ctx: Context[ReaderFor, Any],
     query: str | None = None,
@@ -242,6 +267,7 @@ async def search_countermeasure_library(
     )
 
 
+@_surface_api_errors
 async def search_component_library(
     ctx: Context[ReaderFor, Any],
     query: str | None = None,
