@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # 1. Check out the repo
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 2. Build and deploy to gh-pages branch
       #
