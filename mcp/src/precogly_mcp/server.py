@@ -87,7 +87,7 @@ def _surface_api_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
         except PrecoglyAPIError as exc:
             return CallToolResult(
                 content=[TextContent(type="text", text=str(exc))],
-                isError=True,
+                is_error=True,
             )
 
     return wrapper
