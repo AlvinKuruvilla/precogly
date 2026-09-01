@@ -8,7 +8,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # --from-ref resolves against the base branch, which a shallow clone
           # does not fetch.
@@ -30,15 +30,34 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose up -d db
       - run: docker compose run --rm backend python -m pytest
+
+  # The MCP package's own gates. Separate from `backend` because these tests
+  # import no Django — they run the tools against a stub reader — and because
+  # mypy is strict here and unconfigured on the backend side. Ruff is not run
+  # here: `lint` already covers the whole tree.
+  mcp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.13'
+      # From inside the member, uv installs that member's dependencies only, not
+      # the whole workspace — Django and psycopg never enter this job.
+      - run: uv run mypy src
+      - run: uv run pytest
 
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: cd frontend && npm ci
@@ -48,7 +67,7 @@ jobs:
   deploy-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Every deployment finding is a WARNING and the check framework only fails
       # on ERROR, so use --fail-level. --tag security drops drf_spectacular's schema warnings.
       # --no-deps skips the database: the security checks read settings only.

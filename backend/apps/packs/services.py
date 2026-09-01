@@ -140,17 +140,13 @@ class ImportResult:
 
 
 def get_libraries_path() -> Path:
-    """Get the path to the libraries folder."""
-    # Look for libraries folder relative to backend
-    backend_dir = Path(settings.BASE_DIR)
-    # Go up one level from backend to project root, then into libraries
-    libraries_path = backend_dir.parent / "libraries" / "packs"
+    """Get the path to the pack sources, under settings.LIBRARIES_PATH.
 
-    if not libraries_path.exists():
-        # Fallback: check if libraries is in backend directory
-        libraries_path = backend_dir / "libraries" / "packs"
-
-    return libraries_path
+    One configured location rather than a search: where the directory is mounted is
+    a deployment decision, and a search that ends up somewhere empty is
+    indistinguishable from a database nobody has seeded.
+    """
+    return Path(settings.LIBRARIES_PATH) / "packs"
 
 
 SUPPORTED_SCHEMA_VERSIONS = {1}

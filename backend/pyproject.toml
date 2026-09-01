@@ -10,12 +10,23 @@ dependencies = [
     "Django>=5.1,<5.2",
     "djangorestframework>=3.15,<4.0",
     "django-filter>=24.0,<25.0",
-    "psycopg[binary]>=3.2,<4.0",
+    "psycopg[binary]>=3.3.4,<4.0",
     # Authentication
     "djangorestframework-simplejwt>=5.3,<6.0",
     "dj-rest-auth>=7.0,<8.0",
     "django-allauth>=65.0,<66.0",
     "requests>=2.32,<3.0",
+    # OAuth 2.1 authorization server, for MCP clients delegating a user's access.
+    "django-oauth-toolkit>=3.4,<4.0",
+    # The MCP endpoint, served from this process (config/mcp_mount.py). a2wsgi
+    # bridges the MCP server's ASGI app into this WSGI application, which is only
+    # affordable because that app is configured for JSON responses and never
+    # streams.
+    "a2wsgi>=1.10,<2.0",
+    # The tools and the reader protocol they call through. Unreleased, so it is
+    # resolved from `../mcp` in this workspace rather than from an index — see
+    # [tool.uv.sources] below.
+    "precogly-mcp",
     "django-cors-headers>=4.4,<5.0",
     "django-environ>=0.11,<1.0",
     # API documentation and case transformation (snake_case <-> camelCase)
@@ -33,9 +44,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-debug-toolbar>=4.4,<5.0",
-    "django-extensions>=3.2,<4.0",
+    "django-extensions>=4.1,<5.0",
     # Testing
-    "pytest>=8.0,<9.0",
+    "pytest>=9.1.1,<10.0",
     "pytest-django>=4.8,<5.0",
     "pytest-cov>=5.0,<6.0",
     "factory-boy>=3.3,<4.0",
@@ -44,14 +55,13 @@ dev = [
     "pre-commit>=4.0,<5.0",
     # Type checking
     "mypy>=1.11,<2.0",
-    "django-stubs>=5.0,<6.0",
+    "django-stubs>=6.1.0,<7.0",
     "djangorestframework-stubs>=3.15,<4.0",
 ]
 
 prod = [
     "gunicorn>=23.0,<24.0",
     # Redis/Celery (for background tasks)
-    "redis>=5.0,<6.0",
     "celery>=5.4,<6.0",
     "django-celery-beat>=2.6,<3.0",
     "sentry-sdk>=2.0,<3.0",
@@ -62,6 +72,12 @@ prod = [
 # An application, not a distribution — manage.py is the entry point and nothing
 # imports it. Without this uv looks for a build backend and fails.
 package = false
+
+# precogly-mcp is the sibling member of this workspace (../mcp), not a release on
+# an index. mcp/docs/0008 is why it has no release: the server is deployed inside
+# this process and ships on Precogly's release train.
+[tool.uv.sources]
+precogly-mcp = { workspace = true }
 
 # Ruff replaces black (formatting), isort (import ordering), and flake8
 # (linting) with one binary, and adds the flake8-bandit rules
@@ -138,8 +154,13 @@ max-line-length = 120
 known-first-party = ["apps", "config"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S105", "S106"]
-"**/tests.py" = ["S105", "S106"]
+# S101 is bandit's `assert` rule, and it exists because `python -O` strips
+# asserts — a production concern. pytest's whole idiom is the bare assert, and
+# it does not run under -O. The Django-style tests here use `self.assertEqual`
+# and never tripped it; the pytest-style ones added with the MCP work do, 51
+# times in three files.
+"**/tests/**" = ["S101", "S105", "S106"]
+"**/tests.py" = ["S101", "S105", "S106"]
 
 [tool.pytest.ini_options]
 # Wire pytest-django to the same settings manage.py uses by default. The

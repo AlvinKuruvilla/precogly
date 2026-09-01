@@ -54,6 +54,7 @@ function formatNodeType(type: string | undefined): string {
     case 'systemActor': return 'System Actor'
     case 'trustZone': return 'Trust Zone'
     case 'systemScope': return 'System Scope'
+    case 'stickyNote': return 'Sticky Note'
     default: return type ?? '—'
   }
 }
