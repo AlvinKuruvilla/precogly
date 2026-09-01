@@ -902,10 +902,10 @@ class Risk(TimestampedModel):
     # fields up is the same shape and spells "not set" as `blank=True` alone, so this
     # model carries two spellings for it.
     #
-    # Backend and frontend have to land together. `RiskAssessmentViewSet.bulk_update`
-    # writes NULL deliberately — `request.data["response"] or None` — and the risk
-    # board filters with `r.response === col.response` against a column whose key is
-    # `null`, so a stored "" would drop every cleared risk off the board.
+    # Backend and frontend have to land together. `RiskViewSet.bulk_update` writes
+    # NULL deliberately — `request.data["response"] or None` — and the risk board
+    # filters with `r.response === col.response` against a column whose key is `null`,
+    # so a stored "" would drop every cleared risk off the board.
     response = models.CharField(  # noqa: DJ001
         max_length=20,
         choices=Response.choices,
