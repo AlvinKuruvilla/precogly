@@ -483,6 +483,7 @@ class TmLibraryAdapter(BaseAdapter):
             # 2. Trust Zones
             for tz_data in json_data.get("trust_zones", []):
                 tz = TrustZone.objects.create(
+                    organization=organization,
                     name=tz_data.get("title", tz_data["symbolic_name"]),
                     description=tz_data.get("description", ""),
                     format_metadata={
@@ -507,6 +508,7 @@ class TmLibraryAdapter(BaseAdapter):
                 zone_b = resolver.resolve("trust_zone", tb_data.get("trust_zone_b", ""))
                 if zone_a and zone_b:
                     TrustBoundary.objects.create(
+                        organization=organization,
                         zone_a=zone_a,
                         zone_b=zone_b,
                         format_metadata={

@@ -159,8 +159,13 @@ known-first-party = ["apps", "config"]
 # it does not run under -O. The Django-style tests here use `self.assertEqual`
 # and never tripped it; the pytest-style ones added with the MCP work do, 51
 # times in three files.
-"**/tests/**" = ["S101", "S105", "S106"]
-"**/tests.py" = ["S101", "S105", "S106"]
+#
+# DJ008 wants `__str__` on every model. The models in
+# apps/core/tests/test_tenancy_check.py exist for the length of one test, under
+# `isolate_apps`, and are never rendered anywhere — the rule has nothing to protect
+# there.
+"**/tests/**" = ["DJ008", "S101", "S105", "S106"]
+"**/tests.py" = ["DJ008", "S101", "S105", "S106"]
 
 [tool.pytest.ini_options]
 # Wire pytest-django to the same settings manage.py uses by default. The
