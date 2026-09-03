@@ -441,57 +441,62 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
     def _serialize_taxonomy_entries(self, threat_instance):
         """Serialize taxonomy entries for a threat instance.
 
-        Uses live data from threat_library when available, falls back to
-        taxonomy_snapshot when the library link has been removed.
+        Merges library-level and instance-level entries, deduplicating by
+        (taxonomy_slug, external_id). Falls back to taxonomy_snapshot when
+        no live entries exist.
         """
+        seen = {}
+
         if threat_instance.threat_library:
-            entries = []
             for join in threat_instance.threat_library.taxonomy_entries.select_related(
                 "taxonomy_entry__taxonomy"
             ).all():
                 entry = join.taxonomy_entry
-                entries.append(
-                    {
-                        "taxonomy_slug": entry.taxonomy.slug,
-                        "taxonomy_name": entry.taxonomy.name,
-                        "external_id": entry.external_id,
-                        "title": entry.title,
-                        "reference_url": entry.reference_url,
-                    }
-                )
-            return entries
-        return threat_instance.taxonomy_snapshot
+                key = (entry.taxonomy.slug, entry.external_id)
+                seen[key] = {
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "taxonomy_name": entry.taxonomy.name,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url,
+                    "source": "library",
+                }
+
+        for link in threat_instance.instance_taxonomy_links.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all():
+            entry = link.taxonomy_entry
+            key = (entry.taxonomy.slug, entry.external_id)
+            if key not in seen:
+                seen[key] = {
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "taxonomy_name": entry.taxonomy.name,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url,
+                    "source": "instance",
+                }
+
+        if not seen:
+            return threat_instance.taxonomy_snapshot
+
+        return list(seen.values())
 
     def _serialize_standard_mappings(self, countermeasure_instance):
         """Serialize standard mappings for a countermeasure instance.
 
-        Uses library-level mappings when the library link exists, falls back to
-        instance-level mappings with snapshot data when it doesn't.
+        Merges library-level and instance-level mappings. Instance mappings
+        override library mappings for the same requirement.
         """
+        seen = {}
+
         if countermeasure_instance.countermeasure_library:
-            mappings = []
             for (
                 mapping
             ) in countermeasure_instance.countermeasure_library.standard_mappings.all():
                 if mapping.requirement and mapping.requirement.framework:
-                    mappings.append(
-                        {
-                            "id": mapping.id,
-                            "framework_name": mapping.requirement.framework.name,
-                            "framework_slug": mapping.requirement.framework.slug,
-                            "section_code": mapping.requirement.section_code,
-                            "requirement_description": mapping.requirement.description,
-                            "sufficiency": mapping.sufficiency,
-                        }
-                    )
-            return mappings
-
-        # Fallback: use instance-level standard mappings with snapshot data
-        mappings = []
-        for mapping in countermeasure_instance.instance_standard_mappings.all():
-            if mapping.requirement and mapping.requirement.framework:
-                mappings.append(
-                    {
+                    req_id = mapping.requirement_id
+                    seen[req_id] = {
                         "id": mapping.id,
                         "framework_name": mapping.requirement.framework.name,
                         "framework_slug": mapping.requirement.framework.slug,
@@ -499,20 +504,29 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         "requirement_description": mapping.requirement.description,
                         "sufficiency": mapping.sufficiency,
                     }
-                )
+
+        for mapping in countermeasure_instance.instance_standard_mappings.all():
+            if mapping.requirement and mapping.requirement.framework:
+                req_id = mapping.requirement_id
+                seen[req_id] = {
+                    "id": mapping.id,
+                    "framework_name": mapping.requirement.framework.name,
+                    "framework_slug": mapping.requirement.framework.slug,
+                    "section_code": mapping.requirement.section_code,
+                    "requirement_description": mapping.requirement.description,
+                    "sufficiency": mapping.sufficiency,
+                }
             else:
-                # Requirement was deleted — use snapshot fields
-                mappings.append(
-                    {
-                        "id": mapping.id,
-                        "framework_name": mapping.framework_name,
-                        "framework_slug": "",
-                        "section_code": mapping.section_code,
-                        "requirement_description": mapping.requirement_description,
-                        "sufficiency": mapping.sufficiency,
-                    }
-                )
-        return mappings
+                seen[f"snapshot_{mapping.id}"] = {
+                    "id": mapping.id,
+                    "framework_name": mapping.framework_name,
+                    "framework_slug": "",
+                    "section_code": mapping.section_code,
+                    "requirement_description": mapping.requirement_description,
+                    "sufficiency": mapping.sufficiency,
+                }
+
+        return list(seen.values())
 
     def _serialize_countermeasures_from_links(self, links, current_threat):
         """Serialize countermeasures from junction table links, including also_mitigates."""
@@ -798,6 +812,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             .select_related("component", "threat_library")
             .prefetch_related(
                 "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+                "instance_taxonomy_links__taxonomy_entry__taxonomy",
                 countermeasure_links_prefetch,
             )
         )
@@ -813,6 +828,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             )
             .prefetch_related(
                 "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+                "instance_taxonomy_links__taxonomy_entry__taxonomy",
                 countermeasure_links_prefetch,
             )
         )

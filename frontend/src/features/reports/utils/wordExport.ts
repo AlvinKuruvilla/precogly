@@ -7,6 +7,7 @@ import {
   ImageRun,
 } from 'docx'
 import type { ReportData, ReportThreat } from '../types/report'
+import { formatTaxonomyEntryLabel } from '@/types/domain'
 import {
   h1,
   h2,
@@ -345,9 +346,9 @@ function buildThreatAnalysisSection(data: ReportData): (Paragraph | Table)[] {
           para(`This section documents ${allThreats.length} identified threats across all system components and data flows.`),
           spacer(),
           buildTable(
-            [3240, 2160, 960, 960, 960, 1080],
-            ['Threat Name', 'Component / Data Flow', 'STRIDE', 'Inherent Severity', 'Status', 'CMs'],
-            allThreats.map(({ threat, context }) => [threat.threatName, context, threat.strideCategory ?? '—', threat.inherentSeverity, threat.status, String(threat.countermeasures.length)]),
+            [2640, 1800, 1800, 960, 960, 1200],
+            ['Threat Name', 'Component / Data Flow', 'Classifications', 'Inherent Severity', 'Status', 'CMs'],
+            allThreats.map(({ threat, context }) => [threat.threatName, context, (threat.taxonomyEntries ?? []).map(e => formatTaxonomyEntryLabel(e)).join(', ') || '—', threat.inherentSeverity, threat.status, String(threat.countermeasures.length)]),
           ) as Paragraph | Table,
         ]
       : [para('No active threats defined.') as Paragraph | Table]),
@@ -455,14 +456,15 @@ function buildCountermeasuresSection(data: ReportData): (Paragraph | Table)[] {
 
   for (const { threat, context } of allThreats) {
     for (const cm of threat.countermeasures) {
+      const standards = (cm.complianceStandards ?? [])
+        .map(s => `${s.frameworkName} ${s.sectionCode}`)
+        .join(', ') || '—'
       rows.push([
         cm.countermeasureName,
         cm.controlType,
         cm.status,
         cm.priority,
-        cm.isInherited
-          ? `Yes — ${cm.inheritedFromComponentName ?? cm.inheritedFromZoneName ?? ''}`
-          : 'No',
+        standards,
         threat.threatName,
         context,
       ])
@@ -474,8 +476,8 @@ function buildCountermeasuresSection(data: ReportData): (Paragraph | Table)[] {
     spacer(),
     ...(rows.length > 0
       ? [buildTable(
-          [2160, 1080, 900, 780, 1440, 1440, 1560],
-          ['Countermeasure', 'Control Type', 'Status', 'Priority', 'Inherited', 'Associated Threat', 'Component'],
+          [1800, 960, 780, 720, 1800, 1440, 1860],
+          ['Countermeasure', 'Control Type', 'Status', 'Priority', 'Compliance', 'Associated Threat', 'Component'],
           rows,
         ) as Paragraph | Table]
       : [para('No countermeasures defined.') as Paragraph | Table]),

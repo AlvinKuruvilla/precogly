@@ -1051,3 +1051,78 @@ export function useThreatPersonas(threatModelId: string | null | undefined) {
     staleTime: 5 * 60 * 1000,
   })
 }
+
+// ============================================
+// Instance-Level Taxonomy Entries
+// ============================================
+
+export interface InstanceThreatTaxonomyEntry {
+  id: number
+  taxonomyEntry: number
+  componentThreat: number | null
+  flowThreat: number | null
+  taxonomySlug: string
+  taxonomyName: string
+  externalId: string
+  title: string
+  referenceUrl: string
+  createdAt: string
+  updatedAt: string
+}
+
+const instanceTaxonomyKeys = {
+  all: ['threat-taxonomy'] as const,
+  byThreat: (threatId: number, threatType: 'component' | 'flow') =>
+    [...instanceTaxonomyKeys.all, threatType, threatId] as const,
+}
+
+export function useInstanceTaxonomyEntries(
+  threatId: number | null,
+  threatType: 'component' | 'flow'
+) {
+  const filterParam = threatType === 'component' ? 'component_threat' : 'flow_threat'
+  return useQuery({
+    queryKey: instanceTaxonomyKeys.byThreat(threatId!, threatType),
+    queryFn: async () => {
+      const response = await api.get<
+        { results: InstanceThreatTaxonomyEntry[] } | InstanceThreatTaxonomyEntry[]
+      >(`/threat-taxonomy-entries/?${filterParam}=${threatId}`)
+      return Array.isArray(response) ? response : response.results
+    },
+    enabled: threatId !== null,
+  })
+}
+
+export function useCreateInstanceTaxonomyEntry() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: {
+      taxonomyEntry: number
+      componentThreat?: number
+      flowThreat?: number
+    }) =>
+      api.post<InstanceThreatTaxonomyEntry>('/threat-taxonomy-entries/', {
+        taxonomy_entry: data.taxonomyEntry,
+        component_threat: data.componentThreat ?? null,
+        flow_threat: data.flowThreat ?? null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
+
+export function useDeleteInstanceTaxonomyEntry() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) =>
+      api.delete(`/threat-taxonomy-entries/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+    },
+  })
+}
