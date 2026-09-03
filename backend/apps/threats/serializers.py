@@ -15,6 +15,7 @@ from .models import (
     ExternalTaxonomy,
     InstanceCountermeasure,
     InstanceCountermeasureStandard,
+    InstanceThreatTaxonomyEntry,
     PentestFinding,
     Risk,
     RiskThreat,
@@ -28,8 +29,6 @@ from .models import (
 from .scoring.registry import get_scoring_methods
 from .services import (
     calculate_inherent_score,
-    compute_residual_score,
-    derive_risk_status,
     recalculate_risk,
 )
 
@@ -41,7 +40,16 @@ class ExternalTaxonomySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExternalTaxonomy
-        fields = ["id", "slug", "name", "description", "source_url", "version", "source_pack", "entry_count"]
+        fields = [
+            "id",
+            "slug",
+            "name",
+            "description",
+            "source_url",
+            "version",
+            "source_pack",
+            "entry_count",
+        ]
         read_only_fields = ["id"]
 
     def get_entry_count(self, obj):
@@ -56,7 +64,68 @@ class TaxonomyEntryNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaxonomyEntry
-        fields = ["id", "taxonomy_slug", "taxonomy_name", "external_id", "title", "reference_url"]
+        fields = [
+            "id",
+            "taxonomy_slug",
+            "taxonomy_name",
+            "external_id",
+            "title",
+            "reference_url",
+        ]
+
+
+def _build_taxonomy_entry_dict(entry, source):
+    """Build a taxonomy entry dict with source provenance."""
+    return {
+        "id": entry.id,
+        "taxonomy_slug": entry.taxonomy.slug,
+        "taxonomy_name": entry.taxonomy.name,
+        "external_id": entry.external_id,
+        "title": entry.title,
+        "reference_url": entry.reference_url,
+        "source": source,
+    }
+
+
+def _merge_taxonomy_entries(threat_instance):
+    """Merge library + instance taxonomy entries, fall back to snapshot.
+
+    Returns a list of dicts with a 'source' field indicating provenance.
+    Deduplicates by (taxonomy_slug, external_id); instance entries
+    supplement library entries for the same key.
+    """
+    seen = {}
+
+    if threat_instance.threat_library:
+        for join in threat_instance.threat_library.taxonomy_entries.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all():
+            entry = join.taxonomy_entry
+            key = (entry.taxonomy.slug, entry.external_id)
+            seen[key] = _build_taxonomy_entry_dict(entry, "library")
+
+    for link in threat_instance.instance_taxonomy_links.select_related(
+        "taxonomy_entry__taxonomy"
+    ).all():
+        entry = link.taxonomy_entry
+        key = (entry.taxonomy.slug, entry.external_id)
+        if key not in seen:
+            seen[key] = _build_taxonomy_entry_dict(entry, "instance")
+
+    if not seen:
+        for snap in threat_instance.taxonomy_snapshot:
+            key = (snap.get("taxonomy_slug", ""), snap.get("external_id", ""))
+            if key not in seen:
+                seen[key] = {
+                    "taxonomy_slug": snap.get("taxonomy_slug", ""),
+                    "taxonomy_name": snap.get("taxonomy_name", ""),
+                    "external_id": snap.get("external_id", ""),
+                    "title": snap.get("title", ""),
+                    "reference_url": snap.get("reference_url", ""),
+                    "source": "snapshot",
+                }
+
+    return list(seen.values())
 
 
 class ThreatLibrarySerializer(serializers.ModelSerializer):
@@ -79,7 +148,14 @@ class ThreatLibrarySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug", "taxonomy_entries"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "source_pack_name",
+            "source_pack_slug",
+            "taxonomy_entries",
+        ]
 
     def get_taxonomy_entries(self, obj):
         joins = obj.taxonomy_entries.all()
@@ -98,8 +174,12 @@ class ThreatLibraryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ThreatLibrary
         fields = [
-            "id", "name", "description",
-            "source_pack", "source_pack_name", "source_pack_slug",
+            "id",
+            "name",
+            "description",
+            "source_pack",
+            "source_pack_name",
+            "source_pack_slug",
             "taxonomy_entries",
         ]
 
@@ -131,7 +211,13 @@ class CountermeasureLibrarySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "source_pack_name", "source_pack_slug"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "source_pack_name",
+            "source_pack_slug",
+        ]
 
 
 class CountermeasureLibraryListSerializer(serializers.ModelSerializer):
@@ -176,7 +262,13 @@ class ComponentLibraryThreatSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "threat_name", "component_name"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "threat_name",
+            "component_name",
+        ]
 
 
 class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
@@ -190,7 +282,9 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
     threat_sources = serializers.SerializerMethodField()
 
     # Write fields - accept threat_name for custom threats
-    threat_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    threat_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
 
     class Meta:
         model = ComponentInstanceThreat
@@ -237,15 +331,8 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
         return None
 
     def get_taxonomy_entries(self, obj):
-        """Return taxonomy entries from linked threat_library, fallback to snapshot."""
-        if obj.threat_library:
-            joins = obj.threat_library.taxonomy_entries.select_related(
-                "taxonomy_entry__taxonomy"
-            ).all()
-            return TaxonomyEntryNestedSerializer(
-                [j.taxonomy_entry for j in joins], many=True
-            ).data
-        return obj.taxonomy_snapshot
+        """Merge library + instance taxonomy entries, fall back to snapshot."""
+        return _merge_taxonomy_entries(obj)
 
     def get_threat_personas(self, obj):
         return [
@@ -262,7 +349,9 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         threat_library = validated_data.get("threat_library")
         if threat_library and "taxonomy_snapshot" not in validated_data:
-            validated_data["taxonomy_snapshot"] = build_taxonomy_snapshot(threat_library)
+            validated_data["taxonomy_snapshot"] = build_taxonomy_snapshot(
+                threat_library
+            )
         return super().create(validated_data)
 
 
@@ -277,7 +366,9 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
     threat_sources = serializers.SerializerMethodField()
 
     # Write fields - accept threat_name for custom threats
-    threat_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    threat_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
 
     class Meta:
         model = DataFlowInstanceThreat
@@ -324,15 +415,8 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
         return None
 
     def get_taxonomy_entries(self, obj):
-        """Return taxonomy entries from linked threat_library, fallback to snapshot."""
-        if obj.threat_library:
-            joins = obj.threat_library.taxonomy_entries.select_related(
-                "taxonomy_entry__taxonomy"
-            ).all()
-            return TaxonomyEntryNestedSerializer(
-                [j.taxonomy_entry for j in joins], many=True
-            ).data
-        return obj.taxonomy_snapshot
+        """Merge library + instance taxonomy entries, fall back to snapshot."""
+        return _merge_taxonomy_entries(obj)
 
     def get_threat_personas(self, obj):
         return [
@@ -349,7 +433,9 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         threat_library = validated_data.get("threat_library")
         if threat_library and "taxonomy_snapshot" not in validated_data:
-            validated_data["taxonomy_snapshot"] = build_taxonomy_snapshot(threat_library)
+            validated_data["taxonomy_snapshot"] = build_taxonomy_snapshot(
+                threat_library
+            )
         return super().create(validated_data)
 
 
@@ -363,7 +449,14 @@ class CountermeasureThreatLinkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CountermeasureThreatLink
-        fields = ["id", "threat_id", "threat_name", "component_name", "flow_label", "display_order"]
+        fields = [
+            "id",
+            "threat_id",
+            "threat_name",
+            "component_name",
+            "flow_label",
+            "display_order",
+        ]
         read_only_fields = fields
 
     def get_threat_id(self, obj):
@@ -374,16 +467,24 @@ class CountermeasureThreatLinkSerializer(serializers.ModelSerializer):
         threat = obj.component_threat or obj.flow_threat
         if not threat:
             return None
-        return threat.threat_name or (threat.threat_library.name if threat.threat_library else None)
+        return threat.threat_name or (
+            threat.threat_library.name if threat.threat_library else None
+        )
 
     def get_component_name(self, obj):
         if obj.component_threat:
-            return obj.component_threat.component.name if obj.component_threat.component else None
+            return (
+                obj.component_threat.component.name
+                if obj.component_threat.component
+                else None
+            )
         return None
 
     def get_flow_label(self, obj):
         if obj.flow_threat:
-            return obj.flow_threat.data_flow.label if obj.flow_threat.data_flow else None
+            return (
+                obj.flow_threat.data_flow.label if obj.flow_threat.data_flow else None
+            )
         return None
 
 
@@ -402,12 +503,20 @@ class InstanceCountermeasureSerializer(serializers.ModelSerializer):
     threat_links = CountermeasureThreatLinkSerializer(many=True, read_only=True)
 
     # Write fields - accept custom countermeasure data
-    countermeasure_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    countermeasure_description = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    control_type = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    countermeasure_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
+    countermeasure_description = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
+    control_type = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
     threat_id = serializers.IntegerField(write_only=True, required=False)
     threat_type = serializers.ChoiceField(
-        choices=["component", "flow", "dataflow"], write_only=True, required=False,
+        choices=["component", "flow", "dataflow"],
+        write_only=True,
+        required=False,
     )
 
     class Meta:
@@ -586,10 +695,75 @@ class InstanceCountermeasureStandardSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class InstanceThreatTaxonomyEntrySerializer(serializers.ModelSerializer):
+    """Serializer for instance-level taxonomy entries on threat instances."""
+
+    taxonomy_slug = serializers.CharField(
+        source="taxonomy_entry.taxonomy.slug", read_only=True
+    )
+    taxonomy_name = serializers.CharField(
+        source="taxonomy_entry.taxonomy.name", read_only=True
+    )
+    external_id = serializers.CharField(
+        source="taxonomy_entry.external_id", read_only=True
+    )
+    title = serializers.CharField(source="taxonomy_entry.title", read_only=True)
+    reference_url = serializers.URLField(
+        source="taxonomy_entry.reference_url", read_only=True
+    )
+
+    class Meta:
+        model = InstanceThreatTaxonomyEntry
+        fields = [
+            "id",
+            "taxonomy_entry",
+            "component_threat",
+            "flow_threat",
+            "taxonomy_slug",
+            "taxonomy_name",
+            "external_id",
+            "title",
+            "reference_url",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "taxonomy_slug",
+            "taxonomy_name",
+            "external_id",
+            "title",
+            "reference_url",
+        ]
+
+    def validate(self, data):
+        component_threat = data.get("component_threat")
+        flow_threat = data.get("flow_threat")
+        if bool(component_threat) == bool(flow_threat):
+            raise serializers.ValidationError(
+                "Exactly one of component_threat or flow_threat must be provided."
+            )
+        return data
+
+    def create(self, validated_data):
+        from django.db import IntegrityError
+
+        try:
+            return super().create(validated_data)
+        except IntegrityError as err:
+            raise serializers.ValidationError(
+                "This taxonomy entry is already linked to this threat."
+            ) from err
+
+
 class CountermeasureCommentSerializer(serializers.ModelSerializer):
     """Serializer for CountermeasureComment."""
 
-    author_email = serializers.EmailField(source="author.email", read_only=True, default=None)
+    author_email = serializers.EmailField(
+        source="author.email", read_only=True, default=None
+    )
 
     class Meta:
         model = CountermeasureComment
@@ -615,8 +789,12 @@ class RiskListSerializer(serializers.ModelSerializer):
 
     scoring_method = serializers.SerializerMethodField()
     threat_count = serializers.SerializerMethodField()
-    owner_email = serializers.EmailField(source="owner.email", read_only=True, default=None)
-    assigned_to_email = serializers.EmailField(source="assigned_to.email", read_only=True, default=None)
+    owner_email = serializers.EmailField(
+        source="owner.email", read_only=True, default=None
+    )
+    assigned_to_email = serializers.EmailField(
+        source="assigned_to.email", read_only=True, default=None
+    )
 
     class Meta:
         model = Risk
@@ -650,8 +828,12 @@ class RiskDetailSerializer(serializers.ModelSerializer):
     """Full serializer for risk detail/create/update."""
 
     scoring_method = serializers.SerializerMethodField()
-    owner_email = serializers.EmailField(source="owner.email", read_only=True, default=None)
-    assigned_to_email = serializers.EmailField(source="assigned_to.email", read_only=True, default=None)
+    owner_email = serializers.EmailField(
+        source="owner.email", read_only=True, default=None
+    )
+    assigned_to_email = serializers.EmailField(
+        source="assigned_to.email", read_only=True, default=None
+    )
     threats = serializers.SerializerMethodField()
 
     # Write-only fields for inline threat linking
@@ -709,17 +891,23 @@ class RiskDetailSerializer(serializers.ModelSerializer):
     def get_threats(self, obj):
         """Return linked threats with basic info."""
         result = []
-        for risk_threat in obj.risk_threats.select_related("component_threat", "flow_threat").all():
+        for risk_threat in obj.risk_threats.select_related(
+            "component_threat", "flow_threat"
+        ).all():
             threat = risk_threat.component_threat or risk_threat.flow_threat
             if threat:
-                result.append({
-                    "risk_threat_id": risk_threat.id,
-                    "threat_id": threat.id,
-                    "threat_type": "component" if risk_threat.component_threat else "flow",
-                    "threat_name": threat.threat_name,
-                    "status": threat.status,
-                    "is_dismissed": threat.is_dismissed,
-                })
+                result.append(
+                    {
+                        "risk_threat_id": risk_threat.id,
+                        "threat_id": threat.id,
+                        "threat_type": "component"
+                        if risk_threat.component_threat
+                        else "flow",
+                        "threat_name": threat.threat_name,
+                        "status": threat.status,
+                        "is_dismissed": threat.is_dismissed,
+                    }
+                )
         return result
 
     def validate_scoring_metadata(self, value):
@@ -743,18 +931,20 @@ class RiskDetailSerializer(serializers.ModelSerializer):
                 id__in=component_threat_ids,
             ).count()
             if valid_count != len(component_threat_ids):
-                raise serializers.ValidationError({
-                    "component_threat_ids": "One or more component threats were not found."
-                })
+                raise serializers.ValidationError(
+                    {
+                        "component_threat_ids": "One or more component threats were not found."
+                    }
+                )
 
         if threat_model and flow_threat_ids:
             valid_count = DataFlowInstanceThreat.objects.filter(
                 id__in=flow_threat_ids,
             ).count()
             if valid_count != len(flow_threat_ids):
-                raise serializers.ValidationError({
-                    "flow_threat_ids": "One or more flow threats were not found."
-                })
+                raise serializers.ValidationError(
+                    {"flow_threat_ids": "One or more flow threats were not found."}
+                )
 
         return attrs
 
@@ -771,12 +961,17 @@ class RiskDetailSerializer(serializers.ModelSerializer):
             validated_data["inherent_score"] = score
             validated_data["inherent_level"] = level
         elif "inherent_score" not in validated_data:
-            raise serializers.ValidationError({
-                "inherent_score": "inherent_score is required for custom/unsupported scoring methods."
-            })
+            raise serializers.ValidationError(
+                {
+                    "inherent_score": "inherent_score is required for custom/unsupported scoring methods."
+                }
+            )
         else:
             from .scoring.registry import score_to_level
-            validated_data["inherent_level"] = score_to_level(validated_data["inherent_score"])
+
+            validated_data["inherent_level"] = score_to_level(
+                validated_data["inherent_score"]
+            )
 
         with transaction.atomic():
             risk = Risk.objects.create(**validated_data)
@@ -784,7 +979,9 @@ class RiskDetailSerializer(serializers.ModelSerializer):
             # Create RiskThreat junction rows
             risk_threat_rows = []
             for threat_id in component_threat_ids:
-                risk_threat_rows.append(RiskThreat(risk=risk, component_threat_id=threat_id))
+                risk_threat_rows.append(
+                    RiskThreat(risk=risk, component_threat_id=threat_id)
+                )
             for threat_id in flow_threat_ids:
                 risk_threat_rows.append(RiskThreat(risk=risk, flow_threat_id=threat_id))
             if risk_threat_rows:
@@ -801,7 +998,9 @@ class RiskDetailSerializer(serializers.ModelSerializer):
         validated_data.pop("flow_threat_ids", None)
 
         scoring_method = instance.threat_model.risk_scoring_method
-        scoring_metadata = validated_data.get("scoring_metadata", instance.scoring_metadata)
+        scoring_metadata = validated_data.get(
+            "scoring_metadata", instance.scoring_metadata
+        )
 
         # Recompute inherent score if scoring metadata changed
         if "scoring_metadata" in validated_data:
@@ -896,4 +1095,11 @@ class ThreatSourceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "slug", "name", "description", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "slug",
+            "name",
+            "description",
+            "created_at",
+            "updated_at",
+        ]

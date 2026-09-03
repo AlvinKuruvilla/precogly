@@ -778,24 +778,40 @@ class MagicLinkAccessView(APIView):
             "progress": progress,
         }
 
-    def _serialize_taxonomy_entries(self, threat_library):
-        """Serialize taxonomy entries for a threat library."""
-        if not threat_library:
-            return []
-        entries = []
-        for join in threat_library.taxonomy_entries.select_related(
-            "taxonomy_entry__taxonomy"
-        ).all():
-            entry = join.taxonomy_entry
-            entries.append(
-                {
+    def _serialize_taxonomy_entries(self, threat_instance):
+        """Serialize taxonomy entries, merging library and instance entries."""
+        seen = {}
+
+        if threat_instance.threat_library:
+            for join in threat_instance.threat_library.taxonomy_entries.select_related(
+                "taxonomy_entry__taxonomy"
+            ).all():
+                entry = join.taxonomy_entry
+                key = (entry.taxonomy.slug, entry.external_id)
+                seen[key] = {
                     "taxonomy_slug": entry.taxonomy.slug,
                     "taxonomy_name": entry.taxonomy.name,
                     "external_id": entry.external_id,
                     "title": entry.title,
                 }
-            )
-        return entries
+
+        for link in threat_instance.instance_taxonomy_links.select_related(
+            "taxonomy_entry__taxonomy"
+        ).all():
+            entry = link.taxonomy_entry
+            key = (entry.taxonomy.slug, entry.external_id)
+            if key not in seen:
+                seen[key] = {
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "taxonomy_name": entry.taxonomy.name,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                }
+
+        if not seen:
+            return threat_instance.taxonomy_snapshot or []
+
+        return list(seen.values())
 
     def _get_threat_analysis_data(self, threat_model):
         """
@@ -862,6 +878,8 @@ class MagicLinkAccessView(APIView):
                 ComponentInstanceThreat.objects.filter(component_id__in=component_ids)
                 .select_related("component", "threat_library")
                 .prefetch_related(
+                    "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+                    "instance_taxonomy_links__taxonomy_entry__taxonomy",
                     Prefetch(
                         "countermeasure_links",
                         queryset=CountermeasureThreatLink.objects.select_related(
@@ -904,9 +922,7 @@ class MagicLinkAccessView(APIView):
                 threat_description = (
                     threat.threat_library.description if threat.threat_library else None
                 )
-                taxonomy_entries = self._serialize_taxonomy_entries(
-                    threat.threat_library
-                )
+                taxonomy_entries = self._serialize_taxonomy_entries(threat)
 
                 threat_data = {
                     "id": threat.id,
@@ -984,6 +1000,8 @@ class MagicLinkAccessView(APIView):
                 DataFlowInstanceThreat.objects.filter(data_flow_id__in=flow_ids)
                 .select_related("data_flow", "threat_library")
                 .prefetch_related(
+                    "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+                    "instance_taxonomy_links__taxonomy_entry__taxonomy",
                     Prefetch(
                         "countermeasure_links",
                         queryset=CountermeasureThreatLink.objects.select_related(
@@ -1015,9 +1033,7 @@ class MagicLinkAccessView(APIView):
                 threat_description = (
                     threat.threat_library.description if threat.threat_library else None
                 )
-                taxonomy_entries = self._serialize_taxonomy_entries(
-                    threat.threat_library
-                )
+                taxonomy_entries = self._serialize_taxonomy_entries(threat)
 
                 threat_data = {
                     "id": threat.id,

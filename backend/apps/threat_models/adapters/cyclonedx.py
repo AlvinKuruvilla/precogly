@@ -84,7 +84,7 @@ class CycloneDxAdapter(BaseAdapter):
         }
 
         # Definitions (use cases, requirements)
-        definitions = self._build_definitions(threat_model, resolver)
+        definitions = self._build_definitions(threat_model, resolver, prefetch)
         if definitions:
             document["definitions"] = definitions
 
@@ -160,6 +160,8 @@ class CycloneDxAdapter(BaseAdapter):
             .prefetch_related(
                 "countermeasure_links__countermeasure",
                 "persona_links__persona",
+                "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+                "instance_taxonomy_links__taxonomy_entry__taxonomy",
             )
         )
 
@@ -171,6 +173,8 @@ class CycloneDxAdapter(BaseAdapter):
             .prefetch_related(
                 "countermeasure_links__countermeasure",
                 "persona_links__persona",
+                "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+                "instance_taxonomy_links__taxonomy_entry__taxonomy",
             )
         )
 
@@ -189,6 +193,7 @@ class CycloneDxAdapter(BaseAdapter):
                 "threat_links__component_threat__component",
                 "threat_links__flow_threat__data_flow",
                 "instance_standard_mappings__requirement__framework",
+                "countermeasure_library__standard_mappings__requirement__framework",
             )
         )
 
@@ -241,7 +246,7 @@ class CycloneDxAdapter(BaseAdapter):
                 metadata["authors"] = [author]
         return metadata
 
-    def _build_definitions(self, threat_model, resolver):
+    def _build_definitions(self, threat_model, resolver, prefetch):
         definitions = {}
 
         # Use cases
@@ -268,6 +273,35 @@ class CycloneDxAdapter(BaseAdapter):
                         entry[cdx_key] = flow_data[src_key]
                 cdx_use_cases.append(entry)
             definitions["useCases"] = cdx_use_cases
+
+        # Requirements: collect all unique requirements from countermeasure
+        # compliance mappings (library + instance) and register them so
+        # _build_controls can reference them in satisfies.
+        requirements_by_id = {}
+        for cm in prefetch["countermeasures"]:
+            if cm.countermeasure_library:
+                for mapping in cm.countermeasure_library.standard_mappings.all():
+                    if mapping.requirement and mapping.requirement.framework:
+                        requirements_by_id[mapping.requirement_id] = mapping.requirement
+            for mapping in cm.instance_standard_mappings.all():
+                if mapping.requirement and mapping.requirement.framework:
+                    requirements_by_id[mapping.requirement_id] = mapping.requirement
+
+        if requirements_by_id:
+            cdx_requirements = []
+            for req in requirements_by_id.values():
+                cdx_requirements.append(
+                    {
+                        "bom-ref": resolver.register("requirement", req),
+                        "identifier": req.section_code,
+                        "title": req.name or req.section_code,
+                        "description": req.description,
+                        "source": {
+                            "name": req.framework.name,
+                        },
+                    }
+                )
+            definitions["requirements"] = cdx_requirements
 
         return definitions
 
@@ -652,12 +686,12 @@ class CycloneDxAdapter(BaseAdapter):
         if scenarios:
             result["scenarios"] = scenarios
 
-        # Methodologies
+        # Methodologies (derived from categories already computed per threat)
         taxonomies_used = set()
-        for ct in component_threats:
-            for snap in ct.taxonomy_snapshot or []:
-                if isinstance(snap, dict) and "taxonomy_slug" in snap:
-                    taxonomies_used.add(snap["taxonomy_slug"])
+        for t in abstract_threats:
+            for cat in t.get("categories", []):
+                if cat.get("taxonomy"):
+                    taxonomies_used.add(cat["taxonomy"])
         methodologies = []
         if "stride" in taxonomies_used:
             methodologies.append({"type": "stride"})
@@ -676,7 +710,34 @@ class CycloneDxAdapter(BaseAdapter):
         return result
 
     def _build_threat_categories(self, instance):
-        """Build CycloneDX threat categories from taxonomy snapshot."""
+        """Build CycloneDX threat categories from live taxonomy entries."""
+        seen = {}
+
+        if instance.threat_library:
+            for join in instance.threat_library.taxonomy_entries.all():
+                entry = join.taxonomy_entry
+                if entry.taxonomy:
+                    key = (entry.taxonomy.slug, entry.external_id)
+                    seen[key] = {
+                        "taxonomy": entry.taxonomy.slug,
+                        "id": entry.external_id,
+                        "name": entry.title,
+                    }
+
+        for link in instance.instance_taxonomy_links.all():
+            entry = link.taxonomy_entry
+            if entry.taxonomy:
+                key = (entry.taxonomy.slug, entry.external_id)
+                if key not in seen:
+                    seen[key] = {
+                        "taxonomy": entry.taxonomy.slug,
+                        "id": entry.external_id,
+                        "name": entry.title,
+                    }
+
+        if seen:
+            return list(seen.values())
+
         categories = []
         for snap in instance.taxonomy_snapshot or []:
             if not isinstance(snap, dict):
@@ -849,15 +910,21 @@ class CycloneDxAdapter(BaseAdapter):
             if applies_to:
                 control["appliesTo"] = list(applies_to)
 
-            # satisfies (compliance)
-            satisfies = []
+            # satisfies (compliance): merge library + instance mappings
+            satisfies_by_req = {}
+            if cm.countermeasure_library:
+                for mapping in cm.countermeasure_library.standard_mappings.all():
+                    if mapping.requirement:
+                        req_ref = resolver.get_ref("requirement", mapping.requirement)
+                        if req_ref:
+                            satisfies_by_req[mapping.requirement_id] = req_ref
             for mapping in cm.instance_standard_mappings.all():
                 if mapping.requirement:
                     req_ref = resolver.get_ref("requirement", mapping.requirement)
                     if req_ref:
-                        satisfies.append(req_ref)
-            if satisfies:
-                control["satisfies"] = satisfies
+                        satisfies_by_req[mapping.requirement_id] = req_ref
+            if satisfies_by_req:
+                control["satisfies"] = list(satisfies_by_req.values())
 
             controls.append(control)
 

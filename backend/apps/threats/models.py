@@ -1119,6 +1119,61 @@ class ThreatSourceLink(TimestampedModel):
         return f"{self.source.name} -> {threat}"
 
 
+class InstanceThreatTaxonomyEntry(TimestampedModel):
+    """Instance-level taxonomy entry for a threat instance (dual-FK pattern).
+
+    Supplements library-level taxonomy associations (ThreatLibraryTaxonomyEntry)
+    with user-added entries on individual threat instances.
+    """
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    taxonomy_entry = models.ForeignKey(
+        TaxonomyEntry,
+        on_delete=models.CASCADE,
+        related_name="instance_threat_links",
+    )
+    component_threat = models.ForeignKey(
+        ComponentInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="instance_taxonomy_links",
+    )
+    flow_threat = models.ForeignKey(
+        DataFlowInstanceThreat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="instance_taxonomy_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(component_threat__isnull=False, flow_threat__isnull=True)
+                    | models.Q(component_threat__isnull=True, flow_threat__isnull=False)
+                ),
+                name="taxonomy_link_exactly_one_fk",
+            ),
+            models.UniqueConstraint(
+                fields=["taxonomy_entry", "component_threat"],
+                condition=models.Q(component_threat__isnull=False),
+                name="unique_taxonomy_component_threat",
+            ),
+            models.UniqueConstraint(
+                fields=["taxonomy_entry", "flow_threat"],
+                condition=models.Q(flow_threat__isnull=False),
+                name="unique_taxonomy_flow_threat",
+            ),
+        ]
+
+    def __str__(self):
+        threat = self.component_threat or self.flow_threat
+        return f"{self.taxonomy_entry} -> {threat}"
+
+
 class RiskResponse(TimestampedModel):
     """Structured risk response (CycloneDX 2.0 TM-BOM)."""
 

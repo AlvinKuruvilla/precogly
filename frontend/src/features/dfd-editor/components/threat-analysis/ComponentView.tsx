@@ -1,6 +1,6 @@
 import { Fragment, useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Cog, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Lock, GripVertical, Loader2, Trash2 } from 'lucide-react'
+import { Cog, User, ChevronDown, ChevronUp, ChevronRight, X, Plus, ArrowRight, Shield, Lock, GripVertical, Loader2, Trash2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -39,6 +39,7 @@ import {
 } from '../../types/threat-analysis'
 import { TaxonomyBadges } from '@/components/shared/TaxonomyBadges'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
+import { EditTaxonomyMappingsDialog } from './EditTaxonomyMappingsDialog'
 import {
   parseCountermeasureId,
   useDeleteCountermeasure,
@@ -202,6 +203,13 @@ export function ComponentView({
     backendId: number
     name: string
     mappings: ComplianceStandardMapping[]
+  } | null>(null)
+  // Track which threat is having its taxonomy entries edited
+  const [editingTaxonomyFor, setEditingTaxonomyFor] = useState<{
+    backendId: number
+    threatType: 'component' | 'flow'
+    name: string
+    libraryEntries: import('@/types/domain').TaxonomyEntry[]
   } | null>(null)
   // Track which countermeasure is being deleted/unlinked
   const [deleteCountermeasureConfirmFor, setDeleteCountermeasureConfirmFor] = useState<{
@@ -849,8 +857,27 @@ export function ComponentView({
                           </Button>
                         </div>
                         {isSelected && (
-                          <div className="mt-1 ml-4">
+                          <div className="mt-1 ml-4 flex items-center gap-1">
                             <TaxonomyBadges entries={ct.taxonomyEntries} size="sm" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingTaxonomyFor({
+                                  backendId: ct.backendThreatId!,
+                                  threatType: ct.threatType === 'dataflow' ? 'flow' : 'component',
+                                  name: ct.threatName || '',
+                                  libraryEntries: (ct.taxonomyEntries || []).filter(
+                                    (entry) => entry.source === 'library' || !entry.source
+                                  ),
+                                })
+                              }}
+                              title="Edit taxonomy entries"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
                           </div>
                         )}
                         {isSelected && (
@@ -1351,6 +1378,20 @@ export function ComponentView({
           countermeasureId={editingComplianceFor.backendId}
           countermeasureName={editingComplianceFor.name}
           libraryMappings={editingComplianceFor.mappings}
+        />
+      )}
+
+      {/* Edit Taxonomy Mappings Dialog */}
+      {editingTaxonomyFor && (
+        <EditTaxonomyMappingsDialog
+          open={!!editingTaxonomyFor}
+          onOpenChange={(open) => {
+            if (!open) setEditingTaxonomyFor(null)
+          }}
+          threatId={editingTaxonomyFor.backendId}
+          threatType={editingTaxonomyFor.threatType}
+          threatName={editingTaxonomyFor.name}
+          libraryTaxonomyEntries={editingTaxonomyFor.libraryEntries}
         />
       )}
 

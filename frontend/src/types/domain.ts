@@ -73,6 +73,7 @@ export interface TaxonomyEntry {
   externalId: string
   title: string
   referenceUrl?: string
+  source?: 'library' | 'instance' | 'snapshot'
 }
 
 // Lightweight subset used by TaxonomyBadges and helper functions (e.g. pack previews)

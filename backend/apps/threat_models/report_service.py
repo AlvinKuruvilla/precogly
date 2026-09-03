@@ -317,34 +317,90 @@ def _build_data_flows(dataflow_ids):
     return result
 
 
-def _get_stride_category(threat_library):
-    """Extract STRIDE category from a threat library's taxonomy entries."""
-    if not threat_library:
-        return "unknown"
-    for join in threat_library.taxonomy_entries.all():
-        entry = join.taxonomy_entry
+def _get_stride_category(threat_instance):
+    """Extract STRIDE category from library or instance taxonomy entries."""
+    if threat_instance.threat_library:
+        for join in threat_instance.threat_library.taxonomy_entries.all():
+            entry = join.taxonomy_entry
+            if entry.taxonomy and entry.taxonomy.slug == "stride":
+                return entry.external_id
+
+    for link in threat_instance.instance_taxonomy_links.all():
+        entry = link.taxonomy_entry
         if entry.taxonomy and entry.taxonomy.slug == "stride":
             return entry.external_id
+
     return "unknown"
 
 
-def _get_taxonomy_entries(threat_library, taxonomy_snapshot=None):
-    """Return all taxonomy entries for a threat, falling back to snapshot."""
-    if threat_library:
-        entries = []
-        for join in threat_library.taxonomy_entries.all():
+def _get_taxonomy_entries(threat_instance):
+    """Return merged taxonomy entries (library + instance), falling back to snapshot."""
+    seen = {}
+
+    if threat_instance.threat_library:
+        for join in threat_instance.threat_library.taxonomy_entries.all():
             entry = join.taxonomy_entry
             if entry.taxonomy:
-                entries.append(
-                    {
-                        "taxonomy_slug": entry.taxonomy.slug,
-                        "external_id": entry.external_id,
-                        "title": entry.title,
-                        "reference_url": entry.reference_url or "",
-                    }
-                )
-        return entries
-    return taxonomy_snapshot or []
+                key = (entry.taxonomy.slug, entry.external_id)
+                seen[key] = {
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url or "",
+                    "source": "library",
+                }
+
+    for link in threat_instance.instance_taxonomy_links.all():
+        entry = link.taxonomy_entry
+        if entry.taxonomy:
+            key = (entry.taxonomy.slug, entry.external_id)
+            if key not in seen:
+                seen[key] = {
+                    "taxonomy_slug": entry.taxonomy.slug,
+                    "external_id": entry.external_id,
+                    "title": entry.title,
+                    "reference_url": entry.reference_url or "",
+                    "source": "instance",
+                }
+
+    if not seen:
+        return threat_instance.taxonomy_snapshot or []
+
+    return list(seen.values())
+
+
+def _serialize_compliance_standards(cm):
+    """Serialize compliance standard mappings for a countermeasure.
+
+    Merges library-level and instance-level mappings, with instance
+    entries overriding library entries for the same requirement.
+    """
+    seen = {}
+
+    if cm.countermeasure_library:
+        for mapping in cm.countermeasure_library.standard_mappings.all():
+            if mapping.requirement and mapping.requirement.framework:
+                seen[mapping.requirement_id] = {
+                    "framework_name": mapping.requirement.framework.name,
+                    "section_code": mapping.requirement.section_code,
+                    "sufficiency": mapping.sufficiency,
+                }
+
+    for mapping in cm.instance_standard_mappings.all():
+        if mapping.requirement and mapping.requirement.framework:
+            seen[mapping.requirement_id] = {
+                "framework_name": mapping.requirement.framework.name,
+                "section_code": mapping.requirement.section_code,
+                "sufficiency": mapping.sufficiency,
+            }
+        elif not mapping.requirement:
+            seen[f"snapshot-{mapping.id}"] = {
+                "framework_name": mapping.framework_name,
+                "section_code": mapping.section_code,
+                "sufficiency": mapping.sufficiency,
+            }
+
+    return list(seen.values())
 
 
 def _serialize_countermeasure(cm):
@@ -369,6 +425,7 @@ def _serialize_countermeasure(cm):
         "is_inherited": cm.is_inherited,
         "inherited_from_component_name": cm.inherited_from_component_name,
         "inherited_from_zone_name": cm.inherited_from_zone_name,
+        "compliance_standards": _serialize_compliance_standards(cm),
     }
 
 
@@ -383,7 +440,12 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             "countermeasure__countermeasure_library",
             "countermeasure__assigned_owner",
             "countermeasure__verified_by",
-        ).order_by("display_order"),
+        )
+        .prefetch_related(
+            "countermeasure__countermeasure_library__standard_mappings__requirement__framework",
+            "countermeasure__instance_standard_mappings__requirement__framework",
+        )
+        .order_by("display_order"),
     )
 
     # Component threats
@@ -392,6 +454,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
         .select_related("component", "threat_library")
         .prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+            "instance_taxonomy_links__taxonomy_entry__taxonomy",
             countermeasure_links_prefetch,
         )
     )
@@ -402,6 +465,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
         .select_related("data_flow", "threat_library")
         .prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+            "instance_taxonomy_links__taxonomy_entry__taxonomy",
             countermeasure_links_prefetch,
         )
     )
@@ -412,7 +476,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     dismissed_component_threats = []
 
     for threat in component_threats:
-        category = _get_stride_category(threat.threat_library)
+        category = _get_stride_category(threat)
         if not threat.is_dismissed:
             stride_counts[category] += 1
             active_component_threats.append(threat)
@@ -422,7 +486,7 @@ def _build_threat_analysis(component_ids, dataflow_ids):
     active_flow_threats = []
     dismissed_flow_threats = []
     for threat in flow_threats:
-        category = _get_stride_category(threat.threat_library)
+        category = _get_stride_category(threat)
         if not threat.is_dismissed:
             stride_counts[category] += 1
             active_flow_threats.append(threat)
@@ -444,10 +508,8 @@ def _build_threat_analysis(component_ids, dataflow_ids):
                     threat.threat_library.description if threat.threat_library else None
                 )
                 or threat.threat_description,
-                "stride_category": _get_stride_category(threat.threat_library),
-                "taxonomy_entries": _get_taxonomy_entries(
-                    threat.threat_library, threat.taxonomy_snapshot
-                ),
+                "stride_category": _get_stride_category(threat),
+                "taxonomy_entries": _get_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
@@ -475,10 +537,8 @@ def _build_threat_analysis(component_ids, dataflow_ids):
                     threat.threat_library.description if threat.threat_library else None
                 )
                 or threat.threat_description,
-                "stride_category": _get_stride_category(threat.threat_library),
-                "taxonomy_entries": _get_taxonomy_entries(
-                    threat.threat_library, threat.taxonomy_snapshot
-                ),
+                "stride_category": _get_stride_category(threat),
+                "taxonomy_entries": _get_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,

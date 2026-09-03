@@ -30,6 +30,7 @@ from .models import (
     ExternalTaxonomy,
     InstanceCountermeasure,
     InstanceCountermeasureStandard,
+    InstanceThreatTaxonomyEntry,
     PentestFinding,
     Risk,
     RiskThreat,
@@ -51,6 +52,7 @@ from .serializers import (
     ExternalTaxonomySerializer,
     InstanceCountermeasureSerializer,
     InstanceCountermeasureStandardSerializer,
+    InstanceThreatTaxonomyEntrySerializer,
     PentestFindingSerializer,
     RiskDetailSerializer,
     RiskListSerializer,
@@ -232,13 +234,17 @@ class ComponentInstanceThreatViewSet(viewsets.ModelViewSet):
         org_ids = self.request.user.organization_memberships.values_list(
             "organization_id", flat=True
         )
-        return ComponentInstanceThreat.objects.filter(
-            Q(component__orgsystem__organization_id__in=org_ids)
-            | Q(
-                component__orgsystem__isnull=True,
-                component__threat_model__organization_id__in=org_ids,
+        return (
+            ComponentInstanceThreat.objects.filter(
+                Q(component__orgsystem__organization_id__in=org_ids)
+                | Q(
+                    component__orgsystem__isnull=True,
+                    component__threat_model__organization_id__in=org_ids,
+                )
             )
-        ).select_related("component", "threat_library")
+            .select_related("component", "threat_library")
+            .prefetch_related("instance_taxonomy_links__taxonomy_entry__taxonomy")
+        )
 
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["component", "threat_library", "status", "inherent_severity"]
@@ -560,13 +566,17 @@ class DataFlowInstanceThreatViewSet(viewsets.ModelViewSet):
         org_ids = self.request.user.organization_memberships.values_list(
             "organization_id", flat=True
         )
-        return DataFlowInstanceThreat.objects.filter(
-            Q(data_flow__source_component__orgsystem__organization_id__in=org_ids)
-            | Q(
-                data_flow__source_component__orgsystem__isnull=True,
-                data_flow__source_component__threat_model__organization_id__in=org_ids,
+        return (
+            DataFlowInstanceThreat.objects.filter(
+                Q(data_flow__source_component__orgsystem__organization_id__in=org_ids)
+                | Q(
+                    data_flow__source_component__orgsystem__isnull=True,
+                    data_flow__source_component__threat_model__organization_id__in=org_ids,
+                )
             )
-        ).select_related("data_flow", "threat_library")
+            .select_related("data_flow", "threat_library")
+            .prefetch_related("instance_taxonomy_links__taxonomy_entry__taxonomy")
+        )
 
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["data_flow", "threat_library", "status", "inherent_severity"]
@@ -954,6 +964,40 @@ class InstanceCountermeasureStandardViewSet(viewsets.ModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["countermeasure", "requirement", "sufficiency"]
+
+
+class InstanceThreatTaxonomyEntryViewSet(viewsets.ModelViewSet):
+    """CRUD for instance-level taxonomy entries on threat instances."""
+
+    serializer_class = InstanceThreatTaxonomyEntrySerializer
+    permission_classes = [IsAuthenticated, CanWrite]
+
+    def get_queryset(self):
+        org_ids = self.request.user.organization_memberships.values_list(
+            "organization_id", flat=True
+        )
+        return InstanceThreatTaxonomyEntry.objects.filter(
+            Q(component_threat__component__orgsystem__organization_id__in=org_ids)
+            | Q(
+                component_threat__component__orgsystem__isnull=True,
+                component_threat__component__threat_model__organization_id__in=org_ids,
+            )
+            | Q(
+                flow_threat__data_flow__source_component__orgsystem__organization_id__in=org_ids
+            )
+            | Q(
+                flow_threat__data_flow__source_component__orgsystem__isnull=True,
+                flow_threat__data_flow__source_component__threat_model__organization_id__in=org_ids,
+            )
+        ).select_related(
+            "taxonomy_entry",
+            "taxonomy_entry__taxonomy",
+            "component_threat",
+            "flow_threat",
+        )
+
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["component_threat", "flow_threat", "taxonomy_entry"]
 
 
 class ExternalTaxonomyViewSet(viewsets.ReadOnlyModelViewSet):

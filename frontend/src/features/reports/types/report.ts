@@ -118,6 +118,12 @@ export interface ReportDataFlow {
   hasSensitiveData: boolean
 }
 
+export interface ReportComplianceStandard {
+  frameworkName: string
+  sectionCode: string
+  sufficiency: string
+}
+
 export interface ReportCountermeasure {
   id: number
   countermeasureName: string
@@ -130,6 +136,7 @@ export interface ReportCountermeasure {
   isInherited: boolean
   inheritedFromComponentName: string | null
   inheritedFromZoneName: string | null
+  complianceStandards?: ReportComplianceStandard[]
 }
 
 export interface ReportThreatTaxonomyEntry {
