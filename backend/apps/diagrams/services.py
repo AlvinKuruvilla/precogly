@@ -704,9 +704,13 @@ def _generate_countermeasures_for_threat(threat_instance):
             # .section_code` etc. below would raise AttributeError on the
             # first orphaned row, and there's nothing meaningful to
             # propagate to the instance level for one anyway.
-            library_standards = CountermeasureLibraryStandard.objects.filter(
-                countermeasure_library=countermeasure_library,
-            ).exclude(requirement__isnull=True).select_related("requirement", "requirement__framework")
+            library_standards = (
+                CountermeasureLibraryStandard.objects.filter(
+                    countermeasure_library=countermeasure_library,
+                )
+                .exclude(requirement__isnull=True)
+                .select_related("requirement", "requirement__framework")
+            )
             if library_standards.exists():
                 InstanceCountermeasureStandard.objects.bulk_create(
                     [

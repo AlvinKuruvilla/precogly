@@ -4,7 +4,11 @@ Serializers for compliance app.
 
 from rest_framework import serializers
 
-from .models import CountermeasureLibraryStandard, StandardFramework, StandardRequirement
+from .models import (
+    CountermeasureLibraryStandard,
+    StandardFramework,
+    StandardRequirement,
+)
 
 
 class StandardFrameworkSerializer(serializers.ModelSerializer):
@@ -36,7 +40,9 @@ class StandardRequirementSerializer(serializers.ModelSerializer):
     """Serializer for StandardRequirement model."""
 
     framework_name = serializers.CharField(source="framework.name", read_only=True)
-    source_pack = serializers.IntegerField(source="framework.source_pack_id", read_only=True)
+    source_pack = serializers.IntegerField(
+        source="framework.source_pack_id", read_only=True
+    )
 
     class Meta:
         model = StandardRequirement
@@ -51,7 +57,13 @@ class StandardRequirementSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "framework_name", "source_pack"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "framework_name",
+            "source_pack",
+        ]
 
 
 class CountermeasureLibraryStandardSerializer(serializers.ModelSerializer):

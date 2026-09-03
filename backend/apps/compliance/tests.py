@@ -63,20 +63,29 @@ class SectionCodeRenameNoLongerCascadesTests(TestCase):
 
         # Import the framework for the first time via the real loader, with
         # the section_code that will later be "typo'd"/renamed.
-        _load_frameworks(cls.pack, {
-            "frameworks": [{
-                "slug": "section-338-framework",
-                "name": "Section 338 Framework",
-                "version": "1.0",
-                "issuer": "Test",
-                "requirements": [
-                    {"section_code": "V.A", "description": "Original requirement"},
+        _load_frameworks(
+            cls.pack,
+            {
+                "frameworks": [
+                    {
+                        "slug": "section-338-framework",
+                        "name": "Section 338 Framework",
+                        "version": "1.0",
+                        "issuer": "Test",
+                        "requirements": [
+                            {
+                                "section_code": "V.A",
+                                "description": "Original requirement",
+                            },
+                        ],
+                    }
                 ],
-            }],
-        })
+            },
+        )
         cls.framework = StandardFramework.objects.get(slug="section-338-framework")
         cls.requirement_va = StandardRequirement.objects.get(
-            framework=cls.framework, section_code="V.A",
+            framework=cls.framework,
+            section_code="V.A",
         )
 
         # A second framework + requirement, so StandardRequirementMapping
@@ -113,28 +122,38 @@ class SectionCodeRenameNoLongerCascadesTests(TestCase):
         # Reimport the framework with "V.A" renamed to "V.A1" (a typo fix,
         # or an honest rename -- indistinguishable from "removed" to the
         # prune-stale-requirements query in _load_frameworks()).
-        _load_frameworks(self.pack, {
-            "frameworks": [{
-                "slug": "section-338-framework",
-                "name": "Section 338 Framework",
-                "version": "1.0",
-                "issuer": "Test",
-                "requirements": [
-                    {"section_code": "V.A1", "description": "Renamed requirement"},
+        _load_frameworks(
+            self.pack,
+            {
+                "frameworks": [
+                    {
+                        "slug": "section-338-framework",
+                        "name": "Section 338 Framework",
+                        "version": "1.0",
+                        "issuer": "Test",
+                        "requirements": [
+                            {
+                                "section_code": "V.A1",
+                                "description": "Renamed requirement",
+                            },
+                        ],
+                    }
                 ],
-            }],
-        })
+            },
+        )
 
         # The old requirement really is gone -- that part of the prune is
         # correct and intentional, not what #338 is about.
         self.assertFalse(
             StandardRequirement.objects.filter(
-                framework=self.framework, section_code="V.A",
+                framework=self.framework,
+                section_code="V.A",
             ).exists()
         )
         self.assertTrue(
             StandardRequirement.objects.filter(
-                framework=self.framework, section_code="V.A1",
+                framework=self.framework,
+                section_code="V.A1",
             ).exists()
         )
 
@@ -142,7 +161,9 @@ class SectionCodeRenameNoLongerCascadesTests(TestCase):
         # along with the old requirement. It must survive.
         mapping.refresh_from_db()
         self.assertIsNone(mapping.requirement)
-        self.assertEqual(mapping.sufficiency, CountermeasureLibraryStandard.Sufficiency.FULL)
+        self.assertEqual(
+            mapping.sufficiency, CountermeasureLibraryStandard.Sufficiency.FULL
+        )
         self.assertTrue(
             CountermeasureLibraryStandard.objects.filter(pk=mapping.pk).exists()
         )
@@ -155,17 +176,25 @@ class SectionCodeRenameNoLongerCascadesTests(TestCase):
             source_pack=self.pack,
         )
 
-        _load_frameworks(self.pack, {
-            "frameworks": [{
-                "slug": "section-338-framework",
-                "name": "Section 338 Framework",
-                "version": "1.0",
-                "issuer": "Test",
-                "requirements": [
-                    {"section_code": "V.A1", "description": "Renamed requirement"},
+        _load_frameworks(
+            self.pack,
+            {
+                "frameworks": [
+                    {
+                        "slug": "section-338-framework",
+                        "name": "Section 338 Framework",
+                        "version": "1.0",
+                        "issuer": "Test",
+                        "requirements": [
+                            {
+                                "section_code": "V.A1",
+                                "description": "Renamed requirement",
+                            },
+                        ],
+                    }
                 ],
-            }],
-        })
+            },
+        )
 
         from_mapping.refresh_from_db()
         self.assertIsNone(from_mapping.from_requirement)
@@ -187,17 +216,25 @@ class SectionCodeRenameNoLongerCascadesTests(TestCase):
             source_pack=self.pack,
         )
 
-        _load_frameworks(self.pack, {
-            "frameworks": [{
-                "slug": "section-338-framework",
-                "name": "Section 338 Framework",
-                "version": "1.0",
-                "issuer": "Test",
-                "requirements": [
-                    {"section_code": "V.A1", "description": "Renamed requirement"},
+        _load_frameworks(
+            self.pack,
+            {
+                "frameworks": [
+                    {
+                        "slug": "section-338-framework",
+                        "name": "Section 338 Framework",
+                        "version": "1.0",
+                        "issuer": "Test",
+                        "requirements": [
+                            {
+                                "section_code": "V.A1",
+                                "description": "Renamed requirement",
+                            },
+                        ],
+                    }
                 ],
-            }],
-        })
+            },
+        )
 
         # requirement_x1 belongs to other_framework, never reimported here.
         self.requirement_x1.refresh_from_db()
@@ -242,7 +279,9 @@ class OrphanedMappingConsumersDontCrashTests(TestCase):
             issuer="Test",
         )
         cls.requirement = StandardRequirement.objects.create(
-            framework=cls.framework, section_code="C.1", description="",
+            framework=cls.framework,
+            section_code="C.1",
+            description="",
         )
         cls.countermeasure = CountermeasureLibrary.objects.create(
             source_pack=cls.cm_pack,
@@ -260,7 +299,9 @@ class OrphanedMappingConsumersDontCrashTests(TestCase):
             sufficiency=CountermeasureLibraryStandard.Sufficiency.FULL,
         )
         other_requirement = StandardRequirement.objects.create(
-            framework=cls.framework, section_code="C.2", description="",
+            framework=cls.framework,
+            section_code="C.2",
+            description="",
         )
         cls.orphaned_mapping = CountermeasureLibraryStandard.objects.create(
             countermeasure_library=cls.countermeasure,
