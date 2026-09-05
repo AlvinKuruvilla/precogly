@@ -125,6 +125,7 @@ components:
     category: process
     type: Identity and Access Management
     provider: aws
+    icon: icons/iam.svg
     description: |
       AWS Identity and Access Management (IAM) controls access to AWS services
       and resources. Manages users, groups, roles, and policies that define
@@ -136,6 +137,7 @@ components:
     category: process
     type: Key Management Service
     provider: aws
+    icon: icons/kms.svg
     description: |
       AWS Key Management Service (KMS) creates and manages cryptographic keys
       used to encrypt data across AWS services. Supports automatic key rotation,
@@ -147,6 +149,7 @@ components:
     category: process
     type: Virtual Network
     provider: aws
+    icon: icons/vpc.svg
     description: |
       Amazon Virtual Private Cloud (VPC) provides logically isolated network
       environments. Includes subnets, route tables, security groups, NACLs,
@@ -158,6 +161,7 @@ components:
     category: process
     type: Virtual Machine
     provider: aws
+    icon: icons/ec2.svg
     description: |
       Amazon Elastic Compute Cloud (EC2) provides resizable virtual servers.
       Includes instance metadata service (IMDS), instance profiles for IAM
@@ -169,6 +173,7 @@ components:
     category: process
     type: Load Balancer
     provider: aws
+    icon: icons/elb.svg
     description: |
       Elastic Load Balancing distributes incoming traffic across multiple targets
       including EC2 instances, containers, and Lambda functions. Supports Application
@@ -181,6 +186,7 @@ components:
     category: datastore
     type: Relational Database
     provider: aws
+    icon: icons/rds.svg
     description: |
       Amazon Relational Database Service (RDS) and Amazon Aurora provide managed relational
       databases supporting MySQL, PostgreSQL, MariaDB, Oracle, and SQL Server. Aurora offers
@@ -193,6 +199,7 @@ components:
     category: process
     type: Audit Logging Service
     provider: aws
+    icon: icons/cloudtrail.svg
     description: |
       AWS CloudTrail records API calls and account activity across AWS services, delivering
       log files to S3 and optionally to CloudWatch Logs. Provides event history for governance,
@@ -209,6 +216,7 @@ components:
     category: process
     type: Container Orchestration
     provider: aws
+    icon: icons/ecs.svg
     description: |
       Amazon Elastic Container Service (ECS) is a fully managed container orchestration
       service supporting both Fargate (serverless) and EC2 launch types. Manages task
@@ -219,6 +227,7 @@ components:
     category: process
     type: Kubernetes Service
     provider: aws
+    icon: icons/eks.svg
     description: |
       Amazon Elastic Kubernetes Service (EKS) is a managed Kubernetes control plane
       that runs across multiple availability zones. Supports managed node groups,
@@ -231,6 +240,7 @@ components:
     category: datastore
     type: Container Registry
     provider: aws
+    icon: icons/ecr.svg
     description: |
       Amazon Elastic Container Registry (ECR) is a managed Docker container image
       registry. Supports image scanning for vulnerabilities, immutable tags, lifecycle
@@ -242,6 +252,7 @@ components:
     category: datastore
     type: Secrets Management
     provider: aws
+    icon: icons/secrets-manager.svg
     description: |
       AWS Secrets Manager stores, rotates, and manages access to database credentials,
       API keys, and other secrets. Supports automatic rotation via Lambda functions,
@@ -254,6 +265,7 @@ components:
     category: process
     type: Content Delivery Network
     provider: aws
+    icon: icons/cloudfront.svg
     description: |
       Amazon CloudFront is a global content delivery network (CDN) that accelerates
       delivery of web content, APIs, and video streams. Supports HTTPS enforcement,
@@ -266,6 +278,7 @@ components:
     category: process
     type: DNS Service
     provider: aws
+    icon: icons/route53.svg
     description: |
       Amazon Route 53 is a scalable DNS web service providing domain registration,
       DNS routing, and health checking. Supports public and private hosted zones,
@@ -282,6 +295,7 @@ components:
     category: process
     type: Notification Service
     provider: aws
+    icon: icons/sns.svg
     description: |
       Amazon Simple Notification Service provides pub/sub messaging for
       application-to-application and application-to-person communication.
@@ -291,6 +305,7 @@ components:
     category: process
     type: Event Bus
     provider: aws
+    icon: icons/eventbridge.svg
     description: |
       Amazon EventBridge is a serverless event bus for routing events between
       AWS services, SaaS applications, and custom applications.
@@ -300,6 +315,7 @@ components:
     category: process
     type: Workflow Orchestration
     provider: aws
+    icon: icons/step-functions.svg
     description: |
       AWS Step Functions orchestrates multi-step workflows using state machines,
       coordinating Lambda functions and other AWS services.
@@ -309,6 +325,7 @@ components:
     category: process
     type: GraphQL API
     provider: aws
+    icon: icons/appsync.svg
     description: |
       AWS AppSync is a managed GraphQL and pub/sub API service that simplifies
       application development with real-time data synchronization.
@@ -318,6 +335,7 @@ components:
     category: process
     type: Certificate Management
     provider: aws
+    icon: icons/acm.svg
     description: |
       AWS Certificate Manager provisions, manages, and deploys TLS certificates
       for use with AWS services and internal connected resources.
@@ -327,6 +345,7 @@ components:
     category: datastore
     type: Block Storage
     provider: aws
+    icon: icons/ebs.svg
     description: |
       Amazon Elastic Block Store provides persistent block storage volumes for
       EC2 instances with snapshot and encryption capabilities.
@@ -337,6 +356,7 @@ components:
     category: process
     type: Infrastructure as Code
     provider: aws
+    icon: icons/cloudformation.svg
     description: |
       AWS CloudFormation provisions and manages AWS resources through declarative templates.
       Supports stack sets for multi-account deployment and drift detection.
@@ -346,6 +366,7 @@ components:
     category: process
     type: CI/CD Pipeline
     provider: aws
+    icon: icons/codepipeline.svg
     description: |
       AWS CodePipeline orchestrates build, test, and deploy workflows.
       CodeBuild provides managed build environments for compiling source and running tests.
@@ -355,6 +376,7 @@ components:
     category: process
     type: Managed Application Platform
     provider: aws
+    icon: icons/elastic-beanstalk.svg
     description: |
       AWS Elastic Beanstalk deploys and manages web applications on managed EC2, ECS,
       or Docker environments with built-in load balancing, scaling, and monitoring.
@@ -364,6 +386,7 @@ components:
     category: process
     type: Operations Management
     provider: aws
+    icon: icons/ssm.svg
     description: |
       AWS Systems Manager provides operational tools including Session Manager for
       remote access, Parameter Store for configuration, and Run Command for automation.
@@ -374,6 +397,7 @@ components:
     category: process
     type: Threat Detection
     provider: aws
+    icon: icons/guardduty.svg
     description: |
       Amazon GuardDuty is a managed threat detection service that continuously monitors
       AWS accounts and workloads for malicious activity using ML and threat intelligence.
@@ -383,6 +407,7 @@ components:
     category: process
     type: Configuration Compliance
     provider: aws
+    icon: icons/config.svg
     description: |
       AWS Config continuously records resource configurations and evaluates them against
       desired settings using managed and custom rules for compliance auditing.
@@ -393,6 +418,7 @@ components:
     category: datastore
     type: In-Memory Cache
     provider: aws
+    icon: icons/elasticache.svg
     description: |
       Managed in-memory data store (Redis, Memcached) for caching, session management,
       and real-time analytics.
@@ -402,6 +428,7 @@ components:
     category: datastore
     type: Data Warehouse
     provider: aws
+    icon: icons/redshift.svg
     description: |
       Managed data warehouse for petabyte-scale analytics with columnar storage and
       massively parallel processing.
@@ -411,6 +438,7 @@ components:
     category: process
     type: Security Aggregator
     provider: aws
+    icon: icons/security-hub.svg
     description: |
       Centralized security findings aggregation and compliance posture management
       across AWS accounts and services.
@@ -421,6 +449,7 @@ components:
     category: process
     type: ML Platform
     provider: aws
+    icon: icons/sagemaker.svg
     description: |
       Managed machine learning platform for building, training, and deploying ML models
       with notebook instances and endpoints.
@@ -430,6 +459,7 @@ components:
     category: process
     type: AI Agent Platform
     provider: aws
+    icon: icons/bedrock-agents.svg
     description: |
       Autonomous AI agents that use foundation models to reason and invoke action groups
       to complete tasks.
@@ -439,6 +469,7 @@ components:
     category: datastore
     type: RAG Storage
     provider: aws
+    icon: icons/bedrock-knowledge-bases.svg
     description: |
       Managed RAG service that connects foundation models to data sources for
       retrieval-augmented generation.
