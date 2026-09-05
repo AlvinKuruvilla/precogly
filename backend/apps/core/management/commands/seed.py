@@ -70,15 +70,15 @@ FULL_PACKS = [
 
 SAMPLE_THREAT_MODELS = [
     {
-        "name": "Sample AWS Serverless API",
-        "description": "A sample serverless API threat model with API Gateway, Lambda, S3, and WAF.",
-        "template_slug": "aws/aws-serverless",
+        "name": "Sample AWS Serverless Web App",
+        "description": "A sample serverless web app with CloudFront, API Gateway, Lambda, DynamoDB, and S3.",
+        "template_slug": "aws/aws-serverless-web-app",
         "criticality": "HIGH",
     },
     {
-        "name": "Sample AWS AI Chatbot",
-        "description": "A sample AI chatbot threat model with Bedrock, RAG pipeline, and OpenSearch.",
-        "template_slug": "aws/aws-ai-chatbot",
+        "name": "Sample AWS RAG / Generative AI",
+        "description": "A sample RAG app with Bedrock Agents, Knowledge Bases, and OpenSearch Serverless.",
+        "template_slug": "aws/aws-rag-genai",
         "criticality": "HIGH",
     },
 ]
