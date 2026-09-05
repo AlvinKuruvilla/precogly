@@ -2337,6 +2337,18 @@ def _load_components(
 
         qualified_slug = f"{library_pack.slug}/{comp_id}"
 
+        icon_svg = ""
+        icon_path = comp.get("icon", "")
+        if icon_path:
+            icon_file = file_path.parent / icon_path
+            if icon_file.exists():
+                try:
+                    icon_svg = icon_file.read_text(encoding="utf-8")
+                except Exception as e:
+                    msg = f"Could not read icon '{icon_path}' for '{comp_id}': {e}"
+                    logger.warning(msg)
+                    import_warnings.append(msg)
+
         instance, _ = ComponentLibrary.objects.update_or_create(
             qualified_slug=qualified_slug,
             defaults={
@@ -2346,6 +2358,7 @@ def _load_components(
                 "category": comp.get("category", "process"),
                 "component_type": comp.get("type", comp.get("component_type", "")),
                 "provider": comp.get("provider", ""),
+                "icon_svg": icon_svg,
                 "customization_status": "original",
                 "parent": None,
             },

@@ -18,7 +18,7 @@ export function useCreateNode(notationStyle: DFDNotationStyle) {
   const nodeSizes = NOTATION_NODE_SIZES[notationStyle]
 
   const createNode = useCallback(
-    (type: DiagramNodeType, dropPosition: XYPosition) => {
+    (type: DiagramNodeType, dropPosition: XYPosition, options?: { technology?: string; label?: string }) => {
       const nodeSize = nodeSizes[type] ?? { width: 120, height: 70 }
 
       const position = {
@@ -28,11 +28,15 @@ export function useCreateNode(notationStyle: DFDNotationStyle) {
 
       const id = `${type}-${Date.now()}`
 
+      const data = { ...defaultData[type], isNewlyInserted: true }
+      if (options?.label) data.label = options.label
+      if (options?.technology && 'technology' in data) data.technology = options.technology
+
       addNodes({
         id,
         type,
         position,
-        data: { ...defaultData[type], isNewlyInserted: true },
+        data,
         style: { width: nodeSize.width, height: nodeSize.height },
       })
 
@@ -66,7 +70,7 @@ export function useHandleDrop({
   setSelectedNode,
 }: {
   screenToFlowPosition: (position: { x: number; y: number }) => XYPosition
-  createNode: (type: DiagramNodeType, dropPosition: XYPosition) => string
+  createNode: (type: DiagramNodeType, dropPosition: XYPosition, options?: { technology?: string; label?: string }) => string
   nodes: DiagramNode[]
   setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>
   updateParentRelationships: (nodes: DiagramNode[], setNodes: React.Dispatch<React.SetStateAction<DiagramNode[]>>) => void
@@ -82,8 +86,11 @@ export function useHandleDrop({
       event.preventDefault()
       const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as DiagramNodeType
       if (!nodeType) return
+      const componentRef = event.dataTransfer.getData('application/reactflow-component-ref')
+      const componentName = event.dataTransfer.getData('application/reactflow-component-name')
       const dropPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-      const newNodeId = createNode(nodeType, dropPosition)
+      const options = componentRef ? { technology: componentRef, label: componentName || undefined } : undefined
+      const newNodeId = createNode(nodeType, dropPosition, options)
       // Let ReactFlow render the new node, then check parent relationships
       requestAnimationFrame(() => {
         updateParentRelationships(nodes, setNodes)

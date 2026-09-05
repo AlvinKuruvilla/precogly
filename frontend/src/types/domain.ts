@@ -170,15 +170,14 @@ export const ZONE_COLOR_OPTIONS = [
 
 /**
  * Get the background + border color config for a zone, given its stored borderColor.
- * Falls back to red (untrusted) if the color is not in the predefined options.
+ * Falls back to green when unset, matching the picker's default.
  */
 export function getZoneColorConfig(zoneColor?: string): { color: string; borderColor: string } {
   if (zoneColor) {
     const option = ZONE_COLOR_OPTIONS.find(o => o.borderColor === zoneColor)
     if (option) return { color: option.color, borderColor: option.borderColor }
   }
-  // Default: red (untrusted)
-  return { color: 'rgba(239, 68, 68, 0.1)', borderColor: '#ef4444' }
+  return { color: 'rgba(34, 197, 94, 0.1)', borderColor: '#22c55e' }
 }
 
 // Trust Zone Preset Names - Conceptual zone names for the Name dropdown
