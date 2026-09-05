@@ -3323,10 +3323,20 @@ def get_active_overlays_for_pack(pack: LibraryPack) -> list[ActiveOverlayInfo]:
     """
     from apps.compliance.models import CountermeasureLibraryStandard
 
-    # Get all mappings for this pack's countermeasures
-    mappings = CountermeasureLibraryStandard.objects.filter(
-        countermeasure_library__source_pack=pack
-    ).select_related("requirement__framework")
+    # Get all mappings for this pack's countermeasures.
+    # `requirement` can now be None: an orphaned mapping left behind when a
+    # compliance-pack reimport removed the requirement it pointed at, SET_NULL'd
+    # rather than CASCADE-deleted (see apps/compliance/models.py). Excluded here
+    # rather than null-guarded in the loop below, because an orphaned mapping is
+    # not mapped to any framework requirement any more and so should not count as
+    # an active overlay for this pack.
+    mappings = (
+        CountermeasureLibraryStandard.objects.filter(
+            countermeasure_library__source_pack=pack
+        )
+        .exclude(requirement__isnull=True)
+        .select_related("requirement__framework")
+    )
 
     # Group by framework
     framework_counts: dict[int, dict] = {}
