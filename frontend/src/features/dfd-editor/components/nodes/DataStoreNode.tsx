@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { InlineEditableLabel } from './InlineEditableLabel'
 import type { DataStoreNodeData } from '../../types'
 import { DATA_SENSITIVITY_CONFIG } from '../../types'
-import { useTechnologyDisplayName } from '../../api/component-library'
+import { useTechnologyInfo } from '../../api/component-library'
 import { useDFDNotation } from '../../context/DFDNotationContext'
 
 type DataStoreNodeType = Node<DataStoreNodeData, 'datastore'>
@@ -16,7 +16,7 @@ export const DataStoreNode = memo(function DataStoreNode({
   selected,
 }: NodeProps<DataStoreNodeType>) {
   const isNewlyInserted = data.isNewlyInserted
-  const technologyDisplayName = useTechnologyDisplayName(data.technology)
+  const { displayName: technologyDisplayName, iconSvg: technologyIcon } = useTechnologyInfo(data.technology)
   const [showLockAnimation, setShowLockAnimation] = useState(false)
   const { notationStyle } = useDFDNotation()
 
@@ -59,11 +59,44 @@ export const DataStoreNode = memo(function DataStoreNode({
       <div
         className={cn(
           'w-full h-full relative transition-all',
-          !isYourdon && isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg',
-          !isYourdon && showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2 rounded-lg'
+          technologyIcon
+            ? cn(
+                'flex flex-col items-center justify-center p-1',
+                selected && 'shadow-lg',
+                showLockAnimation && 'animate-lock-pulse'
+              )
+            : cn(
+                !isYourdon && isNewlyInserted && 'ring-2 ring-green-400 ring-offset-2 rounded-lg',
+                !isYourdon && showLockAnimation && 'animate-lock-pulse ring-2 ring-orange-400 ring-offset-2 rounded-lg'
+              )
         )}
       >
-        {isYourdon ? (
+        {technologyIcon ? (
+          <>
+            <span
+              className="h-10 w-10 [&>svg]:h-full [&>svg]:w-full"
+              dangerouslySetInnerHTML={{ __html: technologyIcon }}
+            />
+            <InlineEditableLabel
+              nodeId={id}
+              label={data.label}
+              isEditing={data.isInlineEditing}
+              className="font-medium text-xs text-gray-900 text-center break-words max-w-[80px] mt-1"
+              inputClassName="max-w-[80px] text-xs text-gray-900 text-center"
+            />
+            {data.dataSensitivity && DATA_SENSITIVITY_CONFIG[data.dataSensitivity] && (
+              <span
+                className="text-[10px] px-1 rounded mt-0.5"
+                style={{
+                  backgroundColor: `${DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color}20`,
+                  color: DATA_SENSITIVITY_CONFIG[data.dataSensitivity].color,
+                }}
+              >
+                {DATA_SENSITIVITY_CONFIG[data.dataSensitivity].label}
+              </span>
+            )}
+          </>
+        ) : isYourdon ? (
           /* Yourdon/DeMarco: two parallel horizontal lines */
           <div
             className={cn(

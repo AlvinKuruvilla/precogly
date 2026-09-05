@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { XYPosition } from '@xyflow/react'
-import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown, Undo2, Redo2, StickyNote, HelpCircle } from 'lucide-react'
+import { User, Server, Cog, Database, Shield, Box, ArrowUp, LayoutTemplate, ShieldAlert, ShieldCheck, ImageDown, Undo2, Redo2, StickyNote, HelpCircle, PanelLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -53,6 +53,8 @@ interface DiagramToolbarProps {
   canUndo?: boolean
   canRedo?: boolean
   aiAvailable?: boolean
+  showComponentPanel?: boolean
+  onToggleComponentPanel?: () => void
 }
 
 interface ToolbarButtonConfig {
@@ -147,6 +149,8 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   onRedo,
   canUndo = false,
   canRedo = false,
+  showComponentPanel = false,
+  onToggleComponentPanel,
 }: DiagramToolbarProps) {
   const navigate = useNavigate()
   const { createNode } = useCreateNode(notationStyle)
@@ -185,6 +189,27 @@ export const DiagramToolbar = memo(function DiagramToolbar({
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex items-center gap-1 p-2 bg-background border-b">
+        {/* Component panel toggle */}
+        {onToggleComponentPanel && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn('gap-1', showComponentPanel && 'bg-muted')}
+                  onClick={onToggleComponentPanel}
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{showComponentPanel ? 'Hide' : 'Show'} component panel</p>
+              </TooltipContent>
+            </Tooltip>
+            <Separator orientation="vertical" className="h-6" />
+          </>
+        )}
         {/* Node buttons with Trust Boundary placed after Trust Zone */}
         {nodeButtons.flatMap((button) => {
           const nodeBtn = (

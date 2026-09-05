@@ -2337,6 +2337,18 @@ def _load_components(
 
         qualified_slug = f"{library_pack.slug}/{comp_id}"
 
+        icon_svg = ""
+        icon_path = comp.get("icon", "")
+        if icon_path:
+            icon_file = file_path.parent / icon_path
+            if icon_file.exists():
+                try:
+                    icon_svg = icon_file.read_text(encoding="utf-8")
+                except Exception as e:
+                    msg = f"Could not read icon '{icon_path}' for '{comp_id}': {e}"
+                    logger.warning(msg)
+                    import_warnings.append(msg)
+
         instance, _ = ComponentLibrary.objects.update_or_create(
             qualified_slug=qualified_slug,
             defaults={
@@ -2346,6 +2358,7 @@ def _load_components(
                 "category": comp.get("category", "process"),
                 "component_type": comp.get("type", comp.get("component_type", "")),
                 "provider": comp.get("provider", ""),
+                "icon_svg": icon_svg,
                 "customization_status": "original",
                 "parent": None,
             },
@@ -3323,10 +3336,20 @@ def get_active_overlays_for_pack(pack: LibraryPack) -> list[ActiveOverlayInfo]:
     """
     from apps.compliance.models import CountermeasureLibraryStandard
 
-    # Get all mappings for this pack's countermeasures
-    mappings = CountermeasureLibraryStandard.objects.filter(
-        countermeasure_library__source_pack=pack
-    ).select_related("requirement__framework")
+    # Get all mappings for this pack's countermeasures.
+    # `requirement` can now be None: an orphaned mapping left behind when a
+    # compliance-pack reimport removed the requirement it pointed at, SET_NULL'd
+    # rather than CASCADE-deleted (see apps/compliance/models.py). Excluded here
+    # rather than null-guarded in the loop below, because an orphaned mapping is
+    # not mapped to any framework requirement any more and so should not count as
+    # an active overlay for this pack.
+    mappings = (
+        CountermeasureLibraryStandard.objects.filter(
+            countermeasure_library__source_pack=pack
+        )
+        .exclude(requirement__isnull=True)
+        .select_related("requirement__framework")
+    )
 
     # Group by framework
     framework_counts: dict[int, dict] = {}

@@ -32,6 +32,7 @@ import { EdgeEditPanel } from './components/panels/EdgeEditPanel'
 import { CanvasThreatSection } from './components/panels/CanvasThreatSection'
 import { useThreatModelThreats } from '@/features/threat-models/api/threats'
 import { TrustBoundaryEdgeEditPanel } from './components/panels/TrustBoundaryEdgeEditPanel'
+import { ComponentPanel } from './components/panels/ComponentPanel'
 import { TemplateBrowser } from './components/TemplateBrowser'
 import { GenerateDFDDialog } from './components/GenerateDFDDialog'
 import { useDfdAiAvailability } from './api/generate-dfd'
@@ -58,6 +59,7 @@ function DFDEditorContent() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [showGenerateDFD, setShowGenerateDFD] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showComponentPanel, setShowComponentPanel] = useState(true)
 
   // ReactFlow instance for coordinate conversion and edge queries
   const { screenToFlowPosition, getEdges, getViewport, setViewport, getNodesBounds } = useReactFlow()
@@ -669,9 +671,18 @@ function DFDEditorContent() {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        showComponentPanel={showComponentPanel}
+        onToggleComponentPanel={() => setShowComponentPanel((prev) => !prev)}
       />
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Component Panel */}
+        {showComponentPanel && (
+          <ComponentPanel
+            threatModelId={threatModelId}
+            onClose={() => setShowComponentPanel(false)}
+          />
+        )}
         {/* Canvas */}
         <div className={`flex-1 ${connectionMode ? 'connection-mode' : ''}`} ref={reactFlowWrapper} onMouseMove={handleMouseMove} onDragOver={handleDragOver} onDrop={handleDrop}>
           <DFDNotationProvider notationStyle={notationStyle}>

@@ -1,0 +1,13 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bedrock-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#01A88D"/>
+      <stop offset="100%" stop-color="#00C9A7"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="10" fill="url(#bedrock-grad)"/>
+  <g fill="#fff">
+    <path d="M24 10l-2.5 4.5H14L24 28l10-13.5h-7.5L24 10z"/>
+    <path d="M16 30h4l4 8 4-8h4l-8 8-8-8z" opacity="0.85"/>
+  </g>
+</svg>
