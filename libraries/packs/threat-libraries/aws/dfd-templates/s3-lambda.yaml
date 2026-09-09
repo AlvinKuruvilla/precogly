@@ -40,6 +40,7 @@ canvas_data:
       data:
         label: "S3 Bucket"
         component_ref: "s3"
+        technology: "s3"
         description: "Object storage for uploaded files"
         dataSensitivity: "confidential"
 
@@ -51,6 +52,7 @@ canvas_data:
       data:
         label: "Lambda"
         component_ref: "lambda"
+        technology: "lambda"
         description: "Processes uploaded files"
 
   edges:

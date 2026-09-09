@@ -23,6 +23,7 @@ canvas_data:
         label: "Amazon Bedrock"
         systemType: "service"
         component_ref: "bedrock"
+        technology: "bedrock"
         description: "Foundation model service (e.g. Claude)"
 
     - id: "actor-payment-api"
