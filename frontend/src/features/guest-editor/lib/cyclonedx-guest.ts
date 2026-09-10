@@ -430,7 +430,11 @@ function deserializeFromVisualization(
   visualization: CycloneDxVisualization,
   document: Record<string, unknown>
 ): DeserializedFile {
-  const data = visualization.data!
+  // Backend stores canvas_data with snake_case keys (DRF CamelCaseJSONParser
+  // converts on input), but the export dumps raw JSON (bypassing the
+  // CamelCaseJSONRenderer). Normalize back to camelCase for React Flow
+  // and frontend components.
+  const data = normalizeSnakeToCamel(visualization.data!) as Record<string, unknown>
   const nodes = (data.nodes ?? []) as unknown as DiagramNode[]
   const edges = (data.edges ?? []) as unknown as DiagramEdge[]
   const notationStyle = data.notationStyle as DFDNotationStyle | undefined
@@ -782,6 +786,21 @@ function deserializeFromStructure(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function normalizeSnakeToCamel(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(normalizeSnakeToCamel)
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const camelKey = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+      result[camelKey] = normalizeSnakeToCamel(value)
+    }
+    return result
+  }
+  return obj
+}
 
 function reconstructCountermeasures(
   controlsArray: CycloneDxControl[],
