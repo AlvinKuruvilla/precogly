@@ -3,6 +3,7 @@ import { memo, type ComponentType } from 'react'
 import { useParams } from 'react-router-dom'
 import { EdgeLabelRenderer, type EdgeProps, type NodeProps } from '@xyflow/react'
 import { useThreatModelThreats } from '@/features/threat-models/api/threats'
+import { isActiveThreat } from '@/types/triage'
 
 // Import original node components
 import { ProcessNode } from './ProcessNode'
@@ -34,7 +35,7 @@ function useThreatCount(canvasElementId: string): number {
   if (!threatData?.componentThreats) return 0
 
   return threatData.componentThreats.filter(
-    (t) => t.componentId === canvasElementId && !t.dismissed
+    (t) => t.componentId === canvasElementId && isActiveThreat(t.triageStatus)
   ).length
 }
 

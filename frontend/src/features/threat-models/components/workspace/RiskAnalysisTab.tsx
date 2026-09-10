@@ -71,6 +71,7 @@ import type {
   ScoringMethod,
 } from '@/types/risk'
 import type { ComponentThreat } from '@/features/dfd-editor/types/threat-analysis'
+import { isActiveThreat } from '@/types/triage'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { useOrganizationMembers } from '@/features/organization/api/organizations'
 
@@ -230,7 +231,7 @@ function ThreatPicker({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [filter, setFilter] = useState('')
 
-  const activeThreats = componentThreats.filter((t) => !t.dismissed && t.backendThreatId)
+  const activeThreats = componentThreats.filter((t) => isActiveThreat(t.triageStatus) && t.backendThreatId)
   const selectedCount = selectedComponentThreatIds.length + selectedFlowThreatIds.length
 
   if (activeThreats.length === 0) {

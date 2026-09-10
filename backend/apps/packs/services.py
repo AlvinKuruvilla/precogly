@@ -466,6 +466,9 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
                         "slug": cm.get("slug", cm.get("id", "")),
                         "name": cm.get("name", ""),
                         "control_type": cm.get("control_type", ""),
+                        "control_functions": cm.get("control_functions")
+                        or ([cm["control_type"]] if cm.get("control_type") else []),
+                        "control_nature": cm.get("control_nature", ""),
                         "cost": cm.get("cost", ""),
                         "default_status": cm.get("default_status", "gap"),
                         "description": cm.get("description", ""),
@@ -2494,7 +2497,9 @@ def _load_countermeasures(
                 "slug": cm_id,
                 "name": cm.get("name", cm_id),
                 "description": cm.get("description", ""),
-                "control_type": cm.get("control_type", "preventive"),
+                "control_functions": cm.get("control_functions")
+                or ([cm["control_type"]] if cm.get("control_type") else ["preventive"]),
+                "control_nature": cm.get("control_nature", ""),
                 "cost": cm.get("cost", "medium"),
                 "default_status": cm.get("default_status", "gap"),
                 "customization_status": "original",

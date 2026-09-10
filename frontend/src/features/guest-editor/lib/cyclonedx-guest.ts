@@ -378,20 +378,30 @@ export function deserializeCycloneDxToGuest(json: string): DeserializedFile {
   try {
     parsed = JSON.parse(json)
   } catch {
-    throw new Error('Invalid file format. Expected a CycloneDX JSON file.')
+    throw new Error('Could not parse file as JSON. Check that the file is valid JSON and try again.')
   }
 
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Invalid file format. Expected a CycloneDX JSON file.')
+    throw new Error('Could not parse file as JSON. The file content must be a JSON object.')
+  }
+
+  if (!parsed.specFormat) {
+    throw new Error(
+      "This file is not in CycloneDX format. The file must have a 'specFormat' field set to 'CycloneDX'."
+    )
   }
 
   if (parsed.specFormat !== 'CycloneDX') {
-    throw new Error('This is not a CycloneDX file.')
+    throw new Error(
+      `This is not a CycloneDX file. Found specFormat '${String(parsed.specFormat)}' but expected 'CycloneDX'.`
+    )
   }
 
   const specVersion = parsed.specVersion as string
   if (!specVersion?.startsWith('2.')) {
-    throw new Error('Unsupported CycloneDX version. Expected 2.0.')
+    throw new Error(
+      `Unsupported CycloneDX version '${specVersion || 'unknown'}'. Only version 2.x files are supported.`
+    )
   }
 
   const blueprints = parsed.blueprints as CycloneDxBlueprint[] | undefined
