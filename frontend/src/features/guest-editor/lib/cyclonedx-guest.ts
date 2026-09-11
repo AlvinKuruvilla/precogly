@@ -255,10 +255,6 @@ export function serializeGuestToCycloneDx(
     }
     if (controlProperties.length) control.properties = controlProperties
 
-    // Link to threat bom-ref via mitigations
-    const threatRef = threatIdToBomRef.get(c.threatId)
-    if (threatRef) control.mitigations = [threatRef]
-
     countermeasureIdToControl.set(c.id, control)
     return control
   })
@@ -325,12 +321,12 @@ export function serializeGuestToCycloneDx(
     scenarios.push(scenario)
   }
 
-  // Now fix up control mitigations that were created before threats
+  // Link control mitigations now that threat bom-refs are populated
   for (const countermeasure of countermeasures) {
     const threatRef = threatIdToBomRef.get(countermeasure.threatId)
     if (threatRef) {
       const matchingControl = countermeasureIdToControl.get(countermeasure.id)
-      if (matchingControl && !matchingControl.mitigations?.length) {
+      if (matchingControl) {
         matchingControl.mitigations = [threatRef]
       }
     }
@@ -453,6 +449,10 @@ function deserializeFromVisualization(
   // For round-trip we need to match assets back to node IDs
   const bomRefToNodeId = buildBomRefToNodeIdMap(nodes, edges, document)
 
+  // Collect flow bom-refs so we can infer targetType for unresolved refs
+  const blueprintForFlows = (document.blueprints as CycloneDxBlueprint[] | undefined)?.[0]
+  const flowBomRefs = new Set((blueprintForFlows?.flows ?? []).map((f) => f['bom-ref']))
+
   const threats: GuestThreat[] = scenariosArray.map(
     (scenario: CycloneDxScenario, index: number) => {
       const abstractThreat = threatRefMap.get(scenario.threat)
@@ -476,7 +476,8 @@ function deserializeFromVisualization(
       const { targetId, targetType } = resolveTargetFromBomRef(
         affectedRef,
         bomRefToNodeId,
-        nodes
+        nodes,
+        flowBomRefs
       )
 
       // Extract status and rationale from scenario properties (backend export),
@@ -675,6 +676,9 @@ function deserializeFromStructure(
     combinedBomRefMap.set(bomRef, { id: edgeId, type: 'edge' })
   }
 
+  // All flow bom-refs from blueprint (for inferring targetType on unresolved refs)
+  const allFlowBomRefs = new Set(flowData.map((f) => f['bom-ref']))
+
   const threats: GuestThreat[] = scenariosArray.map(
     (scenario: CycloneDxScenario, index: number) => {
       const abstractThreat = threatRefMap.get(scenario.threat)
@@ -702,6 +706,9 @@ function deserializeFromStructure(
             const targetNode = nodes.find((n) => n.id === mapping.id)
             targetType = targetNode?.type === 'systemScope' ? 'systemScope' : 'component'
           }
+        } else {
+          targetType = allFlowBomRefs.has(affectedRef) ? 'dataflow' : 'component'
+          console.warn(`[CycloneDX import] Could not resolve bom-ref "${affectedRef}" to a diagram element. The threat will be unattached.`)
         }
       }
 
@@ -876,10 +883,9 @@ function reconstructCountermeasures(
 /**
  * Build a bom-ref -> node/edge ID reverse map for round-trip deserialization.
  *
- * Uses name-based matching: the backend may export blueprint assets in a
- * different order than the visualization nodes (database order vs. canvas
- * order), so positional matching produces wrong mappings. Instead, match
- * zones by name, assets by name + type, and flows by resolved endpoints.
+ * Uses name-based matching with consumed-set disambiguation: when multiple
+ * blueprint entries share the same name+type (or same source+destination for
+ * flows), each match is consumed so the next entry picks the next candidate.
  */
 function buildBomRefToNodeIdMap(
   nodes: DiagramNode[],
@@ -892,40 +898,52 @@ function buildBomRefToNodeIdMap(
   const blueprint = blueprints?.[0]
   if (!blueprint) return map
 
-  // Map zone bom-refs to zone nodes by name
+  const claimedNodeIds = new Set<string>()
+  const claimedEdgeIds = new Set<string>()
+
+  // Map zone bom-refs to zone nodes by name (consume each match)
   const zoneNodes = nodes.filter((n) => n.type === 'trustZone')
   for (const zone of blueprint.zones ?? []) {
-    const match = zoneNodes.find((n) => n.data.label === zone.name)
+    const match = zoneNodes.find((n) => n.data.label === zone.name && !claimedNodeIds.has(n.id))
     if (match) {
+      claimedNodeIds.add(match.id)
       map.set(zone['bom-ref'], { id: match.id, type: 'node' })
     }
   }
 
-  // Map asset bom-refs to asset nodes by name + type
+  // Map asset bom-refs to asset nodes by name + type (consume each match)
   const assetNodeTypes = ['process', 'datastore', 'humanActor', 'systemActor']
   const assetNodes = nodes.filter((n) => assetNodeTypes.includes(n.type ?? ''))
   for (const asset of blueprint.assets ?? []) {
     const expectedNodeType = ASSET_TYPE_TO_NODE_TYPE[asset.type]
     const match = assetNodes.find((n) =>
-      n.data.label === asset.name && (!expectedNodeType || n.type === expectedNodeType)
+      n.data.label === asset.name
+      && (!expectedNodeType || n.type === expectedNodeType)
+      && !claimedNodeIds.has(n.id)
     )
     if (match) {
+      claimedNodeIds.add(match.id)
       map.set(asset['bom-ref'], { id: match.id, type: 'node' })
     }
   }
 
-  // Map flow bom-refs to dataFlow edges by resolved source + destination
+  // Map flow bom-refs to dataFlow edges by resolved source + destination,
+  // then by label, consuming each match to handle multiple same-pair flows
   const dataFlowEdges = edges.filter((e) => e.type === 'dataFlow')
   for (const flow of blueprint.flows ?? []) {
     const sourceMapping = map.get(flow.source)
     const destMapping = map.get(flow.destination)
-    if (sourceMapping && destMapping) {
-      const match = dataFlowEdges.find(
-        (e) => e.source === sourceMapping.id && e.target === destMapping.id
-      )
-      if (match) {
-        map.set(flow['bom-ref'], { id: match.id, type: 'edge' })
-      }
+    if (!sourceMapping || !destMapping) continue
+
+    const candidates = dataFlowEdges.filter(
+      (e) => e.source === sourceMapping.id && e.target === destMapping.id && !claimedEdgeIds.has(e.id)
+    )
+    const match = candidates.find(
+      (e) => flow.name && (e.data as Record<string, unknown>)?.label === flow.name
+    ) ?? candidates[0]
+    if (match) {
+      claimedEdgeIds.add(match.id)
+      map.set(flow['bom-ref'], { id: match.id, type: 'edge' })
     }
   }
 
@@ -935,12 +953,17 @@ function buildBomRefToNodeIdMap(
 function resolveTargetFromBomRef(
   bomRef: string | undefined,
   bomRefMap: Map<string, { id: string; type: 'node' | 'edge' }>,
-  nodes: DiagramNode[]
+  nodes: DiagramNode[],
+  flowBomRefs: Set<string>
 ): { targetId: string; targetType: GuestThreat['targetType'] } {
   if (!bomRef) return { targetId: '', targetType: 'component' }
 
   const mapping = bomRefMap.get(bomRef)
-  if (!mapping) return { targetId: '', targetType: 'component' }
+  if (!mapping) {
+    const inferredType: GuestThreat['targetType'] = flowBomRefs.has(bomRef) ? 'dataflow' : 'component'
+    console.warn(`[CycloneDX import] Could not resolve bom-ref "${bomRef}" to a diagram element. The threat will be unattached.`)
+    return { targetId: '', targetType: inferredType }
+  }
 
   if (mapping.type === 'edge') {
     return { targetId: mapping.id, targetType: 'dataflow' }
