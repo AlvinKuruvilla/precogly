@@ -293,18 +293,6 @@ export function serializeGuestToCycloneDx(
     }
     if (affectedRef) abstractThreat.affectedAssets = [affectedRef]
 
-    // Serialize status and decision rationale as CycloneDX properties
-    const threatProperties: CycloneDxProperty[] = []
-    if (threat.status && threat.status !== 'open') {
-      threatProperties.push({ name: 'precogly:threat-status', value: threat.status })
-    }
-    if (threat.decisionRationale?.trim()) {
-      threatProperties.push({ name: 'precogly:decision-rationale', value: threat.decisionRationale.trim() })
-    }
-    if (threatProperties.length > 0) {
-      abstractThreat.properties = threatProperties
-    }
-
     // Link mitigations from countermeasures that reference this threat
     const mitigationRefs = countermeasures
       .filter((c) => c.threatId === threat.id)
@@ -314,7 +302,7 @@ export function serializeGuestToCycloneDx(
 
     abstractThreats.push(abstractThreat)
 
-    // Scenario
+    // Scenario — triage status lives here (per-instance, not per-definition)
     const scenarioBomRef = refGen.generate('scenario', threat.name || 'scenario')
     const scenario: CycloneDxScenario = {
       'bom-ref': scenarioBomRef,
@@ -323,6 +311,16 @@ export function serializeGuestToCycloneDx(
     if (affectedRef) scenario.affectedAssets = [affectedRef]
     scenario.riskScore = {
       level: SEVERITY_TO_CDX_RISK_LEVEL[threat.severity] ?? threat.severity,
+    }
+    const scenarioProperties: CycloneDxProperty[] = []
+    if (threat.status && threat.status !== 'open') {
+      scenarioProperties.push({ name: 'precogly:threat-status', value: threat.status })
+    }
+    if (threat.decisionRationale?.trim()) {
+      scenarioProperties.push({ name: 'precogly:decision-rationale', value: threat.decisionRationale.trim() })
+    }
+    if (scenarioProperties.length > 0) {
+      scenario.properties = scenarioProperties
     }
     scenarios.push(scenario)
   }
@@ -481,9 +479,10 @@ function deserializeFromVisualization(
         nodes
       )
 
-      // Extract status and rationale from properties
+      // Extract status and rationale from scenario properties (backend export),
+      // falling back to abstract threat properties (old guest editor files)
       const { status, decisionRationale } = extractStatusFromProperties(
-        abstractThreat?.properties
+        scenario.properties ?? abstractThreat?.properties
       )
 
       return {
@@ -706,9 +705,10 @@ function deserializeFromStructure(
         }
       }
 
-      // Extract status and rationale from properties
+      // Extract status and rationale from scenario properties (backend export),
+      // falling back to abstract threat properties (old guest editor files)
       const { status, decisionRationale } = extractStatusFromProperties(
-        abstractThreat?.properties
+        scenario.properties ?? abstractThreat?.properties
       )
 
       return {
@@ -876,10 +876,10 @@ function reconstructCountermeasures(
 /**
  * Build a bom-ref -> node/edge ID reverse map for round-trip deserialization.
  *
- * Uses positional matching: during serialization, zones/assets/flows are built
- * by iterating filtered node/edge arrays in order. The visualization preserves
- * the original arrays. So the Nth blueprint entry corresponds to the Nth
- * matching visualization node/edge — no name-based lookups needed.
+ * Uses name-based matching: the backend may export blueprint assets in a
+ * different order than the visualization nodes (database order vs. canvas
+ * order), so positional matching produces wrong mappings. Instead, match
+ * zones by name, assets by name + type, and flows by resolved endpoints.
  */
 function buildBomRefToNodeIdMap(
   nodes: DiagramNode[],
@@ -892,26 +892,41 @@ function buildBomRefToNodeIdMap(
   const blueprint = blueprints?.[0]
   if (!blueprint) return map
 
-  // Map zone bom-refs to zone nodes by position
+  // Map zone bom-refs to zone nodes by name
   const zoneNodes = nodes.filter((n) => n.type === 'trustZone')
-  const zones = blueprint.zones ?? []
-  for (let i = 0; i < zones.length && i < zoneNodes.length; i++) {
-    map.set(zones[i]['bom-ref'], { id: zoneNodes[i].id, type: 'node' })
+  for (const zone of blueprint.zones ?? []) {
+    const match = zoneNodes.find((n) => n.data.label === zone.name)
+    if (match) {
+      map.set(zone['bom-ref'], { id: match.id, type: 'node' })
+    }
   }
 
-  // Map asset bom-refs to asset nodes by position
+  // Map asset bom-refs to asset nodes by name + type
   const assetNodeTypes = ['process', 'datastore', 'humanActor', 'systemActor']
   const assetNodes = nodes.filter((n) => assetNodeTypes.includes(n.type ?? ''))
-  const assets = blueprint.assets ?? []
-  for (let i = 0; i < assets.length && i < assetNodes.length; i++) {
-    map.set(assets[i]['bom-ref'], { id: assetNodes[i].id, type: 'node' })
+  for (const asset of blueprint.assets ?? []) {
+    const expectedNodeType = ASSET_TYPE_TO_NODE_TYPE[asset.type]
+    const match = assetNodes.find((n) =>
+      n.data.label === asset.name && (!expectedNodeType || n.type === expectedNodeType)
+    )
+    if (match) {
+      map.set(asset['bom-ref'], { id: match.id, type: 'node' })
+    }
   }
 
-  // Map flow bom-refs to dataFlow edges by position
+  // Map flow bom-refs to dataFlow edges by resolved source + destination
   const dataFlowEdges = edges.filter((e) => e.type === 'dataFlow')
-  const flows = blueprint.flows ?? []
-  for (let i = 0; i < flows.length && i < dataFlowEdges.length; i++) {
-    map.set(flows[i]['bom-ref'], { id: dataFlowEdges[i].id, type: 'edge' })
+  for (const flow of blueprint.flows ?? []) {
+    const sourceMapping = map.get(flow.source)
+    const destMapping = map.get(flow.destination)
+    if (sourceMapping && destMapping) {
+      const match = dataFlowEdges.find(
+        (e) => e.source === sourceMapping.id && e.target === destMapping.id
+      )
+      if (match) {
+        map.set(flow['bom-ref'], { id: match.id, type: 'edge' })
+      }
+    }
   }
 
   return map
