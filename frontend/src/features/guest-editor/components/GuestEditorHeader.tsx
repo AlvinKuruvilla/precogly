@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Download, FileText, FolderOpen, Pencil, ArrowLeft, Save, ChevronDown, ShieldAlert, Undo2, Redo2, HelpCircle, ImageDown, PanelLeft, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -287,7 +288,7 @@ export function GuestEditorHeader({
       if (error instanceof DOMException && error.name === 'AbortError') return
       // Show error for invalid files
       if (error instanceof Error && error.message) {
-        alert(error.message)
+        toast.error(error.message, { duration: Infinity })
       }
     }
   }, [onLoadFromFile, guestEditor, onFileHandleChange, onFileHandleClear])

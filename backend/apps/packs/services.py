@@ -466,6 +466,9 @@ def _extract_pack_preview(pack_dir: Path, pack_data: dict) -> dict:
                         "slug": cm.get("slug", cm.get("id", "")),
                         "name": cm.get("name", ""),
                         "control_type": cm.get("control_type", ""),
+                        "control_functions": cm.get("control_functions")
+                        or ([cm["control_type"]] if cm.get("control_type") else []),
+                        "control_nature": cm.get("control_nature", ""),
                         "cost": cm.get("cost", ""),
                         "default_status": cm.get("default_status", "gap"),
                         "description": cm.get("description", ""),
@@ -955,16 +958,16 @@ def validate_pack(pack_path: Path) -> ValidationResult:
         except Exception:
             logger.debug("Failed to parse threats.yaml for validation")
 
-    # Countermeasures must have 'id', check for duplicates, and validate control_type/cost enums
-    valid_control_types = {
+    # Countermeasures must have 'id', check for duplicates, and validate control fields/cost enums
+    valid_control_functions = {
         "preventive",
         "detective",
         "corrective",
         "deterrent",
         "recovery",
         "compensating",
-        "procedural",
     }
+    valid_control_natures = {"technical", "administrative", "physical"}
     valid_costs = {"low", "medium", "high"}
     cm_file = pack_path / "countermeasures.yaml"
     if cm_file.exists():
@@ -1009,8 +1012,42 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                                 ),
                             )
                         )
+                control_functions_value = cm.get("control_functions", [])
+                if isinstance(control_functions_value, list):
+                    for fn in control_functions_value:
+                        if fn not in valid_control_functions:
+                            warnings.append(
+                                ValidationWarning(
+                                    file="countermeasures.yaml",
+                                    field="control_functions",
+                                    message=(
+                                        f"Countermeasure '{cm_id or f'[{i}]'}'"
+                                        f" has unknown control function: '{fn}'"
+                                    ),
+                                    suggestion=f"Use one of: {', '.join(sorted(valid_control_functions))}",
+                                )
+                            )
+                control_nature_value = cm.get("control_nature", "")
+                if (
+                    control_nature_value
+                    and control_nature_value not in valid_control_natures
+                ):
+                    warnings.append(
+                        ValidationWarning(
+                            file="countermeasures.yaml",
+                            field="control_nature",
+                            message=(
+                                f"Countermeasure '{cm_id or f'[{i}]'}'"
+                                f" has unknown control_nature: '{control_nature_value}'"
+                            ),
+                            suggestion=f"Use one of: {', '.join(sorted(valid_control_natures))}",
+                        )
+                    )
                 control_type_value = cm.get("control_type", "")
-                if control_type_value and control_type_value not in valid_control_types:
+                if (
+                    control_type_value
+                    and control_type_value not in valid_control_functions
+                ):
                     warnings.append(
                         ValidationWarning(
                             file="countermeasures.yaml",
@@ -1018,8 +1055,12 @@ def validate_pack(pack_path: Path) -> ValidationResult:
                             message=(
                                 f"Countermeasure '{cm_id or f'[{i}]'}'"
                                 f" has unknown control_type: '{control_type_value}'"
+                                " (legacy field, prefer control_functions)"
                             ),
-                            suggestion=f"Use one of: {', '.join(sorted(valid_control_types))}",
+                            suggestion=(
+                                "Use control_functions with one of:"
+                                f" {', '.join(sorted(valid_control_functions))}"
+                            ),
                         )
                     )
                 cost_value = cm.get("cost", "")
@@ -2494,7 +2535,9 @@ def _load_countermeasures(
                 "slug": cm_id,
                 "name": cm.get("name", cm_id),
                 "description": cm.get("description", ""),
-                "control_type": cm.get("control_type", "preventive"),
+                "control_functions": cm.get("control_functions")
+                or ([cm["control_type"]] if cm.get("control_type") else ["preventive"]),
+                "control_nature": cm.get("control_nature", ""),
                 "cost": cm.get("cost", "medium"),
                 "default_status": cm.get("default_status", "gap"),
                 "customization_status": "original",

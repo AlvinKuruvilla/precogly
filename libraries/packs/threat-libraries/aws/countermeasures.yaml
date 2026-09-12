@@ -7,7 +7,7 @@ countermeasures:
     description: |
       Enable S3 Block Public Access settings at account and bucket level.
       Prevents accidental public exposure regardless of bucket policies or ACLs.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: s3-bucket-policy
@@ -15,7 +15,7 @@ countermeasures:
     description: |
       Implement least-privilege bucket policies limiting access to authorized principals.
       Use conditions to restrict by VPC, IP range, or requiring MFA.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: s3-versioning
@@ -23,7 +23,7 @@ countermeasures:
     description: |
       Enable versioning to protect against accidental or malicious deletions/modifications.
       Combined with MFA Delete for additional protection.
-    control_type: detective
+    control_functions: [detective]
     cost: low
 
   - id: s3-encryption
@@ -31,7 +31,7 @@ countermeasures:
     description: |
       Enable SSE-S3 or SSE-KMS encryption for data at rest.
       Use bucket keys to reduce KMS costs for high-volume buckets.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: s3-access-logging
@@ -39,7 +39,7 @@ countermeasures:
     description: |
       Enable server access logging to track all requests to the bucket.
       Logs can be analyzed for suspicious access patterns.
-    control_type: detective
+    control_functions: [detective]
     cost: low
 
   - id: s3-mfa-delete
@@ -47,7 +47,7 @@ countermeasures:
     description: |
       Require MFA for object version deletion, providing additional
       protection against accidental or malicious permanent deletions.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   # ============================================================================
@@ -58,7 +58,7 @@ countermeasures:
     description: |
       Validate and sanitize all input to Lambda functions.
       Use schema validation libraries and reject unexpected input.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: lambda-least-privilege
@@ -66,7 +66,7 @@ countermeasures:
     description: |
       Configure Lambda execution role with minimum required permissions.
       Use separate roles for each function based on actual needs.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: lambda-vpc
@@ -74,7 +74,7 @@ countermeasures:
     description: |
       Deploy Lambda in VPC with security groups for network isolation.
       Limits blast radius and enables private resource access.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: lambda-secrets-manager
@@ -82,7 +82,7 @@ countermeasures:
     description: |
       Store sensitive data in AWS Secrets Manager instead of environment variables.
       Enables rotation, auditing, and fine-grained access control.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: lambda-reserved-concurrency
@@ -90,7 +90,7 @@ countermeasures:
     description: |
       Set reserved concurrency limits to prevent resource exhaustion
       and control costs during traffic spikes or attacks.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: lambda-code-signing
@@ -98,7 +98,7 @@ countermeasures:
     description: |
       Enable code signing to ensure only trusted code is deployed.
       Prevents deployment of tampered or unauthorized code.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   # ============================================================================
@@ -109,7 +109,7 @@ countermeasures:
     description: |
       Use Amazon Cognito user pools for API authentication.
       Provides JWT validation, MFA support, and user management.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: apigw-api-key
@@ -117,7 +117,7 @@ countermeasures:
     description: |
       Require API keys for access with usage plans.
       Enables tracking, throttling per key, and easy revocation.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: apigw-waf
@@ -125,7 +125,7 @@ countermeasures:
     description: |
       Enable AWS WAF to protect against common web exploits.
       Block SQL injection, XSS, and known bad actors.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: apigw-throttling
@@ -133,7 +133,7 @@ countermeasures:
     description: |
       Configure request throttling at stage and method levels.
       Protects backend from overload and mitigates DoS attacks.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: apigw-request-validation
@@ -141,7 +141,7 @@ countermeasures:
     description: |
       Enable request validation to reject malformed requests early.
       Validate required parameters, headers, and body schema.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: apigw-cloudwatch-logging
@@ -149,7 +149,7 @@ countermeasures:
     description: |
       Enable detailed CloudWatch logging for all API requests.
       Captures request/response details for security analysis.
-    control_type: detective
+    control_functions: [detective]
     cost: low
 
   # ============================================================================
@@ -160,7 +160,7 @@ countermeasures:
     description: |
       Use IAM conditions for item-level access control.
       Restrict access based on partition key values or attributes.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: dynamodb-encryption
@@ -168,7 +168,7 @@ countermeasures:
     description: |
       Enable encryption using AWS-owned, AWS-managed, or customer-managed KMS keys.
       Protects data at rest from unauthorized access.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: dynamodb-pitr
@@ -176,7 +176,7 @@ countermeasures:
     description: |
       Enable continuous backups with point-in-time recovery.
       Restore to any second in the last 35 days.
-    control_type: corrective
+    control_functions: [corrective]
     cost: medium
 
   - id: dynamodb-vpc-endpoint
@@ -184,7 +184,7 @@ countermeasures:
     description: |
       Use VPC endpoint to keep DynamoDB traffic within AWS network.
       Reduces exposure and enables endpoint policies.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   # ============================================================================
@@ -195,7 +195,7 @@ countermeasures:
     description: |
       Enable SSE-SQS or SSE-KMS encryption for messages at rest.
       Protects message content from unauthorized access.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: sqs-queue-policy
@@ -203,7 +203,7 @@ countermeasures:
     description: |
       Configure queue policies to restrict who can send/receive messages.
       Use conditions for VPC endpoints or specific principals.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: sqs-dlq
@@ -211,7 +211,7 @@ countermeasures:
     description: |
       Configure dead-letter queues for failed message handling.
       Enables analysis of problematic messages without blocking.
-    control_type: detective
+    control_functions: [detective]
     cost: low
 
   - id: sqs-message-validation
@@ -219,7 +219,7 @@ countermeasures:
     description: |
       Validate message format and content before processing.
       Reject messages that don't match expected schema.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   # ============================================================================
@@ -230,7 +230,7 @@ countermeasures:
     description: |
       Encrypt all data in transit using TLS 1.2 or higher.
       Protects against eavesdropping and ensures data integrity.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: mutual-tls
@@ -238,7 +238,7 @@ countermeasures:
     description: |
       Require both client and server to present certificates for authentication.
       Prevents unauthorized clients from connecting to services.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: request-signing
@@ -246,7 +246,7 @@ countermeasures:
     description: |
       Sign all requests with HMAC or AWS Signature Version 4.
       Prevents replay attacks and ensures request integrity.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: vpc-private-link
@@ -254,7 +254,7 @@ countermeasures:
     description: |
       Use AWS PrivateLink to keep traffic within AWS network.
       Eliminates exposure to public internet for service communication.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: api-gateway-private
@@ -262,7 +262,7 @@ countermeasures:
     description: |
       Configure API Gateway with private endpoints accessible only from VPC.
       Reduces attack surface by eliminating public access.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   # ============================================================================
@@ -275,7 +275,7 @@ countermeasures:
       restrictions, and block sensitive information in inputs and outputs. Supports
       denied topics, content filters, word filters, sensitive information filters,
       and contextual grounding checks.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: bedrock-input-validation
@@ -284,7 +284,7 @@ countermeasures:
       Validate and sanitize all user input before inclusion in LLM prompts.
       Apply character allowlists, encoding normalization, length limits, and
       prompt injection detection classifiers to prevent adversarial inputs.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: bedrock-output-filtering
@@ -293,7 +293,7 @@ countermeasures:
       Scan and filter all LLM-generated outputs before returning to users.
       Detect and redact sensitive data (PII, PAN, credentials), block policy-
       violating content, and validate output schema conformance.
-    control_type: detective
+    control_functions: [detective]
     cost: medium
 
   - id: bedrock-vpc-endpoint
@@ -302,7 +302,7 @@ countermeasures:
       Use VPC endpoint for Amazon Bedrock to keep model invocation traffic within
       the AWS network. Prevents exposure to public internet and enables endpoint
       policies for fine-grained access control.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: bedrock-model-invocation-logging
@@ -311,7 +311,7 @@ countermeasures:
       Enable model invocation logging to capture prompts, completions, token usage,
       and metadata for all Bedrock API calls. Logs stored in S3 or CloudWatch for
       audit, forensics, and compliance.
-    control_type: detective
+    control_functions: [detective]
     cost: low
 
   - id: bedrock-token-budget
@@ -320,7 +320,7 @@ countermeasures:
       Set per-request and per-session token limits, configure service quotas, and
       implement cost alerts for Bedrock model invocations. Prevents runaway costs
       and resource abuse from excessive or automated requests.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: bedrock-data-masking
@@ -329,7 +329,7 @@ countermeasures:
       Tokenize, mask, or redact sensitive data (PAN, PII, credentials) before
       including in LLM prompts or RAG context. Use reversible tokenization to
       restore data in responses when needed.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   # ============================================================================
@@ -341,7 +341,7 @@ countermeasures:
       Enforce end-user authorization at each stage of the RAG pipeline. Apply
       document-level metadata filters during semantic search to ensure users
       only retrieve documents they are authorized to access.
-    control_type: preventive
+    control_functions: [preventive]
     cost: high
 
   - id: rag-data-sanitization
@@ -350,7 +350,7 @@ countermeasures:
       Validate and sanitize all documents before ingestion into the RAG knowledge
       base. Scan for prompt injection payloads, malicious content, and verify
       data integrity to prevent knowledge base poisoning.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   - id: opensearch-encryption
@@ -359,7 +359,7 @@ countermeasures:
       Enable encryption at rest (AWS-owned or customer-managed KMS keys) and
       enforce TLS for data in transit for OpenSearch Serverless collections.
       Protects vector embeddings and source documents.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: opensearch-access-policy
@@ -368,7 +368,7 @@ countermeasures:
       Configure data access policies and network access policies for OpenSearch
       Serverless collections. Restrict access to authorized IAM principals and
       VPC endpoints using least-privilege policies.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   # ============================================================================
@@ -380,7 +380,7 @@ countermeasures:
       Require multi-factor authentication for all Cognito user pool sign-ins.
       Supports TOTP, SMS, and email-based MFA. Prevents account compromise
       from stolen credentials alone.
-    control_type: preventive
+    control_functions: [preventive]
     cost: low
 
   - id: cognito-advanced-security
@@ -389,7 +389,7 @@ countermeasures:
       Enable Cognito advanced security features including adaptive authentication,
       compromised credential detection, and risk-based access decisions. Blocks
       sign-ins from suspicious locations or devices.
-    control_type: detective
+    control_functions: [detective]
     cost: medium
 
   # ============================================================================
@@ -401,7 +401,7 @@ countermeasures:
       Deploy AWS WAF managed rule groups (Core Rule Set, Known Bad Inputs, SQL
       Injection, Bot Control) for comprehensive protection against common web
       exploits. Regularly update rule versions.
-    control_type: preventive
+    control_functions: [preventive]
     cost: medium
 
   # ============================================================================
@@ -413,5 +413,5 @@ countermeasures:
       Configure CloudWatch alarms for security-relevant metrics and anomalies.
       Monitor failed authentication attempts, unusual API call patterns, model
       invocation spikes, and error rates with automated notifications.
-    control_type: detective
+    control_functions: [detective]
     cost: low
