@@ -220,11 +220,12 @@ export function AddThreatDialog({
       status: 'exposed',
     }
     const taxonomyEntryIdNum = customTaxonomyEntryId !== 'none' ? Number(customTaxonomyEntryId) : null
-    const onMutationSuccess = (result: { id: number }) => {
+    const onMutationSuccess = (result: unknown) => {
+      const { id } = result as { id: number }
       if (taxonomyEntryIdNum) {
         const linkPayload = targetType === 'component'
-          ? { taxonomyEntry: taxonomyEntryIdNum, componentThreat: result.id }
-          : { taxonomyEntry: taxonomyEntryIdNum, flowThreat: result.id }
+          ? { taxonomyEntry: taxonomyEntryIdNum, componentThreat: id }
+          : { taxonomyEntry: taxonomyEntryIdNum, flowThreat: id }
         createInstanceTaxonomyEntry.mutate(linkPayload)
       }
       onOpenChange(false)

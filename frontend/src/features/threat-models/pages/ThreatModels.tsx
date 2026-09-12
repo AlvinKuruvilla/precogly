@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Share2, ExternalLink, Trash2, Upload, FileJson, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Plus, Share2, ExternalLink, Trash2, Upload, FileJson, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { ApiError } from '@/lib/api'
 import { CreateThreatModelDialog } from '@/features/threat-models/components'
 import { Button } from '@/components/ui/button'
