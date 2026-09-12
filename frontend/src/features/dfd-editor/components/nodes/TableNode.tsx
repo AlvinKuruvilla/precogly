@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useReactFlow, type Node, type NodeProps } from '@xyflow/react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, GripVertical, Plus, Trash2 } from 'lucide-react'
 import {
@@ -43,6 +43,19 @@ const GRIP = 18
 /** Side of the square corner handles that scale the whole table. */
 const HANDLE = 8
 
+/**
+ * Size a cell's textarea to its content.
+ *
+ * Without this the textarea stays one line tall and scrolls internally while
+ * being typed into, so a wrapping cell only grows once editing ends and the
+ * plain span takes over — the row appears to resize a beat late. Setting height
+ * to auto first is what lets scrollHeight shrink again on deletion.
+ */
+function fitToContent(element: HTMLTextAreaElement) {
+  element.style.height = 'auto'
+  element.style.height = `${element.scrollHeight}px`
+}
+
 const CORNERS = [
   { corner: 'nw', cursor: 'cursor-nwse-resize', style: (h: number) => ({ left: -h / 2, top: -h / 2 }) },
   { corner: 'ne', cursor: 'cursor-nesw-resize', style: (h: number) => ({ right: -h / 2, top: -h / 2 }) },
@@ -75,7 +88,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
    */
   const [draftOffset, setDraftOffset] = useState<{ x: number; y: number } | null>(null)
 
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const columnWidths = draftSizes?.columnWidths ?? data.columnWidths
   const rowHeights = draftSizes?.rowHeights ?? data.rows.map((row) => row.height)
@@ -108,8 +121,12 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   useEffect(() => {
     if (editing) {
       requestAnimationFrame(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
+        if (!inputRef.current) return
+        // Size before focusing, so opening a cell that already holds wrapped
+        // text does not start one line tall and then jump.
+        fitToContent(inputRef.current)
+        inputRef.current.focus()
+        inputRef.current.select()
       })
     }
   }, [editing])
@@ -339,7 +356,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   // Keyboard navigation between cells
 
   const handleCellKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement>, cell: CellRef) => {
+    (event: React.KeyboardEvent<HTMLTextAreaElement>, cell: CellRef) => {
       // The editor deletes the selected node on Delete/Backspace and has
       // single-key tool shortcuts; without this the table vanishes mid-word.
       event.stopPropagation()
@@ -359,6 +376,9 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
           else if (cell.row < lastRow) setEditing({ row: cell.row + 1, col: 0 })
         }
       } else if (event.key === 'Enter') {
+        // Now that the cell is a textarea it can hold a deliberate line break;
+        // shift-enter inserts one and plain enter keeps moving down the column.
+        if (event.shiftKey) return
         event.preventDefault()
         if (cell.row < lastRow) setEditing({ row: cell.row + 1, col: cell.col })
         else setEditing(null)
@@ -368,29 +388,22 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   )
 
   // Layout
+  //
+  // A stored row height is a floor, not a height: `minmax(h, auto)` lets a row
+  // grow when its text wraps past it, which is Miro's rule. Two consequences
+  // worth knowing, both of which Miro shares — dragging a row divider above the
+  // content's own height has no visible effect, and scaling the table down
+  // cannot shrink a row below what its text needs.
+  //
+  // Because a row's real height is therefore not knowable from the data, every
+  // per-row and per-column control is a grid item in these same tracks rather
+  // than something positioned from a running sum. Grips and dividers place
+  // themselves in a track and push their visible part outside it with absolute
+  // positioning, so they track the real geometry with no measurement pass and
+  // no offsets to drift.
 
-  const columnOffsets = useMemo(() => {
-    const offsets: number[] = []
-    let running = 0
-    for (const width of columnWidths) {
-      running += width
-      offsets.push(running)
-    }
-    return offsets
-  }, [columnWidths])
-
-  const rowOffsets = useMemo(() => {
-    const offsets: number[] = []
-    let running = 0
-    for (const height of rowHeights) {
-      running += height
-      offsets.push(running)
-    }
-    return offsets
-  }, [rowHeights])
-
-  const totalWidth = columnOffsets[columnOffsets.length - 1] ?? 0
-  const totalHeight = rowOffsets[rowOffsets.length - 1] ?? 0
+  const gridTemplateColumns = columnWidths.map((width) => `${width}px`).join(' ')
+  const gridTemplateRows = rowHeights.map((height) => `minmax(${height}px, auto)`).join(' ')
 
   const singleColumn = data.columnWidths.length <= 1
   const singleRow = data.rows.length <= 1
@@ -438,25 +451,26 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   // tabIndex on the container makes it a focus target, so that clicking a grip —
   // which focuses a button inside it — lets the Delete keydown bubble up to here.
   return (
+    // No explicit size: the grid's own box is the table, so anything anchored to
+    // the table's edges uses right/bottom/50% rather than a computed offset.
     <div
-      className="relative"
+      // w-fit rather than inline-block: an inline-block box carries baseline
+      // descender space, which React Flow would measure as extra node height.
+      className="relative w-fit"
       style={{
-        width: totalWidth,
-        height: totalHeight,
         transform: draftOffset ? `translate(${draftOffset.x}px, ${draftOffset.y}px)` : undefined,
       }}
       tabIndex={-1}
       onKeyDown={handleContainerKeyDown}
     >
+      {/* Overflow stays visible: the grips and dividers are items in this grid
+          whose visible parts sit outside its box, and hidden would clip them. */}
       <div
         className={cn(
-          'grid h-full w-full overflow-hidden rounded-sm border border-slate-400 bg-white',
+          'grid rounded-sm border border-slate-400 bg-white',
           selected && 'ring-2 ring-blue-400'
         )}
-        style={{
-          gridTemplateColumns: columnWidths.map((width) => `${width}px`).join(' '),
-          gridTemplateRows: rowHeights.map((height) => `${height}px`).join(' '),
-        }}
+        style={{ gridTemplateColumns, gridTemplateRows }}
       >
         {data.rows.map((row, rowIndex) =>
           row.cells.map((cell, colIndex) => {
@@ -477,7 +491,12 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
                       event.stopPropagation()
                       setEditing({ row: rowIndex, col: colIndex })
                     }}
-                    style={{ fontSize }}
+                    // Placed explicitly rather than auto-placed. The dividers and
+                    // grips are grid items with definite positions, and a column
+                    // divider spans `1 / -1` of its column — between them they
+                    // claim every defined cell, so auto-placed cells would be
+                    // pushed into implicit rows below the table.
+                    style={{ fontSize, gridColumn: colIndex + 1, gridRow: rowIndex + 1 }}
                     className={cn(
                       'flex items-center border-slate-300 px-2 leading-tight text-slate-800',
                       colIndex < row.cells.length - 1 && 'border-r',
@@ -487,25 +506,29 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
                     )}
                   >
                     {isEditing ? (
-                      <input
+                      // A textarea rather than an input so that editing wraps the
+                      // way the rendered cell does; an input would put long text
+                      // on one scrolling line and the cell would appear to change
+                      // shape on every double-click.
+                      <textarea
                         ref={inputRef}
+                        rows={1}
                         value={cell.text}
-                        onChange={(event) => setCellText(rowIndex, colIndex, event.target.value)}
+                        onChange={(event) => {
+                          fitToContent(event.target)
+                          setCellText(rowIndex, colIndex, event.target.value)
+                        }}
                         onKeyDown={(event) =>
                           handleCellKeyDown(event, { row: rowIndex, col: colIndex })
                         }
                         onBlur={() => setEditing(null)}
                         onMouseDown={(event) => event.stopPropagation()}
-                        // Inherits the cell's font size so text does not jump
-                        // between its rendered and editing states.
-                        className="nodrag nopan nowheel w-full bg-transparent text-[length:inherit] outline-none"
+                        // overflow-hidden so the growing textarea never shows a
+                        // scrollbar of its own; its height always matches content.
+                        className="nodrag nopan nowheel w-full resize-none overflow-hidden bg-transparent text-[length:inherit] leading-tight outline-none"
                       />
                     ) : (
-                      // Overflow is clipped rather than wrapped: row heights are
-                      // explicit, so wrapped text would silently overflow its row.
-                      <span className="w-full truncate" title={cell.text}>
-                        {cell.text}
-                      </span>
+                      <span className="w-full whitespace-pre-wrap break-words">{cell.text}</span>
                     )}
                   </div>
                 </ContextMenuTrigger>
@@ -514,83 +537,137 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
             )
           })
         )}
-      </div>
 
-      {/* Divider drag targets sit above the cells, one per boundary including
-          the outer edge, so the last column and last row are resizable too. */}
-      {columnOffsets.map((offset, index) => (
-        <div
-          key={`col-divider-${index}`}
-          onPointerDown={(event) => beginResize('column', index, event)}
-          className="nodrag nopan absolute top-0 cursor-col-resize"
-          style={{ left: offset - DIVIDER_HIT / 2, width: DIVIDER_HIT, height: totalHeight }}
-        />
-      ))}
-      {rowOffsets.map((offset, index) => (
-        <div
-          key={`row-divider-${index}`}
-          onPointerDown={(event) => beginResize('row', index, event)}
-          className="nodrag nopan absolute left-0 cursor-row-resize"
-          style={{ top: offset - DIVIDER_HIT / 2, height: DIVIDER_HIT, width: totalWidth }}
-        />
-      ))}
+        {/* Divider targets: each is a grid item spanning its own column (or row)
+            across every row (or column), with the hit area straddling that
+            track's trailing edge. Placing them in the grid is what lets a row
+            grow with its content without the divider drifting off it. */}
+        {columnWidths.map((_, index) => (
+          <div
+            key={`col-divider-${index}`}
+            className="pointer-events-none relative"
+            style={{ gridColumn: index + 1, gridRow: '1 / -1' }}
+          >
+            <div
+              onPointerDown={(event) => beginResize('column', index, event)}
+              className="nodrag nopan pointer-events-auto absolute inset-y-0 cursor-col-resize"
+              style={{ right: -DIVIDER_HIT / 2, width: DIVIDER_HIT }}
+            />
+          </div>
+        ))}
+        {rowHeights.map((_, index) => (
+          <div
+            key={`row-divider-${index}`}
+            className="pointer-events-none relative"
+            style={{ gridRow: index + 1, gridColumn: '1 / -1' }}
+          >
+            <div
+              onPointerDown={(event) => beginResize('row', index, event)}
+              className="nodrag nopan pointer-events-auto absolute inset-x-0 cursor-row-resize"
+              style={{ bottom: -DIVIDER_HIT / 2, height: DIVIDER_HIT }}
+            />
+          </div>
+        ))}
+
+        {/* Grips: one bar per column above the table and per row to its left.
+            Drawn rather than revealed on hover, so there is something to aim at.
+            Clicking selects that row or column; right-clicking opens the same
+            menu as a cell, anchored to the whole axis.
+
+            Each sits in its own track and pushes its visible bar outside the
+            grid with `bottom: 100%` / `right: 100%`, so a grip always spans
+            exactly the row or column it controls however tall that has grown. */}
+        {selected &&
+          columnWidths.map((_, index) => {
+            const isSelected = axisSelection?.axis === 'column' && axisSelection.index === index
+            return (
+              <div
+                key={`col-grip-${index}`}
+                className="pointer-events-none relative"
+                style={{ gridColumn: index + 1, gridRow: 1 }}
+              >
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={() => setAxisSelection({ axis: 'column', index })}
+                      title={`Column ${index + 1}`}
+                      className={cn(
+                        'nodrag nopan pointer-events-auto absolute inset-x-0 flex items-center justify-center rounded-t-sm border border-b-0 text-slate-400',
+                        isSelected
+                          ? 'border-blue-400 bg-blue-100 text-blue-600'
+                          : 'border-slate-300 bg-slate-100 hover:bg-slate-200 hover:text-slate-600'
+                      )}
+                      style={{ bottom: '100%', height: GRIP }}
+                    >
+                      <GripVertical className="h-3 w-3 rotate-90" />
+                    </button>
+                  </ContextMenuTrigger>
+                  {cellMenuItems({ row: 0, col: index })}
+                </ContextMenu>
+                {isSelected && (
+                  <button
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => removeColumn(index)}
+                    disabled={singleColumn}
+                    title="Delete column"
+                    className="nodrag nopan pointer-events-auto absolute left-1/2 flex h-[18px] w-[18px] -translate-x-1/2 items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    style={{ bottom: `calc(100% + ${GRIP + 6}px)` }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+
+        {selected &&
+          rowHeights.map((_, index) => {
+            const isSelected = axisSelection?.axis === 'row' && axisSelection.index === index
+            return (
+              <div
+                key={`row-grip-${index}`}
+                className="pointer-events-none relative"
+                style={{ gridRow: index + 1, gridColumn: 1 }}
+              >
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={() => setAxisSelection({ axis: 'row', index })}
+                      title={`Row ${index + 1}`}
+                      className={cn(
+                        'nodrag nopan pointer-events-auto absolute inset-y-0 flex items-center justify-center rounded-l-sm border border-r-0 text-slate-400',
+                        isSelected
+                          ? 'border-blue-400 bg-blue-100 text-blue-600'
+                          : 'border-slate-300 bg-slate-100 hover:bg-slate-200 hover:text-slate-600'
+                      )}
+                      style={{ right: '100%', width: GRIP }}
+                    >
+                      <GripVertical className="h-3 w-3" />
+                    </button>
+                  </ContextMenuTrigger>
+                  {cellMenuItems({ row: index, col: 0 })}
+                </ContextMenu>
+                {isSelected && (
+                  <button
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => removeRow(index)}
+                    disabled={singleRow}
+                    title="Delete row"
+                    className="nodrag nopan pointer-events-auto absolute top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    style={{ right: `calc(100% + ${GRIP + 6}px)` }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+      </div>
 
       {selected && (
         <>
-          {/* Grips: one bar per column above the table and per row to its left.
-              Drawn rather than revealed on hover, so there is something to aim
-              at. Clicking selects that row or column; right-clicking opens the
-              same menu as a cell, anchored to the whole axis. */}
-          {columnWidths.map((width, index) => {
-            const isSelected = axisSelection?.axis === 'column' && axisSelection.index === index
-            return (
-              <ContextMenu key={`col-grip-${index}`}>
-                <ContextMenuTrigger asChild>
-                  <button
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={() => setAxisSelection({ axis: 'column', index })}
-                    title={`Column ${index + 1}`}
-                    className={cn(
-                      'nodrag nopan absolute flex items-center justify-center rounded-t-sm border border-b-0 text-slate-400',
-                      isSelected
-                        ? 'border-blue-400 bg-blue-100 text-blue-600'
-                        : 'border-slate-300 bg-slate-100 hover:bg-slate-200 hover:text-slate-600'
-                    )}
-                    style={{ left: columnOffsets[index] - width, top: -GRIP, width, height: GRIP }}
-                  >
-                    <GripVertical className="h-3 w-3 rotate-90" />
-                  </button>
-                </ContextMenuTrigger>
-                {cellMenuItems({ row: 0, col: index })}
-              </ContextMenu>
-            )
-          })}
-
-          {rowHeights.map((height, index) => {
-            const isSelected = axisSelection?.axis === 'row' && axisSelection.index === index
-            return (
-              <ContextMenu key={`row-grip-${index}`}>
-                <ContextMenuTrigger asChild>
-                  <button
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={() => setAxisSelection({ axis: 'row', index })}
-                    title={`Row ${index + 1}`}
-                    className={cn(
-                      'nodrag nopan absolute flex items-center justify-center rounded-l-sm border border-r-0 text-slate-400',
-                      isSelected
-                        ? 'border-blue-400 bg-blue-100 text-blue-600'
-                        : 'border-slate-300 bg-slate-100 hover:bg-slate-200 hover:text-slate-600'
-                    )}
-                    style={{ top: rowOffsets[index] - height, left: -GRIP, width: GRIP, height }}
-                  >
-                    <GripVertical className="h-3 w-3" />
-                  </button>
-                </ContextMenuTrigger>
-                {cellMenuItems({ row: index, col: 0 })}
-              </ContextMenu>
-            )
-          })}
-
           {/* Corner handles scale the whole table. Placed last so they sit above
               the column and row dividers, whose drag targets reach the corners
               too and would otherwise swallow the press. */}
@@ -606,13 +683,14 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
             />
           ))}
 
-          {/* Append affordances, distinct from the menu's insert-at-position. */}
+          {/* Append affordances, distinct from the menu's insert-at-position.
+              Anchored to the container's own edges, so they need no dimensions:
+              the container is exactly the table. */}
           <button
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => insertColumn(data.columnWidths.length)}
             title="Add column"
-            className="nodrag nopan absolute flex items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-slate-100 hover:text-slate-800"
-            style={{ left: totalWidth + 4, top: totalHeight / 2 - 9, width: 18, height: 18 }}
+            className="nodrag nopan absolute top-1/2 -right-[22px] flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-slate-100 hover:text-slate-800"
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -620,47 +698,10 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => insertRow(data.rows.length)}
             title="Add row"
-            className="nodrag nopan absolute flex items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-slate-100 hover:text-slate-800"
-            style={{ top: totalHeight + 4, left: totalWidth / 2 - 9, width: 18, height: 18 }}
+            className="nodrag nopan absolute -bottom-[22px] left-1/2 flex h-[18px] w-[18px] -translate-x-1/2 items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-slate-100 hover:text-slate-800"
           >
             <Plus className="h-3 w-3" />
           </button>
-
-          {/* Delete button on the selected axis, so the action is visible once a
-              row or column is picked rather than only in the menu. */}
-          {axisSelection && (
-            <button
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() =>
-                axisSelection.axis === 'column'
-                  ? removeColumn(axisSelection.index)
-                  : removeRow(axisSelection.index)
-              }
-              disabled={axisSelection.axis === 'column' ? singleColumn : singleRow}
-              title={`Delete ${axisSelection.axis}`}
-              className="nodrag nopan absolute flex items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-500 shadow-sm hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
-              style={
-                axisSelection.axis === 'column'
-                  ? {
-                      left:
-                        columnOffsets[axisSelection.index] -
-                        columnWidths[axisSelection.index] / 2 -
-                        9,
-                      top: -GRIP - 24,
-                      width: 18,
-                      height: 18,
-                    }
-                  : {
-                      top: rowOffsets[axisSelection.index] - rowHeights[axisSelection.index] / 2 - 9,
-                      left: -GRIP - 24,
-                      width: 18,
-                      height: 18,
-                    }
-              }
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
         </>
       )}
     </div>
