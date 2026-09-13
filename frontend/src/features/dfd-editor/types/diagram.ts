@@ -93,10 +93,10 @@ export interface StickyNoteNodeData extends BaseNodeData {
 }
 
 /**
- * A cell is an object rather than a bare string so that a cell can later hold a
- * diagram node (draw.io-style container tables, where a Process sits inside a
- * cell and edges connect to it) by adding an optional field. Widening
- * `string` to an object afterwards would mean migrating every saved diagram.
+ * A cell is an object rather than a bare string so it can later hold a diagram
+ * node (draw.io-style container tables, where a Process sits inside a cell and
+ * edges connect to it) by gaining an optional field. Widening `string` to an
+ * object afterwards would mean migrating every saved diagram.
  */
 export interface TableCell {
   text: string
@@ -108,10 +108,11 @@ export interface TableRow {
 }
 
 /**
- * The table sizes itself: outer width is the sum of `columnWidths`, outer height
- * the sum of row heights. React Flow v12 measures node DOM, so no `style.width`
- * is set and there is only one source of truth for the dimensions. Consequently
- * the table is resized by dragging column and row dividers, not by NodeResizer.
+ * The table sizes itself: outer width is the sum of `columnWidths`, and outer
+ * height is at least the sum of row heights — more wherever a row has grown to
+ * fit wrapped text. React Flow v12 measures node DOM, so no `style.width` is set
+ * and the dimensions have one source of truth. The table is resized by dragging
+ * a column or row divider or a corner handle, not by NodeResizer.
  */
 export interface TableNodeData extends BaseNodeData {
   rows: TableRow[]
@@ -153,8 +154,8 @@ export const TABLE_DEFAULT_ROWS = 3
 
 /**
  * Set the column count, growing with empty cells or truncating from the right.
- * Truncating discards whatever was in the dropped cells; that is recoverable
- * through the editor's undo stack, which is why there is no confirmation.
+ * Truncating discards whatever was in the dropped cells, recoverable through the
+ * editor's undo stack, so there is no confirmation.
  */
 export function setTableColumnCount(
   current: TableNodeData,
@@ -260,16 +261,14 @@ export function setTableRowCount(current: TableNodeData, count: number): Pick<Ta
 }
 
 /**
- * There is deliberately no upper bound on a table's size: a requested count is
- * honoured rather than clamped, so typing 200 rows makes 200 rows.
+ * There is no upper bound on a table's size, deliberately: typing 200 rows makes
+ * 200 rows. Nothing pays for that. Every cell is a rendered DOM node with no
+ * virtualization, so a 20 x 200 table is 4000 elements the canvas walks on every
+ * pan and zoom. If large tables turn out to be common, virtualize the cell grid
+ * rather than reintroducing a limit.
  *
- * The cost is real and unpaid for. Every cell is a rendered DOM node with no
- * virtualization, so a 20 x 200 table is 4000 elements the canvas walks on
- * every pan and zoom. If large tables turn out to be common, the fix is to
- * virtualize the cell grid, not to reintroduce a limit.
- *
- * The lower bound of one column and one row is structural rather than a policy:
- * a table with none has no cell to click and no way back.
+ * The lower bound of one column and one row is structural rather than policy: a
+ * table with none has no cell to click and no way back.
  */
 /** An empty table of the given size, defaulting to a header row plus two body rows. */
 export function createDefaultTableData(
