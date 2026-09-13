@@ -5,6 +5,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import type { ComponentThreat } from '../../types/threat-analysis'
 import { deriveThreatStatus } from '../../types/threat-analysis'
+import { isActiveThreat } from '@/types/triage'
 import type { ComponentTreeNode } from './hierarchy-utils'
 import { ComponentDataAssetsDisplay } from './ComponentDataAssetsDisplay'
 
@@ -20,7 +21,7 @@ function getComponentThreatSummary(
   threats: ComponentThreat[]
 ): { total: number; exposed: number; addressable: number; mitigated: number } {
   const componentThreats = threats.filter(
-    (t) => t.componentId === componentId && !t.dismissed
+    (t) => t.componentId === componentId && isActiveThreat(t.triageStatus)
   )
 
   let exposed = 0

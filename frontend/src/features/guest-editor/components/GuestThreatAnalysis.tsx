@@ -149,18 +149,29 @@ export function GuestThreatAnalysis() {
     return groups
   }, [nodes])
 
-  // Data flows from edges
+  // Data flows from edges — derive label from connected nodes when unnamed
+  const nodeLabels = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const node of nodes) map.set(node.id, node.data.label || node.id)
+    return map
+  }, [nodes])
+
   const dataFlows = useMemo(
     () =>
       edges
         .filter((e) => e.type === 'dataFlow')
-        .map((e) => ({
-          id: e.id,
-          label: e.data?.label || 'Data Flow',
-          type: 'dataFlow' as const,
-          targetType: 'dataflow' as const,
-        })),
-    [edges]
+        .map((e) => {
+          const explicitLabel = e.data?.label as string | undefined
+          const label = explicitLabel
+            || `${nodeLabels.get(e.source) ?? '?'} → ${nodeLabels.get(e.target) ?? '?'}`
+          return {
+            id: e.id,
+            label,
+            type: 'dataFlow' as const,
+            targetType: 'dataflow' as const,
+          }
+        }),
+    [edges, nodeLabels]
   )
 
   // Find selected component info

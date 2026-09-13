@@ -3,6 +3,7 @@ Views for threat_models app.
 """
 
 import json
+import logging
 
 from django.db import transaction
 from django.db.models import Q
@@ -10,6 +11,7 @@ from django.http import JsonResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -30,6 +32,8 @@ from .serializers import (
     ThreatModelReferenceImageUploadSerializer,
     ThreatModelSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ThreatModelViewSet(viewsets.ModelViewSet):
@@ -597,12 +601,18 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                         else None
                     )
                     or cm.countermeasure_name,
-                    "control_type": (
-                        cm.countermeasure_library.control_type
+                    "control_functions": (
+                        cm.countermeasure_library.control_functions
                         if cm.countermeasure_library
                         else None
                     )
-                    or cm.control_type,
+                    or cm.control_functions,
+                    "control_nature": (
+                        cm.countermeasure_library.control_nature
+                        if cm.countermeasure_library
+                        else None
+                    )
+                    or cm.control_nature,
                     "status": cm.status,
                     "priority": cm.priority,
                     "due_date": cm.due_date,
@@ -865,8 +875,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
                 "severity_scoring_metadata": threat.severity_scoring_metadata,
-                "is_dismissed": threat.is_dismissed,
-                "dismissal_reason": threat.dismissal_reason,
+                "triage_status": threat.triage_status,
+                "decision_rationale": threat.decision_rationale,
                 "display_order": threat.display_order,
                 "impact_description": threat.impact_description,
                 "threat_actor_text": threat.threat_actor_text,
@@ -920,8 +930,8 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "residual_severity": threat.residual_severity,
                 "status": threat.status,
                 "severity_scoring_metadata": threat.severity_scoring_metadata,
-                "is_dismissed": threat.is_dismissed,
-                "dismissal_reason": threat.dismissal_reason,
+                "triage_status": threat.triage_status,
+                "decision_rationale": threat.decision_rationale,
                 "display_order": threat.display_order,
                 "impact_description": threat.impact_description,
                 "threat_actor_text": threat.threat_actor_text,
@@ -1016,9 +1026,14 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             uploaded_file = request.FILES["file"]
             try:
                 json_data = json.loads(uploaded_file.read().decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return Response(
-                    {"detail": f"Invalid JSON file: {e}"},
+                    {
+                        "detail": (
+                            "Could not parse the uploaded file as JSON. "
+                            "Check that it is a valid JSON file and try again."
+                        ),
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         elif request.content_type and "json" in request.content_type:
@@ -1036,10 +1051,28 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             threat_model, summary = adapter.import_data(
                 json_data, organization, request.user
             )
-        except Exception as e:
+        except ValidationError as e:
+            detail = str(e)
+            if hasattr(e, "detail"):
+                detail = (
+                    e.detail.get("detail", str(e.detail))
+                    if isinstance(e.detail, dict)
+                    else str(e.detail)
+                )
             return Response(
-                {"detail": str(e)},
+                {"detail": detail},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception("Unexpected error during TM-Library import")
+            return Response(
+                {
+                    "detail": (
+                        "An unexpected error occurred during import. "
+                        "This is likely a bug. Please try again or contact support."
+                    ),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         return Response(
@@ -1094,9 +1127,14 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
             uploaded_file = request.FILES["file"]
             try:
                 json_data = json.loads(uploaded_file.read().decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return Response(
-                    {"detail": f"Invalid JSON file: {e}"},
+                    {
+                        "detail": (
+                            "Could not parse the uploaded file as JSON. "
+                            "Check that it is a valid JSON file and try again."
+                        ),
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         elif request.content_type and "json" in request.content_type:
@@ -1109,15 +1147,35 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from .adapters.cyclonedx import TmBomImportError
+
         adapter = CycloneDxAdapter()
         try:
             threat_model, summary = adapter.import_data(
                 json_data, organization, request.user
             )
-        except Exception as e:
+        except (TmBomImportError, ValidationError) as e:
+            detail = str(e)
+            if hasattr(e, "detail"):
+                detail = (
+                    e.detail.get("detail", str(e.detail))
+                    if isinstance(e.detail, dict)
+                    else str(e.detail)
+                )
             return Response(
-                {"detail": str(e)},
+                {"detail": detail},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception("Unexpected error during CycloneDX import")
+            return Response(
+                {
+                    "detail": (
+                        "An unexpected error occurred during import. "
+                        "This is likely a bug. Please try again or contact support."
+                    ),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         return Response(
@@ -1145,7 +1203,7 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
         response = JsonResponse(export_data, json_dumps_params={"indent": 2})
         safe_name = re.sub(r"[^a-z0-9\-]", "-", threat_model.name.lower())
         safe_name = re.sub(r"-{2,}", "-", safe_name).strip("-")
-        filename = f"{safe_name}-cyclonedx-tm-bom.json"
+        filename = f"{safe_name}-cyclonedx-tm-bom.cdx.json"
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 

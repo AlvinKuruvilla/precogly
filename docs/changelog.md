@@ -2,6 +2,26 @@
 
 All notable releases of Precogly are documented here.
 
+## v0.3.1
+
+**Release date:** September 2026
+
+### Threat triage and control classification
+
+- Replaced binary threat dismissal with a five-status triage workflow: Open, Accept, Mitigate, Delegate, Eliminate. Triaged threats require a decision rationale for audit traceability.
+- Split the single `control_type` field into a multi-value `control_functions` list and a separate `control_nature` field (technical, administrative, or physical). Removed `procedural` from valid control function values.
+
+### CycloneDX TM-BOM interoperability
+
+- Improved CycloneDX round-trip fidelity: triage status, control functions/nature, taxonomy categories, and assumptions now survive import and export via `precogly:*` properties.
+- Improved CycloneDX import error messages with actionable detail about which entity failed.
+
+### Bug fixes
+
+- Fixed guest editor import losing DFD layout by normalizing snake_case keys from backend export to camelCase.
+
+---
+
 ## v0.3.0
 
 **Release date:** July 31, 2026
