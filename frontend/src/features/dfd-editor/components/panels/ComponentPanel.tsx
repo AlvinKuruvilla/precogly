@@ -11,6 +11,7 @@ import type { DFDNotationStyle } from '../../types/notation'
 import { useGroupedComponentLibrary, categoryToNodeType } from '../../api/component-library'
 import type { ComponentLibraryItem } from '../../api/component-library'
 import { useCreateNode, type CreateNodeOptions } from '../../hooks/useCreateNode'
+import { SvgIcon } from '../SvgIcon'
 import { TableGridPicker } from './TableGridPicker'
 
 interface ComponentPanelProps {
@@ -259,10 +260,7 @@ export function ComponentPanel({
                     className="flex items-center gap-2 px-4 py-1.5 cursor-grab active:cursor-grabbing hover:bg-muted/50 text-sm select-none"
                   >
                     {item.iconSvg ? (
-                      <span
-                        className="h-4 w-4 flex-shrink-0 [&>svg]:h-full [&>svg]:w-full"
-                        dangerouslySetInnerHTML={{ __html: item.iconSvg }}
-                      />
+                      <SvgIcon svg={item.iconSvg} className="h-4 w-4 flex-shrink-0" />
                     ) : (
                       <FallbackIcon className={`h-4 w-4 flex-shrink-0 ${iconColor}`} />
                     )}
