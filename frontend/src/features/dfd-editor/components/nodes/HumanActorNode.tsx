@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { InlineEditableLabel } from './InlineEditableLabel'
 import type { HumanActorNodeData } from '../../types'
 import { useTechnologyInfo } from '../../api/component-library'
+import { SvgIcon } from '../SvgIcon'
 
 type HumanActorNodeType = Node<HumanActorNodeData, 'humanActor'>
 
@@ -55,10 +56,7 @@ export const HumanActorNode = memo(function HumanActorNode({
       >
         {technologyIcon ? (
           <>
-            <span
-              className="h-10 w-10 [&>svg]:h-full [&>svg]:w-full"
-              dangerouslySetInnerHTML={{ __html: technologyIcon }}
-            />
+            <SvgIcon svg={technologyIcon} className="h-10 w-10" />
             <InlineEditableLabel
               nodeId={id}
               label={data.label}
