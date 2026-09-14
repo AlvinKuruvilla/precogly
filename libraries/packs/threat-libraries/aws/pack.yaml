@@ -25,6 +25,7 @@ pack:
   - taxonomies/cwe
   - taxonomies/mitre-attack
   - taxonomies/mitre-atlas
+  - threat-libraries/ai
   tags:
   - aws
   - cloud

@@ -77,6 +77,20 @@ mappings:
         applies_to: component
       - threat: dataflow-eavesdropping
         applies_to: flow
+      - threat: ai/llm-prompt-injection
+        applies_to: both
+      - threat: ai/llm-sensitive-info-disclosure
+        applies_to: both
+      - threat: ai/llm-system-prompt-leakage
+        applies_to: component
+      - threat: ai/llm-insecure-output-handling
+        applies_to: flow
+      - threat: ai/llm-misinformation
+        applies_to: component
+      - threat: ai/llm-unbounded-consumption
+        applies_to: component
+      - threat: ai/llm-excessive-agency
+        applies_to: component
   - component: opensearch-serverless
     threats:
       - threat: rag-poisoning
@@ -89,6 +103,14 @@ mappings:
         applies_to: flow
       - threat: dataflow-injection
         applies_to: flow
+      - threat: ai/vecdb-poisoned-embeddings
+        applies_to: component
+      - threat: ai/vecdb-unauthorized-retrieval
+        applies_to: both
+      - threat: ai/vecdb-embedding-inversion
+        applies_to: component
+      - threat: ai/vecdb-cross-tenant-leakage
+        applies_to: both
   - component: cognito
     threats:
       - threat: cognito-token-theft
@@ -457,6 +479,12 @@ mappings:
         applies_to: flow
       - threat: sagemaker-model-endpoint-abuse
         applies_to: component
+      - threat: ai/training-data-poisoning
+        applies_to: flow
+      - threat: ai/training-supply-chain
+        applies_to: component
+      - threat: ai/training-data-leakage
+        applies_to: both
   - component: bedrock-agents
     threats:
       - threat: bedrock-agent-tool-invocation
@@ -467,6 +495,14 @@ mappings:
         applies_to: component
       - threat: bedrock-agent-no-guardrails
         applies_to: component
+      - threat: ai/agent-goal-hijack
+        applies_to: both
+      - threat: ai/agent-privilege-escalation
+        applies_to: component
+      - threat: ai/agent-rogue-behavior
+        applies_to: component
+      - threat: ai/agent-excessive-autonomy
+        applies_to: component
   - component: bedrock-knowledge-bases
     threats:
       - threat: bedrock-kb-data-poisoning
@@ -476,4 +512,10 @@ mappings:
       - threat: bedrock-kb-cross-context-leakage
         applies_to: both
       - threat: bedrock-kb-credential-harvesting
+        applies_to: both
+      - threat: ai/docstore-knowledge-poisoning
+        applies_to: flow
+      - threat: ai/docstore-unauthorized-access
+        applies_to: both
+      - threat: ai/docstore-sensitive-data-exposure
         applies_to: both

@@ -100,38 +100,49 @@ mappings:
       - bedrock-input-validation
       - bedrock-output-filtering
       - apigw-waf
+      - ai/llm-input-guardrail
   - threat: bedrock-jailbreak
     countermeasures:
       - bedrock-guardrails
       - bedrock-input-validation
       - bedrock-model-invocation-logging
+      - ai/guardrail-layered-defense
   - threat: bedrock-data-leakage
     countermeasures:
       - bedrock-guardrails
       - bedrock-output-filtering
       - bedrock-data-masking
       - bedrock-model-invocation-logging
+      - ai/llm-output-guardrail
+      - ai/llm-differential-privacy
   - threat: bedrock-sensitive-data-in-prompt
     countermeasures:
       - bedrock-data-masking
       - bedrock-guardrails
       - bedrock-vpc-endpoint
+      - ai/llm-input-guardrail
   - threat: bedrock-model-abuse
     countermeasures:
       - bedrock-token-budget
       - apigw-throttling
       - bedrock-model-invocation-logging
       - apigw-cognito-auth
+      - ai/llm-rate-limiting
+      - ai/gateway-rate-limiting
   - threat: rag-poisoning
     countermeasures:
       - rag-data-sanitization
       - opensearch-access-policy
       - bedrock-output-filtering
+      - ai/vecdb-input-validation
+      - ai/docstore-content-screening
   - threat: rag-unauthorized-retrieval
     countermeasures:
       - rag-access-control
       - opensearch-access-policy
       - bedrock-output-filtering
+      - ai/vecdb-access-control
+      - ai/vecdb-metadata-filtering
   - threat: opensearch-data-exfiltration
     countermeasures:
       - opensearch-encryption
@@ -634,6 +645,7 @@ mappings:
       - sagemaker-training-data-protection
       - s3-versioning
       - s3-bucket-policy
+      - ai/training-data-validation
   - threat: sagemaker-model-endpoint-abuse
     countermeasures:
       - sagemaker-endpoint-auth
@@ -643,29 +655,160 @@ mappings:
       - bedrock-agent-input-validation
       - bedrock-agent-guardrails
       - bedrock-guardrails
+      - ai/tool-parameter-validation
+      - ai/tool-sandboxing
   - threat: bedrock-agent-overpermissive-actions
     countermeasures:
       - bedrock-agent-least-privilege
       - iam-least-privilege
+      - ai/agent-least-privilege
   - threat: bedrock-agent-role-escalation
     countermeasures:
       - bedrock-agent-role-restriction
       - iam-least-privilege
+      - ai/agent-least-privilege
   - threat: bedrock-agent-no-guardrails
     countermeasures:
       - bedrock-agent-guardrails
       - bedrock-guardrails
+      - ai/guardrail-layered-defense
   - threat: bedrock-kb-data-poisoning
     countermeasures:
       - bedrock-kb-data-source-validation
       - s3-versioning
+      - ai/docstore-content-screening
   - threat: bedrock-kb-overpermissive-sync
     countermeasures:
       - bedrock-kb-scoped-sync
+      - ai/docstore-access-control
   - threat: bedrock-kb-cross-context-leakage
     countermeasures:
       - bedrock-kb-access-control
       - rag-access-control
+      - ai/vecdb-tenant-isolation
   - threat: bedrock-kb-credential-harvesting
     countermeasures:
       - bedrock-kb-sensitive-data-exclusion
+
+  # ============================================================================
+  # Cross-pack AI threats: Bedrock (LLM)
+  # ============================================================================
+  - threat: ai/llm-prompt-injection
+    countermeasures:
+      - bedrock-guardrails
+      - bedrock-input-validation
+      - ai/llm-input-guardrail
+      - ai/llm-system-prompt-protection
+  - threat: ai/llm-sensitive-info-disclosure
+    countermeasures:
+      - bedrock-guardrails
+      - bedrock-output-filtering
+      - bedrock-data-masking
+      - ai/llm-output-guardrail
+  - threat: ai/llm-system-prompt-leakage
+    countermeasures:
+      - bedrock-guardrails
+      - bedrock-output-filtering
+      - ai/llm-system-prompt-protection
+  - threat: ai/llm-insecure-output-handling
+    countermeasures:
+      - bedrock-output-filtering
+      - bedrock-guardrails
+      - ai/llm-output-validation
+  - threat: ai/llm-misinformation
+    countermeasures:
+      - bedrock-guardrails
+      - ai/llm-rag-grounding
+  - threat: ai/llm-unbounded-consumption
+    countermeasures:
+      - bedrock-token-budget
+      - apigw-throttling
+      - ai/llm-rate-limiting
+  - threat: ai/llm-excessive-agency
+    countermeasures:
+      - bedrock-guardrails
+      - ai/agent-hitl
+      - ai/tool-allowlist
+
+  # ============================================================================
+  # Cross-pack AI threats: OpenSearch Serverless (Vector DB)
+  # ============================================================================
+  - threat: ai/vecdb-poisoned-embeddings
+    countermeasures:
+      - rag-data-sanitization
+      - opensearch-access-policy
+      - ai/vecdb-input-validation
+  - threat: ai/vecdb-unauthorized-retrieval
+    countermeasures:
+      - rag-access-control
+      - opensearch-access-policy
+      - ai/vecdb-access-control
+  - threat: ai/vecdb-embedding-inversion
+    countermeasures:
+      - opensearch-encryption
+      - opensearch-access-policy
+      - ai/vecdb-access-control
+  - threat: ai/vecdb-cross-tenant-leakage
+    countermeasures:
+      - rag-access-control
+      - opensearch-access-policy
+      - ai/vecdb-tenant-isolation
+
+  # ============================================================================
+  # Cross-pack AI threats: SageMaker (Training Pipeline)
+  # ============================================================================
+  - threat: ai/training-data-poisoning
+    countermeasures:
+      - sagemaker-training-data-protection
+      - s3-versioning
+      - ai/training-data-validation
+      - ai/training-data-provenance
+  - threat: ai/training-supply-chain
+    countermeasures:
+      - sagemaker-training-data-protection
+      - ai/training-data-provenance
+      - ai/registry-integrity-verification
+  - threat: ai/training-data-leakage
+    countermeasures:
+      - sagemaker-vpc-isolation
+      - ai/training-pii-scrubbing
+
+  # ============================================================================
+  # Cross-pack AI threats: Bedrock Agents (Agent Orchestrator)
+  # ============================================================================
+  - threat: ai/agent-goal-hijack
+    countermeasures:
+      - bedrock-agent-guardrails
+      - bedrock-guardrails
+      - ai/agent-goal-validation
+  - threat: ai/agent-privilege-escalation
+    countermeasures:
+      - bedrock-agent-least-privilege
+      - iam-least-privilege
+      - ai/agent-least-privilege
+  - threat: ai/agent-rogue-behavior
+    countermeasures:
+      - bedrock-agent-guardrails
+      - bedrock-guardrails
+      - ai/agent-behavior-monitoring
+  - threat: ai/agent-excessive-autonomy
+    countermeasures:
+      - bedrock-agent-guardrails
+      - ai/agent-hitl
+      - ai/agent-circuit-breaker
+
+  # ============================================================================
+  # Cross-pack AI threats: Bedrock Knowledge Bases (Document Store)
+  # ============================================================================
+  - threat: ai/docstore-knowledge-poisoning
+    countermeasures:
+      - bedrock-kb-data-source-validation
+      - ai/docstore-content-screening
+  - threat: ai/docstore-unauthorized-access
+    countermeasures:
+      - bedrock-kb-access-control
+      - ai/docstore-access-control
+  - threat: ai/docstore-sensitive-data-exposure
+    countermeasures:
+      - bedrock-kb-sensitive-data-exclusion
+      - ai/docstore-sensitive-data-redaction
