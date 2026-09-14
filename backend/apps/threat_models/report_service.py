@@ -507,14 +507,12 @@ def _build_threat_analysis(component_ids, dataflow_ids):
         threats_by_component[component_name].append(
             {
                 "id": threat.id,
-                "threat_name": (
-                    threat.threat_library.name if threat.threat_library else None
-                )
-                or threat.threat_name,
-                "threat_description": (
+                "threat_name": threat.threat_name
+                or (threat.threat_library.name if threat.threat_library else None),
+                "threat_description": threat.threat_description
+                or (
                     threat.threat_library.description if threat.threat_library else None
-                )
-                or threat.threat_description,
+                ),
                 "stride_category": _get_stride_category(threat),
                 "taxonomy_entries": _get_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
@@ -536,14 +534,12 @@ def _build_threat_analysis(component_ids, dataflow_ids):
         threats_by_flow[flow_label].append(
             {
                 "id": threat.id,
-                "threat_name": (
-                    threat.threat_library.name if threat.threat_library else None
-                )
-                or threat.threat_name,
-                "threat_description": (
+                "threat_name": threat.threat_name
+                or (threat.threat_library.name if threat.threat_library else None),
+                "threat_description": threat.threat_description
+                or (
                     threat.threat_library.description if threat.threat_library else None
-                )
-                or threat.threat_description,
+                ),
                 "stride_category": _get_stride_category(threat),
                 "taxonomy_entries": _get_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
@@ -565,10 +561,8 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             {
                 "id": threat.id,
                 "type": "component",
-                "threat_name": (
-                    threat.threat_library.name if threat.threat_library else None
-                )
-                or threat.threat_name,
+                "threat_name": threat.threat_name
+                or (threat.threat_library.name if threat.threat_library else None),
                 "component_name": threat.component.name if threat.component else None,
                 "triage_status": threat.triage_status,
                 "decision_rationale": threat.decision_rationale,
@@ -579,10 +573,8 @@ def _build_threat_analysis(component_ids, dataflow_ids):
             {
                 "id": threat.id,
                 "type": "dataflow",
-                "threat_name": (
-                    threat.threat_library.name if threat.threat_library else None
-                )
-                or threat.threat_name,
+                "threat_name": threat.threat_name
+                or (threat.threat_library.name if threat.threat_library else None),
                 "flow_label": threat.data_flow.label if threat.data_flow else None,
                 "triage_status": threat.triage_status,
                 "decision_rationale": threat.decision_rationale,
@@ -701,12 +693,12 @@ def _build_risks(threat_model):
                 contributing_threats.append(
                     {
                         "type": "component",
-                        "threat_name": (
+                        "threat_name": threat.threat_name
+                        or (
                             threat.threat_library.name
                             if threat.threat_library
                             else None
-                        )
-                        or threat.threat_name,
+                        ),
                         "status": threat.status,
                     }
                 )
@@ -715,12 +707,12 @@ def _build_risks(threat_model):
                 contributing_threats.append(
                     {
                         "type": "dataflow",
-                        "threat_name": (
+                        "threat_name": threat.threat_name
+                        or (
                             threat.threat_library.name
                             if threat.threat_library
                             else None
-                        )
-                        or threat.threat_name,
+                        ),
                         "status": threat.status,
                     }
                 )

@@ -405,6 +405,8 @@ export function useUpdateThreat() {
     }) => api.patch<ComponentInstanceThreat>(`/component-threats/${threatId}/`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: threatKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-models'] })
     },
   })
 }

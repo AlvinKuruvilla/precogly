@@ -1936,7 +1936,57 @@ def sync_all_packs_from_source(
     # costs the re-read.
     reconcile_taxonomy_joins_from_source(packs)
 
+    # Fourth pass: re-apply cross-pack threat-countermeasure and
+    # component-threat joins. Same ordering issue as taxonomy joins:
+    # pack A may reference threats/countermeasures from pack B via
+    # qualified slugs (e.g. "ai/llm-prompt-injection"), but pack B
+    # may not have been imported yet when pack A's joins were loaded.
+    # Re-reading the joins once all packs are in the database resolves
+    # every cross-pack reference that was missed on the first pass.
+    reconcile_cross_pack_joins_from_source(packs)
+
     return results
+
+
+def reconcile_cross_pack_joins_from_source(
+    packs: list["PackInfo"] | None = None,
+) -> int:
+    """Re-apply every pack's component-threat and threat-countermeasure joins.
+
+    Cross-pack joins (those using qualified slugs like "ai/llm-prompt-injection")
+    resolve by database lookup. If the referenced pack has not been imported yet,
+    the lookup returns None and a warning is logged. Re-reading the joins after
+    all packs are imported resolves these dangling references.
+
+    Both loaders are idempotent (update_or_create / M2M .add()), so re-running
+    for already-resolved joins is a harmless no-op.
+
+    Returns:
+        Total number of join matches resolved across all packs.
+    """
+    if packs is None:
+        packs = discover_packs_from_source()
+
+    total = 0
+    for pack_info in packs:
+        pack = LibraryPack.objects.filter(slug=pack_info.slug).first()
+        if not pack:
+            continue
+        joins_dir = Path(pack_info.path) / "joins"
+        if not joins_dir.exists():
+            continue
+
+        components_threats_file = joins_dir / "components-threats.yaml"
+        if components_threats_file.exists():
+            total += _load_component_threat_joins(pack, components_threats_file)
+
+        threats_countermeasures_file = joins_dir / "threats-countermeasures.yaml"
+        if threats_countermeasures_file.exists():
+            total += _load_threat_countermeasure_joins(
+                pack, threats_countermeasures_file
+            )
+
+    return total
 
 
 def reconcile_taxonomy_joins_from_source(

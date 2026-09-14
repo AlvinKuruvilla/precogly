@@ -5,6 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -234,6 +245,14 @@ export function ComponentView({
     name: string
     threatType: 'component' | 'dataflow'
   } | null>(null)
+  const [editingThreatFor, setEditingThreatFor] = useState<{
+    backendId: number
+    threatType: 'component' | 'dataflow'
+    name: string
+    description: string
+  } | null>(null)
+  const [editThreatName, setEditThreatName] = useState('')
+  const [editThreatDescription, setEditThreatDescription] = useState('')
 
   // Resolve technology slugs to display names
   const { technologies } = useTechnologies()
@@ -280,7 +299,25 @@ export function ComponentView({
       updateThreatMutation.mutate({ threatId: threat.backendThreatId, data }, { onSuccess, onError })
     }
   }, [updateThreatMutation, updateFlowThreatMutation])
-  
+
+  const handleSaveEditThreat = useCallback(() => {
+    if (!editingThreatFor || !editThreatName.trim()) return
+    const data: Record<string, unknown> = {
+      threatName: editThreatName.trim(),
+      threatDescription: editThreatDescription.trim(),
+    }
+    const onSuccess = () => {
+      toast.success('Threat updated')
+      setEditingThreatFor(null)
+    }
+    const onError = () => { toast.error('Failed to update threat') }
+    if (editingThreatFor.threatType === 'dataflow') {
+      updateFlowThreatMutation.mutate({ threatId: editingThreatFor.backendId, data }, { onSuccess, onError })
+    } else {
+      updateThreatMutation.mutate({ threatId: editingThreatFor.backendId, data }, { onSuccess, onError })
+    }
+  }, [editingThreatFor, editThreatName, editThreatDescription, updateThreatMutation, updateFlowThreatMutation])
+
   // Unified delete/unlink handler for countermeasures
   const handleConfirmDeleteCountermeasure = useCallback(() => {
     if (!deleteCountermeasureConfirmFor) return
@@ -893,6 +930,27 @@ export function ComponentView({
                               ))}
                             </SelectContent>
                           </Select>
+                          {ct.backendThreatId && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingThreatFor({
+                                  backendId: ct.backendThreatId!,
+                                  threatType: ct.threatType === 'dataflow' ? 'dataflow' : 'component',
+                                  name: ct.threatName || '',
+                                  description: ct.threatDescription || '',
+                                })
+                                setEditThreatName(ct.threatName || '')
+                                setEditThreatDescription(ct.threatDescription || '')
+                              }}
+                              title="Edit threat"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
                           {ct.backendThreatId && (
                             <Button
                               variant="ghost"
@@ -1641,6 +1699,57 @@ export function ComponentView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Threat Dialog */}
+      <Dialog
+        open={!!editingThreatFor}
+        onOpenChange={(open) => {
+          if (!open) setEditingThreatFor(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Threat</DialogTitle>
+            <DialogDescription>Update the threat name and description.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-threat-name">Threat Name *</Label>
+              <Input
+                id="edit-threat-name"
+                value={editThreatName}
+                onChange={(e) => setEditThreatName(e.target.value)}
+                placeholder="Threat name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-threat-description">Description</Label>
+              <Textarea
+                id="edit-threat-description"
+                value={editThreatDescription}
+                onChange={(e) => setEditThreatDescription(e.target.value)}
+                placeholder="Describe the threat..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingThreatFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEditThreat}
+              disabled={!editThreatName.trim() || updateThreatMutation.isPending || updateFlowThreatMutation.isPending}
+            >
+              {(updateThreatMutation.isPending || updateFlowThreatMutation.isPending) ? (
+                <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Saving...</>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
