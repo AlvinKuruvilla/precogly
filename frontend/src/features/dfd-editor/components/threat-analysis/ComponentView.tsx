@@ -843,7 +843,7 @@ export function ComponentView({
                         <div className="flex items-center gap-1">
                           <div
                             ref={dragHandleRef}
-                            className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity"
                           >
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                           </div>
@@ -897,7 +897,7 @@ export function ComponentView({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                              className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setDeleteThreatConfirmFor({
@@ -1187,7 +1187,7 @@ export function ComponentView({
                         <div className="flex items-center gap-2">
                           <div
                             ref={dragHandleRef}
-                            className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity"
                           >
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                           </div>
@@ -1208,7 +1208,7 @@ export function ComponentView({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                             onClick={(e) => {
                               e.stopPropagation()
                               const parsed = parseCountermeasureId(cm.id)

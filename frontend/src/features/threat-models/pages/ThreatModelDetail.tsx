@@ -502,7 +502,7 @@ export function ThreatModelDetail() {
                 title="Click to rename"
               >
                 {threatModel.name}
-                <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground" />
               </button>
             )}
             <span className="text-muted-foreground">/</span>

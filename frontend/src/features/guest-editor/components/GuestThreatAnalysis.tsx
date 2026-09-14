@@ -498,7 +498,7 @@ export function GuestThreatAnalysis() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 touch:opacity-100"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleEditThreat(threat)
@@ -509,7 +509,7 @@ export function GuestThreatAnalysis() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 touch:opacity-100 text-muted-foreground hover:text-red-600"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleDeleteThreat(threat.id)
@@ -623,7 +623,7 @@ export function GuestThreatAnalysis() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 touch:opacity-100"
                               onClick={() =>
                                 handleEditCountermeasure(countermeasure)
                               }
@@ -633,7 +633,7 @@ export function GuestThreatAnalysis() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 touch:opacity-100 text-muted-foreground hover:text-red-600"
                               onClick={() =>
                                 handleDeleteCountermeasure(countermeasure.id)
                               }

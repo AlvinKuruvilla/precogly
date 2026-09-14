@@ -380,7 +380,7 @@ export function GuestEditorHeader({
                 className="flex items-center gap-2 group text-left"
               >
                 <h1 className="font-semibold truncate">{title}</h1>
-                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity shrink-0" />
               </button>
             )}
             <p className="text-xs text-muted-foreground truncate">
