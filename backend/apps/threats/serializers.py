@@ -283,8 +283,11 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
     threat_personas = serializers.SerializerMethodField()
     threat_sources = serializers.SerializerMethodField()
 
-    # Write fields - accept threat_name for custom threats
+    # Write fields - accept threat_name/threat_description for custom threats
     threat_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
+    threat_description = serializers.CharField(
         required=False, allow_blank=True, write_only=True
     )
 
@@ -296,6 +299,7 @@ class ComponentInstanceThreatSerializer(serializers.ModelSerializer):
             "component_name",
             "threat_library",
             "threat_name",
+            "threat_description",
             "threat_name_display",
             "taxonomy_entries",
             "inherent_severity",
@@ -367,8 +371,11 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
     threat_personas = serializers.SerializerMethodField()
     threat_sources = serializers.SerializerMethodField()
 
-    # Write fields - accept threat_name for custom threats
+    # Write fields - accept threat_name/threat_description for custom threats
     threat_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
+    threat_description = serializers.CharField(
         required=False, allow_blank=True, write_only=True
     )
 
@@ -380,6 +387,7 @@ class DataFlowInstanceThreatSerializer(serializers.ModelSerializer):
             "flow_label",
             "threat_library",
             "threat_name",
+            "threat_description",
             "threat_name_display",
             "taxonomy_entries",
             "inherent_severity",

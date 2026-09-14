@@ -921,7 +921,7 @@ class MagicLinkAccessView(APIView):
                 threat_name = threat.threat_name or (
                     threat.threat_library.name if threat.threat_library else None
                 )
-                threat_description = (
+                threat_description = threat.threat_description or (
                     threat.threat_library.description if threat.threat_library else None
                 )
                 taxonomy_entries = self._serialize_taxonomy_entries(threat)
@@ -1038,7 +1038,7 @@ class MagicLinkAccessView(APIView):
                 threat_name = threat.threat_name or (
                     threat.threat_library.name if threat.threat_library else None
                 )
-                threat_description = (
+                threat_description = threat.threat_description or (
                     threat.threat_library.description if threat.threat_library else None
                 )
                 taxonomy_entries = self._serialize_taxonomy_entries(threat)

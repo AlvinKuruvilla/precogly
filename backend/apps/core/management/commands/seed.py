@@ -55,6 +55,9 @@ TAXONOMY_PACKS = [
     "taxonomies/cwe",
     "taxonomies/mitre-attack",
     "taxonomies/mitre-atlas",
+    "taxonomies/owasp-llm-top-10",
+    "taxonomies/owasp-agentic-top-10",
+    "taxonomies/owasp-mcp-top-10",
 ]
 
 STANDARD_PACKS = [
@@ -68,6 +71,7 @@ STANDARD_PACKS = [
 ]
 
 FULL_PACKS = [
+    "threat-libraries/ai",
     "threat-libraries/aws",
 ]
 

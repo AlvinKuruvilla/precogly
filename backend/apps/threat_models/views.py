@@ -862,14 +862,12 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "dfd_id": node_info["dfd_id"] if node_info else None,
                 "dfd_name": node_info["dfd_name"] if node_info else None,
                 "threat_library_id": threat.threat_library_id,
-                "threat_name": (
-                    threat.threat_library.name if threat.threat_library else None
-                )
-                or threat.threat_name,
-                "threat_description": (
+                "threat_name": threat.threat_name
+                or (threat.threat_library.name if threat.threat_library else None),
+                "threat_description": threat.threat_description
+                or (
                     threat.threat_library.description if threat.threat_library else None
-                )
-                or threat.threat_description,
+                ),
                 "taxonomy_entries": self._serialize_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
@@ -917,14 +915,12 @@ class ThreatModelViewSet(viewsets.ModelViewSet):
                 "dfd_id": edge_info["dfd_id"] if edge_info else None,
                 "dfd_name": edge_info["dfd_name"] if edge_info else None,
                 "threat_library_id": threat.threat_library_id,
-                "threat_name": (
-                    threat.threat_library.name if threat.threat_library else None
-                )
-                or threat.threat_name,
-                "threat_description": (
+                "threat_name": threat.threat_name
+                or (threat.threat_library.name if threat.threat_library else None),
+                "threat_description": threat.threat_description
+                or (
                     threat.threat_library.description if threat.threat_library else None
-                )
-                or threat.threat_description,
+                ),
                 "taxonomy_entries": self._serialize_taxonomy_entries(threat),
                 "inherent_severity": threat.inherent_severity,
                 "residual_severity": threat.residual_severity,
