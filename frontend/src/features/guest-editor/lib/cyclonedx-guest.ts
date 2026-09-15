@@ -200,9 +200,11 @@ export function serializeGuestToCycloneDx(
   // Strip transient UI flags before persisting
   const cleanedNodes = nodes.map((node) => {
     const { isInlineEditing, isNewlyInserted, ...restData } = node.data as Record<string, unknown>
+    const { extent, ...nodeWithoutExtent } = node as Record<string, unknown>
+    const base = extent ? nodeWithoutExtent : node
     return isInlineEditing || isNewlyInserted
-      ? { ...node, data: restData }
-      : node
+      ? { ...base, data: restData }
+      : base
   })
   const visualization: CycloneDxVisualization = {
     type: 'precogly-dfd',
@@ -542,17 +544,27 @@ function deserializeFromStructure(
 
   let nextNodeIndex = 0
 
-  // --- Generate trust zone nodes ---
+  // --- Count assets per zone for sizing ---
   const zoneData = blueprint?.zones ?? []
+  const assetData = blueprint?.assets ?? []
+  const assetsPerZone = new Map<string, number>()
+  for (const asset of assetData) {
+    if (asset.zone) {
+      assetsPerZone.set(asset.zone, (assetsPerZone.get(asset.zone) ?? 0) + 1)
+    }
+  }
+
+  // --- Generate trust zone nodes ---
   const zoneXStart = 50
   const zoneWidth = 400
-  const zoneHeight = 300
   const zoneGap = 50
 
   for (let i = 0; i < zoneData.length; i++) {
     const zone = zoneData[i]
     const nodeId = `zone-${nextNodeIndex++}`
     bomRefToNodeId.set(zone['bom-ref'], nodeId)
+    const childCount = assetsPerZone.get(zone['bom-ref']) ?? 0
+    const zoneHeight = Math.max(200, 50 + Math.ceil(childCount / 2) * 120 + 80)
     nodes.push({
       id: nodeId,
       type: 'trustZone',
@@ -567,7 +579,6 @@ function deserializeFromStructure(
   }
 
   // --- Generate asset nodes ---
-  const assetData = blueprint?.assets ?? []
   // Track children per zone for grid positioning
   const zoneChildCount = new Map<string, number>()
 
@@ -601,7 +612,6 @@ function deserializeFromStructure(
         label: asset.name,
         description: asset.description,
       },
-      ...(parentId ? { extent: 'parent' as const } : {}),
     } as DiagramNode)
   }
 
