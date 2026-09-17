@@ -42,6 +42,14 @@ interface CellRef {
   col: number
 }
 
+/** How far each arrow key steps the cell selection. */
+const ARROW_STEPS: Record<string, { row: number; col: number } | undefined> = {
+  ArrowUp: { row: -1, col: 0 },
+  ArrowDown: { row: 1, col: 0 },
+  ArrowLeft: { row: 0, col: -1 },
+  ArrowRight: { row: 0, col: 1 },
+}
+
 /**
  * Size a cell's textarea to its content.
  *
@@ -70,6 +78,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
     beginCellSelection,
     selectAxis,
     selectUnlessInside,
+    moveFocus,
     clear: clearSelection,
   } = useTableSelection(id, data.rows.length, data.columnWidths.length)
 
@@ -200,6 +209,17 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
         return
       }
 
+      // With a cell selected the arrows walk the selection; with none they are
+      // left alone, so they still nudge the table the way they nudge any other
+      // node. Stopping the event is what makes the difference — React Flow
+      // moves the node from its own key handler on the wrapper above this one.
+      const step = ARROW_STEPS[event.key]
+      if (step && moveFocus(step.row, step.col, event.shiftKey)) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+
       if (!selectedAxis || !selectedRange) return
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
       event.preventDefault()
@@ -207,7 +227,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
       if (selectedAxis === 'column') removeColumn(selectedRange.left)
       else removeRow(selectedRange.top)
     },
-    [clearSelection, editing, removeColumn, removeRow, selectedAxis, selectedRange]
+    [clearSelection, editing, moveFocus, removeColumn, removeRow, selectedAxis, selectedRange]
   )
   // Keyboard navigation between cells
 

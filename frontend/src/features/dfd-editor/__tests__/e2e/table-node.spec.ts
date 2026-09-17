@@ -253,3 +253,153 @@ test('a fill overrides the header row tint, gray included', async ({ page }) => 
   await fill(page, 1, 0, 'Purple')
   await expect(cell(page, 1, 0)).toHaveCSS('background-color', 'rgb(243, 232, 255)')
 })
+
+test('arrow keys walk the selection, not the table', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await cell(page, 1, 1).click()
+  expect(await selectedCells(page)).toEqual(['1,1'])
+
+  const before = (await cell(page, 1, 1).boundingBox())!
+
+  await page.keyboard.press('ArrowRight')
+  expect(await selectedCells(page)).toEqual(['1,2'])
+  await page.keyboard.press('ArrowDown')
+  expect(await selectedCells(page)).toEqual(['2,2'])
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowUp')
+  expect(await selectedCells(page)).toEqual(['1,1'])
+
+  // The table itself has not budged. Before this the arrows reached React
+  // Flow, which nudges the selected node a few pixels per press.
+  const after = (await cell(page, 1, 1).boundingBox())!
+  expect(Math.round(after.x - before.x)).toBe(0)
+  expect(Math.round(after.y - before.y)).toBe(0)
+})
+
+test('arrow keys stop at the table edge', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 0, 0).click()
+  await cell(page, 0, 0).click()
+  const before = (await cell(page, 0, 0).boundingBox())!
+
+  // Pressing into the edge holds the selection still and keeps the key, rather
+  // than letting it fall through and slide the table off to the left.
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowUp')
+  expect(await selectedCells(page)).toEqual(['0,0'])
+
+  const after = (await cell(page, 0, 0).boundingBox())!
+  expect(Math.round(after.x - before.x)).toBe(0)
+  expect(Math.round(after.y - before.y)).toBe(0)
+})
+
+test('an arrow key collapses a dragged range onto one cell', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 0, 0).click()
+  const from = (await cell(page, 0, 0).boundingBox())!
+  const to = (await cell(page, 1, 1).boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+  await page.mouse.up()
+  expect(await selectedCells(page)).toEqual(['0,0', '0,1', '1,0', '1,1'])
+
+  // It steps from where the drag ended, not from the rectangle's top left.
+  await page.keyboard.press('ArrowRight')
+  expect(await selectedCells(page)).toEqual(['1,2'])
+})
+
+test('with no cell selected the arrows still nudge the table', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  // Selected as a node, but no cell picked: the arrows belong to React Flow.
+  await cell(page, 1, 1).click()
+  const before = (await cell(page, 1, 1).boundingBox())!
+
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  const after = (await cell(page, 1, 1).boundingBox())!
+
+  expect(after.x - before.x).toBeGreaterThan(0)
+  expect(await selectedCells(page)).toEqual([])
+})
+
+test('shift-arrow extends the selection, and reversing shrinks it', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await cell(page, 1, 1).click()
+
+  await page.keyboard.press('Shift+ArrowRight')
+  expect(await selectedCells(page)).toEqual(['1,1', '1,2'])
+
+  await page.keyboard.press('Shift+ArrowDown')
+  expect(await selectedCells(page)).toEqual(['1,1', '1,2', '2,1', '2,2'])
+
+  // Back the way it came: the anchor stays on 1,1, so the rectangle shrinks
+  // rather than only ever growing.
+  await page.keyboard.press('Shift+ArrowUp')
+  expect(await selectedCells(page)).toEqual(['1,1', '1,2'])
+  await page.keyboard.press('Shift+ArrowLeft')
+  expect(await selectedCells(page)).toEqual(['1,1'])
+
+  // And through itself, to the other side of the anchor.
+  await page.keyboard.press('Shift+ArrowLeft')
+  expect(await selectedCells(page)).toEqual(['1,0', '1,1'])
+})
+
+test('shift-arrow can fill a block, and a plain arrow collapses it again', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 0, 0).click()
+  await cell(page, 0, 0).click()
+  await page.keyboard.press('Shift+ArrowRight')
+  await page.keyboard.press('Shift+ArrowDown')
+
+  await cell(page, 1, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitem', { name: 'Red', exact: true }).click()
+
+  for (const [row, col] of [[0, 0], [0, 1], [1, 0], [1, 1]]) {
+    await expect(cell(page, row, col)).toHaveCSS('background-color', 'rgb(254, 226, 226)')
+  }
+
+  await page.keyboard.press('ArrowRight')
+  expect(await selectedCells(page)).toEqual(['1,2'])
+})
+
+test('shift-arrow from a column grip widens to two whole columns', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await page.getByTitle('Column 1').click()
+  expect(await selectedCells(page)).toEqual(['0,0', '1,0', '2,0'])
+
+  // The grip anchors at the far end of the axis, so sideways widens rather
+  // than collapsing the column to one cell.
+  await page.keyboard.press('Shift+ArrowRight')
+  expect(await selectedCells(page)).toEqual(['0,0', '0,1', '1,0', '1,1', '2,0', '2,1'])
+})
+
+test('shift-arrow stops at the table edge without moving it', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 0, 0).click()
+  await cell(page, 0, 0).click()
+  const before = (await cell(page, 0, 0).boundingBox())!
+
+  await page.keyboard.press('Shift+ArrowUp')
+  await page.keyboard.press('Shift+ArrowLeft')
+  expect(await selectedCells(page)).toEqual(['0,0'])
+
+  // React Flow nudges a node further on shift+arrow than on a plain arrow, so
+  // an unhandled one here would be doubly visible.
+  const after = (await cell(page, 0, 0).boundingBox())!
+  expect(Math.round(after.x - before.x)).toBe(0)
+  expect(Math.round(after.y - before.y)).toBe(0)
+})
