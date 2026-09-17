@@ -112,7 +112,13 @@ export interface TableSelection {
 export function useTableSelection(
   tableId: string,
   rowCount: number,
-  columnCount: number
+  columnCount: number,
+  /**
+   * Maps any cell to the merge anchor covering it, or to itself. Without it an
+   * arrow key would step onto a cell hidden under a merge, which renders
+   * nothing, and the selection would appear to vanish mid-table.
+   */
+  anchorOf: (row: number, col: number) => CellRef = (row, col) => ({ row, col })
 ): TableSelection {
   const [range, setRange] = useState<TableCellRange | null>(null)
   const [axis, setAxis] = useState<'row' | 'column' | null>(null)
@@ -227,9 +233,25 @@ export function useTableSelection(
       const from = focusRef.current
       if (!from) return false
 
-      const row = Math.min(rowCount - 1, Math.max(0, from.row + rowDelta))
-      const col = Math.min(columnCount - 1, Math.max(0, from.col + colDelta))
-      const focus = { row, col }
+      const clamp = (cell: CellRef) => ({
+        row: Math.min(rowCount - 1, Math.max(0, cell.row)),
+        col: Math.min(columnCount - 1, Math.max(0, cell.col)),
+      })
+
+      // Step out of the block the focus is standing on, rather than one cell:
+      // a merge two columns wide would otherwise take two presses to leave, the
+      // first landing on a covered cell that renders nothing.
+      const leaving = anchorOf(from.row, from.col)
+      let step = clamp({ row: from.row + rowDelta, col: from.col + colDelta })
+      for (let guard = 0; guard < rowCount + columnCount; guard++) {
+        const under = anchorOf(step.row, step.col)
+        if (under.row !== leaving.row || under.col !== leaving.col) break
+        const next = clamp({ row: step.row + rowDelta, col: step.col + colDelta })
+        if (next.row === step.row && next.col === step.col) break
+        step = next
+      }
+
+      const focus = anchorOf(step.row, step.col)
       focusRef.current = focus
 
       // Extending keeps the anchor and redraws between it and the new focus, so
@@ -245,7 +267,7 @@ export function useTableSelection(
       setRange(rangeBetween(anchor, focus))
       return true
     },
-    [columnCount, rowCount]
+    [anchorOf, columnCount, rowCount]
   )
 
   return { range, axis, beginCellSelection, selectAxis, selectUnlessInside, moveFocus, clear }
