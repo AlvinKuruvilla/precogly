@@ -131,3 +131,125 @@ test('deselecting the table drops the cell selection with it', async ({ page }) 
   await page.locator('.react-flow__pane').click({ position: { x: 40, y: 40 } })
   expect(await selectedCells(page)).toEqual([])
 })
+
+test('fills one cell from its context menu', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await cell(page, 1, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitem', { name: 'Green' }).click()
+
+  await expect(cell(page, 1, 1)).toHaveCSS('background-color', 'rgb(220, 252, 231)')
+  // Its neighbours are untouched.
+  await expect(cell(page, 1, 2)).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+})
+
+test('fills a dragged range of cells', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  // First click selects the node; the table's cells only take the pointer once
+  // the node is selected, so the drag below needs this.
+  await cell(page, 1, 0).click()
+
+  const from = await cell(page, 1, 0).boundingBox()
+  const to = await cell(page, 2, 1).boundingBox()
+  if (!from || !to) throw new Error('table cells are not laid out')
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+  await page.mouse.up()
+
+  await cell(page, 2, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitem', { name: 'Blue' }).click()
+
+  for (const [row, col] of [[1, 0], [1, 1], [2, 0], [2, 1]]) {
+    await expect(cell(page, row, col)).toHaveCSS('background-color', 'rgb(219, 234, 254)')
+  }
+  await expect(cell(page, 0, 0)).not.toHaveCSS('background-color', 'rgb(219, 234, 254)')
+})
+
+test('fills a whole column from its grip', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await page.getByTitle('Column 2').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitem', { name: 'Pink' }).click()
+
+  for (const row of [0, 1, 2]) {
+    await expect(cell(page, row, 1)).toHaveCSS('background-color', 'rgb(252, 231, 243)')
+  }
+})
+
+test('a filled cell is still editable, and keeps its fill', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await cell(page, 1, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitem', { name: 'Yellow' }).click()
+
+  // Two things at once. `nodrag` sits on a selected table's cells so a press
+  // starts a selection rather than a node drag, and a double-click still has to
+  // open the editor through it. And the editor has to keep focus: Radix returns
+  // focus to the menu's trigger after the close animation, which used to land
+  // on the textarea a beat after it opened and pull the caret out of it.
+  await cell(page, 1, 1).dblclick()
+  await expect(cell(page, 1, 1).locator('textarea')).toBeFocused()
+  await page.keyboard.type('Payments')
+  await page.waitForTimeout(400)
+  await expect(cell(page, 1, 1).locator('textarea')).toBeFocused()
+  await page.keyboard.press('Escape')
+
+  await expect(cell(page, 1, 1)).toContainText('Payments')
+  await expect(cell(page, 1, 1)).toHaveCSS('background-color', 'rgb(254, 249, 195)')
+})
+
+/** Fill one cell, assuming the table node is already selected. */
+async function fill(page: Page, row: number, col: number, colour: string) {
+  await cell(page, row, col).click()
+  await cell(page, row, col).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitem', { name: colour, exact: true }).click()
+}
+
+test('offers the eight colours every comparable tool has', async ({ page }) => {
+  await insertTable(page, 3, 3)
+  await cell(page, 1, 1).click()
+  await cell(page, 1, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+
+  for (const name of ['No fill', 'Gray', 'Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Pink']) {
+    await expect(page.getByRole('menuitem', { name, exact: true })).toHaveCount(1)
+  }
+})
+
+test('a fill overrides the header row tint, gray included', async ({ page }) => {
+  await insertTable(page, 3, 3)
+  await cell(page, 0, 0).click()
+
+  // The header's tint comes from a Tailwind class, so its exact value is
+  // whatever the installed version resolves slate-100 to — v4 renders it in
+  // oklch. The fills are hardcoded hexes. So compare the two rather than
+  // pinning the header's value, which a Tailwind upgrade would move.
+  const headerTint = await cell(page, 0, 2).evaluate(
+    (el) => getComputedStyle(el).backgroundColor
+  )
+
+  // Gray sits a step darker than the header precisely so that filling a header
+  // cell gray is visible rather than a no-op.
+  await fill(page, 0, 0, 'Gray')
+  await expect(cell(page, 0, 0)).toHaveCSS('background-color', 'rgb(226, 232, 240)')
+  expect(await cell(page, 0, 0).evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
+    headerTint
+  )
+
+  await fill(page, 0, 1, 'Red')
+  await expect(cell(page, 0, 1)).toHaveCSS('background-color', 'rgb(254, 226, 226)')
+
+  await fill(page, 1, 0, 'Purple')
+  await expect(cell(page, 1, 0)).toHaveCSS('background-color', 'rgb(243, 232, 255)')
+})

@@ -1,15 +1,22 @@
 import { useRef, type ReactNode, type CSSProperties } from 'react'
-import { GripVertical, Trash2 } from 'lucide-react'
-import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { Ban, GripVertical, PaintBucket, Trash2 } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { TABLE_DRAG_THRESHOLD } from '../../hooks/useTableSelection'
+import { TABLE_FILL_COLORS, TABLE_FILL_NAMES, type TableCellFill } from '../../types'
 
 /**
- * The controls drawn around a table node: the grips that select a row or
- * column, and the small buttons that add and remove them.
- *
- * Both are presentation over a few callbacks, so they leave TableNode behind a
- * small props contract.
+ * The small pieces of a table node that are presentation over a callback: the
+ * grips that select a row or column, the buttons that add and remove them, and
+ * the fill swatches its menus offer. Keeping them here leaves TableNode as the
+ * state and the wiring.
  *
  * The row and column variants of the grip differ only by axis, so they are one
  * component — two would let a fix land in the column version and miss the row
@@ -141,8 +148,8 @@ export function TableAxisGrip({
               if (!moved) onSelect()
             }}
             // A right-click never runs the pointerup path above, so the axis is
-            // selected here instead. Without it the menu would act on whatever
-            // was selected before, not the row that was aimed at.
+            // selected here instead. Without it the menu's Fill would act on
+            // whatever was selected before, not the row that was aimed at.
             onContextMenu={onSelect}
             title={`${label} ${index + 1}`}
             className={cn(
@@ -181,3 +188,66 @@ export function TableAxisGrip({
   )
 }
 
+/**
+ * The Fill entry both the cell menu and the grip menu carry: a row of swatches
+ * plus a "no fill" one.
+ *
+ * Swatches rather than named rows because the name of a tint carries less than
+ * the tint does, and a horizontal strip keeps the parent menu from growing by
+ * six entries.
+ */
+export function TableFillSubmenu({
+  onSelect,
+}: {
+  onSelect: (fill: TableCellFill | undefined) => void
+}) {
+  return (
+    <ContextMenuSub>
+      {/* gap-2 here rather than in the primitive: shadcn's sub-trigger carries
+          no gap because it normally holds only a label, and this is the one
+          that also has an icon. */}
+      <ContextMenuSubTrigger className="gap-2">
+        <PaintBucket />
+        Fill
+      </ContextMenuSubTrigger>
+      <ContextMenuSubContent className="flex min-w-0 gap-1 p-1">
+        <FillSwatch label="No fill" onSelect={() => onSelect(undefined)} />
+        {TABLE_FILL_NAMES.map((name) => (
+          <FillSwatch
+            key={name}
+            label={name[0].toUpperCase() + name.slice(1)}
+            color={TABLE_FILL_COLORS[name]}
+            onSelect={() => onSelect(name)}
+          />
+        ))}
+      </ContextMenuSubContent>
+    </ContextMenuSub>
+  )
+}
+
+/**
+ * One swatch. The background is an inline style so it beats the menu item's own
+ * `focus:bg-accent`, which would otherwise repaint the swatch grey exactly when
+ * it is being aimed at; the focus state is a ring instead.
+ */
+function FillSwatch({
+  label,
+  color,
+  onSelect,
+}: {
+  label: string
+  color?: string
+  onSelect: () => void
+}) {
+  return (
+    <ContextMenuItem
+      onSelect={onSelect}
+      title={label}
+      aria-label={label}
+      className="size-6 justify-center rounded-sm border border-slate-300 p-0 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+      style={color ? { backgroundColor: color } : undefined}
+    >
+      {!color && <Ban className="size-3 text-slate-400" />}
+    </ContextMenuItem>
+  )
+}

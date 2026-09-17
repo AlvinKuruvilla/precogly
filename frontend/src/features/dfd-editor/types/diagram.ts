@@ -100,7 +100,71 @@ export interface StickyNoteNodeData extends BaseNodeData {
  */
 export interface TableCell {
   text: string
+  fill?: TableCellFill
 }
+
+/**
+ * A cell's background, stored as a palette name rather than a hex value. A dark
+ * theme has to change what `blue` renders as, and a saved diagram full of
+ * `#dbeafe` could not be remapped afterwards.
+ *
+ * Absent means no fill, which is not the same as white: an unfilled cell in the
+ * header row still takes its slate tint from `headerRow`.
+ */
+export type TableCellFill =
+  | 'gray'
+  | 'red'
+  | 'orange'
+  | 'yellow'
+  | 'green'
+  | 'blue'
+  | 'purple'
+  | 'pink'
+
+/**
+ * The eight hues every comparable tool offers, in the order they are shown.
+ *
+ * Taken from the intersection of three palettes, checked 2026-09-16: Notion
+ * (gray, brown, orange, yellow, green, blue, purple, pink, red), Google Sheets
+ * (gray, red berry, red, orange, yellow, green, cyan, cornflower blue, blue,
+ * purple, magenta) and Airtable (blue, cyan, gray, green, orange, pink, purple,
+ * red, teal, yellow). Brown appears only in Notion; cyan and teal only in
+ * Sheets and Airtable. These eight are in all three, so they are what a person
+ * arriving from any of them expects to find.
+ *
+ * The values are Tailwind **v3** 100-level tints, not v4's. The project runs
+ * Tailwind v4, whose palette moved to OKLCH and shifted every value, but these
+ * are written out rather than resolved from the theme, so they stayed where
+ * they were. That is deliberate: five of them are also the sticky note tints in
+ * `NOTE_COLORS` (StickyNoteNode.tsx), and a yellow cell has to be the same
+ * yellow as a yellow sticky note sitting beside it on the canvas. Moving one
+ * set to v4 without the other would break that. Change both together.
+ *
+ * Gray is the exception, at the 200 level. The header row already paints itself
+ * slate-100, so a slate-100 gray fill would do nothing visible on row 0 and
+ * would read as a second header row anywhere else. A step darker keeps a
+ * deliberate gray legible as one.
+ *
+ * The header takes its tint from a Tailwind class, so it renders whatever the
+ * installed version resolves slate-100 to, while this is a frozen v3 hex. They
+ * are a visible step apart under both, and table-node.spec.ts asserts that they
+ * differ rather than pinning the header's value.
+ *
+ * All eight are light enough to leave the cells' slate-800 text readable
+ * without a per-fill text color.
+ */
+export const TABLE_FILL_COLORS: Record<TableCellFill, string> = {
+  gray: '#e2e8f0',
+  red: '#fee2e2',
+  orange: '#ffedd5',
+  yellow: '#fef9c3',
+  green: '#dcfce7',
+  blue: '#dbeafe',
+  purple: '#f3e8ff',
+  pink: '#fce7f3',
+}
+
+export const TABLE_FILL_NAMES = Object.keys(TABLE_FILL_COLORS) as TableCellFill[]
 
 export interface TableRow {
   height: number
@@ -252,6 +316,40 @@ export interface TableCellRange {
 
 export function tableRangeContains(range: TableCellRange, row: number, col: number): boolean {
   return row >= range.top && row <= range.bottom && col >= range.left && col <= range.right
+}
+
+/**
+ * Fill every cell in `range`; `undefined` clears them back to no fill.
+ *
+ * The fill is written into each cell rather than onto the row or column, so a
+ * row inserted into a filled column arrives unfilled. That is visible, and the
+ * alternative was resolving cell over column over row on every cell render and
+ * giving 'clear this cell' two meanings.
+ */
+export function setTableCellFills(
+  current: TableNodeData,
+  range: TableCellRange,
+  fill: TableCellFill | undefined
+): Pick<TableNodeData, 'rows'> {
+  return {
+    rows: current.rows.map((row, ri) => {
+      if (ri < range.top || ri > range.bottom) return row
+      return {
+        ...row,
+        cells: row.cells.map((cell, ci) => {
+          if (ci < range.left || ci > range.right) return cell
+          if (fill) return { ...cell, fill }
+          // Deleted rather than set to undefined, so a cleared cell serializes
+          // to exactly what it was before it was ever filled. Copy-then-delete
+          // rather than destructuring the key out, which would keep every other
+          // field only by naming a rest binding nothing reads.
+          const cleared = { ...cell }
+          delete cleared.fill
+          return cleared
+        }),
+      }
+    }),
+  }
 }
 
 /** Set the row count, growing with empty rows or truncating from the bottom. */

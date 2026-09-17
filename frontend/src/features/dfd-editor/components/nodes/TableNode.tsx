@@ -16,8 +16,12 @@ import {
   insertTableRow,
   removeTableColumn,
   removeTableRow,
+  setTableCellFills,
   tableRangeContains,
+  TABLE_FILL_COLORS,
   type DiagramNode,
+  type TableCellFill,
+  type TableCellRange,
   type TableNodeData,
 } from '../../types'
 import {
@@ -28,6 +32,7 @@ import {
   HANDLE,
   TableActionButton,
   TableAxisGrip,
+  TableFillSubmenu,
 } from './table-chrome'
 
 type TableNodeType = Node<TableNodeData, 'table'>
@@ -142,6 +147,12 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
         ),
       }))
     },
+    [updateData]
+  )
+
+  const fillCells = useCallback(
+    (range: TableCellRange, fill: TableCellFill | undefined) =>
+      updateData((current) => setTableCellFills(current, range, fill)),
     [updateData]
   )
 
@@ -268,6 +279,21 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
         if (!editing) containerRef.current?.focus()
       }}
     >
+      {/* Fill applies to the whole selection. Right-clicking a cell outside it
+          has already moved the selection onto that cell, and right-clicking a
+          grip onto that row or column, so the selection is always what was
+          aimed at. The fallback covers a menu opened before anything is
+          selected at all, which is the state a table is in until its first
+          click. */}
+      <TableFillSubmenu
+        onSelect={(fill) =>
+          fillCells(
+            selectedRange ?? { top: cell.row, bottom: cell.row, left: cell.col, right: cell.col },
+            fill
+          )
+        }
+      />
+      <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => insertRow(cell.row)}>
         <ArrowUp />
         Insert row above
@@ -367,12 +393,22 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
                     // divider spans `1 / -1` of its column — between them they
                     // claim every defined cell, so auto-placed cells would be
                     // pushed into implicit rows below the table.
-                    style={{ fontSize, gridColumn: colIndex + 1, gridRow: rowIndex + 1 }}
+                    //
+                    // An explicit fill beats the header row's tint: the tint is a
+                    // default for the row, the fill is something the user chose
+                    // for this cell.
+                    style={{
+                      fontSize,
+                      gridColumn: colIndex + 1,
+                      gridRow: rowIndex + 1,
+                      backgroundColor: cell.fill ? TABLE_FILL_COLORS[cell.fill] : undefined,
+                    }}
                     className={cn(
                       'relative flex items-center border-slate-300 px-2 leading-tight text-slate-800',
                       colIndex < row.cells.length - 1 && 'border-r',
                       rowIndex < data.rows.length - 1 && 'border-b',
-                      isHeader && 'bg-slate-100 font-semibold',
+                      isHeader && 'font-semibold',
+                      isHeader && !cell.fill && 'bg-slate-100',
                       // What actually hands the press to the table rather than
                       // to React Flow, and only once the node is selected: an
                       // unselected table drags from its body like every other
