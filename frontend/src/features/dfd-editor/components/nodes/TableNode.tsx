@@ -10,11 +10,13 @@ import {
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { useTableDrag } from '../../hooks/useTableDrag'
+import { useTableSelection } from '../../hooks/useTableSelection'
 import {
   insertTableColumn,
   insertTableRow,
   removeTableColumn,
   removeTableRow,
+  tableRangeContains,
   type DiagramNode,
   type TableNodeData,
 } from '../../types'
@@ -35,9 +37,6 @@ interface CellRef {
   col: number
 }
 
-/** Which row or column the grips have selected, if any. */
-type AxisSelection = { axis: 'row' | 'column'; index: number } | null
-
 /**
  * Size a cell's textarea to its content.
  *
@@ -54,9 +53,20 @@ function fitToContent(element: HTMLTextAreaElement) {
 export const TableNode = memo(function TableNode({ id, data, selected }: NodeProps<TableNodeType>) {
   const { setNodes } = useReactFlow<DiagramNode>()
   const [editing, setEditing] = useState<CellRef | null>(null)
-  const [axisSelection, setAxisSelection] = useState<AxisSelection>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Destructured rather than held as one object: the hook returns a fresh
+  // object each render, so a callback depending on the whole thing would be
+  // rebuilt every time even though the handlers inside it are stable.
+  const {
+    range: selectedRange,
+    axis: selectedAxis,
+    beginCellSelection,
+    selectAxis,
+    selectUnlessInside,
+    clear: clearSelection,
+  } = useTableSelection(id, data.rows.length, data.columnWidths.length)
 
   // Sizes come from the drag hook rather than straight from the data: while a
   // divider or corner is being dragged they are its live values, committed to
@@ -111,13 +121,13 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
     }
   }, [editing])
 
-  // Deselecting the node drops the row/column selection with it, so a stale
-  // highlight cannot outlive the grips that produced it. Same set-during-render
-  // pattern as the caret above.
+  // Deselecting the node drops the cell selection with it, so a stale highlight
+  // cannot outlive the table it belongs to. Same set-during-render pattern as
+  // the caret above.
   const [lastSelected, setLastSelected] = useState(selected)
   if (lastSelected !== selected) {
     setLastSelected(selected)
-    if (!selected) setAxisSelection(null)
+    if (!selected) clearSelection()
   }
 
   // Cell contents
@@ -148,33 +158,45 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   const removeColumn = useCallback(
     (index: number) => {
       setEditing(null)
-      setAxisSelection(null)
+      clearSelection()
       updateData((current) => removeTableColumn(current, index))
     },
-    [updateData]
+    [clearSelection, updateData]
   )
   const removeRow = useCallback(
     (index: number) => {
       setEditing(null)
-      setAxisSelection(null)
+      clearSelection()
       updateData((current) => removeTableRow(current, index))
     },
-    [updateData]
+    [clearSelection, updateData]
   )
 
   // Delete removes a selected row or column. Guarded on `editing` so the key
   // deletes text, not structure, while a cell is open; the editor's own
   // shortcut never sees it either way, because the container stops the event.
+  //
+  // Only a grip selection has an `axis`, so Delete over a dragged range of cells
+  // does nothing rather than guessing which structure to take out.
   const handleContainerKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (editing || !axisSelection) return
+      if (editing) return
+
+      if (event.key === 'Escape' && selectedRange) {
+        event.preventDefault()
+        event.stopPropagation()
+        clearSelection()
+        return
+      }
+
+      if (!selectedAxis || !selectedRange) return
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
       event.preventDefault()
       event.stopPropagation()
-      if (axisSelection.axis === 'column') removeColumn(axisSelection.index)
-      else removeRow(axisSelection.index)
+      if (selectedAxis === 'column') removeColumn(selectedRange.left)
+      else removeRow(selectedRange.top)
     },
-    [axisSelection, editing, removeColumn, removeRow]
+    [clearSelection, editing, removeColumn, removeRow, selectedAxis, selectedRange]
   )
   // Keyboard navigation between cells
 
@@ -230,7 +252,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   const singleColumn = data.columnWidths.length <= 1
   const singleRow = data.rows.length <= 1
 
-  /** Insert and delete entries for one cell, used by every cell's right-click. */
+  /** Insert, fill and delete entries for one cell, used by every right-click. */
   const cellMenuItems = (cell: CellRef) => (
     <ContextMenuContent
       className="w-52"
@@ -239,8 +261,8 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
       // land on a cell the user has already double-clicked into, pulling the
       // caret out of the textarea a beat after it appeared. The trigger is a
       // canvas cell with nothing to hand focus back to, so the table's own
-      // container takes it instead — that is what the Delete shortcut listens
-      // on — and nothing takes it while a cell is open.
+      // container takes it instead — that is what the Delete and Escape
+      // shortcuts listen on — and nothing takes it while a cell is open.
       onCloseAutoFocus={(event) => {
         event.preventDefault()
         if (!editing) containerRef.current?.focus()
@@ -289,9 +311,9 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
     // No explicit size: the grid's own box is the table, so anything anchored to
     // the table's edges uses right/bottom/50% rather than a computed offset.
     <div
+      ref={containerRef}
       // w-fit rather than inline-block: an inline-block box carries baseline
       // descender space, which React Flow would measure as extra node height.
-      ref={containerRef}
       className="relative w-fit"
       style={{
         transform: draftOffset ? `translate(${draftOffset.x}px, ${draftOffset.y}px)` : undefined,
@@ -312,14 +334,27 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
           row.cells.map((cell, colIndex) => {
             const isHeader = data.headerRow && rowIndex === 0
             const isEditing = editing?.row === rowIndex && editing.col === colIndex
-            const inSelectedAxis =
-              (axisSelection?.axis === 'column' && axisSelection.index === colIndex) ||
-              (axisSelection?.axis === 'row' && axisSelection.index === rowIndex)
+            const inSelection = selectedRange
+              ? tableRangeContains(selectedRange, rowIndex, colIndex)
+              : false
 
             return (
               <ContextMenu key={`${rowIndex}-${colIndex}`}>
                 <ContextMenuTrigger asChild>
                   <div
+                    // Read back by the selection drag's hit test, which finds
+                    // the cell under the pointer through the DOM rather than by
+                    // measuring tracks whose heights it cannot know.
+                    data-table-id={id}
+                    data-table-cell={`${rowIndex},${colIndex}`}
+                    onPointerDown={(event) => {
+                      // Only once the node is selected. Before that a press on a
+                      // cell belongs to React Flow, which drags the table the
+                      // way it drags every other node.
+                      if (!selected || isEditing) return
+                      beginCellSelection(rowIndex, colIndex, event)
+                    }}
+                    onContextMenu={() => selectUnlessInside(rowIndex, colIndex)}
                     onDoubleClick={(event) => {
                       // Must not reach React Flow's onNodeDoubleClick, which sets
                       // isInlineEditing on the node — the effect above reads that
@@ -334,13 +369,36 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
                     // pushed into implicit rows below the table.
                     style={{ fontSize, gridColumn: colIndex + 1, gridRow: rowIndex + 1 }}
                     className={cn(
-                      'flex items-center border-slate-300 px-2 leading-tight text-slate-800',
+                      'relative flex items-center border-slate-300 px-2 leading-tight text-slate-800',
                       colIndex < row.cells.length - 1 && 'border-r',
                       rowIndex < data.rows.length - 1 && 'border-b',
                       isHeader && 'bg-slate-100 font-semibold',
-                      inSelectedAxis && 'bg-blue-100'
+                      // What actually hands the press to the table rather than
+                      // to React Flow, and only once the node is selected: an
+                      // unselected table drags from its body like every other
+                      // node. The `stopPropagation` in `beginCellSelection`
+                      // cannot do this job — React Flow drags from a native
+                      // listener on the node wrapper, which is an ancestor of
+                      // this cell, so it has already run by the time React's
+                      // synthetic handler fires at the root.
+                      selected && !isEditing && 'nodrag'
                     )}
                   >
+                    {/* The selection is an overlay rather than a background, so a
+                        filled cell still shows its fill through it. Only the
+                        outer edges of the range are outlined; a border on every
+                        cell would repaint the table's own gridlines blue. */}
+                    {inSelection && selectedRange && (
+                      <div
+                        className={cn(
+                          'pointer-events-none absolute inset-0 border-blue-500 bg-blue-500/15',
+                          rowIndex === selectedRange.top && 'border-t-2',
+                          rowIndex === selectedRange.bottom && 'border-b-2',
+                          colIndex === selectedRange.left && 'border-l-2',
+                          colIndex === selectedRange.right && 'border-r-2'
+                        )}
+                      />
+                    )}
                     {isEditing ? (
                       // A textarea rather than an input so that editing wraps the
                       // way the rendered cell does; an input would put long text
@@ -415,9 +473,9 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
               key={`col-grip-${index}`}
               axis="column"
               index={index}
-              selected={axisSelection?.axis === 'column' && axisSelection.index === index}
+              selected={selectedAxis === 'column' && selectedRange?.left === index}
               deleteDisabled={singleColumn}
-              onSelect={() => setAxisSelection({ axis: 'column', index })}
+              onSelect={() => selectAxis('column', index)}
               onDelete={() => removeColumn(index)}
               menu={cellMenuItems({ row: 0, col: index })}
             />
@@ -429,9 +487,9 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
               key={`row-grip-${index}`}
               axis="row"
               index={index}
-              selected={axisSelection?.axis === 'row' && axisSelection.index === index}
+              selected={selectedAxis === 'row' && selectedRange?.top === index}
               deleteDisabled={singleRow}
-              onSelect={() => setAxisSelection({ axis: 'row', index })}
+              onSelect={() => selectAxis('row', index)}
               onDelete={() => removeRow(index)}
               menu={cellMenuItems({ row: index, col: 0 })}
             />

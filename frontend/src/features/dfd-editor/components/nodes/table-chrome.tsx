@@ -1,16 +1,19 @@
-import type { ReactNode, CSSProperties } from 'react'
+import { useRef, type ReactNode, type CSSProperties } from 'react'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
+import { TABLE_DRAG_THRESHOLD } from '../../hooks/useTableSelection'
 
 /**
  * The controls drawn around a table node: the grips that select a row or
  * column, and the small buttons that add and remove them.
  *
  * Both are presentation over a few callbacks, so they leave TableNode behind a
- * small props contract. The row and column variants differ only by axis, so
- * they are one component — two would let a fix land in the column version and
- * miss the row one.
+ * small props contract.
+ *
+ * The row and column variants of the grip differ only by axis, so they are one
+ * component — two would let a fix land in the column version and miss the row
+ * one.
  */
 
 /** Thickness of the hit area for a divider drag. */
@@ -107,6 +110,9 @@ export function TableAxisGrip({
   const isColumn = axis === 'column'
   const label = isColumn ? 'Column' : 'Row'
 
+  // Where the press started, to tell a click apart from a drag of the node.
+  const pressRef = useRef<{ x: number; y: number } | null>(null)
+
   return (
     <div
       className="pointer-events-none relative"
@@ -115,11 +121,32 @@ export function TableAxisGrip({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <button
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={onSelect}
+            // The press is deliberately left to bubble, and `nodrag` is absent,
+            // so React Flow turns it into a node drag. The grips are how a
+            // selected table is moved: its cells select instead of dragging it.
+            onPointerDown={(event) => {
+              if (event.button !== 0) return
+              pressRef.current = { x: event.clientX, y: event.clientY }
+            }}
+            // Selection happens on pointerup rather than click because a drag
+            // may or may not suppress the click that follows it, depending on
+            // what React Flow's drag implementation does. pointerup always fires.
+            onPointerUp={(event) => {
+              const press = pressRef.current
+              pressRef.current = null
+              if (!press) return
+              const moved =
+                Math.abs(event.clientX - press.x) >= TABLE_DRAG_THRESHOLD ||
+                Math.abs(event.clientY - press.y) >= TABLE_DRAG_THRESHOLD
+              if (!moved) onSelect()
+            }}
+            // A right-click never runs the pointerup path above, so the axis is
+            // selected here instead. Without it the menu would act on whatever
+            // was selected before, not the row that was aimed at.
+            onContextMenu={onSelect}
             title={`${label} ${index + 1}`}
             className={cn(
-              'nodrag nopan pointer-events-auto absolute flex items-center justify-center border text-slate-400',
+              'nopan pointer-events-auto absolute flex items-center justify-center border text-slate-400',
               isColumn ? 'inset-x-0 rounded-t-sm border-b-0' : 'inset-y-0 rounded-l-sm border-r-0',
               selected
                 ? 'border-blue-400 bg-blue-100 text-blue-600'
@@ -153,3 +180,4 @@ export function TableAxisGrip({
     </div>
   )
 }
+

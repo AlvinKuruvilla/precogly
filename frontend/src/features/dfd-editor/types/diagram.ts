@@ -239,6 +239,21 @@ export function removeTableRow(current: TableNodeData, index: number): Pick<Tabl
   return { rows: current.rows.filter((_, ri) => ri !== index) }
 }
 
+/**
+ * A rectangle of cells, inclusive on all four sides. Always normalized, so
+ * `top <= bottom` and `left <= right` whichever corner a drag started from.
+ */
+export interface TableCellRange {
+  top: number
+  left: number
+  bottom: number
+  right: number
+}
+
+export function tableRangeContains(range: TableCellRange, row: number, col: number): boolean {
+  return row >= range.top && row <= range.bottom && col >= range.left && col <= range.right
+}
+
 /** Set the row count, growing with empty rows or truncating from the bottom. */
 export function setTableRowCount(current: TableNodeData, count: number): Pick<TableNodeData, 'rows'> {
   const target = Math.max(1, Math.floor(count))
