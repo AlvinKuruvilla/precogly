@@ -56,6 +56,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
   const [editing, setEditing] = useState<CellRef | null>(null)
   const [axisSelection, setAxisSelection] = useState<AxisSelection>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Sizes come from the drag hook rather than straight from the data: while a
   // divider or corner is being dragged they are its live values, committed to
@@ -231,7 +232,20 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
 
   /** Insert and delete entries for one cell, used by every cell's right-click. */
   const cellMenuItems = (cell: CellRef) => (
-    <ContextMenuContent className="w-52">
+    <ContextMenuContent
+      className="w-52"
+      // Radix hands focus back to the menu's trigger on close, and does it after
+      // the close animation rather than on the click. That is late enough to
+      // land on a cell the user has already double-clicked into, pulling the
+      // caret out of the textarea a beat after it appeared. The trigger is a
+      // canvas cell with nothing to hand focus back to, so the table's own
+      // container takes it instead — that is what the Delete shortcut listens
+      // on — and nothing takes it while a cell is open.
+      onCloseAutoFocus={(event) => {
+        event.preventDefault()
+        if (!editing) containerRef.current?.focus()
+      }}
+    >
       <ContextMenuItem onSelect={() => insertRow(cell.row)}>
         <ArrowUp />
         Insert row above
@@ -277,6 +291,7 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
     <div
       // w-fit rather than inline-block: an inline-block box carries baseline
       // descender space, which React Flow would measure as extra node height.
+      ref={containerRef}
       className="relative w-fit"
       style={{
         transform: draftOffset ? `translate(${draftOffset.x}px, ${draftOffset.y}px)` : undefined,
