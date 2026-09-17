@@ -10,7 +10,12 @@ import {
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { TABLE_DRAG_THRESHOLD } from '../../hooks/useTableSelection'
-import { TABLE_FILL_COLORS, TABLE_FILL_NAMES, type TableCellFill } from '../../types'
+import {
+  TABLE_FILL_COLORS,
+  TABLE_FILL_NAMES,
+  type TableCellFill,
+  type TableFillSelection,
+} from '../../types'
 
 /**
  * The small pieces of a table node that are presentation over a callback: the
@@ -197,8 +202,10 @@ export function TableAxisGrip({
  * six entries.
  */
 export function TableFillSubmenu({
+  current,
   onSelect,
 }: {
+  current: TableFillSelection
   onSelect: (fill: TableCellFill | undefined) => void
 }) {
   return (
@@ -211,12 +218,17 @@ export function TableFillSubmenu({
         Fill
       </ContextMenuSubTrigger>
       <ContextMenuSubContent className="flex min-w-0 gap-1 p-1">
-        <FillSwatch label="No fill" onSelect={() => onSelect(undefined)} />
+        <FillSwatch
+          label="No fill"
+          selected={current === 'none'}
+          onSelect={() => onSelect(undefined)}
+        />
         {TABLE_FILL_NAMES.map((name) => (
           <FillSwatch
             key={name}
             label={name[0].toUpperCase() + name.slice(1)}
             color={TABLE_FILL_COLORS[name]}
+            selected={current === name}
             onSelect={() => onSelect(name)}
           />
         ))}
@@ -226,25 +238,48 @@ export function TableFillSubmenu({
 }
 
 /**
- * One swatch. The background is an inline style so it beats the menu item's own
+ * One swatch.
+ *
+ * The background is an inline style so it beats the menu item's own
  * `focus:bg-accent`, which would otherwise repaint the swatch grey exactly when
- * it is being aimed at; the focus state is a ring instead.
+ * it is being aimed at.
+ *
+ * Current-ness is a ring rather than a tick inside the square, which is what
+ * Sheets draws. The "no fill" swatch already holds an icon, so a tick would
+ * need a special case at the one place it matters most — telling "this cell is
+ * unfilled" apart from "nothing is chosen". One ring covers all nine.
+ *
+ * `role`/`aria-checked` rather than Radix's RadioItem: these are one-of-nine,
+ * so a screen reader should hear which is set, but RadioItem hard-codes an
+ * indicator dot and the left padding to clear it, neither of which survives a
+ * 24px square.
  */
 function FillSwatch({
   label,
   color,
+  selected,
   onSelect,
 }: {
   label: string
   color?: string
+  selected: boolean
   onSelect: () => void
 }) {
   return (
     <ContextMenuItem
       onSelect={onSelect}
+      role="menuitemradio"
+      aria-checked={selected}
       title={label}
       aria-label={label}
-      className="size-6 justify-center rounded-sm border border-slate-300 p-0 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+      className={cn(
+        'size-6 justify-center rounded-sm border border-slate-300 p-0',
+        // Focus is drawn the same way and declared after, so while a swatch is
+        // being aimed at the blue wins and the selected ring reappears on the
+        // way out.
+        selected && 'ring-2 ring-slate-900 ring-offset-1',
+        'focus:ring-2 focus:ring-blue-500 focus:ring-offset-1'
+      )}
       style={color ? { backgroundColor: color } : undefined}
     >
       {!color && <Ban className="size-3 text-slate-400" />}

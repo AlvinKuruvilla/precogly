@@ -138,7 +138,7 @@ test('fills one cell from its context menu', async ({ page }) => {
   await cell(page, 1, 1).click()
   await cell(page, 1, 1).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Fill' }).click()
-  await page.getByRole('menuitem', { name: 'Green' }).click()
+  await page.getByRole('menuitemradio', { name: 'Green' }).click()
 
   await expect(cell(page, 1, 1)).toHaveCSS('background-color', 'rgb(220, 252, 231)')
   // Its neighbours are untouched.
@@ -163,7 +163,7 @@ test('fills a dragged range of cells', async ({ page }) => {
 
   await cell(page, 2, 1).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Fill' }).click()
-  await page.getByRole('menuitem', { name: 'Blue' }).click()
+  await page.getByRole('menuitemradio', { name: 'Blue' }).click()
 
   for (const [row, col] of [[1, 0], [1, 1], [2, 0], [2, 1]]) {
     await expect(cell(page, row, col)).toHaveCSS('background-color', 'rgb(219, 234, 254)')
@@ -177,7 +177,7 @@ test('fills a whole column from its grip', async ({ page }) => {
   await cell(page, 1, 1).click()
   await page.getByTitle('Column 2').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Fill' }).click()
-  await page.getByRole('menuitem', { name: 'Pink' }).click()
+  await page.getByRole('menuitemradio', { name: 'Pink' }).click()
 
   for (const row of [0, 1, 2]) {
     await expect(cell(page, row, 1)).toHaveCSS('background-color', 'rgb(252, 231, 243)')
@@ -190,7 +190,7 @@ test('a filled cell is still editable, and keeps its fill', async ({ page }) => 
   await cell(page, 1, 1).click()
   await cell(page, 1, 1).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Fill' }).click()
-  await page.getByRole('menuitem', { name: 'Yellow' }).click()
+  await page.getByRole('menuitemradio', { name: 'Yellow' }).click()
 
   // Two things at once. `nodrag` sits on a selected table's cells so a press
   // starts a selection rather than a node drag, and a double-click still has to
@@ -213,7 +213,7 @@ async function fill(page: Page, row: number, col: number, colour: string) {
   await cell(page, row, col).click()
   await cell(page, row, col).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Fill' }).click()
-  await page.getByRole('menuitem', { name: colour, exact: true }).click()
+  await page.getByRole('menuitemradio', { name: colour, exact: true }).click()
 }
 
 test('offers the eight colours every comparable tool has', async ({ page }) => {
@@ -223,7 +223,7 @@ test('offers the eight colours every comparable tool has', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Fill' }).click()
 
   for (const name of ['No fill', 'Gray', 'Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Pink']) {
-    await expect(page.getByRole('menuitem', { name, exact: true })).toHaveCount(1)
+    await expect(page.getByRole('menuitemradio', { name, exact: true })).toHaveCount(1)
   }
 })
 
@@ -363,7 +363,7 @@ test('shift-arrow can fill a block, and a plain arrow collapses it again', async
 
   await cell(page, 1, 1).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Fill' }).click()
-  await page.getByRole('menuitem', { name: 'Red', exact: true }).click()
+  await page.getByRole('menuitemradio', { name: 'Red', exact: true }).click()
 
   for (const [row, col] of [[0, 0], [0, 1], [1, 0], [1, 1]]) {
     await expect(cell(page, row, col)).toHaveCSS('background-color', 'rgb(254, 226, 226)')
@@ -402,4 +402,60 @@ test('shift-arrow stops at the table edge without moving it', async ({ page }) =
   const after = (await cell(page, 0, 0).boundingBox())!
   expect(Math.round(after.x - before.x)).toBe(0)
   expect(Math.round(after.y - before.y)).toBe(0)
+})
+
+/** Open the fill submenu on a cell and read back which swatch is marked current. */
+async function openFillMenu(page: Page, row: number, col: number) {
+  await cell(page, row, col).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  return page.getByRole('menuitemradio', { checked: true })
+}
+
+test('the picker opens showing the fill the cell already has', async ({ page }) => {
+  await insertTable(page, 3, 3)
+  await cell(page, 0, 0).click()
+
+  // An unfilled cell reads as "No fill", which is a real answer and not the
+  // same as nothing being marked.
+  await expect(await openFillMenu(page, 1, 1)).toHaveAccessibleName('No fill')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+
+  await fill(page, 1, 1, 'Green')
+  await expect(await openFillMenu(page, 1, 1)).toHaveAccessibleName('Green')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+
+  // Recolouring moves the mark rather than leaving the old one set.
+  await fill(page, 1, 1, 'Purple')
+  await expect(await openFillMenu(page, 1, 1)).toHaveAccessibleName('Purple')
+})
+
+test('a selection spanning two fills marks neither', async ({ page }) => {
+  await insertTable(page, 3, 3)
+  await cell(page, 0, 0).click()
+
+  await fill(page, 1, 0, 'Red')
+  await fill(page, 1, 1, 'Blue')
+
+  // Both cells at once: they disagree, so no swatch claims to be current.
+  await cell(page, 1, 0).click()
+  await page.keyboard.press('Shift+ArrowRight')
+  await cell(page, 1, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await expect(page.getByRole('menuitemradio', { checked: true })).toHaveCount(0)
+})
+
+test('a whole column of one colour marks that colour', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  await cell(page, 1, 1).click()
+  await page.getByTitle('Column 1').click()
+  await page.getByTitle('Column 1').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await page.getByRole('menuitemradio', { name: 'Yellow', exact: true }).click()
+
+  await page.getByTitle('Column 1').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Fill' }).click()
+  await expect(page.getByRole('menuitemradio', { checked: true })).toHaveAccessibleName('Yellow')
 })

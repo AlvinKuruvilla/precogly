@@ -319,6 +319,41 @@ export function tableRangeContains(range: TableCellRange, row: number, col: numb
 }
 
 /**
+ * Which swatch the fill menu marks as current: the one colour every cell in the
+ * selection carries, `'none'` when none of them is filled, or `'mixed'` when
+ * they disagree.
+ *
+ * `'mixed'` matches no swatch, so a selection spanning two colours marks
+ * neither rather than picking a winner — the same thing Sheets and Notion do,
+ * and the only honest answer when the next click will overwrite both.
+ */
+export type TableFillSelection = TableCellFill | 'none' | 'mixed'
+
+export function commonTableCellFill(
+  rows: TableRow[],
+  range: TableCellRange | null
+): TableFillSelection {
+  if (!range) return 'mixed'
+
+  let common: TableCellFill | undefined
+  let seenOne = false
+
+  for (let row = range.top; row <= range.bottom; row++) {
+    for (let col = range.left; col <= range.right; col++) {
+      const fill = rows[row]?.cells[col]?.fill
+      if (!seenOne) {
+        common = fill
+        seenOne = true
+      } else if (fill !== common) {
+        return 'mixed'
+      }
+    }
+  }
+
+  return seenOne ? (common ?? 'none') : 'mixed'
+}
+
+/**
  * Fill every cell in `range`; `undefined` clears them back to no fill.
  *
  * The fill is written into each cell rather than onto the row or column, so a

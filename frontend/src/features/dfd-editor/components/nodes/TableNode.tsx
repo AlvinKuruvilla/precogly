@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useTableDrag } from '../../hooks/useTableDrag'
 import { useTableSelection } from '../../hooks/useTableSelection'
 import {
+  commonTableCellFill,
   insertTableColumn,
   insertTableRow,
   removeTableColumn,
@@ -306,6 +307,13 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
           selected at all, which is the state a table is in until its first
           click. */}
       <TableFillSubmenu
+        // What the selection already carries, so the picker opens showing it.
+        // Falls back to the right-clicked cell for the same reason the fill
+        // target does: a menu can be opened before anything is selected.
+        current={commonTableCellFill(
+          data.rows,
+          selectedRange ?? { top: cell.row, bottom: cell.row, left: cell.col, right: cell.col }
+        )}
         onSelect={(fill) =>
           fillCells(
             selectedRange ?? { top: cell.row, bottom: cell.row, left: cell.col, right: cell.col },
