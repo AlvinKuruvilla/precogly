@@ -132,6 +132,25 @@ test('deselecting the table drops the cell selection with it', async ({ page }) 
   expect(await selectedCells(page)).toEqual([])
 })
 
+test('a press on a cell dismisses the context menu, and still selects', async ({ page }) => {
+  await insertTable(page, 3, 3)
+
+  // The menu is drawn down-right of the press and Playwright will not click a
+  // cell it covers, so open at the last cell and dismiss from the first.
+  await cell(page, 2, 2).click()
+  await cell(page, 2, 2).click({ button: 'right' })
+  await expect(page.getByRole('menu')).toBeVisible()
+
+  // Radix dismisses from a `pointerdown` on `document`, so a cell that stops
+  // propagation leaves the menu open. Only a selected table takes the pointer,
+  // which is why the bug needed one: on an unselected table the menu closed.
+  await cell(page, 0, 0).click()
+  await expect(page.getByRole('menu')).toBeHidden()
+
+  // Letting the press through to `document` must not hand it back to React Flow.
+  expect(await selectedCells(page)).toEqual(['0,0'])
+})
+
 test('fills one cell from its context menu', async ({ page }) => {
   await insertTable(page, 3, 3)
 

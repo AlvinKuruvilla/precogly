@@ -568,7 +568,11 @@ export const TableNode = memo(function TableNode({ id, data, selected }: NodePro
                           handleCellKeyDown(event, { row: rowIndex, col: colIndex })
                         }
                         onBlur={() => setEditing(null)}
-                        onMouseDown={(event) => event.stopPropagation()}
+                        // No `onMouseDown` stop: `nodrag` below stops the drag and
+                        // no ancestor handles `mousedown`. See `beginCellSelection`
+                        // for what a stop costs — not here, though: opening the
+                        // menu blurs this textarea and unmounts it, so no layer is
+                        // ever open over it.
                         // overflow-hidden so the growing textarea never shows a
                         // scrollbar; its height always matches its content, so
                         // nothing is hidden.

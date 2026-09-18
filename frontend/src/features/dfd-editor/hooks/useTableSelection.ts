@@ -181,11 +181,13 @@ export function useTableSelection(
       // the menu's own trigger has already handled it.
       if (event.button !== 0) return
 
-      // Keeps the press away from React Flow's own React-level handlers. It is
-      // not what stops the node being dragged — that is the `nodrag` class
-      // TableNode puts on a selected table's cells, because React Flow drags
-      // from a native listener that has already run by the time this fires.
-      event.stopPropagation()
+      // No `stopPropagation` here, deliberately. React's stops the native event
+      // at the root container, and Radix dismisses layers from a `pointerdown`
+      // on `document` above it, so a stop leaves an open context menu open.
+      //
+      // Nothing needs one: `nodrag` on a selected table's cells stops the drag,
+      // and no ancestor handles `pointerdown` (@xyflow/react 12.10.0 — its only
+      // React-level one is on `Handle`, a descendant; the pane's is capture).
 
       // The pressed cell is both the selection and the corner a drag grows from.
       const anchor = { row, col }
