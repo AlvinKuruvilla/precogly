@@ -52,9 +52,9 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 - Methodologies on the model (STRIDE by default; spec values or a custom name). The STRIDE summary in reports shows only when STRIDE is among them.
 - The scope lock is replaced by review and approval: **Mark reviewed**, **Approve** (Security Team), **Revoke**, with a sign-off view that lists unverified assumptions and open risks. A content digest decides **Changed since approval**; undoing the change restores the approval. Lifecycle phase, validity period, and review frequency sit under Advanced, and **Review due** shows when the validity period has passed. Closes #348.
 - Each model has a primary system (optional) chosen from the inventory, or created in place; the **Systems** page under Settings shows which models use each system. A system that is some model's primary system cannot be deleted on its own; deleting one that is only linked from diagrams unlinks and deletes nothing inside models.
-- Related models have a type (depends on, is a subsystem of, is related to, is superseded by) with loop checks; the model page lists links in both directions.
+- Related models have a type (depends on, is a subsystem of, is related to, is superseded by) with loop checks; the Overview tab lists links in both directions.
 - Every model has a serial number and a version; **Copy BOM-Link** copies `urn:cdx:<serial>/<version>`.
-- Use cases that arrive with an import are listed read-only on the model page.
+- Use cases and abuse cases are editable. A use case leads to abuse cases, an abuse case leads to threats, and threats lead to countermeasures; every link to the diagram, a persona, or a business objective is optional. Threat analysis gains a third view, **By use case**, with gap badges that do not change the completion score. A threat's detail panel shows **From abuse cases**. Editing them shows **Changed since approval**, covered by the one-time change already listed above. Import and export read and write the links, with two new properties named `precogly:abuse-cases`. See [Use Cases and Abuse Cases](concepts/use-cases-and-abuse-cases.md) and the [API overview](api/overview.md).
 
 ### Import and export
 
@@ -86,7 +86,7 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 
 ### Credits
 
-- The countermeasure `source` field, the `satisfies` import with snapshots for frameworks that are not installed, the evidence external reference, object-form requirement snapshots, the overdue filter, and the CycloneDX POA&M groundwork came from PR #559 by [JJediny](https://github.com/JJediny) and were absorbed into this branch. The ported tests keep a note of their origin.
+- The countermeasure `source` field, the `satisfies` import with snapshots for frameworks that are not installed, the evidence external reference, the overdue filter, and the CycloneDX POA&M groundwork came from PR #559 by [JJediny](https://github.com/JJediny) and were absorbed into this branch. The ported tests keep a note of their origin.
 
 ---
 

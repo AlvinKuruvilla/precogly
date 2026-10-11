@@ -160,7 +160,7 @@ map of the public resources and custom actions.
 | `GET` | `/api/threat-models/{id}/` | Retrieve threat model |
 | `PUT/PATCH` | `/api/threat-models/{id}/` | Update threat model |
 | `DELETE` | `/api/threat-models/{id}/` | Delete threat model |
-| `GET` | `/api/threat-models/{id}/threats/` | Aggregated threat analysis |
+| `GET` | `/api/threat-models/{id}/threats/` | Aggregated threat analysis; each threat carries `abuse_cases` (the shared magic-link view does not) |
 | `GET` | `/api/threat-models/{id}/report/` | Full report data |
 | `GET` | `/api/threat-models/{id}/delete_preview/` | Preview cascade before deletion |
 | `POST` | `/api/threat-models/{id}/add_referenced_model/` | Add a model relationship (`referenced_model_id`, `relation_type`: `depends_on`, `subsystem_of`, `related_to`, `superseded_by`) |
@@ -188,7 +188,7 @@ The threat model detail carries `primary_system`, `primary_system_name`, `method
 | `GET/PUT/PATCH/DELETE` | `/api/threat-models/{id}/blueprints/{id}/` | Retrieve, update, or delete; the last blueprint cannot be deleted |
 | `GET` | `/api/threat-models/{id}/blueprints/{id}/delete_preview/` | What a delete removes: counts per row type, threats deleted, threats that lose targets |
 
-**Assumptions, business objectives, use cases** (nested under threat model):
+**Assumptions, business objectives, use cases, abuse cases** (nested under threat model):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -196,8 +196,12 @@ The threat model detail carries `primary_system`, `primary_system_name`, `method
 | `GET/PUT/PATCH/DELETE` | `/api/threat-models/{id}/assumptions/{id}/` | Retrieve, update, or delete |
 | `GET/POST` | `/api/threat-models/{id}/business-objectives/` | List or create (`name`, `description`, `criticality`, `owner`, `owner_name`); each carries threat and risk counts |
 | `GET/PUT/PATCH/DELETE` | `/api/threat-models/{id}/business-objectives/{id}/` | Retrieve, update, or delete |
-| `GET` | `/api/threat-models/{id}/use-cases/` | List use cases that arrived with an import (read-only) |
-| `GET/DELETE` | `/api/threat-models/{id}/use-cases/{id}/` | Retrieve or delete |
+| `GET/POST` | `/api/threat-models/{id}/use-cases/` | List or create use cases. Read: `name`, `description`, `flow_data`, `display_order`, `components` and `flows` (`[{id, name, blueprint_id}]`; a flow also has `source_name`, `destination_name`), `business_objectives` (`[{id, name}]`), `abuse_case_count`. Write-only: `component_ids`, `flow_ids`, `business_objective_ids`. Each replaces the links it names; `[]` clears them; an omitted field leaves them alone; an id from another model gives 400 `Not part of this threat model.` |
+| `GET/PUT/PATCH/DELETE` | `/api/threat-models/{id}/use-cases/{id}/` | Retrieve, update, or delete |
+| `GET/POST` | `/api/threat-models/{id}/abuse-cases/` | List or create abuse cases. Read: `name`, `flow_data` (`preconditions`, `main_flow`, `detection_opportunities`), `display_order`, `abuser` (`{id, name}` or `null`), `use_cases`, `components`, `flows`, `threats` (`[{id, number, display_number, name}]`), `unlinked_realizes` (`[{library_threat_id, name}]` or `[{ref, name}]`), and read-only `mitigations` (controls an imported file named). Write-only: `abuser_id`, `use_case_ids`, `component_ids`, `flow_ids`, `threat_ids`, with the same rules as the use case links. An abuse case has no `description` |
+| `GET/PUT/PATCH/DELETE` | `/api/threat-models/{id}/abuse-cases/{id}/` | Retrieve, update, or delete |
+
+`flow_data` is checked on write. A step needs a `description` and is numbered again from 1. An alternative flow or exception needs a `name` and a `condition`. Exception `handling` is one string. Repeated entries are dropped, and unknown keys are kept. A write with a problem gets 400; an import drops the bad entry with a warning. Creating, updating, or deleting a use case or abuse case changes the approval digest, so the model shows **Changed since approval**. A viewer cannot write.
 
 **Reference images** (nested under threat model):
 
@@ -282,7 +286,7 @@ A list that holds `none` beside other values is rejected with `400`.
 | `GET/POST` | `/api/threat-library/` | Browse or create library threats |
 | `GET/PUT/PATCH/DELETE` | `/api/threat-library/{id}/` | Library threat CRUD |
 | `GET/POST` | `/api/component-library-threats/` | Map library threats to library components |
-| `GET/POST` | `/api/threats/` | List or create threats. One table for every scenario: `number` and `display_number` (`T7`, read-only), `whole_system`, `targets` (read as `[{type, id, name, blueprint_id}]`, written as `[{type, id}]` with `type` in `component`, `flow`, `zone`, `boundary`), `rating` (read) and `rating_inputs` (write), `actor_persona` or `threat_actor_text` (never both), `business_objective_ids`, `threat_sources` (read, `[{id, name, slug}]`) and `threat_source_ids` (write, ids from `/api/threat-sources/`; `[]` clears them), `auto_generated` (read-only). Filters: `threat_model`, `threat_library`, `status`, `triage_status`, `rating__level`, `number`, `whole_system`, `component`, `flow`, `zone`, `boundary`, `blueprint`; `search` matches the name or `T7` |
+| `GET/POST` | `/api/threats/` | List or create threats. One table for every scenario: `number` and `display_number` (`T7`, read-only), `whole_system`, `targets` (read as `[{type, id, name, blueprint_id}]`, written as `[{type, id}]` with `type` in `component`, `flow`, `zone`, `boundary`), `rating` (read) and `rating_inputs` (write), `actor_persona` or `threat_actor_text` (never both), `business_objective_ids`, `threat_sources` (read, `[{id, name, slug}]`) and `threat_source_ids` (write, ids from `/api/threat-sources/`; `[]` clears them), `abuse_cases` (read, `[{id, name}]`) and `abuse_case_ids` (write; on create it links the new threat to those abuse cases, on update it replaces the links; `[]` clears them), `auto_generated` (read-only). Filters: `threat_model`, `threat_library`, `status`, `triage_status`, `rating__level`, `number`, `whole_system`, `component`, `flow`, `zone`, `boundary`, `blueprint`; `search` matches the name or `T7` |
 | `GET/PUT/PATCH/DELETE` | `/api/threats/{id}/` | Threat CRUD |
 | `GET` | `/api/threats/{id}/suggested_countermeasures/` | Countermeasure suggestions from library |
 | `POST` | `/api/threats/{id}/apply_countermeasure/` | Apply a library countermeasure |
@@ -448,6 +452,7 @@ Paths and fields renamed or removed by the TM-BOM alignment:
 | Report keys `component_threats`, `data_flow_threats`, `trust_zones`, `trust_boundaries`, `data_flows`, `inherited`, `total_inherited` | `threats`, `zones`, `boundaries`, `flows`; `unattached` and `total_unattached` are new |
 | `risk_scoring_method` values `tm_library`, `owasp_rr`, `mozilla_rra`, `custom` | `qualitative-matrix`, `owasp-risk-rating`, `fair`, `mozilla-rra` |
 | Flow `authenticated` (boolean) | `authentication` and `authorization` lists |
+| `/api/threat-models/{id}/use-cases/` read and delete only | Full create, update, delete; new `/abuse-cases/`; `abuse_case_ids` on threats |
 | Boundary `authentication`, `authorization`, `rate_limiting` (booleans) | `authentication` and `authorization` lists, `rate_limit` text |
 | `format_metadata` writable | Read-only everywhere |
 | Persona links on threats | `actor_persona` on the threat |

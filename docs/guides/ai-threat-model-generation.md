@@ -10,6 +10,7 @@ A single `.cdx.json` file containing:
 - Threats identified using the STRIDE methodology, each as a scenario with one or more targets
 - Countermeasures (controls) for each threat
 - Risk assessments linking scenarios to business impact
+- Optionally, use cases (what the system is for) and abuse cases (how an attacker misuses each one), linked to the threats they lead to
 
 The user will import this file into Precogly, where they can refine the diagram, adjust threat triage decisions, map controls to compliance frameworks, and generate reports.
 
@@ -42,6 +43,7 @@ Ask the user about their system. You need enough information to draw a Data Flow
 6. **Zones**: What are the major security boundaries? Aim for 2-4 zones (e.g., external, internal, third-party services). Only add a zone when it represents a genuinely distinct trust level or network.
 7. **Boundaries**: Which zone transitions are the most security-critical? Focus on the 1-3 boundaries where the trust level gap is largest and specific controls are required.
 8. **Assumptions**: What security assumptions is the design built on? (e.g., "Internal network traffic is encrypted", "Database backups are encrypted at rest")
+9. **Use cases** (optional): What do users do with the system, step by step? (e.g., "Book an appointment: sign in, pick a free slot, confirm")
 
 The user may also provide supporting artifacts such as PRDs, architecture documents, sequence diagrams, state diagrams, UML diagrams, or C4 models. Use these to extract components, data flows, trust boundaries, and other details rather than asking the user to repeat information that is already documented.
 
@@ -82,9 +84,12 @@ Produce a JSON object with the exact structure documented below. It must validat
   "blueprints": [ <one blueprint object> ],
   "controls": [ <array of control objects> ],
   "threats": { <threats block> },
-  "risks": { <risks block> }
+  "risks": { <risks block> },
+  "definitions": { "useCases": [ <use case objects> ] }
 }
 ```
+
+`definitions` is optional; include it only when you write use cases.
 
 Required fields at the top level:
 
@@ -113,9 +118,12 @@ The `blueprints` array must contain exactly one blueprint object:
   "dataStores": [ ... ],
   "dataSets": [ ... ],
   "flows": [ ... ],
-  "assumptions": [ ... ]
+  "assumptions": [ ... ],
+  "useCases": [ ... ]
 }
 ```
+
+`useCases` is optional (see "Use cases and abuse cases" below).
 
 #### Zones
 
@@ -353,7 +361,7 @@ STRIDE category values (use exactly these, with `"taxonomy": "STRIDE"` in capita
 - Bad: "SQL injection is not prevented"
 - Good: "Attacker crafts malicious SQL in user input fields to extract or modify patient records from the database, bypassing application-layer access controls"
 
-`affectedAssets` references the `bom-ref` of any asset, data store, or flow this threat targets.
+`affectedAssets` on an abstract threat is optional and informational: it is kept in the file, but Precogly takes a threat's targets from its scenarios' `affectedAssets` only. Write the targets on the scenarios.
 `mitigations` references the `bom-ref` of controls that address this threat. Precogly links every control listed here to every scenario of the threat.
 
 #### Scenarios
@@ -373,7 +381,7 @@ Each scenario is one concrete threat in Precogly. It gets a number (`T1`, `T2`, 
 - `name` and `threats` are required. List exactly one abstract threat; a scenario that lists several is split into one threat per entry on import
 - Each abstract threat needs at least one scenario
 - `affectedAssets` lists everything the scenario targets: assets, data stores, flows, zones, or boundaries. One scenario with three targets is one threat on three targets in Precogly. Use `metadata.component`'s `bom-ref` for a threat that applies to the whole system
-- `riskScore.level` is the threat's rating level
+- `riskScore.level` is the threat's rating level, shown as **Severity** in Precogly
 
 Optional scenario fields:
 
@@ -438,6 +446,60 @@ Optional fields:
 - `"appliesTo"`: which assets, data stores, flows, zones, or boundaries this control covers. Leave it out when the control applies to the whole system. This is the control's scope; it does not link the control to a threat
 - `"effectiveness"`: `{"percentage": 0.85}` (0.0 to 1.0)
 - A `precogly:mitigates` property with a JSON array of scenario refs, when a control should be linked to some scenarios of a threat but not all. Without it, the abstract threat's `mitigations` links the control to every scenario of that threat
+
+### Use cases and abuse cases (optional)
+
+Write these when the user describes what the system is for. They give a second way into the analysis: use case, then abuse case, then the threats it leads to, then their controls. Precogly shows them in the **By use case** view of threat analysis.
+
+- A **use case** is what a user does with the system, step by step.
+- An **abuse case** is how an attacker misuses one use case, step by step, in the use case's own terms. Its steps mirror the use case's steps; it is not the attacker's wider operation (obtaining credentials, cashing out) and not a weakness. It is not rated; the threats it leads to are.
+
+A use case goes in `definitions.useCases`:
+
+```json
+{
+  "bom-ref": "usecase-<slug>-<n>",
+  "name": "<Verb phrase, e.g. Book an appointment>",
+  "description": "<optional>",
+  "preconditions": ["<optional>"],
+  "mainFlow": [
+    { "number": 1, "description": "<step>" },
+    { "number": 2, "description": "<step>" }
+  ],
+  "properties": [
+    { "name": "precogly:abuse-cases", "value": "[\"abusecase-<slug>-<n>\"]" }
+  ]
+}
+```
+
+- Steps are numbered from 1; every step needs a `description`. Every list holds each entry once
+- `precogly:abuse-cases` names the abuse cases that misuse this use case, as a JSON array inside the string value. The spec has no field for this link
+
+The blueprint links each use case to the parts of the diagram it involves, in its `useCases` list:
+
+```json
+{ "ref": "usecase-<slug>-<n>", "assets": ["<asset-or-data-store-bom-ref>", ...], "flows": ["<flow-bom-ref>", ...] }
+```
+
+An abuse case goes in `threats.abuseCases`:
+
+```json
+{
+  "bom-ref": "abusecase-<slug>-<n>",
+  "name": "<e.g. Sign in as another patient>",
+  "preconditions": ["<optional>"],
+  "mainFlow": [
+    { "number": 1, "description": "<step that mirrors a use case step>" }
+  ],
+  "targets": ["<asset-data-store-or-flow-bom-ref>", ...],
+  "realizes": ["<abstract-threat-bom-ref>", ...],
+  "detectionOpportunities": ["<optional>"]
+}
+```
+
+- An abuse case allows only these fields (plus `abuser` and `mitigations`). It has no `description` and no `properties`
+- `realizes` names abstract threats. When such a threat has several scenarios, add a `precogly:abuse-cases` property (a JSON array of abuse case refs) to the scenarios this abuse case leads to; otherwise Precogly links the scenarios whose targets overlap the abuse case's `targets`, and links none when nothing overlaps
+- `abuser` is optional. It must be the `bom-ref` of an actor in the blueprint's `actors`; leave it out otherwise
 
 ### Risks block
 
@@ -518,6 +580,7 @@ Before delivering the JSON to the user, check:
 8. **Lists, not booleans**: `authentication` and `authorization` on boundaries and flows are lists; `rateLimit` is a string; the other crossing requirements are booleans present only when true
 9. **Zone assignments**: External systems (third-party APIs, SaaS providers, identity providers) must be in external/untrusted zones, not internal zones
 10. **Required fields**: every data set has a `description`; every scenario has a `name`; every risk has a `statement`; every response has a `bom-ref`; every data store has a `type`
+11. **Use cases and abuse cases** (when present): every step has a `number` from 1 and a `description`; every `realizes` entry is an abstract threat ref; every `precogly:abuse-cases` entry is an abuse case ref; an abuse case has no `description` or `properties`
 
 ---
 
@@ -527,7 +590,7 @@ Provide the complete JSON to the user. Instruct them to:
 
 1. Save the file with a `.cdx.json` extension (e.g., `my-system-threat-model.cdx.json`)
 2. Either import it into their Precogly account via **Threat Models > Import**, which creates a new model and generates a diagram from the zones, assets, data stores, and flows, or
-3. Open Precogly's **Guest Editor** at [https://precogly.org/guest](https://precogly.org/guest) (no account required), click **Open** and select the `.cdx.json` file. The guest editor draws the same diagram, lets the user refine the layout and the threats, and saves the file back with the layout included. Risks and anything else the guest editor does not show are kept in the file.
+3. Open Precogly's **Guest Editor** at [https://precogly.org/guest](https://precogly.org/guest) (no account required), click **Open** and select the `.cdx.json` file. The guest editor draws the same diagram, lets the user refine the layout and the threats, and saves the file back with the layout included. Risks, use cases, abuse cases and anything else the guest editor does not show are kept in the file; the signed-in workspace shows use cases and abuse cases in the **By use case** view.
 
 Precogly reports every schema finding and every element it could not store as a warning on import; nothing is rejected. Tell the user to read the import summary.
 
@@ -736,6 +799,13 @@ Here is a minimal but complete example for a simple web application. It validate
           "validity": "unverified",
           "topic": "security"
         }
+      ],
+      "useCases": [
+        {
+          "ref": "usecase-view-records-1",
+          "assets": ["asset-patient-1", "asset-web-app-1", "asset-idp-1"],
+          "flows": ["flow-patient-to-web-1"]
+        }
       ]
     }
   ],
@@ -844,7 +914,10 @@ Here is a minimal but complete example for a simple web application. It validate
         "affectedAssets": ["asset-web-app-1", "flow-patient-to-web-1"],
         "intent": "opportunistic",
         "accessLevel": "external",
-        "riskScore": { "level": "high" }
+        "riskScore": { "level": "high" },
+        "properties": [
+          { "name": "precogly:abuse-cases", "value": "[\"abusecase-other-patient-1\"]" }
+        ]
       },
       {
         "bom-ref": "scenario-broken-auth-idp-1",
@@ -867,6 +940,21 @@ Here is a minimal but complete example for a simple web application. It validate
         "threats": ["threat-dos-1"],
         "affectedAssets": ["asset-web-app-1"],
         "riskScore": { "level": "medium" }
+      }
+    ],
+    "abuseCases": [
+      {
+        "bom-ref": "abusecase-other-patient-1",
+        "name": "Sign in as another patient",
+        "preconditions": ["The attacker has a list of leaked email and password pairs"],
+        "mainFlow": [
+          { "number": 1, "description": "Open the patient portal" },
+          { "number": 2, "description": "Sign in with another patient's leaked credentials, retrying until one works" },
+          { "number": 3, "description": "View that patient's medical records" }
+        ],
+        "targets": ["asset-web-app-1", "flow-patient-to-web-1"],
+        "realizes": ["threat-broken-auth-1"],
+        "detectionOpportunities": ["Many failed sign-ins from one address", "Sign-ins to many accounts from one device"]
       }
     ]
   },
@@ -923,6 +1011,24 @@ Here is a minimal but complete example for a simple web application. It validate
             "status": "planned",
             "controls": ["control-rate-limiting-1"]
           }
+        ]
+      }
+    ]
+  },
+  "definitions": {
+    "useCases": [
+      {
+        "bom-ref": "usecase-view-records-1",
+        "name": "View my medical records",
+        "description": "A patient signs in and reads their own records.",
+        "preconditions": ["The patient has an account"],
+        "mainFlow": [
+          { "number": 1, "description": "Open the patient portal" },
+          { "number": 2, "description": "Sign in with the identity provider" },
+          { "number": 3, "description": "View own medical records" }
+        ],
+        "properties": [
+          { "name": "precogly:abuse-cases", "value": "[\"abusecase-other-patient-1\"]" }
         ]
       }
     ]

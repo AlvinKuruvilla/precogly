@@ -15,6 +15,12 @@ The left panel is a tree of everything a threat can target:
 
 When the model has more than one blueprint the tree gains one level, named after the blueprint. Select any entry to see its threats; zones and boundaries can be selected like components. **Table** switches to a flat, sortable list with a **Targets** column, and the search box understands numbers, so `T7` finds threat 7.
 
+## Three views
+
+The left panel has three views. **Component** is the tree above. **Table** is the flat list. **By use case** starts from what the system is for: the tree lists use cases, each with its abuse cases below it, and abuse cases with no use case sit under **Not linked to a use case**. Select a use case or an abuse case to see the threats that come from it. The countermeasures column works as in the component view.
+
+A threat is the same row in every view, so an edit in one shows in the others. In **By use case**, select an abuse case and click **Add** above the threat list: the dialog fills in the abuser as actor and the abuse case's targets. Gap badges mark use cases without abuse cases and abuse cases without threats; they do not change the [completion score](completion-status.md). See [Use Cases and Abuse Cases](use-cases-and-abuse-cases.md).
+
 ## Numbers
 
 Every threat has a number such as `T7` and every countermeasure a number such as `C3`. Numbers are handed out per model, never reused (deleting `T4` leaves a gap), and travel with the model through export and import. Use them in tickets, reports, and reviews.
@@ -31,7 +37,9 @@ Threats carry taxonomy tags from your imported [library packs](library-packs.md)
 
 ## Rating a threat
 
-Each threat carries a rating with a level: **info**, **low**, **medium**, **high**, or **critical**. The same rating form is used for threats and risks:
+A threat's **Categories** (STRIDE, CAPEC, CWE, ATT&CK and other installed taxonomies) are edited in the threat detail panel and saved as you pick. The categories of the model's methodologies show as one-click chips; **More categories** searches the rest by id or name. A library threat's own categories are shown locked.
+
+Each threat carries a rating. The UI shows its level as **Severity**, how bad it is if the threat happens: **info**, **low**, **medium**, **high**, or **critical** (the TM-BOM file calls it the rating's `level`). The same rating form is used for threats and risks:
 
 | Method | What you enter | What you get |
 | ------ | -------------- | ------------ |
@@ -46,6 +54,8 @@ Threats are rated with the matrix or a manual level. Risks use the scoring metho
 A threat has one actor: a persona, one of the built-in actors (State Actor, Hacktivist, Insider Threat, Competitor, Organized Crime, Opportunist), free text, or none. **Manage personas** in the actor picker creates and edits personas (name, description, person or system, malicious intent, skill level, motivation, resources, objectives) and says how many threats use each one.
 
 Once the model has at least one business objective, a picker lets you say which objectives a threat puts at risk. **Threat sources** says where a threat comes from, using the four NIST SP 800-30 sources: adversarial, accidental, structural, and environmental. Tick any that apply in the threat's detail panel. Intent and access level are shown read-only when an import set them.
+
+A threat's detail panel shows **From abuse cases** when abuse cases lead to it. Each name is a link that opens the **By use case** view with that abuse case selected.
 
 ## Countermeasures
 

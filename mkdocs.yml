@@ -44,6 +44,7 @@ nav:
       - Library Packs: concepts/library-packs.md
       - DFD Editor: concepts/dfd-editor.md
       - Threat Analysis: concepts/threat-analysis.md
+      - Use Cases and Abuse Cases: concepts/use-cases-and-abuse-cases.md
       - Threat Model as Code: concepts/threat-model-as-code.md
       - Zones and Boundaries: concepts/zones-and-boundaries.md
       - Platform Controls: concepts/platform-controls.md

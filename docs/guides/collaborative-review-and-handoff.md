@@ -180,7 +180,7 @@ report when a future reviewer must compare the model with the delivered evidence
 
 ## Review and approve the model
 
-The **Review** card on the model page records who reviewed and who approved the model.
+The **Review** card on the threat model's **Overview** tab records who reviewed and who approved the model.
 
 1. A reviewer clicks **Mark reviewed**. The card shows the reviewer and the date.
 2. A **Security Team** member clicks **Approve**. The sign-off view first lists what is still open: assumptions that are not verified, and risks still in the Identified status. It informs; it does not block. **Approve anyway** records the approval with the approver and the date.

@@ -18,7 +18,7 @@ A **System Scope** node on a DFD stands for a system or subsystem the diagram to
 
 ![A System Scope node on the DFD canvas](../assets/images/connected-dfd-system-scope.png)
 
-The scope node's panel has an optional **Linked inventory system**. Pick one to say "this box stands for that system in the inventory". Drawing or deleting a scope box never creates or deletes inventory rows; it only links to one. The model page lists the system assets of all blueprints under the primary system.
+The scope node's panel has an optional **Linked inventory system**. Pick one to say "this box stands for that system in the inventory". Drawing or deleting a scope box never creates or deletes inventory rows; it only links to one. The threat model's **Overview** tab lists the system assets of all blueprints under the primary system.
 
 The per-component "System" select is gone. A component's system is the scope box that encloses it.
 
@@ -43,7 +43,7 @@ Each link has a type, worded from this model's side:
 | **is related to** | An informational cross-reference (the default) | Stored once per pair; adding it from the other side returns the existing link |
 | **is superseded by** | The other model replaces this one | Must not form a loop |
 
-A model cannot be linked to itself. The model page lists links in both directions, so a model that is the target of "is a subsystem of" shows the other model as containing it.
+A model cannot be linked to itself. The threat model's **Overview** tab lists links in both directions, so a model that is the target of "is a subsystem of" shows the other model as containing it.
 
 Related models have no effect on threats or counts. They are exported as system assets carrying a BOM-Link to the other model's serial number and version; "depends on" and "is a subsystem of" are also written as blueprint relationships. On import, a BOM-Link is resolved to a model in your organization when one carries that serial number, and the import warns when it cannot be resolved or when two models carry it.
 

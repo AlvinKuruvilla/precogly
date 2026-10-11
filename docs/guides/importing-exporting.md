@@ -28,7 +28,7 @@ The browser downloads a file named after your threat model, such as `payment-pro
 
 The document's `serialNumber` is the model's own serial number, a UUID URN assigned when the model is created and never changed. Its `version` starts at 1 and goes up only when the exported content differs from the previous export (serial number, version, timestamps, and the version part of BOM-Links to other models are left out of that comparison). Exporting twice without a change gives the same version twice.
 
-Together they form a BOM-Link, `urn:cdx:<serial number>/<version>`, which other documents use to point at this model. **Copy BOM-Link** on the model page copies it; both values are shown read-only under Advanced in the model details.
+Together they form a BOM-Link, `urn:cdx:<serial number>/<version>`, which other documents use to point at this model. **Copy BOM-Link** on the threat model's **Overview** tab copies it; both values are shown read-only under Advanced in the model details.
 
 ### What's included
 
@@ -100,7 +100,8 @@ The export reads the live model. The tables below say where each Precogly concep
 |----------|--------|
 | Business objective | `definitions.businessObjectives[]` |
 | Compliance framework and requirement | `definitions.standards[]` and their `requirements[]` |
-| Use case (import and export only) | `definitions.useCases[]` and the blueprint's `useCases` links |
+| Use case | `definitions.useCases[]` with `businessObjectives`, and `precogly:abuse-cases` (refs of the abuse cases that misuse it). Its components and flows are written as each blueprint's `useCases[]` entries (`assets`, `flows`, data store refs included) and as `useCases` on each process or actor asset, never on a `dataStores` entry |
+| Abuse case | `threats.abuseCases[]` with `name`, `abuser` (the persona's actor), `preconditions`, `mainFlow`, `detectionOpportunities`, `targets` (components and flows), `realizes` (the abstract threats of its threats), and kept `mitigations`. The abstract threat's `abuseCases` lists the abuse cases that realize it. The spec gives an abuse case no description and no properties |
 
 ### Precogly properties
 
@@ -170,9 +171,29 @@ Everything Precogly stores that has no field in the schema is written as a `prec
 | `precogly:placements` | data-set | json | Per placement, what the spec placement cannot hold: [{dataStore, dataState, volume}]. |
 | `precogly:flow-data` | flow | json | Per data set the flow carries, how it is protected: [{dataSet, protectionMethod, encryptionType, format, sensitivityOverride}]. |
 | `precogly:assigned-to` | risk | string | Party ref of the person the risk is assigned to; the owner is the spec field. |
+| `precogly:abuse-cases` | use-case | json | Refs of the abuse cases that misuse this use case; the spec has no field for that link. |
+| `precogly:abuse-cases` | scenario | json | Refs of the abuse cases this scenario comes from. The abuse case's realizes names the abstract threat only, which several scenarios share. |
 
 !!! tip
     Other tools can ignore every `precogly:` property; the standard fields carry the model. When the file comes back to Precogly, the properties restore the numbers, triage decisions, scope, and the rest.
+
+### Use cases and abuse cases
+
+Use cases and abuse cases are stored as rows and are editable in the app. See [Use Cases and Abuse Cases](../concepts/use-cases-and-abuse-cases.md).
+
+On import:
+
+- A use case's `businessObjectives`, each blueprint's `useCases[]` (`assets`, `flows`) and each process or actor asset's `useCases` become the use case's links to business objectives, components, and flows.
+- Each entry of `threats.abuseCases[]` becomes an abuse case. Its `abuser` becomes the persona the actor turned into, or is kept as a ref. Its `targets` become links to components and flows. Its use cases come from `precogly:abuse-cases` on each use case.
+- `realizes` names an abstract threat, and one abstract threat can have several scenarios. Precogly links the scenarios in this order: first the scenarios whose `precogly:abuse-cases` property names the abuse case, then the scenarios of that threat whose targets overlap the abuse case's targets. If neither finds a scenario, nothing is linked. The abuse case keeps the `realizes` ref and shows "Realizes library threat X, not linked to a threat in this model". `threat.abuseCases` on an abstract threat is read the same way.
+- A step with no description, or an alternative flow or exception with no name or condition, is dropped with a warning. Exception handling must be one string. Repeated entries are dropped, and steps are numbered again from 1. Other keys, such as a step's `actor`, are kept.
+- Requirements, step actors, and refs that resolve to nothing are kept and written back.
+
+On export:
+
+- Kept refs that no longer resolve are left out with a warning naming the use case or abuse case: an `abuser`, a `targets`, `realizes` or `mitigations` entry, a step `actor`, or a use case's `businessObjectives` entry. For example `Abuse case 'Card testing': dropped abuser 'actor-9'; it no longer resolves.` and `Abuse case 'Card testing': left out realizes 'Payment fraud'; no threat of it is left in the model.`
+- Abuse cases and blueprint use case entries kept from an earlier import are merged with what the export writes. They are not replaced.
+- Lists are written without repeats, as the schema requires.
 
 ### What's not exported
 
@@ -252,13 +273,14 @@ Review the warnings before using an imported model as audit evidence. Warnings a
 Precogly keeps everything it does not model and writes it back on export:
 
 - Unknown top-level sections and unknown keys of known sections, on the model.
-- Attack trees, attack paths, abuse cases, attack patterns, indicators, threat profiles, risk appetites, assessments, data profiles, and sequence diagrams, on the model or the blueprint they belong to.
+- Attack trees, attack paths, attack patterns, indicators, threat profiles, risk appetites, assessments, data profiles, and sequence diagrams, on the model or the blueprint they belong to.
+- Engineering requirements in `definitions.requirements` (a project's own needs, such as "Lock the account after 5 failed logins"), and the `requirements` links to them from use cases and blueprints. Precogly does not show or edit them. Compliance requirements are different: they come from the frameworks in your library packs and travel in `definitions.standards`.
 - Unknown fields of a known object, and every property that is not a `precogly:` property, on that object's row.
 - Values Precogly could not store (a custom type object, a custom status, a mixed authentication list, an `exploit` response, the zones of a boundary beyond the first two), on the nearest row that was stored. A refused field value is written back as long as the field still holds the default it was imported with.
 
 **The stale-ref rule.** Kept content can point at things you later delete. On export, every such reference is checked: a reference that no longer resolves is removed from a list or dropped from an optional field; if removing it would leave a required field empty, the object that holds it is left out. Each removal is an export warning naming the object. The stored content is never changed, so nothing is lost if the rule changes later. The exported document always passes the reference check.
 
-Use case steps and the blueprint's use case links are stored as JSON and follow the same rule.
+Use case steps, and abuse case and blueprint use case entries that could not be stored as rows, are kept as JSON and follow the same rule.
 
 ### Files from earlier versions
 

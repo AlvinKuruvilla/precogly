@@ -246,7 +246,7 @@ The workspace offers two views:
 
 **Using library packs (Approach 1):** Select a component to see threats pre-mapped from the library. Threats arrive with taxonomy links already attached. You can triage them, accept them as-is, or reorder them. Library threats appear when a node or flow is first placed, not on every save; a threat you delete stays deleted unless you add it back from the library with **+ Add** in the Threats column.
 
-**From scratch (Approach 2):** Click **Add threat** to create a threat manually. You write the name and description, choose what it applies to (one or more components, flows, zones, or boundaries, or the whole system), then optionally link it to taxonomy entries (STRIDE categories, CAPEC IDs, CWE IDs, etc.).
+**From scratch (Approach 2):** Click **Add threat** to create a threat manually. You write the name and description, choose what it applies to (one or more components, flows, zones, or boundaries, or the whole system), then optionally pick its **Categories**. The categories of the model's methodologies are one click away (STRIDE's six by default); **More categories** searches every installed taxonomy, such as CAPEC, CWE or ATT&CK, by id or name. You can pick several, and change them later in the threat detail panel.
 
 Every threat gets a number such as `T7`, and every countermeasure a number such as `C3`. Numbers are never reused.
 
@@ -257,7 +257,7 @@ In both cases, you can:
 
 ### Rate the threat
 
-For each threat, set a **rating**: pick likelihood and impact on the qualitative matrix, or pick a level directly. Levels are info, low, medium, high, and critical. The server computes the score and level. Residual risk is tracked on risks, not on threats.
+For each threat, set a **rating**: pick likelihood and impact on the qualitative matrix, or pick a **Severity** directly. Severities are info, low, medium, high, and critical. The server computes the score and level. Residual risk is tracked on risks, not on threats.
 
 ---
 

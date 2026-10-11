@@ -59,7 +59,7 @@ Every model has a serial number, assigned when it is created and never changed. 
 exported document carries it as `serialNumber`, and its `version` goes up only when the
 exported content changed since the last export. Together they form a BOM-Link,
 `urn:cdx:<serial number>/<version>`, which other documents can use to point at this
-model; **Copy BOM-Link** on the model page copies it. Both values are shown read-only
+model; **Copy BOM-Link** on the threat model's **Overview** tab copies it. Both values are shown read-only
 under Advanced in the model's details.
 
 An import always creates a model with a fresh serial number, because the imported copy
