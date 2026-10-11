@@ -12,11 +12,11 @@ from functools import cache
 from pathlib import Path
 
 # The last commit on 2.0-dev that changed the bundled schema before the
-# 2026-10-01 snapshot was taken (the file is identical at every later commit up
-# to and including ad519021 of 2026-10-01). Decision D19: re-pin when 2.0 is final.
-PINNED_COMMIT = "be4b15742e4b3b9eade95c15b5c590d4b8c83338"
-PINNED_COMMIT_DATE = "2026-09-24"
-SNAPSHOT_DATE = "2026-10-01"
+# 2026-10-11 snapshot was taken (it was also the branch head that day).
+# Decision D19: re-pin when 2.0 is final.
+PINNED_COMMIT = "f6dcf4d33fecff511c21c4616a5a66d2b8134687"
+PINNED_COMMIT_DATE = "2026-10-07"
+SNAPSHOT_DATE = "2026-10-11"
 SCHEMA_ID = "https://cyclonedx.org/schema/2.0/cyclonedx-2.0-bundled.schema.json"
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "cyclonedx-2.0-bundled.schema.json"

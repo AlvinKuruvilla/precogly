@@ -199,6 +199,95 @@ class ExportTests(TestCase):
             use_case["mainFlow"][1], {"number": 2, "description": "Confirm"}
         )
 
+    def test_use_case_exceptions_and_repeats_export_to_the_schema(self):
+        UseCase.objects.create(
+            threat_model=self.threat_model,
+            name="Refund",
+            flow_data={
+                "preconditions": ["Order exists", "Order exists"],
+                "main_flow": [
+                    {"number": 1, "description": "Open order"},
+                    {"number": 1, "description": "Open order"},
+                    {"number": 2, "description": "Refund"},
+                ],
+                "alternative_flows": [
+                    {"name": "Partial", "condition": "One item", "steps": ["Pick"]},
+                    {"name": "No condition", "condition": ""},
+                ],
+                "exceptions": [
+                    {
+                        "name": "Gateway down",
+                        "condition": "Timeout",
+                        "handling": "Show error",
+                    },
+                    {
+                        "name": "Gateway down",
+                        "condition": "Timeout",
+                        "handling": "Show error",
+                    },
+                ],
+            },
+        )
+        document = TmBomAdapter().export_data(self.threat_model)
+        assert_valid_tmbom(document, context="export with use case exceptions")
+
+        refund = next(
+            entry
+            for entry in document["definitions"]["useCases"]
+            if entry["name"] == "Refund"
+        )
+        self.assertEqual(refund["preconditions"], ["Order exists"])
+        self.assertEqual(
+            [step["description"] for step in refund["mainFlow"]],
+            ["Open order", "Refund"],
+        )
+        self.assertEqual(
+            refund["alternativeFlows"],
+            [
+                {
+                    "name": "Partial",
+                    "condition": "One item",
+                    "steps": [{"number": 1, "description": "Pick"}],
+                }
+            ],
+        )
+        self.assertEqual(
+            refund["exceptions"],
+            [
+                {
+                    "name": "Gateway down",
+                    "condition": "Timeout",
+                    "handling": "Show error",
+                }
+            ],
+        )
+
+    def test_step_numbers_below_one_are_renumbered(self):
+        UseCase.objects.create(
+            threat_model=self.threat_model,
+            name="Cancel",
+            flow_data={
+                "main_flow": [
+                    {"number": 0, "description": "Open order"},
+                    {"number": -3, "description": "Cancel"},
+                ],
+            },
+        )
+        document = TmBomAdapter().export_data(self.threat_model)
+        assert_valid_tmbom(document, context="export with step numbers below 1")
+        cancel = next(
+            entry
+            for entry in document["definitions"]["useCases"]
+            if entry["name"] == "Cancel"
+        )
+        self.assertEqual(
+            cancel["mainFlow"],
+            [
+                {"number": 1, "description": "Open order"},
+                {"number": 2, "description": "Cancel"},
+            ],
+        )
+
     def test_canvas_attachment_carries_refs(self):
         document = TmBomAdapter().export_data(self.threat_model)
         visualization = document["blueprints"][0]["visualizations"][0]
@@ -301,6 +390,106 @@ class RoundTripTests(TestCase):
             {a["bom-ref"] for a in again["blueprints"][0]["assets"]},
             {a["bom-ref"] for a in document["blueprints"][0]["assets"]},
         )
+
+    def _use_case_document(self):
+        return {
+            "specFormat": "CycloneDX",
+            "specVersion": "2.0",
+            "blueprints": [
+                {
+                    "bom-ref": "bp1",
+                    "name": "Shop",
+                    "modelTypes": ["data-flow"],
+                    "assets": [
+                        {"bom-ref": "a-shop", "name": "Shop", "type": "process"},
+                        {"bom-ref": "a-customer", "name": "Customer", "type": "actor"},
+                    ],
+                    "flows": [
+                        {
+                            "bom-ref": "f-order",
+                            "name": "Order",
+                            "type": "data",
+                            "source": "a-customer",
+                            "destination": "a-shop",
+                        }
+                    ],
+                }
+            ],
+            "definitions": {
+                "useCases": [
+                    {
+                        "bom-ref": "uc-refund",
+                        "name": "Refund",
+                        "preconditions": ["Order exists"],
+                        "mainFlow": [
+                            {
+                                "number": 1,
+                                "description": "Ask for a refund",
+                                "actor": "a-customer",
+                            },
+                            {"number": 2, "description": "Pay back"},
+                        ],
+                        "alternativeFlows": [
+                            {
+                                "name": "Partial",
+                                "condition": "One item",
+                                "steps": [{"number": 1, "description": "Pick item"}],
+                            }
+                        ],
+                        "exceptions": [
+                            {
+                                "name": "Gateway down",
+                                "condition": "Timeout",
+                                "handling": "Show error",
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
+    def test_imported_use_case_exports_to_the_schema(self):
+        document = self._use_case_document()
+        imported, _ = TmBomAdapter().import_data(document, self.organization, self.user)
+        # A repeated precondition, as another tool or an older import may store.
+        use_case = imported.use_cases.get()
+        use_case.flow_data["preconditions"] = ["Order exists", "Order exists"]
+        use_case.save()
+
+        exported = TmBomAdapter().export_data(imported)
+        assert_valid_tmbom(exported, context="re-export of an imported use case")
+
+        refund = exported["definitions"]["useCases"][0]
+        self.assertEqual(refund["preconditions"], ["Order exists"])
+        self.assertEqual(
+            refund["exceptions"],
+            [
+                {
+                    "name": "Gateway down",
+                    "condition": "Timeout",
+                    "handling": "Show error",
+                }
+            ],
+        )
+        self.assertEqual(
+            refund["alternativeFlows"][0]["steps"],
+            [{"number": 1, "description": "Pick item"}],
+        )
+        self.assertEqual(refund["mainFlow"][0]["actor"], "a-customer")
+
+    def test_step_actor_that_no_longer_resolves_is_left_out(self):
+        imported, _ = TmBomAdapter().import_data(
+            self._use_case_document(), self.organization, self.user
+        )
+        imported.default_blueprint.components.get(name="Customer").delete()
+
+        warnings = []
+        exported = TmBomAdapter().export_data(imported, warnings)
+        assert_valid_tmbom(exported, context="export after the actor was deleted")
+
+        step = exported["definitions"]["useCases"][0]["mainFlow"][0]
+        self.assertNotIn("actor", step)
+        self.assertTrue(any("a-customer" in warning for warning in warnings), warnings)
 
     def test_other_tools_documents_import_with_warnings(self):
         document = {

@@ -58,7 +58,7 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 
 ### Import and export
 
-- The adapter is rewritten on the pinned CycloneDX 2.0 schema (commit `be4b1574`, 2026-09-24). Every export passes the schema and reference-integrity checks; every seeded model exports clean.
+- The adapter is rewritten on the pinned CycloneDX 2.0 schema (commit `f6dcf4d3`, 2026-10-07). Every export passes the schema and reference-integrity checks; every seeded model exports clean.
 - Import never rejects a TM-BOM: schema findings and everything that cannot be stored become warnings, and the content is kept and written back on export. Import does not count as approval; the file's approval is shown as history. An imported model gets a fresh serial number; the original is kept, and BOM-Links resolve through it.
 - Documents from other tools: scenarios with several targets become one threat with several targets (#533); a scenario naming several threats is split; actors that are flow ends become external actor components; per-scenario control links through `precogly:mitigates` (#529); several blueprints import in full (#538); a blueprint without a Precogly canvas gets a generated diagram (#288); the importing user's team owns the model (#337); compliance mappings resolve to installed frameworks or travel as snapshots (#342); impact descriptions round-trip (#343).
 - The `precogly:` property registry is one list, generated into the guest editor and printed in [Importing and Exporting](guides/importing-exporting.md).

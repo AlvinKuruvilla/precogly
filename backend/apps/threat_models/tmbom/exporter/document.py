@@ -26,7 +26,7 @@ from .passthrough import apply_passthrough, kept_content_refs
 from .risks import export_risks, reserve_risk_refs
 from .threats import export_threats, reserve_threat_refs
 from .trust_boundaries import export_trust_boundaries
-from .use_cases import export_use_cases
+from .use_cases import drop_unresolved_step_actors, export_use_cases
 
 PRECOGLY_VERSION = getattr(settings, "PRECOGLY_VERSION", "0.5.0")
 
@@ -138,6 +138,7 @@ def export_threat_model(threat_model, warnings: list | None = None) -> dict:
 
     document["properties"] = _document_properties(threat_model)
     apply_passthrough(document, threat_model, refs, warnings)
+    drop_unresolved_step_actors(document, warnings)
     # The version is decided last, from the whole document (F34, D7).
     document["version"] = version_for(threat_model, document)
     return document

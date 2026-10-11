@@ -7,7 +7,7 @@ Precogly exports threat models as CycloneDX 2.0 Threat Modeling BOM (TM-BOM) JSO
 
 ## The schema
 
-Precogly validates against a pinned copy of the CycloneDX 2.0 bundled schema, taken from the `2.0-dev` branch of the [CycloneDX specification repository](https://github.com/CycloneDX/specification) at commit `be4b15742e4b3b9eade95c15b5c590d4b8c83338` (2026-09-24, the last change to the schema before the 2026-10-01 snapshot). The copy lives at `backend/apps/threat_models/tmbom/schema/`. It will be re-pinned when CycloneDX 2.0 is final.
+Precogly validates against a pinned copy of the CycloneDX 2.0 bundled schema, taken from the `2.0-dev` branch of the [CycloneDX specification repository](https://github.com/CycloneDX/specification) at commit `f6dcf4d33fecff511c21c4616a5a66d2b8134687` (2026-10-07, the last change to the schema before the 2026-10-11 snapshot). The copy lives at `backend/apps/threat_models/tmbom/schema/`. It will be re-pinned when CycloneDX 2.0 is final.
 
 Every export passes two checks: zero schema errors, and reference integrity (every `bom-ref` is unique and every reference points at one). Imports run the same checks and report findings as warnings.
 
