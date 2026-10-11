@@ -95,6 +95,8 @@ export interface InstanceThreat {
   intent: ThreatIntent | ''
   accessLevel: ThreatAccessLevel | ''
   threatSources?: { id: number; name: string; slug?: string }[]
+  /** The abuse cases this threat comes from. */
+  abuseCases?: { id: number; name: string }[]
   createdAt: string
   updatedAt: string
 }
@@ -118,6 +120,11 @@ export interface CreateThreatInput {
   businessObjectiveIds?: number[]
   /** Replaces the scenario's threat sources; `[]` clears them, omitted leaves them alone. */
   threatSourceIds?: number[]
+  /**
+   * On create, links the new threat to these abuse cases (the "+ Threat" action
+   * under an abuse case). On update, replaces them; `[]` clears.
+   */
+  abuseCaseIds?: number[]
   intent?: ThreatIntent | ''
   accessLevel?: ThreatAccessLevel | ''
   displayOrder?: number
@@ -356,6 +363,10 @@ function invalidateThreatReaders(queryClient: ReturnType<typeof useQueryClient>)
   queryClient.invalidateQueries({ queryKey: threatKeys.all })
   queryClient.invalidateQueries({ queryKey: analysisKeys.all })
   queryClient.invalidateQueries({ queryKey: ['threat-models'] })
+  // Abuse cases list their threats; a use case's diagram threats exclude the
+  // ones its abuse cases reach.
+  queryClient.invalidateQueries({ queryKey: ['threat-model-abuse-cases'] })
+  queryClient.invalidateQueries({ queryKey: ['threat-model-use-cases'] })
 }
 
 function invalidateCountermeasureReaders(queryClient: ReturnType<typeof useQueryClient>) {
@@ -1135,6 +1146,8 @@ export function useCreateInstanceTaxonomyEntry() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all })
       queryClient.invalidateQueries({ queryKey: analysisKeys.all })
+      // The threat detail merges library and instance categories.
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
     },
   })
 }
@@ -1147,6 +1160,8 @@ export function useDeleteInstanceTaxonomyEntry() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all })
       queryClient.invalidateQueries({ queryKey: analysisKeys.all })
+      // The threat detail merges library and instance categories.
+      queryClient.invalidateQueries({ queryKey: threatKeys.all })
     },
   })
 }

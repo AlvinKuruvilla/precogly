@@ -32,6 +32,8 @@ import { ActorPicker } from './ActorPicker'
 import { type ActorValue } from './actor-utils'
 import { BusinessObjectivesPicker } from './BusinessObjectivesPicker'
 import { ThreatSourcesPicker } from './ThreatSourcesPicker'
+import { ThreatTaxonomyEditor } from './ThreatTaxonomyEditor'
+import { libraryTaxonomyEntries } from './taxonomy-picker-utils'
 import { threatSourceIdsFromThreat } from './threat-source-selection'
 import { useHasBusinessObjectives } from './useHasBusinessObjectives'
 
@@ -59,9 +61,11 @@ interface ThreatDetailPanelProps {
   threatModelId: string
   threat: AnalysisThreat
   personas: ThreatPersona[]
+  /** Makes the "From abuse cases" names links to the "By use case" view. */
+  onOpenAbuseCase?: (abuseCaseId: number) => void
 }
 
-export function ThreatDetailPanel({ threatModelId, threat, personas }: ThreatDetailPanelProps) {
+export function ThreatDetailPanel({ threatModelId, threat, personas, onOpenAbuseCase }: ThreatDetailPanelProps) {
   const { data: threatDetail, isLoading } = useThreat(threat.backendThreatId)
   if (isLoading || !threatDetail) {
     return (
@@ -70,7 +74,13 @@ export function ThreatDetailPanel({ threatModelId, threat, personas }: ThreatDet
       </div>
     )
   }
-  return <ThreatDetailForm threatModelId={threatModelId} threat={threat} threatDetail={threatDetail} personas={personas} />
+  return <ThreatDetailForm
+      threatModelId={threatModelId}
+      threat={threat}
+      threatDetail={threatDetail}
+      personas={personas}
+      onOpenAbuseCase={onOpenAbuseCase}
+    />
 }
 
 function ThreatDetailForm({
@@ -78,6 +88,7 @@ function ThreatDetailForm({
   threat,
   threatDetail,
   personas,
+  onOpenAbuseCase,
 }: ThreatDetailPanelProps & { threatDetail: InstanceThreat }) {
   const updateThreat = useUpdateThreat()
   const hasObjectives = useHasBusinessObjectives(threatModelId)
@@ -120,12 +131,30 @@ function ThreatDetailForm({
     )
   }
 
+  const abuseCases = threat.abuseCases ?? threatDetail.abuseCases ?? []
   const intentLabel = THREAT_INTENTS.find((entry) => entry.value === threat.intent)?.label
   const accessLevelLabel = THREAT_ACCESS_LEVELS.find((entry) => entry.value === threat.accessLevel)?.label
   const showReadOnly = Boolean(intentLabel || accessLevelLabel)
 
   return (
     <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
+      {abuseCases.length > 0 && (
+        <div className="text-xs" data-testid="from-abuse-cases">
+          <span className="font-medium text-muted-foreground">From abuse cases: </span>
+          {abuseCases.map((abuseCase, index) => (
+            <span key={abuseCase.id}>
+              {onOpenAbuseCase ? (
+                <button type="button" className="text-blue-600 hover:underline" onClick={() => onOpenAbuseCase(abuseCase.id)}>
+                  {abuseCase.name}
+                </button>
+              ) : (
+                abuseCase.name
+              )}
+              {index < abuseCases.length - 1 ? ', ' : ''}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Rating</div>
@@ -158,12 +187,23 @@ function ThreatDetailForm({
             </div>
           </div>
         </div>
-        <RatingForm method={ratingMethod} value={ratingInputs} onChange={setRatingInputs} />
+        <RatingForm method={ratingMethod} value={ratingInputs} onChange={setRatingInputs} levelLabel="Severity" />
       </div>
 
       <div>
         <div className="mb-1 text-xs font-medium text-muted-foreground">Actor</div>
         <ActorPicker threatModelId={threatModelId} personas={personas} value={actor} onChange={setActor} />
+      </div>
+
+      <div>
+        <div className="mb-1 text-xs font-medium text-muted-foreground">
+          Categories <span className="font-normal">(saved as you pick)</span>
+        </div>
+        <ThreatTaxonomyEditor
+          threatModelId={threatModelId}
+          threatId={threatDetail.id}
+          libraryEntries={libraryTaxonomyEntries(threatDetail.taxonomyEntries)}
+        />
       </div>
 
       <div>

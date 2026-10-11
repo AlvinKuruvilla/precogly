@@ -60,7 +60,7 @@ export const THREAT_CSV_HEADERS = [
   'Description',
   'Targets',
   'Classifications',
-  'Level',
+  'Severity',
   'Score',
   'Rating method',
   'Status',

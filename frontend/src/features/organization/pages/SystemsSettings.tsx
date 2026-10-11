@@ -115,7 +115,7 @@ export function SystemsSettings() {
             </div>
           ) : sortedSystems.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
-              No systems yet. A model with no primary system still works; create one here or from the model page.
+              No systems yet. A model with no primary system still works; create one here or from a threat model's Overview tab.
             </p>
           ) : (
             <Table data-testid="systems-table">

@@ -157,14 +157,133 @@ export interface ReviewState {
   sourceDocumentReview: Record<string, unknown> | null
 }
 
-/** backend/apps/threat_models/serializers.py UseCaseSerializer (import and export only, plan J14) */
+/**
+ * A step of a main flow or an alternative flow (backend/apps/threat_models/flow_data.py).
+ * The backend renumbers steps 1..n on save; `actor` is an imported ref, shown
+ * read-only and kept.
+ */
+export interface FlowStep {
+  number?: number
+  description: string
+  actor?: string
+}
+
+export interface AlternativeFlow {
+  name: string
+  condition: string
+  description?: string
+  steps?: FlowStep[]
+}
+
+export interface UseCaseException {
+  name: string
+  condition: string
+  description?: string
+  /** One string in the spec, not steps. */
+  handling?: string
+}
+
+/** Use case `flowData`: every list is optional; unknown keys are kept by the backend. */
+export interface UseCaseFlowData {
+  preconditions?: string[]
+  postconditions?: string[]
+  successCriteria?: string[]
+  notes?: string[]
+  mainFlow?: FlowStep[]
+  alternativeFlows?: AlternativeFlow[]
+  exceptions?: UseCaseException[]
+  [key: string]: unknown
+}
+
+/** Abuse case `flowData`. */
+export interface AbuseCaseFlowData {
+  preconditions?: string[]
+  mainFlow?: FlowStep[]
+  detectionOpportunities?: string[]
+  [key: string]: unknown
+}
+
+/** A component a use case or abuse case links to. */
+export interface LinkedComponent {
+  id: number
+  name: string
+  blueprintId: number
+}
+
+/** A flow a use case or abuse case links to; shown as "Source to Destination (name)". */
+export interface LinkedFlow {
+  id: number
+  name: string
+  sourceName: string
+  destinationName: string
+  blueprintId: number
+}
+
+/** backend/apps/threat_models/serializers.py UseCaseSerializer */
 export interface UseCase {
   id: number
   name: string
   description: string
-  flowData: Record<string, unknown> | null
+  flowData: UseCaseFlowData | null
+  displayOrder: number
+  components: LinkedComponent[]
+  flows: LinkedFlow[]
+  businessObjectives: { id: number; name: string }[]
+  abuseCaseCount: number
   createdAt: string
   updatedAt: string
+}
+
+/** Link fields replace what they name; `[]` clears; an omitted field keeps the links. */
+export interface UseCaseInput {
+  name?: string
+  description?: string
+  flowData?: UseCaseFlowData
+  displayOrder?: number
+  componentIds?: number[]
+  flowIds?: number[]
+  businessObjectiveIds?: number[]
+}
+
+/**
+ * A library threat an imported abuse case realizes that no threat of the model
+ * links to it yet. Shown as "Realizes library threat X, not linked to a threat
+ * in this model" with a link action. `libraryThreatId` for a library row,
+ * `ref` for a threat that is no library row here.
+ */
+export interface UnlinkedRealizes {
+  libraryThreatId?: number
+  ref?: string
+  name: string
+}
+
+/** backend/apps/threat_models/serializers.py AbuseCaseSerializer */
+export interface AbuseCase {
+  id: number
+  name: string
+  flowData: AbuseCaseFlowData | null
+  displayOrder: number
+  abuser: { id: number; name: string } | null
+  useCases: { id: number; name: string }[]
+  components: LinkedComponent[]
+  flows: LinkedFlow[]
+  threats: { id: number; number: number; displayNumber: string; name: string }[]
+  unlinkedRealizes: UnlinkedRealizes[]
+  /** Controls an imported abuse case names; read-only. */
+  mitigations: { id: number; displayNumber: string; name: string }[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AbuseCaseInput {
+  name?: string
+  flowData?: AbuseCaseFlowData
+  displayOrder?: number
+  abuserId?: number | null
+  useCaseIds?: number[]
+  componentIds?: number[]
+  flowIds?: number[]
+  threatIds?: number[]
 }
 
 /** One relationship as the model sees it (threat_models/relationships.py relationship_payload). */

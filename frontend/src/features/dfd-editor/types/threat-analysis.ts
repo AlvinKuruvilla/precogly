@@ -245,6 +245,8 @@ export interface AnalysisThreat {
   intent?: string
   accessLevel?: string
   threatSources?: { id: number; name: string; slug?: string }[]
+  /** The abuse cases this threat comes from (analysis payload, signed-in only). */
+  abuseCases?: { id: number; name: string }[]
 }
 
 /** @deprecated Use `AnalysisCountermeasure`. Kept so readers compile until the step 15 UI rewrite. */

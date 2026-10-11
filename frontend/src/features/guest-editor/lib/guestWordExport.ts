@@ -423,7 +423,7 @@ function buildThreatAnalysisSection(data: GuestReportData, sectionNum: number): 
     spacer(),
     buildTable(
       [4680, 4680],
-      ['Level', 'Count'],
+      ['Severity', 'Count'],
       [
         ['Critical', String(levelCounts.critical)],
         ['High', String(levelCounts.high)],
@@ -474,7 +474,7 @@ function buildThreatAnalysisSection(data: GuestReportData, sectionNum: number): 
     spacer(),
     buildTable(
       [720, 1560, 1440, 1080, 840, 840, 1440, 1440],
-      ['No.', 'Threat Name', 'Applies to', 'STRIDE', 'Level', 'Status', 'Rationale', 'Description'],
+      ['No.', 'Threat Name', 'Applies to', 'STRIDE', 'Severity', 'Status', 'Rationale', 'Description'],
       data.threats.map((threat) => [
         threatDisplayNumber(threat),
         threat.name,
@@ -629,7 +629,7 @@ function buildCoverageSummarySection(data: GuestReportData, sectionNum: number):
   children.push(
     buildTable(
       [2400, 1200, 1200, 1800, 2760],
-      ['Threat', 'Level', 'Status', '# Countermeasures', 'Covered?'],
+      ['Threat', 'Severity', 'Status', '# Countermeasures', 'Covered?'],
       rows,
     ),
     spacer(),

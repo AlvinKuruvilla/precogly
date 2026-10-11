@@ -27,7 +27,7 @@ describe('threat CSV rows', () => {
   })
 
   it('carries level and score as separate columns, and no residual severity column', () => {
-    expect(column(THREAT_CSV_HEADERS, rows[0], 'Level')).toBe('high')
+    expect(column(THREAT_CSV_HEADERS, rows[0], 'Severity')).toBe('high')
     expect(column(THREAT_CSV_HEADERS, rows[0], 'Score')).toBe('16')
     expect(THREAT_CSV_HEADERS.some((header) => /residual|inherited/i.test(header))).toBe(false)
   })

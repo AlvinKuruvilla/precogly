@@ -189,7 +189,7 @@ export function TableView({ threats, onSelectThreat }: TableViewProps) {
               <SortableHead label="Status" column="status" className="w-[110px]" sortKey={sortKey} sortDirection={sortDirection} onToggle={toggleSort} />
               <SortableHead label="Targets" column="targets" sortKey={sortKey} sortDirection={sortDirection} onToggle={toggleSort} />
               <TableHead>Threat</TableHead>
-              <SortableHead label="Level" column="level" className="w-[110px]" sortKey={sortKey} sortDirection={sortDirection} onToggle={toggleSort} />
+              <SortableHead label="Severity" column="level" className="w-[110px]" sortKey={sortKey} sortDirection={sortDirection} onToggle={toggleSort} />
               <TableHead>Classifications</TableHead>
               <TableHead>Countermeasures</TableHead>
               <TableHead className="text-center">Gaps</TableHead>

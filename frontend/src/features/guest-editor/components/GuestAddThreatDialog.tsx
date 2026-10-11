@@ -199,7 +199,7 @@ function GuestThreatDialogForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="threat-level">Level *</Label>
+            <Label htmlFor="threat-level">Severity *</Label>
             <Select value={level} onValueChange={(v) => setLevel(v as GuestRatingLevel)}>
               <SelectTrigger id="threat-level">
                 <SelectValue />
@@ -235,7 +235,7 @@ function GuestThreatDialogForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="threat-status">Status *</Label>
+            <Label htmlFor="threat-status">Triage *</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as ThreatStatus)}>
               <SelectTrigger id="threat-status">
                 <SelectValue />

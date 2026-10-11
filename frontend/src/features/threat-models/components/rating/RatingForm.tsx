@@ -77,6 +77,8 @@ export interface RatingFormProps {
   hideRationale?: boolean
   /** Start with the Advanced section open. */
   advancedOpen?: boolean
+  /** Label of the manual level select: "Severity" for a threat, "Level" (default) for a risk. */
+  levelLabel?: string
   className?: string
 }
 
@@ -88,6 +90,7 @@ export function RatingForm({
   disabled = false,
   hideRationale = false,
   advancedOpen = false,
+  levelLabel = 'Level',
   className,
 }: RatingFormProps) {
   const mode = ratingFormMode(method)
@@ -142,6 +145,7 @@ export function RatingForm({
           rationale={rationale}
           disabled={disabled}
           onChange={onChange}
+          label={levelLabel}
         />
       )}
 
@@ -192,11 +196,18 @@ interface ModeEditorProps {
   onChange: (value: RatingInputs) => void
 }
 
-function LevelEditor({ value, impactExtra, rationale, disabled, onChange }: ModeEditorProps) {
+function LevelEditor({
+  value,
+  impactExtra,
+  rationale,
+  disabled,
+  onChange,
+  label,
+}: ModeEditorProps & { label: string }) {
   const level: RatingLevel = isLevelOnlyInputs(value) ? value.level : 'medium'
   return (
     <div className="space-y-1">
-      <Label className="text-xs">Level</Label>
+      <Label className="text-xs">{label}</Label>
       <Select
         value={level}
         disabled={disabled}
@@ -205,7 +216,7 @@ function LevelEditor({ value, impactExtra, rationale, disabled, onChange }: Mode
           onChange(nextInputs)
         }}
       >
-        <SelectTrigger className="h-8 text-xs" aria-label="Level">
+        <SelectTrigger className="h-8 text-xs" aria-label={label}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

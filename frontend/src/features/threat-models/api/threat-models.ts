@@ -27,6 +27,9 @@ import type {
   UpdateBusinessObjectiveInput,
   ReviewState,
   UseCase,
+  UseCaseInput,
+  AbuseCase,
+  AbuseCaseInput,
   RelatedModel,
 } from '@/features/threat-models/types/core'
 import type { RelationType } from '@/types/domain'
@@ -44,6 +47,7 @@ export const threatModelKeys = {
   businessObjectives: (id: string) => ['threat-model-business-objectives', id] as const,
   review: (id: string) => ['threat-model-review', id] as const,
   useCases: (id: string) => ['threat-model-use-cases', id] as const,
+  abuseCases: (id: string) => ['threat-model-abuse-cases', id] as const,
 }
 
 export const systemKeys = {
@@ -543,33 +547,95 @@ export function useDeleteBusinessObjective(threatModelId: string) {
 }
 
 // ============================================
-// Use cases: /threat-models/{id}/use-cases/ (read and delete only, plan J14)
+// Use cases and abuse cases: /threat-models/{id}/use-cases/ and /abuse-cases/
+// (major-changes/editable-use-cases.md)
 // ============================================
+
+/**
+ * Use cases, abuse cases and threats are read together (counts, the "By use
+ * case" view, a threat's "From abuse cases"), so every write invalidates all
+ * three, plus the review state (any edit can change the approval digest).
+ */
+export function invalidateUseCaseReaders(
+  queryClient: ReturnType<typeof useQueryClient>,
+  threatModelId: string
+) {
+  queryClient.invalidateQueries({ queryKey: threatModelKeys.useCases(threatModelId) })
+  queryClient.invalidateQueries({ queryKey: threatModelKeys.abuseCases(threatModelId) })
+  queryClient.invalidateQueries({ queryKey: threatModelKeys.review(threatModelId) })
+  queryClient.invalidateQueries({ queryKey: ['threats'] })
+  queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+}
 
 export function useUseCases(threatModelId: string | null | undefined) {
   return useQuery({
     queryKey: threatModelKeys.useCases(threatModelId ?? ''),
     queryFn: threatModelId
-      ? async () => {
-          const response = await api.get<{ results: UseCase[] } | UseCase[]>(
-            `/threat-models/${threatModelId}/use-cases/`
-          )
-          return Array.isArray(response) ? response : response.results
-        }
+      ? () => api.get<UseCase[]>(`/threat-models/${threatModelId}/use-cases/`)
       : skipToken,
+  })
+}
+
+export function useCreateUseCase(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: UseCaseInput) =>
+      api.post<UseCase>(`/threat-models/${threatModelId}/use-cases/`, data),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
+  })
+}
+
+export function useUpdateUseCase(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ useCaseId, data }: { useCaseId: number; data: UseCaseInput }) =>
+      api.patch<UseCase>(`/threat-models/${threatModelId}/use-cases/${useCaseId}/`, data),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
   })
 }
 
 export function useDeleteUseCase(threatModelId: string) {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (useCaseId: number) =>
       api.delete(`/threat-models/${threatModelId}/use-cases/${useCaseId}/`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: threatModelKeys.useCases(threatModelId) })
-      queryClient.invalidateQueries({ queryKey: threatModelKeys.review(threatModelId) })
-    },
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
+  })
+}
+
+export function useAbuseCases(threatModelId: string | null | undefined) {
+  return useQuery({
+    queryKey: threatModelKeys.abuseCases(threatModelId ?? ''),
+    queryFn: threatModelId
+      ? () => api.get<AbuseCase[]>(`/threat-models/${threatModelId}/abuse-cases/`)
+      : skipToken,
+  })
+}
+
+export function useCreateAbuseCase(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: AbuseCaseInput) =>
+      api.post<AbuseCase>(`/threat-models/${threatModelId}/abuse-cases/`, data),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
+  })
+}
+
+export function useUpdateAbuseCase(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ abuseCaseId, data }: { abuseCaseId: number; data: AbuseCaseInput }) =>
+      api.patch<AbuseCase>(`/threat-models/${threatModelId}/abuse-cases/${abuseCaseId}/`, data),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
+  })
+}
+
+export function useDeleteAbuseCase(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (abuseCaseId: number) =>
+      api.delete(`/threat-models/${threatModelId}/abuse-cases/${abuseCaseId}/`),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
   })
 }
 

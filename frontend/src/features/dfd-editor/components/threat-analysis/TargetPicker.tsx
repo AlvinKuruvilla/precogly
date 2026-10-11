@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from 'react'
+import { Plus } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { MultiSelectCombobox, type ComboboxOption } from '@/components/ui/multi-select-combobox'
@@ -26,6 +27,11 @@ interface TargetPickerProps {
   wholeSystemLabel?: string
   /** Shown under the picker when there are no targets and whole-system is off. */
   emptyHint?: string
+  /**
+   * Targets offered as a "Suggested" row of chips, not selected. Clicking a chip
+   * adds it. Chips already selected are hidden.
+   */
+  suggestedTargets?: TargetRef[]
   idPrefix?: string
   disabled?: boolean
   className?: string
@@ -40,6 +46,7 @@ export function TargetPicker({
   onWholeSystemChange,
   wholeSystemLabel = 'Applies to the whole system (no targets)',
   emptyHint,
+  suggestedTargets,
   idPrefix = 'target-picker',
   disabled = false,
   className,
@@ -51,6 +58,7 @@ export function TargetPicker({
     [options]
   )
   const selectedKeys = value.map(targetKey)
+  const pendingSuggestions = (suggestedTargets ?? []).filter((suggestion) => !selectedKeys.includes(targetKey(suggestion)))
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -69,6 +77,27 @@ export function TargetPicker({
         emptyMessage="No target matches"
         className={cn((disabled || wholeSystem) && 'pointer-events-none opacity-60')}
       />
+      {pendingSuggestions.length > 0 && !wholeSystem && (
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="suggested-targets">
+          <span className="text-xs text-muted-foreground">Suggested</span>
+          {pendingSuggestions.map((suggestion) => {
+            const option = byKey.get(targetKey(suggestion))
+            return (
+              <button
+                key={targetKey(suggestion)}
+                type="button"
+                disabled={disabled}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-xs hover:bg-muted"
+                onClick={() => onChange([...value, suggestion])}
+                aria-label={`Add ${option?.label ?? 'target'}`}
+              >
+                <Plus className="h-3 w-3" />
+                {option?.label ?? `${suggestion.type} ${suggestion.id}`}
+              </button>
+            )
+          })}
+        </div>
+      )}
       {allowWholeSystem && (
         <div className="flex items-center gap-2">
           <Checkbox

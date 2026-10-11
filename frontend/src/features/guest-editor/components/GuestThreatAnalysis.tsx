@@ -103,7 +103,7 @@ type ThreatSortField = 'number' | 'status' | 'level' | 'name'
 const SORT_OPTIONS: { value: ThreatSortField; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'status', label: 'Status' },
-  { value: 'level', label: 'Level' },
+  { value: 'level', label: 'Severity' },
   { value: 'name', label: 'Name' },
 ]
 

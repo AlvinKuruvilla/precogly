@@ -41,11 +41,10 @@ import {
   type CreateThreatInput,
   type TargetRef,
 } from '@/features/threat-models/api/threats'
-import { useTaxonomyEntries } from '@/features/libraries/api/libraries'
 import { TRIAGE_STATUSES, type TriageStatus } from '@/types/triage'
-import { formatTaxonomyEntryLabel } from '@/types/domain'
 import { RATING_LEVELS, type RatingLevel } from '@/types/risk'
 import { TargetPicker } from './TargetPicker'
+import { TaxonomyCategoryPicker } from './TaxonomyCategoryPicker'
 import { BusinessObjectivesPicker } from './BusinessObjectivesPicker'
 import { useHasBusinessObjectives } from './useHasBusinessObjectives'
 import { ActorPicker } from './ActorPicker'
@@ -60,6 +59,12 @@ interface AddThreatDialogProps {
   initialWholeSystem?: boolean
   /** The selection's name for the heading ("PLC", "System"). */
   targetName: string
+  /** The actor to start with (an abuse case's abuser); none when omitted. */
+  initialActor?: ActorValue
+  /** Targets offered as suggestions in the picker, not selected. */
+  suggestedTargets?: TargetRef[]
+  /** Links the new threat to these abuse cases on save. */
+  abuseCaseIds?: number[]
   onSuccess?: () => void
 }
 
@@ -70,6 +75,9 @@ export function AddThreatDialog({
   initialTargets,
   initialWholeSystem = false,
   targetName,
+  initialActor,
+  suggestedTargets,
+  abuseCaseIds,
   onSuccess,
 }: AddThreatDialogProps) {
   const [activeTab, setActiveTab] = useState<'library' | 'custom'>('library')
@@ -81,14 +89,14 @@ export function AddThreatDialog({
   const [targets, setTargets] = useState<TargetRef[]>(initialTargets)
   const [wholeSystem, setWholeSystem] = useState(initialWholeSystem)
   const [objectiveIds, setObjectiveIds] = useState<number[]>([])
-  const [actor, setActor] = useState<ActorValue>(NO_ACTOR)
+  const [actor, setActor] = useState<ActorValue>(initialActor ?? NO_ACTOR)
 
   // Custom threat fields
   const [customName, setCustomName] = useState('')
   const [customDescription, setCustomDescription] = useState('')
   const [customLevel, setCustomLevel] = useState<RatingLevel>('medium')
   const [customTriageStatus, setCustomTriageStatus] = useState<TriageStatus>('open')
-  const [customTaxonomyEntryId, setCustomTaxonomyEntryId] = useState<string>('none')
+  const [customTaxonomyEntryIds, setCustomTaxonomyEntryIds] = useState<number[]>([])
   const [showAllThreats, setShowAllThreats] = useState(false)
   // Whether the list is the model's ranking rather than the raw library. The
   // ranker only ever ranks one component's own pool, so ranking and "show
@@ -103,20 +111,8 @@ export function AddThreatDialog({
   const { data: threatLibrary, isLoading } = useThreatLibrary(effectiveComponentId, threatModelId)
   const createThreat = useCreateThreat()
   const createInstanceTaxonomyEntry = useCreateInstanceTaxonomyEntry()
-  const { data: allTaxonomyEntries } = useTaxonomyEntries()
   const { data: personas = [] } = useThreatPersonas(threatModelId)
   const hasObjectives = useHasBusinessObjectives(threatModelId ?? '')
-
-  const taxonomyEntriesByTaxonomy = allTaxonomyEntries
-    ? Object.entries(
-        allTaxonomyEntries.reduce<Record<string, typeof allTaxonomyEntries>>((acc, entry) => {
-          const key = entry.taxonomyName ?? entry.taxonomySlug
-          if (!acc[key]) acc[key] = []
-          acc[key].push(entry)
-          return acc
-        }, {})
-      )
-    : []
 
   // Ranking is component-only: the suggest endpoint answers other targets with
   // an empty list, so the owl only shows for one component.
@@ -181,12 +177,19 @@ export function AddThreatDialog({
   }
 
   const targetsValid = wholeSystem || targets.length > 0
+  // Why the add button is disabled, said next to it.
+  const missingForAdd = [
+    activeTab === 'library' && !selectedThreatId ? 'pick a threat from the library' : null,
+    activeTab === 'custom' && !customName.trim() ? 'give it a name' : null,
+    !targetsValid ? 'pick at least one target under Applies to, or the whole system' : null,
+  ].filter((message): message is string => message !== null)
 
   const sharedInput = (): Omit<CreateThreatInput, 'threatModel'> => ({
     targets: wholeSystem ? [] : targets,
     wholeSystem,
     actorPersona: actor.actorPersona,
     threatActorText: actor.actorPersona !== null ? '' : actor.threatActorText,
+    ...(abuseCaseIds && abuseCaseIds.length > 0 && { abuseCaseIds }),
     ...(hasObjectives && objectiveIds.length > 0 && { businessObjectiveIds: objectiveIds }),
   })
 
@@ -211,7 +214,6 @@ export function AddThreatDialog({
 
   const handleAddCustom = () => {
     if (!customName.trim() || !threatModelId || !targetsValid) return
-    const taxonomyEntryIdNum = customTaxonomyEntryId !== 'none' ? Number(customTaxonomyEntryId) : null
     createThreat.mutate(
       {
         threatModel: threatModelId,
@@ -225,8 +227,8 @@ export function AddThreatDialog({
       },
       {
         onSuccess: (created) => {
-          if (taxonomyEntryIdNum) {
-            createInstanceTaxonomyEntry.mutate({ taxonomyEntry: taxonomyEntryIdNum, threat: created.id })
+          for (const taxonomyEntry of customTaxonomyEntryIds) {
+            createInstanceTaxonomyEntry.mutate({ taxonomyEntry, threat: created.id })
           }
           onOpenChange(false)
           resetForm()
@@ -243,12 +245,12 @@ export function AddThreatDialog({
     setTargets(initialTargets)
     setWholeSystem(initialWholeSystem)
     setObjectiveIds([])
-    setActor(NO_ACTOR)
+    setActor(initialActor ?? NO_ACTOR)
     setCustomName('')
     setCustomDescription('')
     setCustomLevel('medium')
     setCustomTriageStatus('open')
-    setCustomTaxonomyEntryId('none')
+    setCustomTaxonomyEntryIds([])
     setActiveTab('library')
     setShowAllThreats(false)
     setShowRanked(false)
@@ -282,7 +284,7 @@ export function AddThreatDialog({
 
   const appliesToSection = threatModelId && (
     <div className="space-y-2 rounded-md border p-3">
-      <Label>Applies to</Label>
+      <Label>Applies to *</Label>
       <TargetPicker
         threatModelId={threatModelId}
         value={targets}
@@ -290,6 +292,7 @@ export function AddThreatDialog({
         allowWholeSystem
         wholeSystem={wholeSystem}
         onWholeSystemChange={setWholeSystem}
+        suggestedTargets={suggestedTargets}
         idPrefix="add-threat"
         emptyHint="Pick at least one target, or make it a whole-system threat."
       />
@@ -310,7 +313,7 @@ export function AddThreatDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add threat</DialogTitle>
           <DialogDescription>
@@ -433,8 +436,9 @@ export function AddThreatDialog({
                   <p className="font-medium">{selectedThreatName}</p>
                 </div>
                 <div className="flex-1">
-                  <Label htmlFor="library-level">Level</Label>
+                  <Label htmlFor="library-level">Severity</Label>
                   {levelSelect('library-level', selectedLevel, setSelectedLevel)}
+                  <p className="mt-1 text-xs text-muted-foreground">How bad it is if this happens.</p>
                 </div>
               </div>
             )}
@@ -466,11 +470,12 @@ export function AddThreatDialog({
 
             <div className="flex gap-4">
               <div className="flex-1 space-y-2">
-                <Label htmlFor="custom-level">Level *</Label>
+                <Label htmlFor="custom-level">Severity *</Label>
                 {levelSelect('custom-level', customLevel, setCustomLevel)}
+                <p className="text-xs text-muted-foreground">How bad it is if this happens.</p>
               </div>
               <div className="flex-1 space-y-2">
-                <Label htmlFor="custom-triage-status">Status</Label>
+                <Label htmlFor="custom-triage-status">Triage</Label>
                 <Select value={customTriageStatus} onValueChange={(value) => setCustomTriageStatus(value as TriageStatus)}>
                   <SelectTrigger id="custom-triage-status">
                     <SelectValue />
@@ -486,26 +491,14 @@ export function AddThreatDialog({
               </div>
             </div>
 
-            {taxonomyEntriesByTaxonomy.length > 0 && (
+            {threatModelId && (
               <div className="space-y-2">
-                <Label htmlFor="custom-taxonomy">Taxonomy category</Label>
-                <Select value={customTaxonomyEntryId} onValueChange={setCustomTaxonomyEntryId}>
-                  <SelectTrigger id="custom-taxonomy">
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {taxonomyEntriesByTaxonomy.map(([taxonomyName, entries]) =>
-                      entries.map((entry) => (
-                        <SelectItem key={entry.id} value={String(entry.id)}>
-                          {taxonomyEntriesByTaxonomy.length > 1
-                            ? `${taxonomyName}: ${formatTaxonomyEntryLabel(entry)}`
-                            : formatTaxonomyEntryLabel(entry)}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label>Categories</Label>
+                <TaxonomyCategoryPicker
+                  threatModelId={threatModelId}
+                  value={customTaxonomyEntryIds}
+                  onChange={setCustomTaxonomyEntryIds}
+                />
               </div>
             )}
 
@@ -518,6 +511,11 @@ export function AddThreatDialog({
           </TabsContent>
         </Tabs>
 
+        {missingForAdd.length > 0 && (
+          <p className="text-right text-xs text-muted-foreground" data-testid="add-threat-missing">
+            To add the threat, {missingForAdd.join(' and ')}.
+          </p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

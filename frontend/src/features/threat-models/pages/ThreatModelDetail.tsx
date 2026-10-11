@@ -31,6 +31,8 @@ import { PentestView } from '@/features/pentests/PentestView'
 import { useWorkspaceThreatAnalysis } from '@/features/threat-models/hooks'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
 import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/ComponentView'
+import { UseCaseView } from '@/features/dfd-editor/components/threat-analysis/UseCaseView'
+import type { UseCaseViewSelection } from '@/features/dfd-editor/components/threat-analysis/use-case-view-utils'
 import { TableView } from '@/features/dfd-editor/components/threat-analysis/TableView'
 import { AddThreatDialog } from '@/features/dfd-editor/components/threat-analysis/AddThreatDialog'
 import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat-analysis/AddCountermeasureDialog'
@@ -75,7 +77,7 @@ async function createDiagram(threatModelId: string, title: string, blueprintId: 
   })
 }
 
-type ViewMode = 'component' | 'table'
+type ViewMode = 'component' | 'usecase' | 'table'
 
 export function ThreatModelDetail() {
   const { id } = useParams<{ id: string }>()
@@ -91,6 +93,8 @@ export function ThreatModelDetail() {
   // The selection is a target reference or the whole system, not a canvas id.
   const [selectedTarget, setSelectedTarget] = useState<AnalysisSelection | null>(null)
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null)
+  // The "By use case" view's own selection: a use case or an abuse case.
+  const [useCaseSelection, setUseCaseSelection] = useState<UseCaseViewSelection | null>(null)
 
   // Modal state
   const [systemContextModalOpen, setSystemContextModalOpen] = useState(false)
@@ -253,6 +257,18 @@ export function ThreatModelDetail() {
       targets: selectedComponentThreat.targets.map((target): TargetRef => ({ type: target.type, id: target.id })),
     }
   }, [selectedComponentThreat])
+
+  // A new tree selection in the "By use case" view clears the selected threat.
+  const handleUseCaseSelectionChange = useCallback((selection: UseCaseViewSelection | null) => {
+    setUseCaseSelection(selection)
+    setSelectedThreatId(null)
+  }, [])
+
+  // "From abuse cases" links in a threat: show that abuse case in the "By use case" view.
+  const handleOpenAbuseCase = useCallback((abuseCaseId: number) => {
+    setUseCaseSelection({ kind: 'abuseCase', abuseCaseId })
+    setViewMode('usecase')
+  }, [])
 
   const handleSelectTarget = useCallback((selection: AnalysisSelection) => {
     setSelectedTarget((current) => {
@@ -656,6 +672,17 @@ export function ThreatModelDetail() {
                     Component View
                   </Button>
                   <Button
+                    variant={viewMode === 'usecase' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('usecase')}
+                    className={cn(
+                      'rounded-md px-3',
+                      viewMode === 'usecase' ? '' : 'hover:bg-transparent'
+                    )}
+                  >
+                    By use case
+                  </Button>
+                  <Button
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('table')}
@@ -671,7 +698,27 @@ export function ThreatModelDetail() {
 
               {/* Threat Analysis Content - fills remaining space */}
               <div className="flex-1 min-h-0">
-                {viewMode === 'component' ? (
+                {viewMode === 'usecase' ? (
+                  <UseCaseView
+                    threatModelId={id!}
+                    threats={filteredComponentThreats}
+                    selection={useCaseSelection}
+                    onSelectionChange={handleUseCaseSelectionChange}
+                    selectedThreatId={selectedThreatId}
+                    selectedThreat={selectedComponentThreat}
+                    onSelectThreat={setSelectedThreatId}
+                    onOpenAbuseCase={handleOpenAbuseCase}
+                    onCountermeasureStatusChange={updateCountermeasureStatus}
+                    onAssignOwner={assignOwner}
+                    onUpdateTriageStatus={updateTriageStatus}
+                    onAddCustomCountermeasure={() => setAddCountermeasureDialogOpen(true)}
+                    onCountermeasurePriorityChange={updateCountermeasurePriority}
+                    onCountermeasureDueDateChange={updateCountermeasureDueDate}
+                    onCountermeasureExternalTicketChange={updateCountermeasureExternalTicket}
+                    onReorderCountermeasures={reorderCountermeasures}
+                    isSecurityTeam={isSecurityTeam}
+                  />
+                ) : viewMode === 'component' ? (
                   <ComponentView
                     threatModelId={id!}
                     threats={filteredComponentThreats}
@@ -680,6 +727,7 @@ export function ThreatModelDetail() {
                     selectedThreat={selectedComponentThreat}
                     onSelectTarget={handleSelectTarget}
                     onSelectThreat={setSelectedThreatId}
+                    onOpenAbuseCase={handleOpenAbuseCase}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}
                     onAddComponent={() => setAddComponentDialogOpen(true)}

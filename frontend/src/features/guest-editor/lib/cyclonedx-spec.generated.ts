@@ -40,6 +40,7 @@ export const PROPERTY_OWNER = {
   "EXTERNAL_REFERENCE_THREAT_MODEL": "external-reference:threat-model",
   "EXTERNAL_REFERENCE_PENTEST_REPORT": "external-reference:pentest-report",
   "DATA_SET": "data-set",
+  "USE_CASE": "use-case",
 } as const
 
 export const PROPERTY_VALUE_TYPE = {
@@ -423,6 +424,18 @@ export const PRECOGLY_PROPERTIES: readonly PrecoglyPropertyEntry[] = [
     "owner": "risk",
     "valueType": "string",
     "description": "Party ref of the person the risk is assigned to; the owner is the spec field.",
+  },
+  {
+    "name": "precogly:abuse-cases",
+    "owner": "use-case",
+    "valueType": "json",
+    "description": "Refs of the abuse cases that misuse this use case; the spec has no field for that link.",
+  },
+  {
+    "name": "precogly:abuse-cases",
+    "owner": "scenario",
+    "valueType": "json",
+    "description": "Refs of the abuse cases this scenario comes from. The abuse case's realizes names the abstract threat only, which several scenarios share.",
   },
 ]
 
