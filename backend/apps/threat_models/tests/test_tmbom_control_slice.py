@@ -334,13 +334,18 @@ class ComplianceImportTests(ControlSliceTestCase):
     def test_satisfies_unresolved_requirement_stores_snapshot(self):
         document = _document(
             definitions={
-                "requirements": [
+                "standards": [
                     {
-                        "bom-ref": "req-si4",
-                        "identifier": "SI-4",
-                        "title": "System monitoring",
-                        "description": "Monitor the system.",
-                        "source": {"name": "NIST 800-53 Rev 5 UNINSTALLED"},
+                        "bom-ref": "std-uninstalled",
+                        "name": "NIST 800-53 Rev 5 UNINSTALLED",
+                        "requirements": [
+                            {
+                                "bom-ref": "req-si4",
+                                "identifier": "SI-4",
+                                "title": "System monitoring",
+                                "text": "Monitor the system.",
+                            }
+                        ],
                     }
                 ]
             },
@@ -361,34 +366,6 @@ class ComplianceImportTests(ControlSliceTestCase):
         self.assertEqual(mapping.section_code, "SI-4")
         self.assertEqual(mapping.framework_name, "NIST 800-53 Rev 5 UNINSTALLED")
         self.assertEqual(mapping.requirement_description, "Monitor the system.")
-
-    def test_satisfies_object_snapshot_creates_mapping(self):
-        document = _document(
-            controls=[
-                {
-                    "bom-ref": "control-object-snapshot",
-                    "name": "Object Snapshot",
-                    "status": "implemented",
-                    "satisfies": [
-                        {
-                            "reference": "AC-4",
-                            "framework": "nist-800-53-r5",
-                            "description": "Information flow enforcement",
-                        }
-                    ],
-                }
-            ],
-        )
-        threat_model, _ = self._import(document)
-        mapping = InstanceCountermeasureStandard.objects.get(
-            countermeasure__threat_model=threat_model
-        )
-        self.assertIsNone(mapping.requirement)
-        self.assertEqual(mapping.section_code, "AC-4")
-        self.assertEqual(mapping.framework_name, "nist-800-53-r5")
-        self.assertEqual(
-            mapping.requirement_description, "Information flow enforcement"
-        )
 
     def test_satisfies_dangling_reference_warns_and_skips(self):
         document = _document(

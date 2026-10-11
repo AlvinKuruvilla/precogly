@@ -6,11 +6,9 @@ Rules (plan sections 4.3, 9.2, 9.4 and PR #559, D20):
   the whole system; a ref we cannot target is kept and warned about.
 - ``implementedBy`` becomes provider components, or the provider party's
   name as text.
-- ``satisfies`` resolves each requirement through ``definitions.standards``
-  (and the older ``definitions.requirements`` shape) to an installed
-  ``StandardRequirement`` when its framework is here, else to a snapshot
-  mapping that still displays; object-form entries ``{reference, framework}``
-  are accepted too. Dangling refs warn and are skipped.
+- ``satisfies`` resolves each ref through ``definitions.standards`` to an
+  installed ``StandardRequirement`` when its framework is here, else to a
+  snapshot mapping that still displays. Dangling refs warn and are skipped.
 - Status: spec values map to ours; the custom names gap, waived and platform
   are ours; ``platform`` needs the Security Team role in the organization,
   otherwise ``gap`` is stored and the import warns (H6). Decision-process
@@ -97,19 +95,6 @@ class ControlImporter:
                         requirement.get("text") or requirement.get("title") or ""
                     ),
                 }
-        # The shape PR #559 handled: requirements with a `source.name`.
-        for requirement in definitions.get("requirements") or []:
-            if not isinstance(requirement, dict) or not requirement.get("bom-ref"):
-                continue
-            if requirement["bom-ref"] in index or not requirement.get("identifier"):
-                continue
-            index[requirement["bom-ref"]] = {
-                "framework_name": str(
-                    (requirement.get("source") or {}).get("name") or ""
-                ),
-                "section_code": str(requirement.get("identifier") or ""),
-                "description": str(requirement.get("description") or ""),
-            }
         return index
 
     def _index_parties(self) -> dict:
@@ -273,24 +258,11 @@ class ControlImporter:
         for item in _flatten(properties.get("precogly:sufficiency", [])):
             if isinstance(item, dict) and item.get("requirement"):
                 sufficiency_by_ref[item["requirement"]] = item.get("sufficiency")
-        for entry in control.get("satisfies") or []:
-            if isinstance(entry, dict):
-                info = {
-                    "section_code": str(
-                        entry.get("reference") or entry.get("control-id") or ""
-                    ),
-                    "framework_name": str(
-                        entry.get("framework") or entry.get("framework_name") or ""
-                    ),
-                    "description": str(entry.get("description") or ""),
-                }
-                ref = None
-            else:
-                ref = entry
-                info = self.requirements.get(entry) if isinstance(entry, str) else None
+        for ref in control.get("satisfies") or []:
+            info = self.requirements.get(ref) if isinstance(ref, str) else None
             if not info or not info.get("section_code"):
                 self.context.warn(
-                    f"Control '{label}': satisfies reference '{entry}' matches no "
+                    f"Control '{label}': satisfies reference '{ref}' matches no "
                     "requirement definition; skipped."
                 )
                 continue
