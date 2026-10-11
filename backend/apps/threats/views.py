@@ -229,6 +229,26 @@ class ComponentLibraryThreatViewSet(viewsets.ModelViewSet):
     filterset_fields = ["component_library", "threat_library", "applies_to"]
 
 
+def threat_queryset_for_reading(queryset):
+    """``queryset`` with what ``InstanceThreatSerializer`` reads joined in."""
+    return (
+        queryset.select_related("threat_library", "actor_persona", "rating")
+        .annotate(level_rank=rating_level_rank("rating__level"))
+        .prefetch_related(
+            "instance_taxonomy_links__taxonomy_entry__taxonomy",
+            "targets__component",
+            "targets__flow__source_component",
+            "targets__flow__dest_component",
+            "targets__zone",
+            "targets__boundary",
+            "abuse_case_links__abuse_case",
+            "business_objective_links__business_objective",
+            "source_links__source",
+            "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
+        )
+    )
+
+
 class InstanceThreatViewSet(WritableParentsMixin, viewsets.ModelViewSet):
     """One endpoint for every scenario, whatever it targets.
 
@@ -267,18 +287,8 @@ class InstanceThreatViewSet(WritableParentsMixin, viewsets.ModelViewSet):
         org_ids = self.request.user.organization_memberships.values_list(
             "organization_id", flat=True
         )
-        queryset = (
+        queryset = threat_queryset_for_reading(
             InstanceThreat.objects.filter(threat_model__organization_id__in=org_ids)
-            .select_related("threat_library", "actor_persona", "rating")
-            .annotate(level_rank=rating_level_rank("rating__level"))
-            .prefetch_related(
-                "instance_taxonomy_links__taxonomy_entry__taxonomy",
-                "targets__component",
-                "targets__flow__source_component",
-                "targets__flow__dest_component",
-                "targets__zone",
-                "targets__boundary",
-            )
         )
         params = self.request.query_params
         for kind in self.TARGET_FILTERS:

@@ -6,6 +6,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AbuseCaseViewSet,
     AssumptionViewSet,
     BlueprintViewSet,
     BusinessObjectiveViewSet,
@@ -39,6 +40,11 @@ router.register(
     r"threat-models/(?P<threat_model_pk>\d+)/use-cases",
     UseCaseViewSet,
     basename="threat-model-use-cases",
+)
+router.register(
+    r"threat-models/(?P<threat_model_pk>\d+)/abuse-cases",
+    AbuseCaseViewSet,
+    basename="threat-model-abuse-cases",
 )
 
 # Nested route for threat model reference images

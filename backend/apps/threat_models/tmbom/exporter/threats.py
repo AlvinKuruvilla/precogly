@@ -18,6 +18,8 @@
 
 from django.utils.text import slugify
 
+from apps.threats.models import InstanceCountermeasure, ThreatLibrary
+
 from ..properties import PropertyOwner, make_property
 from ..ratings import scenario_rating
 from ..refs import RefRegistry
@@ -138,6 +140,7 @@ class AbstractThreatIndex:
         self.source_names: dict[str, str] = {}
         self.mitigations: dict[str, list[str]] = {}
         self.objectives: dict[str, list[str]] = {}
+        self.abuse_cases: dict[str, list[str]] = {}
 
     @staticmethod
     def key_for(threat) -> str:
@@ -211,8 +214,20 @@ class AbstractThreatIndex:
                 entry["mitigations"] = list(self.mitigations[key])
             if self.objectives.get(key):
                 entry["relatedBusinessObjectives"] = list(self.objectives[key])
+            if self.abuse_cases.get(key):
+                entry["abuseCases"] = list(self.abuse_cases[key])
             result.append(entry)
         return result
+
+    def ref_of_key(self, key: str) -> str | None:
+        """The abstract threat's ref, when this export writes it."""
+        entry = self.entries.get(key)
+        return entry["bom-ref"] if entry is not None else None
+
+    def note_abuse_case(self, key: str, abuse_case_ref: str) -> None:
+        listed = self.abuse_cases.setdefault(key, [])
+        if abuse_case_ref not in listed:
+            listed.append(abuse_case_ref)
 
 
 def _archetype(persona) -> str:
@@ -417,6 +432,15 @@ def _scenario(
     objective_property = _objective_property(threat, refs)
     if objective_property is not None:
         entry["properties"].append(objective_property)
+    abuse_case_refs = [
+        refs.ref("abusecase", link.abuse_case) for link in threat.abuse_case_links.all()
+    ]
+    if abuse_case_refs:
+        entry["properties"].append(
+            make_property(
+                "precogly:abuse-cases", PropertyOwner.SCENARIO, abuse_case_refs
+            )
+        )
     return entry
 
 
@@ -433,6 +457,7 @@ def threats_queryset(threat_model):
             "targets__boundary",
             "countermeasure_links__countermeasure",
             "business_objective_links__business_objective",
+            "abuse_case_links__abuse_case",
         )
         .order_by("number")
     )
@@ -441,10 +466,14 @@ def threats_queryset(threat_model):
 def reserve_threat_refs(threat_model, refs: RefRegistry) -> None:
     refs.reserve_stored(threat_model.threats.all())
     refs.reserve_stored(threat_model.threat_personas.all())
+    refs.reserve_stored(threat_model.abuse_cases.all())
 
 
-def export_threats(threat_model, refs: RefRegistry, *, system_ref: str):
+def export_threats(
+    threat_model, refs: RefRegistry, *, system_ref: str, warnings: list | None = None
+):
     """``(threats section or None, actors for the first blueprint)``."""
+    warnings = warnings if warnings is not None else []
     abstract = AbstractThreatIndex(refs)
     actors = ActorIndex(refs)
     scenarios = [
@@ -454,7 +483,8 @@ def export_threats(threat_model, refs: RefRegistry, *, system_ref: str):
     # Personas nobody cites still travel: they are part of the model.
     for persona in threat_model.threat_personas.order_by("id"):
         actors.persona_ref(persona)
-    if not scenarios and not actors.entries:
+    abuse_cases = export_abuse_cases(threat_model, refs, abstract, actors, warnings)
+    if not scenarios and not actors.entries and not abuse_cases:
         return None, []
     section = {}
     threats = abstract.finish()
@@ -462,4 +492,142 @@ def export_threats(threat_model, refs: RefRegistry, *, system_ref: str):
         section["threats"] = threats
     if scenarios:
         section["scenarios"] = scenarios
+    if abuse_cases:
+        section["abuseCases"] = abuse_cases
     return (section or None), actors.entries
+
+
+def _kept(abuse_case, key: str) -> list:
+    value = _cyclonedx_metadata(abuse_case).get(key)
+    return value if isinstance(value, list) else []
+
+
+def _abuse_case(abuse_case, refs, abstract, actors, warnings) -> dict:
+    """One ``threats.abuseCases[]`` entry: only the fields the schema allows.
+
+    ``realizes`` is the abstract threat of each linked scenario, plus the
+    threats an import could not link (written as our ref for a library
+    threat, and left out with a warning when no threat of it is left).
+    Kept refs that point at things since deleted are dropped at the end of
+    the export (``drop_unresolved_refs``).
+    """
+    from .use_cases import _steps, _unique
+
+    entry = {"bom-ref": refs.ref("abusecase", abuse_case), "name": abuse_case.name}
+    if abuse_case.abuser_id:
+        entry["abuser"] = actors.persona_ref(abuse_case.abuser)
+    else:
+        kept_abuser = _cyclonedx_metadata(abuse_case).get("abuser_ref")
+        if isinstance(kept_abuser, str) and kept_abuser:
+            entry["abuser"] = kept_abuser
+
+    flow_data = abuse_case.flow_data or {}
+    for ours, theirs in (
+        ("preconditions", "preconditions"),
+        ("detection_opportunities", "detectionOpportunities"),
+    ):
+        raw = flow_data.get(ours)
+        values = _unique(
+            [v for v in raw if isinstance(v, str) and v]
+            if isinstance(raw, list)
+            else []
+        )
+        if values:
+            entry[theirs] = values
+    main_flow = _unique(_steps(flow_data.get("main_flow")))
+    if main_flow:
+        entry["mainFlow"] = main_flow
+
+    targets = []
+    for link in abuse_case.target_links.all():
+        if link.component_id:
+            targets.append(component_ref(link.component, refs))
+        else:
+            targets.append(refs.ref("flow", link.flow))
+    targets.extend(
+        ref for ref in _kept(abuse_case, "extra_targets") if isinstance(ref, str)
+    )
+    targets = _unique(targets)
+    if targets:
+        entry["targets"] = targets
+
+    realizes = []
+    for link in abuse_case.threat_links.all():
+        key = abstract.key_for(link.threat)
+        threat_ref = abstract.ref_of_key(key)
+        if threat_ref is not None:
+            realizes.append(threat_ref)
+            abstract.note_abuse_case(key, entry["bom-ref"])
+    for kept in _kept(abuse_case, "unlinked_realizes"):
+        if not isinstance(kept, dict):
+            continue
+        library_id = kept.get("library_threat")
+        if library_id is not None:
+            library = ThreatLibrary.objects.filter(pk=library_id).first()
+            key = None
+            if library is not None:
+                key = (
+                    f"threat-{library.qualified_slug}"
+                    if library.qualified_slug
+                    else f"threat-library-{library.pk}"
+                )
+            threat_ref = abstract.ref_of_key(key) if key else None
+            if threat_ref is None:
+                warnings.append(
+                    f"Abuse case '{abuse_case.name}': left out realizes "
+                    f"'{kept.get('name') or library_id}'; no threat of it is left "
+                    "in the model."
+                )
+                continue
+            realizes.append(threat_ref)
+            abstract.note_abuse_case(key, entry["bom-ref"])
+        elif isinstance(kept.get("ref"), str):
+            realizes.append(kept["ref"])
+    realizes = _unique(realizes)
+    if realizes:
+        entry["realizes"] = realizes
+
+    mitigations = []
+    control_ids = [
+        kept["control"]
+        for kept in _kept(abuse_case, "mitigations")
+        if isinstance(kept, dict) and isinstance(kept.get("control"), int)
+    ]
+    controls = {
+        control.pk: control
+        for control in InstanceCountermeasure.objects.filter(
+            pk__in=control_ids, threat_model_id=abuse_case.threat_model_id
+        )
+    }
+    for kept in _kept(abuse_case, "mitigations"):
+        if not isinstance(kept, dict):
+            continue
+        if kept.get("control") in controls:
+            mitigations.append(refs.ref("control", controls[kept["control"]]))
+        elif isinstance(kept.get("control"), int):
+            warnings.append(
+                f"Abuse case '{abuse_case.name}': a control it named was deleted; "
+                "removed from mitigations."
+            )
+        elif isinstance(kept.get("ref"), str):
+            mitigations.append(kept["ref"])
+    mitigations = _unique(mitigations)
+    if mitigations:
+        entry["mitigations"] = mitigations
+    return entry
+
+
+def export_abuse_cases(threat_model, refs, abstract, actors, warnings) -> list[dict]:
+    abuse_cases = (
+        threat_model.abuse_cases.order_by("display_order", "id")
+        .select_related("abuser")
+        .prefetch_related(
+            "target_links__component",
+            "target_links__flow",
+            "threat_links__threat__threat_library",
+        )
+    )
+    return [
+        _abuse_case(abuse_case, refs, abstract, actors, warnings)
+        for abuse_case in abuse_cases
+    ]

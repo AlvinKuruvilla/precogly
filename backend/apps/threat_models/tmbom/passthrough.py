@@ -40,9 +40,17 @@ DOCUMENT_KNOWN = {
     "definitions",
     "properties",
 }
-THREATS_SECTION_KNOWN = {"threats", "scenarios", "trustBoundaries", "methodologies"}
+THREATS_SECTION_KNOWN = {
+    "threats",
+    "scenarios",
+    "trustBoundaries",
+    "methodologies",
+    "abuseCases",
+}
 RISKS_SECTION_KNOWN = {"risks"}
-DEFINITIONS_KNOWN = {"standards", "useCases", "businessObjectives", "requirements"}
+# ``definitions.requirements`` (engineering requirements) is not modelled, so
+# it is kept whole; compliance requirements live under ``standards``.
+DEFINITIONS_KNOWN = {"standards", "useCases", "businessObjectives"}
 METADATA_KNOWN = {"timestamp", "tools", "authors", "component", "lifecycles"}
 
 OBJECT_KNOWN = {
@@ -63,6 +71,7 @@ OBJECT_KNOWN = {
         "actors",
         "assumptions",
         "visualizations",
+        "useCases",
         "properties",
     },
     "asset": {
@@ -71,6 +80,7 @@ OBJECT_KNOWN = {
         "description",
         "type",
         "zone",
+        "useCases",
         "properties",
         "externalReferences",
     },
@@ -138,6 +148,7 @@ OBJECT_KNOWN = {
         "categories",
         "mitigations",
         "relatedBusinessObjectives",
+        "abuseCases",
         "properties",
     },
     "scenario": {
@@ -215,6 +226,8 @@ OBJECT_KNOWN = {
         "alternativeFlows",
         "exceptions",
         "notes",
+        "businessObjectives",
+        "properties",
     },
 }
 
@@ -375,17 +388,65 @@ def _kept(original, repaired) -> bool:
     return repaired is not _LEFT_OUT and not _emptied(original, repaired)
 
 
+# Kept lists merged entry by entry with what the export wrote, instead of
+# being skipped when the export wrote the key: a blueprint's ``useCases``
+# (by ``ref``; the link lists of an entry for the same use case are joined)
+# and the threats section's ``abuseCases`` (by ``bom-ref``; ours wins).
+# An entry the export already wrote does not hide kept ones it did not.
+MERGED_BY_ENTRY = {"useCases": "ref", "abuseCases": "bom-ref"}
+_JOINED_LISTS = ("assets", "flows", "requirements")
+
+
+def _merge_entries(key: str, written: list, kept: list) -> None:
+    id_key = MERGED_BY_ENTRY[key]
+    by_id = {
+        item.get(id_key): item
+        for item in written
+        if isinstance(item, dict) and item.get(id_key)
+    }
+    for item in kept:
+        if isinstance(item, str):
+            # An asset's ``useCases`` is a plain list of refs.
+            if item not in written:
+                written.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        existing = by_id.get(item.get(id_key))
+        if existing is None:
+            written.append(item)
+            continue
+        if key != "useCases":
+            continue
+        for list_key in _JOINED_LISTS:
+            for ref in item.get(list_key) or []:
+                values = existing.setdefault(list_key, [])
+                if ref not in values:
+                    values.append(ref)
+
+
+def _restore_key(target: dict, key: str, value, stale, label, warnings) -> None:
+    written = target.get(key)
+    if written is not None and not (
+        key in MERGED_BY_ENTRY and isinstance(written, list) and isinstance(value, list)
+    ):
+        return
+    repaired = _repair(copy.deepcopy(value), stale, label, warnings, key)
+    if not _kept(value, repaired):
+        return
+    if written is None:
+        target[key] = repaired
+    else:
+        _merge_entries(key, written, repaired)
+
+
 def restore(entry: dict, row, *, stale: set, warnings: list, label: str) -> None:
     """Merge a row's kept keys and foreign properties into its exported entry."""
     cyclonedx = (getattr(row, "format_metadata", None) or {}).get("cyclonedx") or {}
     kept = cyclonedx.get("passthrough")
     if isinstance(kept, dict):
         for key, value in kept.items():
-            if key in entry:
-                continue
-            repaired = _repair(copy.deepcopy(value), stale, label, warnings, key)
-            if _kept(value, repaired):
-                entry[key] = repaired
+            _restore_key(entry, key, value, stale, label, warnings)
     foreign = cyclonedx.get("foreign_properties")
     if isinstance(foreign, list) and foreign:
         properties = list(entry.get("properties") or [])
@@ -419,13 +480,7 @@ def restore_document_level(
                 continue
             target = document.setdefault(section, {})
             for key, value in extra.items():
-                if key in target:
-                    continue
-                repaired = _repair(
-                    copy.deepcopy(value), stale, f"{section} section", warnings, key
-                )
-                if _kept(value, repaired):
-                    target[key] = repaired
+                _restore_key(target, key, value, stale, f"{section} section", warnings)
     foreign = cyclonedx.get("foreign_properties")
     if isinstance(foreign, list) and foreign:
         properties = list(document.get("properties") or [])

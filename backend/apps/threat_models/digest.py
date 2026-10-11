@@ -98,7 +98,31 @@ SNAPSHOT_FIELDS = {
     ),
     "threat_models.UseCase": (
         ["name", "description", "flow_data", "format_metadata"],
-        ["id", "created_at", "updated_at", "threat_model"],
+        ["id", "created_at", "updated_at", "threat_model", "display_order"],
+    ),
+    "threat_models.UseCaseTarget": (
+        ["use_case", "component", "flow"],
+        ["id", "created_at", "updated_at", "display_order"],
+    ),
+    "threat_models.UseCaseBusinessObjective": (
+        ["use_case", "business_objective"],
+        ["id", "created_at", "updated_at", "display_order"],
+    ),
+    "threat_models.AbuseCase": (
+        ["name", "abuser", "flow_data", "format_metadata"],
+        ["id", "created_at", "updated_at", "threat_model", "display_order"],
+    ),
+    "threat_models.AbuseCaseUseCase": (
+        ["abuse_case", "use_case"],
+        ["id", "created_at", "updated_at", "display_order"],
+    ),
+    "threat_models.AbuseCaseTarget": (
+        ["abuse_case", "component", "flow"],
+        ["id", "created_at", "updated_at", "display_order"],
+    ),
+    "threat_models.AbuseCaseThreat": (
+        ["abuse_case", "threat"],
+        ["id", "created_at", "updated_at", "display_order"],
     ),
     "threat_models.ThreatModelRelationship": (
         ["target_threat_model", "relation_type"],
@@ -460,6 +484,22 @@ ROW_SOURCES = {
     ),
     "threat_models.BusinessObjective": lambda tm: tm.business_objectives.all(),
     "threat_models.UseCase": lambda tm: tm.use_cases.all(),
+    "threat_models.UseCaseTarget": lambda tm: _rows(
+        "threat_models.UseCaseTarget", use_case__threat_model=tm
+    ),
+    "threat_models.UseCaseBusinessObjective": lambda tm: _rows(
+        "threat_models.UseCaseBusinessObjective", use_case__threat_model=tm
+    ),
+    "threat_models.AbuseCase": lambda tm: tm.abuse_cases.all(),
+    "threat_models.AbuseCaseUseCase": lambda tm: _rows(
+        "threat_models.AbuseCaseUseCase", abuse_case__threat_model=tm
+    ),
+    "threat_models.AbuseCaseTarget": lambda tm: _rows(
+        "threat_models.AbuseCaseTarget", abuse_case__threat_model=tm
+    ),
+    "threat_models.AbuseCaseThreat": lambda tm: _rows(
+        "threat_models.AbuseCaseThreat", abuse_case__threat_model=tm
+    ),
     "threat_models.ThreatModelRelationship": lambda tm: tm.outgoing_relationships.all(),
     "threat_models.ThreatModelFramework": lambda tm: _rows(
         "threat_models.ThreatModelFramework", threat_model=tm

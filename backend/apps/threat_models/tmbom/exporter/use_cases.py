@@ -7,7 +7,9 @@ so repeated entries are written once (an alternative flow's ``steps`` is not).
 """
 
 from ..passthrough import collect_refs
+from ..properties import PropertyOwner, make_property
 from ..refs import RefRegistry
+from .blueprint import component_ref
 
 LIST_KEYS = (
     ("preconditions", "preconditions"),
@@ -120,36 +122,153 @@ def export_use_case(use_case, refs: RefRegistry) -> dict:
     exceptions = _exceptions(flow_data.get("exceptions"))
     if exceptions:
         entry["exceptions"] = exceptions
+
+    objectives = [
+        refs.ref("objective", link.business_objective)
+        for link in use_case.business_objective_links.all()
+    ]
+    # Refs that arrived on import and point at nothing we store; written
+    # back while they resolve (``drop_unresolved_refs``).
+    kept = ((use_case.format_metadata or {}).get("cyclonedx") or {}).get(
+        "extra_business_objectives"
+    )
+    objectives = _unique(
+        objectives + [ref for ref in kept or [] if isinstance(ref, str)]
+    )
+    if objectives:
+        entry["businessObjectives"] = objectives
+    abuse_case_refs = [
+        refs.ref("abusecase", link.abuse_case)
+        for link in use_case.abuse_case_links.all()
+    ]
+    if abuse_case_refs:
+        entry["properties"] = [
+            make_property(
+                "precogly:abuse-cases", PropertyOwner.USE_CASE, abuse_case_refs
+            )
+        ]
     return entry
 
 
+def use_cases_queryset(threat_model):
+    return threat_model.use_cases.order_by("display_order", "id").prefetch_related(
+        "business_objective_links__business_objective",
+        "abuse_case_links__abuse_case",
+        "target_links__component",
+        "target_links__flow",
+    )
+
+
+def reserve_use_case_refs(threat_model, refs: RefRegistry) -> None:
+    refs.reserve_stored(threat_model.use_cases.all())
+    refs.reserve_stored(threat_model.abuse_cases.all())
+
+
 def export_use_cases(threat_model, refs: RefRegistry) -> list[dict]:
-    use_cases = list(threat_model.use_cases.order_by("id"))
-    refs.reserve_stored(use_cases)
-    return [export_use_case(use_case, refs) for use_case in use_cases]
+    return [
+        export_use_case(use_case, refs) for use_case in use_cases_queryset(threat_model)
+    ]
 
 
-def drop_unresolved_step_actors(document: dict, warnings: list) -> None:
-    """Leave out step actors whose ref is no longer in ``document``.
+def add_use_case_links(document: dict, blueprints, threat_model, refs) -> None:
+    """Each blueprint's ``useCases[]`` and each asset's ``useCases``.
 
-    A step ``actor`` is written back as imported; the actor it names can be
-    deleted since (for example the component an imported actor became). Run
-    once the whole document is built, so every ref it holds is known.
+    One ``{ref, assets, flows}`` entry per use case with a link in that
+    blueprint. ``assets`` holds data store refs too (the schema accepts any
+    ref there); only process and actor assets carry ``useCases``, since a
+    ``dataStores`` entry has no such field.
+    """
+    by_blueprint: dict[int, dict] = {}
+    for use_case in use_cases_queryset(threat_model):
+        use_case_ref = refs.ref("usecase", use_case)
+        for link in use_case.target_links.all():
+            row = link.component or link.flow
+            per_use_case = by_blueprint.setdefault(row.blueprint_id, {})
+            entry = per_use_case.setdefault(
+                use_case_ref, {"ref": use_case_ref, "assets": [], "flows": []}
+            )
+            if link.component_id:
+                entry["assets"].append(component_ref(link.component, refs))
+            else:
+                entry["flows"].append(refs.ref("flow", link.flow))
+    for blueprint, blueprint_entry in zip(
+        blueprints, document.get("blueprints") or [], strict=False
+    ):
+        entries = []
+        for entry in by_blueprint.get(blueprint.pk, {}).values():
+            entries.append({key: value for key, value in entry.items() if value})
+        if not entries:
+            continue
+        blueprint_entry["useCases"] = entries
+        asset_use_cases: dict[str, list[str]] = {}
+        for entry in entries:
+            for asset_ref in entry.get("assets", []):
+                asset_use_cases.setdefault(asset_ref, []).append(entry["ref"])
+        for asset in blueprint_entry.get("assets") or []:
+            use_case_refs = asset_use_cases.get(asset.get("bom-ref"))
+            if use_case_refs:
+                asset["useCases"] = use_case_refs
+
+
+def _steps_of(entry: dict) -> list[list]:
+    flows = [entry.get("mainFlow") or []]
+    for alternative in entry.get("alternativeFlows") or []:
+        flows.append(alternative.get("steps") or [])
+    return flows
+
+
+def _resolves(ref, known_refs: set) -> bool:
+    return isinstance(ref, str) and (ref in known_refs or ref.startswith("urn:cdx:"))
+
+
+def drop_unresolved_refs(document: dict, warnings: list) -> None:
+    """Leave out kept refs that no longer resolve in ``document``.
+
+    Use case and abuse case content written back as imported (step actors,
+    an abuse case's abuser, targets, realizes and mitigations, a use case's
+    business objectives) can name things deleted since, or things another
+    tool's file declared and we do not keep. Run once the whole document is
+    built, so every ref it holds is known.
     """
     known_refs = collect_refs(document)
-    for use_case in (document.get("definitions") or {}).get("useCases") or []:
-        flows = [use_case.get("mainFlow") or []]
-        for alternative in use_case.get("alternativeFlows") or []:
-            flows.append(alternative.get("steps") or [])
-        for steps in flows:
+    entries = [
+        ("Use case", entry)
+        for entry in (document.get("definitions") or {}).get("useCases") or []
+    ] + [
+        ("Abuse case", entry)
+        for entry in (document.get("threats") or {}).get("abuseCases") or []
+    ]
+    for kind, entry in entries:
+        for steps in _steps_of(entry):
             for step in steps:
                 actor = step.get("actor")
-                if actor is None or actor in known_refs:
-                    continue
-                if actor.startswith("urn:cdx:"):
+                if actor is None or _resolves(actor, known_refs):
                     continue
                 del step["actor"]
                 warnings.append(
-                    f"Use case '{use_case['name']}', step {step['number']}: "
+                    f"{kind} '{entry['name']}', step {step['number']}: "
                     f"dropped actor '{actor}'; it no longer resolves."
                 )
+        if "abuser" in entry and not _resolves(entry["abuser"], known_refs):
+            warnings.append(
+                f"{kind} '{entry['name']}': dropped abuser '{entry['abuser']}'; "
+                "it no longer resolves."
+            )
+            del entry["abuser"]
+        for key in ("businessObjectives", "targets", "realizes", "mitigations"):
+            if key not in entry:
+                continue
+            kept = [ref for ref in entry[key] if _resolves(ref, known_refs)]
+            for ref in entry[key]:
+                if ref not in kept:
+                    warnings.append(
+                        f"{kind} '{entry['name']}': removed '{ref}' from {key}; "
+                        "it no longer resolves."
+                    )
+            if kept:
+                entry[key] = kept
+            else:
+                del entry[key]
+        # A step that lost its actor can now equal another step.
+        if entry.get("mainFlow"):
+            entry["mainFlow"] = _unique(entry["mainFlow"])

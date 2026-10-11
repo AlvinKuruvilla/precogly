@@ -6,7 +6,7 @@ import json
 import logging
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from apps.core.permissions import CanWrite, IsSecurityTeam
 
 from .models import (
+    AbuseCase,
     Assumption,
     Blueprint,
     BusinessObjective,
@@ -38,6 +39,7 @@ from .relationships import (
 )
 from .review import approve, mark_reviewed, review_state, revoke_approval
 from .serializers import (
+    AbuseCaseSerializer,
     AssumptionSerializer,
     BlueprintSerializer,
     BusinessObjectiveSerializer,
@@ -818,19 +820,53 @@ class BusinessObjectiveViewSet(_ThreatModelNestedViewSet):
         serializer.save(threat_model=threat_model)
 
 
-class UseCaseViewSet(_ThreatModelNestedViewSet):
-    """``/api/threat-models/{id}/use-cases/``: list, retrieve and delete only.
+_TARGET_PREFETCH = (
+    "target_links__component",
+    "target_links__flow__source_component",
+    "target_links__flow__dest_component",
+)
 
-    Use cases are import and export only (plan J14); the model page shows them
-    read-only with a delete action.
-    """
+
+class UseCaseViewSet(_ThreatModelNestedViewSet):
+    """``/api/threat-models/{id}/use-cases/``: create, read, update, delete."""
 
     serializer_class = UseCaseSerializer
     pagination_class = None
-    http_method_names = ["get", "delete", "head", "options"]
 
     def get_queryset(self):
-        return UseCase.objects.filter(threat_model=self._threat_model())
+        return (
+            UseCase.objects.filter(threat_model=self._threat_model())
+            .annotate(abuse_case_count=Count("abuse_case_links", distinct=True))
+            .prefetch_related(
+                *_TARGET_PREFETCH, "business_objective_links__business_objective"
+            )
+        )
+
+    def perform_create(self, serializer):
+        self.check_object_permissions(self.request, self._threat_model())
+        serializer.save()
+
+
+class AbuseCaseViewSet(_ThreatModelNestedViewSet):
+    """``/api/threat-models/{id}/abuse-cases/``: create, read, update, delete."""
+
+    serializer_class = AbuseCaseSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return (
+            AbuseCase.objects.filter(threat_model=self._threat_model())
+            .select_related("abuser")
+            .prefetch_related(
+                *_TARGET_PREFETCH,
+                "use_case_links__use_case",
+                "threat_links__threat__threat_library",
+            )
+        )
+
+    def perform_create(self, serializer):
+        self.check_object_permissions(self.request, self._threat_model())
+        serializer.save()
 
 
 class BlueprintViewSet(viewsets.ModelViewSet):

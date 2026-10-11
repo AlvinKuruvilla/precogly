@@ -26,7 +26,12 @@ from .passthrough import apply_passthrough, kept_content_refs
 from .risks import export_risks, reserve_risk_refs
 from .threats import export_threats, reserve_threat_refs
 from .trust_boundaries import export_trust_boundaries
-from .use_cases import drop_unresolved_step_actors, export_use_cases
+from .use_cases import (
+    add_use_case_links,
+    drop_unresolved_refs,
+    export_use_cases,
+    reserve_use_case_refs,
+)
 
 PRECOGLY_VERSION = getattr(settings, "PRECOGLY_VERSION", "0.5.0")
 
@@ -69,6 +74,7 @@ def export_threat_model(threat_model, warnings: list | None = None) -> dict:
     reserve_control_refs(threat_model, refs)
     reserve_risk_refs(threat_model, refs)
     reserve_context_refs(threat_model, refs)
+    reserve_use_case_refs(threat_model, refs)
     refs.reserve_kept(kept_content_refs(threat_model))
 
     metadata = _metadata(threat_model, refs)
@@ -100,7 +106,10 @@ def export_threat_model(threat_model, warnings: list | None = None) -> dict:
         metadata["lifecycles"] = lifecycles
 
     threats, actors = export_threats(
-        threat_model, refs, system_ref=metadata["component"]["bom-ref"]
+        threat_model,
+        refs,
+        system_ref=metadata["component"]["bom-ref"],
+        warnings=warnings,
     )
     if threats:
         document["threats"] = threats
@@ -131,6 +140,7 @@ def export_threat_model(threat_model, warnings: list | None = None) -> dict:
     if standards:
         definitions["standards"] = standards
     use_cases = export_use_cases(threat_model, refs)
+    add_use_case_links(document, blueprints, threat_model, refs)
     if use_cases:
         definitions["useCases"] = use_cases
     if definitions:
@@ -138,7 +148,7 @@ def export_threat_model(threat_model, warnings: list | None = None) -> dict:
 
     document["properties"] = _document_properties(threat_model)
     apply_passthrough(document, threat_model, refs, warnings)
-    drop_unresolved_step_actors(document, warnings)
+    drop_unresolved_refs(document, warnings)
     # The version is decided last, from the whole document (F34, D7).
     document["version"] = version_for(threat_model, document)
     return document

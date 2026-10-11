@@ -71,6 +71,35 @@ FIELD_HOMES: dict[str, dict[str, str | tuple[str, str]]] = {
         "flow_data": "useCases[] (preconditions, steps, outcomes)",
         "format_metadata": "passthrough",
     },
+    "threat_models.UseCaseTarget": {
+        "use_case": ROW_LINK,
+        "component": "blueprints[].useCases[].assets, assets[].useCases",
+        "flow": "blueprints[].useCases[].flows",
+    },
+    "threat_models.UseCaseBusinessObjective": {
+        "use_case": ROW_LINK,
+        "business_objective": "useCases[].businessObjectives",
+    },
+    "threat_models.AbuseCase": {
+        "name": "threats.abuseCases[].name",
+        "abuser": "threats.abuseCases[].abuser",
+        "flow_data": "threats.abuseCases[] (preconditions, mainFlow, "
+        "detectionOpportunities)",
+        "format_metadata": "kept abuser, realizes and mitigations refs",
+    },
+    "threat_models.AbuseCaseUseCase": {
+        "abuse_case": ROW_LINK,
+        "use_case": "precogly:abuse-cases",
+    },
+    "threat_models.AbuseCaseTarget": {
+        "abuse_case": ROW_LINK,
+        "component": "threats.abuseCases[].targets",
+        "flow": "threats.abuseCases[].targets",
+    },
+    "threat_models.AbuseCaseThreat": {
+        "abuse_case": ROW_LINK,
+        "threat": "threats.abuseCases[].realizes, precogly:abuse-cases",
+    },
     "threat_models.ThreatModelRelationship": {
         "target_threat_model": "blueprints[].relationships, externalReferences (G6)",
         "relation_type": "blueprints[].relationships or precogly:relationship",

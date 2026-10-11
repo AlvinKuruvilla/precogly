@@ -233,12 +233,26 @@ class PassthroughTests(_ReferenceModelTests):
 
     def _group_b_document(self):
         """The reference export plus every group B section Precogly keeps but
-        does not model (9.7, 9.9): attack trees, attack paths, abuse cases,
-        risk appetites, assessments and blueprint behaviors."""
+        does not model (9.7, 9.9): attack trees, attack paths, risk
+        appetites, assessments and blueprint behaviors. An abuse case is
+        added too; abuse cases are rows now, so it sits where the exporter
+        writes them (after the scenarios), which keeps the ordinal refs of
+        the comparison in the same order."""
         document = self.export()
         actor_ref = document["blueprints"][0]["actors"][0]["bom-ref"]
         risk_ref = document["risks"]["risks"][0]["bom-ref"]
-        threats = document["threats"]
+        threats = {}
+        for key, value in document["threats"].items():
+            threats[key] = value
+            if key == "scenarios":
+                threats["abuseCases"] = [
+                    {
+                        "bom-ref": "abuse-1",
+                        "name": "Insider exports card data",
+                        "abuser": actor_ref,
+                    }
+                ]
+        document["threats"] = threats
         threats["attackTrees"] = [
             {
                 "bom-ref": "tree-1",
@@ -261,13 +275,6 @@ class PassthroughTests(_ReferenceModelTests):
                 "actor": actor_ref,
                 "relatedRisks": [risk_ref],
                 "steps": [{"description": "Send a phishing mail"}],
-            }
-        ]
-        threats["abuseCases"] = [
-            {
-                "bom-ref": "abuse-1",
-                "name": "Insider exports card data",
-                "abuser": actor_ref,
             }
         ]
         document["risks"]["riskAppetites"] = [

@@ -37,6 +37,7 @@ class PropertyOwner(StrEnum):
     EXTERNAL_REFERENCE_THREAT_MODEL = "external-reference:threat-model"
     EXTERNAL_REFERENCE_PENTEST_REPORT = "external-reference:pentest-report"
     DATA_SET = "data-set"
+    USE_CASE = "use-case"
 
 
 class PropertyValueType(StrEnum):
@@ -458,6 +459,21 @@ REGISTRY: tuple[PrecoglyProperty, ...] = (
         PropertyOwner.RISK,
         PropertyValueType.STRING,
         "Party ref of the person the risk is assigned to; the owner is the spec field.",
+    ),
+    # Editable use cases and abuse cases
+    PrecoglyProperty(
+        "precogly:abuse-cases",
+        PropertyOwner.USE_CASE,
+        PropertyValueType.JSON,
+        "Refs of the abuse cases that misuse this use case; the spec has no field "
+        "for that link.",
+    ),
+    PrecoglyProperty(
+        "precogly:abuse-cases",
+        PropertyOwner.SCENARIO,
+        PropertyValueType.JSON,
+        "Refs of the abuse cases this scenario comes from. The abuse case's "
+        "realizes names the abstract threat only, which several scenarios share.",
     ),
 )
 

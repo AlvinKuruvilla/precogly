@@ -651,15 +651,207 @@ class UseCase(TimestampedModel):
         default=dict,
         blank=True,
         help_text="Structured use case data: preconditions, postconditions, "
-        "success_criteria, main_flow, alternative_flows, exceptions",
+        "success_criteria, main_flow, alternative_flows, exceptions, notes",
     )
+    display_order = models.PositiveIntegerField(default=0)
     format_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["display_order", "id"]
 
     def __str__(self):
         return self.name
+
+
+def _component_or_flow_constraints(owner_field: str, prefix: str) -> list:
+    """Exactly one of ``component`` or ``flow``, each linked once per owner."""
+    return [
+        models.CheckConstraint(
+            condition=(
+                models.Q(component__isnull=False, flow__isnull=True)
+                | models.Q(component__isnull=True, flow__isnull=False)
+            ),
+            name=f"{prefix}_exactly_one_target",
+        ),
+        models.UniqueConstraint(
+            fields=[owner_field, "component"],
+            condition=models.Q(component__isnull=False),
+            name=f"{prefix}_unique_component",
+        ),
+        models.UniqueConstraint(
+            fields=[owner_field, "flow"],
+            condition=models.Q(flow__isnull=False),
+            name=f"{prefix}_unique_flow",
+        ),
+    ]
+
+
+class UseCaseTarget(TimestampedModel):
+    """A component or flow a use case involves (blueprint ``useCases[].assets``
+    and ``.flows``, ``asset.useCases``). Any component category, data stores
+    included."""
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    use_case = models.ForeignKey(
+        UseCase, on_delete=models.CASCADE, related_name="target_links"
+    )
+    component = models.ForeignKey(
+        "systems.OrgsystemComponent",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="use_case_links",
+    )
+    flow = models.ForeignKey(
+        "systems.Flow",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="use_case_links",
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        constraints = _component_or_flow_constraints("use_case", "use_case_target")
+
+
+class UseCaseBusinessObjective(TimestampedModel):
+    """A business objective a use case supports (``useCase.businessObjectives``)."""
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    use_case = models.ForeignKey(
+        UseCase, on_delete=models.CASCADE, related_name="business_objective_links"
+    )
+    business_objective = models.ForeignKey(
+        BusinessObjective, on_delete=models.CASCADE, related_name="use_case_links"
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["use_case", "business_objective"],
+                name="unique_use_case_business_objective",
+            ),
+        ]
+
+
+class AbuseCase(TimestampedModel):
+    """How an adversary can misuse the system (``threats.abuseCases[]``).
+
+    Lives on the model, like a use case, and links to use cases, threats,
+    components and flows; every link is optional. The spec's abuse case has
+    no description and no properties, so neither exists here.
+    """
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    threat_model = models.ForeignKey(
+        ThreatModel, on_delete=models.CASCADE, related_name="abuse_cases"
+    )
+    name = models.CharField(max_length=255)
+    abuser = models.ForeignKey(
+        "threats.ThreatPersona",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="abuse_cases",
+    )
+    flow_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="preconditions, main_flow, detection_opportunities",
+    )
+    display_order = models.PositiveIntegerField(default=0)
+    format_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class AbuseCaseUseCase(TimestampedModel):
+    """A use case an abuse case misuses. The spec has no field for this; it
+    travels as ``precogly:abuse-cases`` on the use case."""
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    abuse_case = models.ForeignKey(
+        AbuseCase, on_delete=models.CASCADE, related_name="use_case_links"
+    )
+    use_case = models.ForeignKey(
+        UseCase, on_delete=models.CASCADE, related_name="abuse_case_links"
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["abuse_case", "use_case"], name="unique_abuse_case_use_case"
+            ),
+        ]
+
+
+class AbuseCaseTarget(TimestampedModel):
+    """A component or flow an abuse case targets (``abuseCase.targets``)."""
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    abuse_case = models.ForeignKey(
+        AbuseCase, on_delete=models.CASCADE, related_name="target_links"
+    )
+    component = models.ForeignKey(
+        "systems.OrgsystemComponent",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="abuse_case_links",
+    )
+    flow = models.ForeignKey(
+        "systems.Flow",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="abuse_case_links",
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        constraints = _component_or_flow_constraints("abuse_case", "abuse_case_target")
+
+
+class AbuseCaseThreat(TimestampedModel):
+    """A threat (scenario) an abuse case realizes. Exported as the scenario's
+    abstract threat in ``abuseCase.realizes`` plus ``precogly:abuse-cases`` on
+    the scenario for the exact link."""
+
+    tenancy = Tenancy.TENANT_OWNED
+
+    abuse_case = models.ForeignKey(
+        AbuseCase, on_delete=models.CASCADE, related_name="threat_links"
+    )
+    threat = models.ForeignKey(
+        "threats.InstanceThreat",
+        on_delete=models.CASCADE,
+        related_name="abuse_case_links",
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["abuse_case", "threat"], name="unique_abuse_case_threat"
+            ),
+        ]
 
 
 @receiver(post_delete, sender=ThreatModelReferenceImage)

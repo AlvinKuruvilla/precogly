@@ -2,6 +2,7 @@
 Serializers for threat_models app.
 """
 
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 
@@ -10,6 +11,7 @@ from apps.core.scope import refuse_users_outside
 
 from .models import (
     MODEL_TYPES,
+    AbuseCase,
     Assumption,
     AssumptionComponent,
     Blueprint,
@@ -323,13 +325,369 @@ class AssumptionSerializer(serializers.ModelSerializer):
         return instance
 
 
-class UseCaseSerializer(serializers.ModelSerializer):
-    """Read-only: use cases are import and export only (plan J14)."""
+NOT_IN_MODEL = "Not part of this threat model."
+
+
+def _id_list_field():
+    return serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False
+    )
+
+
+def resolve_in_model(threat_model, field_name: str, ids, queryset):
+    """The rows of ``queryset`` for ``ids``, in order, all of this model.
+
+    ``queryset`` is already narrowed to ``threat_model``; an id outside it is
+    a 400 on ``field_name``.
+    """
+    wanted = list(dict.fromkeys(ids))
+    found = {row.pk: row for row in queryset.filter(pk__in=wanted)}
+    if len(found) != len(wanted):
+        raise serializers.ValidationError({field_name: NOT_IN_MODEL})
+    return [found[row_id] for row_id in wanted]
+
+
+def _component_refs(links) -> list[dict]:
+    return [
+        {
+            "id": link.component_id,
+            "name": link.component.name,
+            "blueprint_id": link.component.blueprint_id,
+        }
+        for link in links
+        if link.component_id
+    ]
+
+
+def _flow_refs(links) -> list[dict]:
+    return [
+        {
+            "id": link.flow_id,
+            "name": link.flow.label,
+            "source_name": link.flow.source_component.name,
+            "destination_name": link.flow.dest_component.name,
+            "blueprint_id": link.flow.blueprint_id,
+        }
+        for link in links
+        if link.flow_id
+    ]
+
+
+class _FlowDataMixin:
+    """``flow_data`` checked by ``normalize_flow_data``; problems are a 400."""
+
+    flow_data_kind = "use_case"
+
+    def validate_flow_data(self, value):
+        from .flow_data import normalize_flow_data
+
+        normalized, problems = normalize_flow_data(value, self.flow_data_kind)
+        if problems:
+            raise serializers.ValidationError(problems)
+        return normalized
+
+
+def _target_querysets(threat_model):
+    from apps.systems.models import Flow, OrgsystemComponent
+
+    return (
+        OrgsystemComponent.objects.filter(blueprint__threat_model=threat_model),
+        Flow.objects.filter(blueprint__threat_model=threat_model),
+    )
+
+
+class UseCaseSerializer(_FlowDataMixin, serializers.ModelSerializer):
+    """A use case of the model, with its optional links.
+
+    ``component_ids``, ``flow_ids`` and ``business_objective_ids`` replace the
+    links they name; ``[]`` clears, an omitted field leaves the links alone.
+    """
+
+    component_ids = _id_list_field()
+    flow_ids = _id_list_field()
+    business_objective_ids = _id_list_field()
+    abuse_case_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = UseCase
-        fields = ["id", "name", "description", "flow_data", "created_at", "updated_at"]
-        read_only_fields = fields
+        fields = [
+            "id",
+            "name",
+            "description",
+            "flow_data",
+            "display_order",
+            "component_ids",
+            "flow_ids",
+            "business_objective_ids",
+            "abuse_case_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "abuse_case_count", "created_at", "updated_at"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        target_links = list(instance.target_links.all())
+        data["components"] = _component_refs(target_links)
+        data["flows"] = _flow_refs(target_links)
+        data["business_objectives"] = [
+            {"id": link.business_objective_id, "name": link.business_objective.name}
+            for link in instance.business_objective_links.all()
+        ]
+        if not hasattr(instance, "abuse_case_count"):
+            data["abuse_case_count"] = instance.abuse_case_links.count()
+        return data
+
+    def validate(self, attrs):
+        threat_model = self.context.get("threat_model") or getattr(
+            self.instance, "threat_model", None
+        )
+        components, flows = _target_querysets(threat_model)
+        for field_name, queryset in (
+            ("component_ids", components),
+            ("flow_ids", flows),
+            ("business_objective_ids", threat_model.business_objectives.all()),
+        ):
+            if field_name in attrs:
+                attrs[field_name] = resolve_in_model(
+                    threat_model, field_name, attrs[field_name], queryset
+                )
+        return attrs
+
+    def _save_links(self, instance, links):
+        from .use_cases import set_use_case_links
+
+        set_use_case_links(
+            instance,
+            components=links.get("component_ids"),
+            flows=links.get("flow_ids"),
+            business_objectives=links.get("business_objective_ids"),
+        )
+
+    @staticmethod
+    def _pop_links(validated_data) -> dict:
+        return {
+            key: validated_data.pop(key)
+            for key in ("component_ids", "flow_ids", "business_objective_ids")
+            if key in validated_data
+        }
+
+    @transaction.atomic
+    def create(self, validated_data):
+        links = self._pop_links(validated_data)
+        instance = UseCase.objects.create(
+            threat_model=self.context["threat_model"], **validated_data
+        )
+        self._save_links(instance, links)
+        return instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        links = self._pop_links(validated_data)
+        instance = super().update(instance, validated_data)
+        self._save_links(instance, links)
+        return instance
+
+
+def _kept_abuse_case_metadata(abuse_case) -> dict:
+    return (abuse_case.format_metadata or {}).get("cyclonedx") or {}
+
+
+def unlinked_realizes(abuse_case, linked_library_ids=None) -> list[dict]:
+    """The library threats an imported abuse case realizes that no threat of
+    this model links to it yet: ``[{library_threat_id, name}]`` or
+    ``[{ref, name}]`` for a threat that is no library row here.
+
+    An entry goes as soon as a threat of the same library threat is linked.
+    """
+    kept = _kept_abuse_case_metadata(abuse_case).get("unlinked_realizes") or []
+    if not kept:
+        return []
+    if linked_library_ids is None:
+        linked_library_ids = {
+            link.threat.threat_library_id
+            for link in abuse_case.threat_links.all()
+            if link.threat.threat_library_id
+        }
+    result = []
+    for entry in kept:
+        if not isinstance(entry, dict):
+            continue
+        library_id = entry.get("library_threat")
+        if library_id is not None:
+            if library_id not in linked_library_ids:
+                result.append(
+                    {"library_threat_id": library_id, "name": entry.get("name", "")}
+                )
+        elif isinstance(entry.get("ref"), str):
+            result.append({"ref": entry["ref"], "name": entry.get("name", "")})
+    return result
+
+
+class AbuseCaseSerializer(_FlowDataMixin, serializers.ModelSerializer):
+    """An abuse case of the model, with its optional links.
+
+    Link fields replace the links they name; ``[]`` clears, an omitted field
+    leaves the links alone. ``abuser_id`` is a persona of this model or null.
+    """
+
+    flow_data_kind = "abuse_case"
+
+    use_case_ids = _id_list_field()
+    component_ids = _id_list_field()
+    flow_ids = _id_list_field()
+    threat_ids = _id_list_field()
+    abuser_id = serializers.IntegerField(
+        write_only=True, required=False, allow_null=True
+    )
+
+    class Meta:
+        model = AbuseCase
+        fields = [
+            "id",
+            "name",
+            "flow_data",
+            "display_order",
+            "use_case_ids",
+            "component_ids",
+            "flow_ids",
+            "threat_ids",
+            "abuser_id",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        target_links = list(instance.target_links.all())
+        threat_links = list(instance.threat_links.all())
+        data["abuser"] = (
+            {"id": instance.abuser_id, "name": instance.abuser.name}
+            if instance.abuser_id
+            else None
+        )
+        data["use_cases"] = [
+            {"id": link.use_case_id, "name": link.use_case.name}
+            for link in instance.use_case_links.all()
+        ]
+        data["components"] = _component_refs(target_links)
+        data["flows"] = _flow_refs(target_links)
+        data["threats"] = [
+            {
+                "id": link.threat_id,
+                "number": link.threat.number,
+                "display_number": link.threat.display_number,
+                "name": link.threat.threat_name
+                or getattr(link.threat.threat_library, "name", "")
+                or link.threat.display_number,
+            }
+            for link in threat_links
+        ]
+        data["unlinked_realizes"] = unlinked_realizes(
+            instance,
+            {
+                link.threat.threat_library_id
+                for link in threat_links
+                if link.threat.threat_library_id
+            },
+        )
+        data["mitigations"] = self._mitigations(instance)
+        return data
+
+    @staticmethod
+    def _mitigations(instance) -> list[dict]:
+        """Controls an imported abuse case names; read-only, written back."""
+        from apps.threats.models import InstanceCountermeasure
+
+        kept = _kept_abuse_case_metadata(instance).get("mitigations") or []
+        control_ids = [
+            entry["control"]
+            for entry in kept
+            if isinstance(entry, dict) and isinstance(entry.get("control"), int)
+        ]
+        if not control_ids:
+            return []
+        controls = InstanceCountermeasure.objects.filter(
+            pk__in=control_ids, threat_model_id=instance.threat_model_id
+        ).select_related("countermeasure_library")
+        by_id = {control.pk: control for control in controls}
+        return [
+            {
+                "id": control_id,
+                "display_number": by_id[control_id].display_number,
+                "name": by_id[control_id].countermeasure_name
+                or getattr(by_id[control_id].countermeasure_library, "name", ""),
+            }
+            for control_id in control_ids
+            if control_id in by_id
+        ]
+
+    def validate(self, attrs):
+        from apps.threats.models import InstanceThreat, ThreatPersona
+
+        threat_model = self.context.get("threat_model") or getattr(
+            self.instance, "threat_model", None
+        )
+        components, flows = _target_querysets(threat_model)
+        for field_name, queryset in (
+            ("use_case_ids", threat_model.use_cases.all()),
+            ("component_ids", components),
+            ("flow_ids", flows),
+            ("threat_ids", InstanceThreat.objects.filter(threat_model=threat_model)),
+        ):
+            if field_name in attrs:
+                attrs[field_name] = resolve_in_model(
+                    threat_model, field_name, attrs[field_name], queryset
+                )
+        if "abuser_id" in attrs:
+            abuser_id = attrs.pop("abuser_id")
+            attrs["abuser"] = (
+                resolve_in_model(
+                    threat_model,
+                    "abuser_id",
+                    [abuser_id],
+                    ThreatPersona.objects.filter(threat_model=threat_model),
+                )[0]
+                if abuser_id is not None
+                else None
+            )
+        return attrs
+
+    @staticmethod
+    def _pop_links(validated_data) -> dict:
+        return {
+            key: validated_data.pop(key)
+            for key in ("use_case_ids", "component_ids", "flow_ids", "threat_ids")
+            if key in validated_data
+        }
+
+    def _save_links(self, instance, links):
+        from .use_cases import set_abuse_case_links
+
+        set_abuse_case_links(
+            instance,
+            use_cases=links.get("use_case_ids"),
+            components=links.get("component_ids"),
+            flows=links.get("flow_ids"),
+            threats=links.get("threat_ids"),
+        )
+
+    @transaction.atomic
+    def create(self, validated_data):
+        links = self._pop_links(validated_data)
+        instance = AbuseCase.objects.create(
+            threat_model=self.context["threat_model"], **validated_data
+        )
+        self._save_links(instance, links)
+        return instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        links = self._pop_links(validated_data)
+        instance = super().update(instance, validated_data)
+        self._save_links(instance, links)
+        return instance
 
 
 class BusinessObjectiveSerializer(serializers.ModelSerializer):

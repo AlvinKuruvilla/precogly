@@ -150,6 +150,40 @@ class SignedInPayloadTests(AnalysisPayloadTestCase):
         self.assertEqual(other["targets"][0]["name"], "Query")
 
 
+class PayloadQueryCountTests(AnalysisPayloadTestCase):
+    """The payload reloads after every add, so its query count must not grow
+    with the number of threats and countermeasure links."""
+
+    def _add_threat_sharing_a_control(self, control, index):
+        threat = create_instance_threat(
+            self.threat_model, targets=[self.api], threat_name=f"More {index}"
+        )
+        CountermeasureThreatLink.objects.create(countermeasure=control, threat=threat)
+
+    def test_query_count_is_flat(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        control = InstanceCountermeasure.objects.create(
+            threat_model=self.threat_model, countermeasure_name="Rate limit"
+        )
+        self._add_threat_sharing_a_control(control, 0)
+        with CaptureQueriesContext(connection) as few:
+            build_threat_analysis(self.threat_model)
+        for index in range(1, 6):
+            self._add_threat_sharing_a_control(control, index)
+        with CaptureQueriesContext(connection) as many:
+            payload = build_threat_analysis(self.threat_model)
+        self.assertEqual(len(many), len(few))
+        shared = next(t for t in payload["threats"] if t["threat_name"] == "More 0")
+        rate_limit = next(
+            c
+            for c in shared["countermeasures"]
+            if c["countermeasure_name"] == "Rate limit"
+        )
+        self.assertEqual(len(rate_limit["also_mitigates"]), 5)
+
+
 class SharedPayloadTests(AnalysisPayloadTestCase):
     def test_shared_threat_keys_are_exactly_the_allow_list(self):
         payload = build_threat_analysis(self.threat_model, audience=SHARED)

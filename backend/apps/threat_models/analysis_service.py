@@ -291,35 +291,36 @@ def serialize_targets(owner, index: CanvasIndex | None = None):
     return result
 
 
-def _also_mitigates(countermeasure, current_link_id, index):
+def links_by_countermeasure(threats) -> dict:
+    """countermeasure id -> [(link id, threat)], from scenarios already loaded
+    with their countermeasure links, so "also mitigates" needs no query."""
+    found: dict = {}
+    for threat in threats:
+        for link in threat.countermeasure_links.all():
+            found.setdefault(link.countermeasure_id, []).append((link.id, threat))
+    return found
+
+
+def _also_mitigates(countermeasure, current_link_id, other_links_index):
     """The other scenarios a countermeasure is linked to, for the editor's hint."""
-    other_links = (
-        CountermeasureThreatLink.objects.filter(countermeasure=countermeasure)
-        .exclude(id=current_link_id)
-        .select_related("threat", "threat__threat_library")
-        .prefetch_related(
-            "threat__targets__component",
-            "threat__targets__flow__source_component",
-            "threat__targets__flow__dest_component",
-            "threat__targets__zone",
-            "threat__targets__boundary",
-        )
-    )
     return [
         {
-            "threat_id": link.threat.id,
-            "display_number": link.threat.display_number,
-            "threat_name": threat_display_name(link.threat),
-            "targets": serialize_targets(link.threat),
+            "threat_id": threat.id,
+            "display_number": threat.display_number,
+            "threat_name": threat_display_name(threat),
+            "targets": serialize_targets(threat),
         }
-        for link in other_links
+        for link_id, threat in other_links_index.get(countermeasure.id, [])
+        if link_id != current_link_id
     ]
 
 
-def serialize_countermeasures_from_links(
-    links, *, index=None, with_also_mitigates=True
-):
-    """Countermeasures attached to one scenario, through its links."""
+def serialize_countermeasures_from_links(links, *, index=None, also_mitigates=None):
+    """Countermeasures attached to one scenario, through its links.
+
+    ``also_mitigates`` is ``links_by_countermeasure`` of the model's scenarios;
+    without it the "also mitigates" lists are empty (the shared view).
+    """
     result = []
     for link in links:
         countermeasure = link.countermeasure
@@ -358,8 +359,10 @@ def serialize_countermeasures_from_links(
                 ],
                 "implemented_by_party": countermeasure.implemented_by_party,
                 "source": countermeasure.source,
-                "also_mitigates": _also_mitigates(countermeasure, link.id, index)
-                if with_also_mitigates
+                "also_mitigates": _also_mitigates(
+                    countermeasure, link.id, also_mitigates
+                )
+                if also_mitigates is not None
                 else [],
             }
         )
@@ -399,7 +402,7 @@ def threats_queryset(threat_model):
     """Every scenario of the model with what the payload needs prefetched."""
     return (
         InstanceThreat.objects.filter(threat_model=threat_model)
-        .select_related("threat_library", "actor_persona")
+        .select_related("threat_library", "actor_persona", "rating")
         .prefetch_related(
             "threat_library__taxonomy_entries__taxonomy_entry__taxonomy",
             "instance_taxonomy_links__taxonomy_entry__taxonomy",
@@ -408,6 +411,7 @@ def threats_queryset(threat_model):
             "targets__flow__dest_component",
             "targets__zone",
             "targets__boundary",
+            "abuse_case_links__abuse_case",
             _countermeasure_links_prefetch(),
         )
         .order_by("display_order", "number")
@@ -469,8 +473,10 @@ def build_threat_analysis(threat_model, *, audience=SIGNED_IN):
     ).select_related("source_component", "dest_component"):
         index.place("flow", flow)
 
+    threat_rows = list(threats_queryset(threat_model))
+    other_links_index = None if shared else links_by_countermeasure(threat_rows)
     threats = []
-    for threat in threats_queryset(threat_model):
+    for threat in threat_rows:
         entry = {
             "id": threat.id,
             "number": threat.number,
@@ -497,10 +503,14 @@ def build_threat_analysis(threat_model, *, audience=SIGNED_IN):
             else None,
             "intent": threat.intent,
             "access_level": threat.access_level,
+            "abuse_cases": [
+                {"id": link.abuse_case_id, "name": link.abuse_case.name}
+                for link in threat.abuse_case_links.all()
+            ],
             "countermeasures": serialize_countermeasures_from_links(
                 threat.countermeasure_links.all(),
                 index=index,
-                with_also_mitigates=not shared,
+                also_mitigates=other_links_index,
             ),
         }
         threats.append(entry)

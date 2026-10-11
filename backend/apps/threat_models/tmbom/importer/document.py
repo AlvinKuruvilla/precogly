@@ -24,6 +24,7 @@ from apps.threat_models.models import ThreatModel, ThreatModelLibraryPack
 from ..passthrough import keep_document_level
 from ..properties import PropertyOwner, read_properties
 from ..validation import check_ref_integrity, validate_document
+from .abuse_cases import import_abuse_cases
 from .blueprint import generate_missing_canvases, import_blueprint
 from .context import (
     import_blueprint_metadata,
@@ -84,6 +85,7 @@ class ImportContext:
     actors: dict = field(default_factory=dict)  # actor bom-ref -> {blueprint, data}
     scenarios_by_threat_ref: dict = field(default_factory=dict)  # threat ref -> rows
     mitigations_by_threat_ref: dict = field(default_factory=dict)  # threat ref -> refs
+    personas_by_actor_ref: dict = field(default_factory=dict)  # actor ref -> persona
 
     def warn(self, message: str) -> None:
         logger.warning("TM-BOM import: %s", message)
@@ -233,6 +235,7 @@ def import_document(document, organization, user):
         import_threats(document, threat_model, context, system_ref=system_ref)
         import_controls(document, threat_model, context, system_ref=system_ref)
         import_risks(document, threat_model, context)
+        import_abuse_cases(document, threat_model, context)
         keep_document_level(threat_model, document)
         _apply_scoring_method(document, threat_model, context)
         threat_model.save(update_fields=["format_metadata", "risk_scoring_method"])

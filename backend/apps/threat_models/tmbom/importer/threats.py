@@ -202,6 +202,7 @@ class ThreatImporter:
         self.context.register(party.get("bom-ref"), "party", persona)
         self.context.count("threat_personas")
         self.personas_by_actor_ref[actor_ref] = persona
+        self.context.personas_by_actor_ref[actor_ref] = persona
         return persona
 
     def _actor(self, scenario: dict, label: str):

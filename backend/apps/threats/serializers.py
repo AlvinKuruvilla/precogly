@@ -90,6 +90,14 @@ def _build_taxonomy_entry_dict(entry, source):
     }
 
 
+def _related(owner, name: str, *joins):
+    """``owner.<name>.all()``, joined unless the caller prefetched it."""
+    manager = getattr(owner, name)
+    if name in getattr(owner, "_prefetched_objects_cache", {}):
+        return manager.all()
+    return manager.select_related(*joins).all()
+
+
 def _merge_taxonomy_entries(threat_instance):
     """Merge library + instance taxonomy entries, fall back to snapshot.
 
@@ -100,16 +108,18 @@ def _merge_taxonomy_entries(threat_instance):
     seen = {}
 
     if threat_instance.threat_library:
-        for join in threat_instance.threat_library.taxonomy_entries.select_related(
-            "taxonomy_entry__taxonomy"
-        ).all():
+        for join in _related(
+            threat_instance.threat_library,
+            "taxonomy_entries",
+            "taxonomy_entry__taxonomy",
+        ):
             entry = join.taxonomy_entry
             key = (entry.taxonomy.slug, entry.external_id)
             seen[key] = _build_taxonomy_entry_dict(entry, "library")
 
-    for link in threat_instance.instance_taxonomy_links.select_related(
-        "taxonomy_entry__taxonomy"
-    ).all():
+    for link in _related(
+        threat_instance, "instance_taxonomy_links", "taxonomy_entry__taxonomy"
+    ):
         entry = link.taxonomy_entry
         key = (entry.taxonomy.slug, entry.external_id)
         if key not in seen:
@@ -539,12 +549,22 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
     threat_source_ids = serializers.ListField(
         child=serializers.IntegerField(), write_only=True, required=False
     )
+    abuse_case_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False
+    )
+    abuse_cases = serializers.SerializerMethodField()
     actor_persona_name = serializers.CharField(
         source="actor_persona.name", read_only=True, default=None
     )
 
     def get_business_objectives(self, obj):
         return objective_names(obj.business_objective_links.all())
+
+    def get_abuse_cases(self, obj):
+        return [
+            {"id": link.abuse_case_id, "name": link.abuse_case.name}
+            for link in obj.abuse_case_links.all()
+        ]
 
     # Write fields - accept threat_name/threat_description for custom threats
     threat_name = serializers.CharField(
@@ -573,6 +593,8 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
             "rating_inputs",
             "business_objective_ids",
             "threat_source_ids",
+            "abuse_case_ids",
+            "abuse_cases",
             "business_objectives",
             "status",
             "triage_status",
@@ -602,6 +624,7 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
             "threat_name_display",
             "taxonomy_entries",
             "threat_sources",
+            "abuse_cases",
             "actor_persona_name",
         ]
 
@@ -631,7 +654,7 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
     def get_threat_sources(self, obj):
         return [
             {"id": link.source.id, "name": link.source.name, "slug": link.source.slug}
-            for link in obj.source_links.select_related("source").all()
+            for link in _related(obj, "source_links", "source")
         ]
 
     def validate(self, attrs):
@@ -695,6 +718,16 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
             attrs["business_objective_ids"] = resolve_business_objectives(
                 threat_model, attrs["business_objective_ids"]
             )
+        if "abuse_case_ids" in attrs:
+            from apps.threat_models.models import AbuseCase
+            from apps.threat_models.serializers import resolve_in_model
+
+            attrs["abuse_case_ids"] = resolve_in_model(
+                threat_model,
+                "abuse_case_ids",
+                attrs["abuse_case_ids"],
+                AbuseCase.objects.filter(threat_model=threat_model),
+            )
 
         persona = attrs.get(
             "actor_persona", getattr(self.instance, "actor_persona", None)
@@ -722,6 +755,7 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
         rating_inputs = validated_data.pop("rating_inputs", None)
         objectives = validated_data.pop("business_objective_ids", [])
         sources = validated_data.pop("threat_source_ids", [])
+        abuse_cases = validated_data.pop("abuse_case_ids", [])
         rating = (
             rating_from_inputs(threat_model, rating_inputs, for_threat=True)
             if rating_inputs
@@ -742,6 +776,10 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
             from .services import set_threat_sources
 
             set_threat_sources(threat, sources)
+        if abuse_cases:
+            from apps.threat_models.use_cases import link_threat_to_abuse_cases
+
+            link_threat_to_abuse_cases(threat, abuse_cases)
         return threat
 
     @transaction.atomic
@@ -760,6 +798,7 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
         rating_inputs = validated_data.pop("rating_inputs", None)
         objectives = validated_data.pop("business_objective_ids", None)
         sources = validated_data.pop("threat_source_ids", None)
+        abuse_cases = validated_data.pop("abuse_case_ids", None)
         validated_data.pop("threat_model", None)
         instance = super().update(instance, validated_data)
         if objectives is not None:
@@ -767,6 +806,10 @@ class InstanceThreatSerializer(serializers.ModelSerializer):
         if sources is not None:
             # [] clears them all; note_user_edit below marks the threat edited.
             set_threat_sources(instance, sources)
+        if abuse_cases is not None:
+            from apps.threat_models.use_cases import set_threat_abuse_cases
+
+            set_threat_abuse_cases(instance, abuse_cases)
         if rating_inputs:
             apply_rating(
                 instance,
