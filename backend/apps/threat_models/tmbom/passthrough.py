@@ -291,6 +291,11 @@ def keep_document_level(threat_model, document: dict) -> None:
     cyclonedx = _cyclonedx(threat_model)
     if kept:
         cyclonedx["passthrough"] = copy.deepcopy(kept)
+    # ``definitions.standards`` is kept whole as well: the export starts from
+    # it and adds the mappings made here (``exporter.controls.StandardsIndex``).
+    standards = (document.get("definitions") or {}).get("standards")
+    if isinstance(standards, list) and standards:
+        cyclonedx["kept_standards"] = copy.deepcopy(standards)
     if foreign:
         cyclonedx["foreign_properties"] = copy.deepcopy(foreign)
     cyclonedx["known_refs"] = sorted(collect_refs(document))

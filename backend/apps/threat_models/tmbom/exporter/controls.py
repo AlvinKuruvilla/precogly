@@ -7,11 +7,18 @@ its target rows (none means the whole system and the field is left out),
 status with custom objects for gap, waived and platform, external references
 for the ticket and the evidence, and ``precogly:mitigates`` naming the
 scenarios it is explicitly linked to (G2). Parties (owners, providers) are
-declared once on ``metadata.component.parties`` and referenced.
+declared once on ``metadata.component.parties`` and referenced. Values kept
+at import (``kept_values``) are written back while the row still holds what
+it was imported as: an owner that is no member, the effectiveness ``rating``
+and ``satisfies`` refs that are no standard requirement (an engineering
+requirement, say) while they resolve.
 """
+
+import copy
 
 from django.utils.text import slugify
 
+from ..kept_values import effectiveness_entry, kept_owner_entry
 from ..properties import PropertyOwner, make_property
 from ..refs import RefRegistry
 from ..spec_values import (
@@ -93,12 +100,55 @@ class StandardsIndex:
     whose framework is not installed here, goes under a standard named from
     the snapshot (``requirement-snapshot-<mapping id>``), so the mapping
     still travels (PR #559).
+
+    The standards an import kept (``kept``) are written back first and as
+    they came, unmapped requirements and fields such as ``openCre``
+    included. A mapping to one of their requirements (matched by standard
+    name, or framework slug, and identifier, as the import matched it) uses
+    the kept ref; a new requirement of a kept standard is added to it.
     """
 
-    def __init__(self, refs: RefRegistry):
+    def __init__(self, refs: RefRegistry, kept=None):
         self.refs = refs
         self.standards: dict[str, dict] = {}
         self._requirement_refs: dict[tuple, str] = {}
+        self._kept_standard_keys: dict[str, str] = {}
+        self._kept_requirement_refs: dict[tuple, str] = {}
+        for position, standard in enumerate(kept or []):
+            if not isinstance(standard, dict) or not standard.get("bom-ref"):
+                continue
+            key = f"kept-{position}"
+            self.standards[key] = copy.deepcopy(standard)
+            name = str(standard.get("name") or "")
+            if not name:
+                continue
+            self._kept_standard_keys.setdefault(name, key)
+            for requirement in standard.get("requirements") or []:
+                if (
+                    isinstance(requirement, dict)
+                    and requirement.get("bom-ref")
+                    and requirement.get("identifier")
+                ):
+                    self._kept_requirement_refs.setdefault(
+                        (name, str(requirement["identifier"])), requirement["bom-ref"]
+                    )
+
+    def _kept(self, names, identifier: str):
+        """``(kept requirement ref, kept standard)`` for the first name that
+        matches; either can be None."""
+        for name in names:
+            if not name:
+                continue
+            ref = self._kept_requirement_refs.get((name, identifier))
+            if ref is not None:
+                return ref, None
+        for name in names:
+            key = self._kept_standard_keys.get(name) if name else None
+            if key is not None:
+                standard = self.standards[key]
+                standard.setdefault("requirements", [])
+                return None, standard
+        return None, None
 
     def _standard(self, key: str, bom_ref: str, name: str, version: str = "") -> dict:
         standard = self.standards.get(key)
@@ -119,12 +169,19 @@ class StandardsIndex:
         if ref is not None:
             return ref
         framework = requirement.framework
-        standard = self._standard(
-            f"framework-{framework.pk}",
-            f"standard-{framework.pk}",
-            framework.name,
-            framework.version,
+        kept_ref, standard = self._kept(
+            (framework.name, framework.slug), requirement.section_code
         )
+        if kept_ref is not None:
+            self._requirement_refs[key] = kept_ref
+            return kept_ref
+        if standard is None:
+            standard = self._standard(
+                f"framework-{framework.pk}",
+                f"standard-{framework.pk}",
+                framework.name,
+                framework.version,
+            )
         ref = self.refs.fixed(f"requirement-{requirement.pk}")
         entry = {
             "bom-ref": ref,
@@ -143,9 +200,14 @@ class StandardsIndex:
         if ref is not None:
             return ref
         name = mapping.framework_name or "Unknown standard"
-        standard = self._standard(
-            f"name-{name}", f"standard-{slugify(name)[:60] or 'unknown'}", name
-        )
+        kept_ref, standard = self._kept((mapping.framework_name,), mapping.section_code)
+        if kept_ref is not None:
+            self._requirement_refs[key] = kept_ref
+            return kept_ref
+        if standard is None:
+            standard = self._standard(
+                f"name-{name}", f"standard-{slugify(name)[:60] or 'unknown'}", name
+            )
         ref = self.refs.fixed(f"requirement-snapshot-{mapping.pk}")
         entry = {
             "bom-ref": ref,
@@ -340,12 +402,24 @@ def _control(
         entry["implementedBy"] = implemented_by
 
     satisfies, sufficiency = _satisfies(countermeasure, standards)
+    for extra in _cyclonedx_metadata(countermeasure).get("extra_satisfies") or []:
+        if (
+            isinstance(extra, str)
+            and refs.will_resolve(extra)
+            and extra not in satisfies
+        ):
+            satisfies.append(extra)
     if satisfies:
         entry["satisfies"] = satisfies
-    if countermeasure.effectiveness is not None:
-        entry["effectiveness"] = {"percentage": countermeasure.effectiveness}
+    effectiveness = effectiveness_entry(countermeasure.effectiveness, countermeasure)
+    if effectiveness is not None:
+        entry["effectiveness"] = effectiveness
     if countermeasure.assigned_owner_id:
         entry["owner"] = parties.user_ref(countermeasure.assigned_owner, "owner")
+    else:
+        kept_owner = kept_owner_entry(countermeasure, refs)
+        if kept_owner is not None:
+            entry["owner"] = kept_owner
     references = _external_references(countermeasure)
     if references:
         entry["externalReferences"] = references
@@ -386,7 +460,12 @@ def export_controls(threat_model, refs: RefRegistry, *, parties=None):
     and of a risk is declared once.
     """
     parties = parties if parties is not None else PartyIndex(refs)
-    standards = StandardsIndex(refs)
+    standards = StandardsIndex(
+        refs,
+        kept=((threat_model.format_metadata or {}).get("cyclonedx") or {}).get(
+            "kept_standards"
+        ),
+    )
     controls = [
         _control(countermeasure, refs, parties, standards)
         for countermeasure in countermeasures_queryset(threat_model)

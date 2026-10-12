@@ -5,13 +5,22 @@ its name, marked ``precogly:statement-generated``), ``status``, ``domains``,
 ``relatedThreats`` as scenario refs, the three ratings, ``responses[]`` with
 their own refs, strategy, status, effectiveness, cost, priority, owner,
 target date and ``controls``, and the owner party. ``exposure`` is derived
-and not exported.
+and not exported. Values kept at import (``kept_values``) are written back
+while the row still holds what it was imported as: a response's original
+status, the effectiveness ``rating``, an owner that is no member, a
+domain's priority and description, and custom domains.
 """
 
+from ..kept_values import effectiveness_entry, kept_owner_entry
 from ..properties import PropertyOwner, make_property
 from ..ratings import rating_to_spec
 from ..refs import RefRegistry
-from ..spec_values import custom_type
+from ..spec_values import (
+    RESPONSE_STATUS_TO_SPEC,
+    SPEC_STATUS_TO_RESPONSE,
+    custom_type,
+    type_name,
+)
 
 RISK_STATUSES = (
     "identified",
@@ -21,16 +30,31 @@ RISK_STATUSES = (
     "transferred",
     "retired",
 )
-RESPONSE_STATUS_TO_SPEC = {
-    "planned": "planned",
-    "in_progress": "in-progress",
-    "implemented": "implemented",
-    "verified": "verified",
-}
 
 
 def _cyclonedx_metadata(row) -> dict:
     return (getattr(row, "format_metadata", None) or {}).get("cyclonedx") or {}
+
+
+def _response_status(response):
+    # A spec status stored as one of ours ("proposed" as planned, a custom
+    # status as planned) is written back while the row still holds it.
+    original = _cyclonedx_metadata(response).get("original_status")
+    if original is not None:
+        mapped = (
+            SPEC_STATUS_TO_RESPONSE.get(type_name(original), "planned")
+            if isinstance(original, str)
+            else "planned"
+        )
+        if mapped == response.status:
+            return original
+    return RESPONSE_STATUS_TO_SPEC.get(response.status) or custom_type(response.status)
+
+
+def _owner(row, refs: RefRegistry, parties):
+    if row.owner_id:
+        return parties.user_ref(row.owner, "owner")
+    return kept_owner_entry(row, refs)
 
 
 def _response(response, refs: RefRegistry, parties) -> dict:
@@ -40,17 +64,17 @@ def _response(response, refs: RefRegistry, parties) -> dict:
     }
     if response.description:
         entry["description"] = response.description
-    entry["status"] = RESPONSE_STATUS_TO_SPEC.get(response.status) or custom_type(
-        response.status
-    )
-    if response.effectiveness is not None:
-        entry["effectiveness"] = {"percentage": response.effectiveness}
+    entry["status"] = _response_status(response)
+    effectiveness = effectiveness_entry(response.effectiveness, response)
+    if effectiveness is not None:
+        entry["effectiveness"] = effectiveness
     if response.cost:
         entry["cost"] = response.cost
     if response.priority:
         entry["priority"] = response.priority
-    if response.owner_id:
-        entry["owner"] = parties.user_ref(response.owner, "owner")
+    owner = _owner(response, refs, parties)
+    if owner is not None:
+        entry["owner"] = owner
     if response.target_date:
         entry["targetDate"] = response.target_date.isoformat()
     controls = [
@@ -77,8 +101,17 @@ def _risk(risk, refs: RefRegistry, parties) -> dict:
     kept_status = _cyclonedx_metadata(risk).get("custom_status")
     if isinstance(kept_status, dict) and risk.status == "identified":
         entry["status"] = kept_status
-    if risk.domains:
-        entry["domains"] = [{"type": domain} for domain in risk.domains]
+    details = _cyclonedx_metadata(risk).get("domain_details") or {}
+    domains = [
+        {"type": domain, **(details.get(domain) or {})} for domain in risk.domains or []
+    ]
+    domains += [
+        domain
+        for domain in _cyclonedx_metadata(risk).get("extra_domains") or []
+        if isinstance(domain, dict)
+    ]
+    if domains:
+        entry["domains"] = domains
     # Explicit order: the link table has no default ordering, and an unordered
     # scan can return rows in any order once the table has seen deletes.
     related = [
@@ -106,8 +139,9 @@ def _risk(risk, refs: RefRegistry, parties) -> dict:
             responses.append(kept)
     if responses:
         entry["responses"] = responses
-    if risk.owner_id:
-        entry["owner"] = parties.user_ref(risk.owner, "owner")
+    owner = _owner(risk, refs, parties)
+    if owner is not None:
+        entry["owner"] = owner
     properties = []
     if not risk.statement:
         properties.append(

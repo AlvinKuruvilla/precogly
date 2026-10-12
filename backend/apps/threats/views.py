@@ -71,6 +71,7 @@ from .serializers import (
 from .services import (
     check_platform_status,
     create_instance_countermeasure,
+    forget_kept_owner,
     link_countermeasure,
     note_user_edit,
     rating_level_rank,
@@ -1115,6 +1116,9 @@ class RiskViewSet(viewsets.ModelViewSet):
             )
 
         updated = queryset.update(**update_fields)
+        if "owner_id" in update_fields:
+            for risk in queryset.filter(format_metadata__cyclonedx__has_key="owner"):
+                forget_kept_owner(risk)
         return Response({"updated": updated})
 
 

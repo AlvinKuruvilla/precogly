@@ -248,6 +248,21 @@ SPEC_STATUS_TO_COUNTERMEASURE = {
 }
 CUSTOM_COUNTERMEASURE_STATUSES = ("gap", "waived", "platform")
 
+# Our risk response status -> spec status, and back. Every other spec status
+# (and a custom one) is stored as planned with the original kept.
+RESPONSE_STATUS_TO_SPEC = {
+    "planned": "planned",
+    "in_progress": "in-progress",
+    "implemented": "implemented",
+    "verified": "verified",
+}
+SPEC_STATUS_TO_RESPONSE = {
+    **{spec: ours for ours, spec in RESPONSE_STATUS_TO_SPEC.items()},
+    "recommended": "planned",
+    "proposed": "planned",
+    "approved": "planned",
+}
+
 EXTERNAL_REFERENCE_TYPES = (
     "issue-tracker",
     "evidence",

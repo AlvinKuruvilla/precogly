@@ -596,6 +596,20 @@ def note_user_edit(row) -> None:
         row.save(update_fields=["auto_generated", "updated_at"])
 
 
+def forget_kept_owner(row) -> None:
+    """The owner of ``row`` was set or cleared in Precogly: drop the owner party
+    an import kept for export (``tmbom/kept_values.py``), so it does not come
+    back once the owner is cleared."""
+    metadata = row.format_metadata or {}
+    cyclonedx = metadata.get("cyclonedx")
+    if isinstance(cyclonedx, dict) and "owner" in cyclonedx:
+        row.format_metadata = {
+            **metadata,
+            "cyclonedx": {k: v for k, v in cyclonedx.items() if k != "owner"},
+        }
+        row.save(update_fields=["format_metadata", "updated_at"])
+
+
 def generate_countermeasures_for_threat(threat):
     """Create and link the library countermeasures that apply to a scenario.
 

@@ -8,12 +8,16 @@ Rules (plan sections 4.3, 9.2, 9.4 and PR #559, D20):
   name as text.
 - ``satisfies`` resolves each ref through ``definitions.standards`` to an
   installed ``StandardRequirement`` when its framework is here, else to a
-  snapshot mapping that still displays. Dangling refs warn and are skipped.
+  snapshot mapping that still displays. Any other ref (an engineering
+  requirement under ``definitions.requirements``, say) is kept for export,
+  not linked, and warned about.
 - Status: spec values map to ours; the custom names gap, waived and platform
   are ours; ``platform`` needs the Security Team role in the organization,
   otherwise ``gap`` is stored and the import warns (H6). Decision-process
   statuses (recommended, proposed, approved, rejected) are stored as planned
   or waived with the original kept in ``format_metadata``.
+- Kept for export (``kept_values``): an owner that is no member of the
+  organization and the effectiveness ``rating``.
 - Threat links come from ``precogly:mitigates`` when present, else from
   ``threat.mitigations`` (every scenario of that threat).
 """
@@ -36,6 +40,7 @@ from apps.threats.services import (
     recalculate_threat_status,
 )
 
+from ..kept_values import effectiveness_to_keep, owner_to_keep
 from ..passthrough import keep_unknown
 from ..properties import PropertyOwner, read_properties
 from ..refs import remember_ref
@@ -209,7 +214,7 @@ class ControlImporter:
         raw = control.get("owner")
         party = self.parties.get(raw) if isinstance(raw, str) else raw
         if not isinstance(party, dict):
-            return None, raw if raw else None
+            return None, owner_to_keep(raw, self.parties)
         emails = []
         person = party.get("person")
         if isinstance(person, dict):
@@ -227,7 +232,7 @@ class ControlImporter:
             f"Control '{label}': owner matches no member of the organization; kept "
             "for export, not assigned."
         )
-        return None, raw
+        return None, owner_to_keep(raw, self.parties)
 
     def _user_by_email(self, email: str):
         if not email:
@@ -253,7 +258,11 @@ class ControlImporter:
                 others.append(reference)
         return ticket, evidence, others
 
-    def _satisfies(self, countermeasure, control: dict, properties: dict, label: str):
+    def _satisfies(
+        self, countermeasure, control: dict, properties: dict, label: str
+    ) -> list:
+        """Store the standard requirements; returns the other refs, to keep."""
+        kept_refs = []
         sufficiency_by_ref = {}
         for item in _flatten(properties.get("precogly:sufficiency", [])):
             if isinstance(item, dict) and item.get("requirement"):
@@ -261,15 +270,18 @@ class ControlImporter:
         for ref in control.get("satisfies") or []:
             info = self.requirements.get(ref) if isinstance(ref, str) else None
             if not info or not info.get("section_code"):
+                if isinstance(ref, str) and ref not in kept_refs:
+                    kept_refs.append(ref)
                 self.context.warn(
-                    f"Control '{label}': satisfies reference '{ref}' matches no "
-                    "requirement definition; skipped."
+                    f"Control '{label}': satisfies reference '{ref}' is no standard "
+                    "requirement here; kept for export, not linked."
                 )
                 continue
             sufficiency = sufficiency_by_ref.get(ref) or "partial"
             if sufficiency not in {"full", "partial"}:
                 sufficiency = "partial"
             self._store_requirement(countermeasure, info, sufficiency)
+        return kept_refs
 
     def _store_requirement(self, countermeasure, info: dict, sufficiency: str) -> None:
         section_code = info["section_code"][:50]
@@ -436,6 +448,12 @@ class ControlImporter:
             cyclonedx["owner"] = kept_owner
         if other_references:
             cyclonedx["external_references"] = other_references
+        kept_effectiveness = effectiveness_to_keep(effectiveness_data)
+        if kept_effectiveness is not None:
+            cyclonedx["effectiveness"] = kept_effectiveness
+        kept_satisfies = self._satisfies(countermeasure, control, properties, label)
+        if kept_satisfies:
+            cyclonedx["extra_satisfies"] = kept_satisfies
         if cyclonedx:
             metadata = dict(countermeasure.format_metadata or {})
             metadata["cyclonedx"] = cyclonedx
@@ -443,7 +461,6 @@ class ControlImporter:
             countermeasure.save(update_fields=["format_metadata"])
         self.context.register(bom_ref, "control", countermeasure)
 
-        self._satisfies(countermeasure, control, properties, label)
         for threat in self._mitigated_scenarios(control, properties, label):
             link_countermeasure(countermeasure, threat)
             self.linked_threats[threat.pk] = threat

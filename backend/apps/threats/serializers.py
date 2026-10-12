@@ -32,6 +32,7 @@ from .models import (
 )
 from .services import (
     derive_risk_status,
+    forget_kept_owner,
     recalculate_residual,
 )
 
@@ -99,11 +100,13 @@ def _related(owner, name: str, *joins):
 
 
 def _merge_taxonomy_entries(threat_instance):
-    """Merge library + instance taxonomy entries, fall back to snapshot.
+    """Merge library + instance taxonomy entries, plus the snapshot.
 
     Returns a list of dicts with a 'source' field indicating provenance.
     Deduplicates by (taxonomy_slug, external_id); instance entries
-    supplement library entries for the same key.
+    supplement library entries for the same key. The snapshot stands in for
+    the library entries when the threat has no library row (not installed
+    here), so adding a category by hand does not hide it.
     """
     seen = {}
 
@@ -125,8 +128,8 @@ def _merge_taxonomy_entries(threat_instance):
         if key not in seen:
             seen[key] = _build_taxonomy_entry_dict(entry, "instance")
 
-    if not seen:
-        for snap in threat_instance.taxonomy_snapshot:
+    if threat_instance.threat_library_id is None:
+        for snap in threat_instance.taxonomy_snapshot or []:
             key = (snap.get("taxonomy_slug", ""), snap.get("external_id", ""))
             if key not in seen:
                 seen[key] = {
@@ -1102,6 +1105,8 @@ class InstanceCountermeasureSerializer(serializers.ModelSerializer):
         validated_data.pop("threat_id", None)
         validated_data.pop("threat_model", None)
         instance = super().update(instance, validated_data)
+        if "assigned_owner" in validated_data:
+            forget_kept_owner(instance)
         if targets is not None:
             set_countermeasure_targets(instance, targets)
         if implemented_by is not None:
@@ -1579,6 +1584,8 @@ class RiskDetailSerializer(serializers.ModelSerializer):
         rating = validated_data.pop("_rating", None)
         objectives = validated_data.pop("business_objective_ids", None)
         instance = super().update(instance, validated_data)
+        if "owner" in validated_data:
+            forget_kept_owner(instance)
         if objectives is not None:
             set_risk_business_objectives(instance, objectives)
         if rating is not None:
@@ -1680,6 +1687,8 @@ class RiskResponseSerializer(serializers.ModelSerializer):
         countermeasures = validated_data.pop("countermeasure_ids", None)
         validated_data.pop("risk", None)
         instance = super().update(instance, validated_data)
+        if "owner" in validated_data:
+            forget_kept_owner(instance)
         if countermeasures is not None:
             set_response_countermeasures(instance, countermeasures)
             instance.refresh_from_db()

@@ -10,6 +10,10 @@
   model keeps an empty statement rather than a synthesized one.
 - Ratings come from ``inherentRisk`` (else a level-only medium rating),
   ``residualRisk`` and ``targetRisk``.
+- Kept for export (``kept_values``): an owner that is no member of the
+  organization, a response's spec status that maps onto one of ours
+  (``proposed`` stored as planned), the effectiveness ``rating``, a
+  domain's ``priority`` and ``description``, and custom domains.
 """
 
 from datetime import datetime
@@ -25,23 +29,23 @@ from apps.threats.services import (
     set_risk_business_objectives,
 )
 
+from ..kept_values import (
+    domain_details_to_keep,
+    effectiveness_to_keep,
+    owner_to_keep,
+)
 from ..passthrough import keep_unknown
 from ..properties import PropertyOwner, read_properties
 from ..ratings import rating_from_spec
 from ..refs import remember_ref
-from ..spec_values import type_name
+from ..spec_values import (
+    RESPONSE_STATUS_TO_SPEC,
+    SPEC_STATUS_TO_RESPONSE,
+    type_name,
+)
 
 User = get_user_model()
 
-SPEC_TO_RESPONSE_STATUS = {
-    "planned": "planned",
-    "in-progress": "in_progress",
-    "implemented": "implemented",
-    "verified": "verified",
-    "recommended": "planned",
-    "proposed": "planned",
-    "approved": "planned",
-}
 HELD_STRATEGIES = {choice for choice, _ in RiskResponse.Strategy.choices}
 RISK_DOMAINS = (
     "security",
@@ -98,6 +102,19 @@ class RiskImporter:
                     return user
         return None
 
+    def _owner(self, raw, label: str):
+        """``(user, kept)``: the member the party names, else the party to keep."""
+        if not raw:
+            return None, None
+        user = self._user_for_party(raw)
+        if user is not None:
+            return user, None
+        self.context.warn(
+            f"{label}: owner matches no member of the organization; kept for "
+            "export, not assigned."
+        )
+        return None, owner_to_keep(raw, self.parties)
+
     def _name_for(self, base: str) -> str:
         """A unique risk name in the model (H14): a suffix and a warning."""
         name = base
@@ -123,7 +140,7 @@ class RiskImporter:
                 )
                 continue
             status_name = type_name(response_data.get("status"))
-            status = SPEC_TO_RESPONSE_STATUS.get(status_name, "planned")
+            status = SPEC_STATUS_TO_RESPONSE.get(status_name, "planned")
             controls = []
             for ref in response_data.get("controls") or []:
                 countermeasure = self.context.resolve(ref, "control")
@@ -152,6 +169,9 @@ class RiskImporter:
                     )
             cost = response_data.get("cost")
             priority = response_data.get("priority")
+            owner, kept_owner = self._owner(
+                response_data.get("owner"), f"Risk '{label}', response"
+            )
             response = create_risk_response(
                 risk,
                 countermeasures=controls,
@@ -166,18 +186,32 @@ class RiskImporter:
                 priority=priority
                 if priority in {p for p, _ in RiskResponse.Priority.choices}
                 else "",
-                owner=self._user_for_party(response_data.get("owner")),
+                owner=owner,
                 target_date=target_date,
             )
             remember_ref(response, response_data.get("bom-ref", ""))
             keep_unknown(response, response_data, "response")
-            if (
-                response_data.get("status") is not None
-                and status_name not in SPEC_TO_RESPONSE_STATUS
+            cyclonedx = {}
+            # Kept unless the spec value is ours as is, so "proposed" (stored
+            # as planned) and custom statuses are written back.
+            if response_data.get("status") is not None and not (
+                isinstance(response_data["status"], str)
+                and RESPONSE_STATUS_TO_SPEC.get(status) == status_name
             ):
-                response.format_metadata.setdefault("cyclonedx", {})[
-                    "original_status"
-                ] = response_data["status"]
+                cyclonedx["original_status"] = response_data["status"]
+            kept_effectiveness = effectiveness_to_keep(effectiveness)
+            if kept_effectiveness is not None:
+                cyclonedx["effectiveness"] = kept_effectiveness
+            if kept_owner is not None:
+                cyclonedx["owner"] = kept_owner
+            if cyclonedx:
+                response.format_metadata = {
+                    **(response.format_metadata or {}),
+                    "cyclonedx": {
+                        **((response.format_metadata or {}).get("cyclonedx") or {}),
+                        **cyclonedx,
+                    },
+                }
             response.save(update_fields=["format_metadata"])
             self.context.register(response_data.get("bom-ref"), "response", response)
             self.context.count("risk_responses")
@@ -209,14 +243,17 @@ class RiskImporter:
                 )
 
         domains = []
+        extra_domains = []
         for domain in risk_data.get("domains") or []:
             name = domain.get("type") if isinstance(domain, dict) else domain
             name = type_name(name)
             if name in RISK_DOMAINS and name not in domains:
                 domains.append(name)
-            elif name:
+            elif name and name not in RISK_DOMAINS and isinstance(domain, dict):
+                extra_domains.append(domain)
                 self.context.warn(
-                    f"Risk '{label}': domain '{name}' is not a spec value; left out."
+                    f"Risk '{label}': domain '{name}' is a custom domain; kept for "
+                    "export, not shown."
                 )
 
         threats = []
@@ -249,6 +286,7 @@ class RiskImporter:
             inherent = level_rating("medium")
             self.context.warn(f"Risk '{label}' has no inherent rating; rated medium.")
 
+        owner, kept_owner = self._owner(risk_data.get("owner"), f"Risk '{label}'")
         risk = create_risk(
             self.threat_model,
             rating=inherent,
@@ -258,7 +296,7 @@ class RiskImporter:
             status=status,
             statement=statement,
             domains=domains,
-            owner=self._user_for_party(risk_data.get("owner")),
+            owner=owner,
             assigned_to=self._user_for_party(properties.get("precogly:assigned-to")),
         )
         for key, field in (("residualRisk", "residual"), ("targetRisk", "target")):
@@ -300,6 +338,13 @@ class RiskImporter:
             ]
         if label != risk.name:
             cyclonedx["original_name"] = label
+        if kept_owner is not None:
+            cyclonedx["owner"] = kept_owner
+        domain_details = domain_details_to_keep(risk_data.get("domains"), type_name)
+        if domain_details:
+            cyclonedx["domain_details"] = domain_details
+        if extra_domains:
+            cyclonedx["extra_domains"] = extra_domains
         kept_responses = self._responses(risk, risk_data, label)
         if kept_responses:
             cyclonedx["extra_responses"] = kept_responses
