@@ -70,7 +70,7 @@ The badges point at work that is not done yet. They do **not** change the [compl
 Every field except the name is optional.
 
 - A use case has a description, main flow steps, preconditions, postconditions, success criteria, alternative flows, and exceptions. A step needs a description, and steps are numbered 1 to n. An alternative flow or exception needs a name and a condition.
-- An abuse case has an abuser, preconditions, a main flow, and detection opportunities. It has no description, because the specification gives it none.
+- An abuse case has a description, an abuser, preconditions, a main flow, and detection opportunities.
 - An abuse case imported from a file can list the controls the file named as its mitigations. They are shown read-only and written back on export.
 
 ## Changes and approval

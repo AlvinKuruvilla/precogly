@@ -82,17 +82,17 @@ The export reads the live model. The tables below say where each Precogly concep
 | Status | `status` as the spec value; `gap`, `waived`, and `platform` as custom status objects |
 | Applies to | `appliesTo` (left out when the control applies to the whole system) |
 | Implemented by | `implementedBy`: component refs plus a party with the `provider` role for the text |
-| Owner, effectiveness, ticket, evidence | `owner`, `effectiveness.percentage`, external references of type `issue-tracker` and `evidence` |
-| Compliance mappings | `satisfies` pointing into `definitions.standards[].requirements[]` (one standard per framework; a standard built from the mapping's snapshot when the framework is not installed), with `precogly:sufficiency` |
+| Owner, effectiveness, ticket, evidence | `owner`, `effectiveness.percentage`, external references of type `issue-tracker` and `evidence`. An imported owner who is not a member, and an imported effectiveness `rating`, are written back (see [Passthrough](#passthrough-what-is-kept-and-written-back)) |
+| Compliance mappings | `satisfies` pointing into `definitions.standards[].requirements[]` (one standard per framework; a standard built from the mapping's snapshot when the framework is not installed), with `precogly:sufficiency`. Standards from an imported file are written back as they came, with their refs; a mapping to one of their requirements (same standard name and identifier) points at it, and a new requirement of such a standard is added to it. Imported refs to anything else, such as an engineering requirement, are written back as they came |
 | Linked threats | `precogly:mitigates` (the scenarios) and the abstract threat's `mitigations` |
 
 **Risks**
 
 | Precogly | TM-BOM |
 |----------|--------|
-| Risk | `risks.risks[]` with `statement` (built from the description or name when the risk has none, marked `precogly:statement-generated`), `status`, `domains`, `relatedThreats` (scenario refs), `relatedBusinessObjectives`, `owner`, `precogly:assigned-to` |
+| Risk | `risks.risks[]` with `statement` (built from the description or name when the risk has none, marked `precogly:statement-generated`), `status`, `domains` (with an imported domain's `priority` and `description`, and imported custom domains), `relatedThreats` (scenario refs), `relatedBusinessObjectives`, `owner`, `precogly:assigned-to` |
 | Inherent, residual, target rating | `inherentRisk`, `residualRisk`, `targetRisk` |
-| Response | `responses[]` with `strategy`, `description`, `status`, `effectiveness`, `cost`, `priority`, `owner`, `targetDate`, `controls` |
+| Response | `responses[]` with `strategy`, `description`, `status`, `effectiveness`, `cost`, `priority`, `owner`, `targetDate`, `controls`. An imported status that Precogly stores as planned (`recommended`, `proposed`, `approved`, `rejected`, `decommissioned`, or a custom one) is written back while the response is still planned |
 
 **Definitions**
 
@@ -101,7 +101,7 @@ The export reads the live model. The tables below say where each Precogly concep
 | Business objective | `definitions.businessObjectives[]` |
 | Compliance framework and requirement | `definitions.standards[]` and their `requirements[]` |
 | Use case | `definitions.useCases[]` with `businessObjectives`, and `precogly:abuse-cases` (refs of the abuse cases that misuse it). Its components and flows are written as each blueprint's `useCases[]` entries (`assets`, `flows`, data store refs included) and as `useCases` on each process or actor asset, never on a `dataStores` entry |
-| Abuse case | `threats.abuseCases[]` with `name`, `abuser` (the persona's actor), `preconditions`, `mainFlow`, `detectionOpportunities`, `targets` (components and flows), `realizes` (the abstract threats of its threats), and kept `mitigations`. The abstract threat's `abuseCases` lists the abuse cases that realize it. The spec gives an abuse case no description and no properties |
+| Abuse case | `threats.abuseCases[]` with `name`, `description`, `abuser` (the persona's actor), `preconditions`, `mainFlow`, `detectionOpportunities`, `targets` (components and flows), `realizes` (the abstract threats of its threats), and kept `mitigations`. The abstract threat's `abuseCases` lists the abuse cases that realize it. The spec gives an abuse case no properties |
 
 ### Precogly properties
 
@@ -202,7 +202,7 @@ On export:
 - **Whether a flow crosses a boundary**: derived from the boundaries, and derived again on import.
 - **Verification tests, pentest findings, countermeasure comments and history, reference images**: evidence tied to the originating installation.
 
-Owners and assignees are exported as parties with their email. On import they are matched to members of the organization by email; an owner who is not a member is kept for export and not assigned.
+Owners and assignees are exported as parties with their email. On import they are matched to members of the organization by email. The owner of a control, risk, or response who is not a member (a person from elsewhere, an organization, a persona) is kept for export and not assigned. Setting or clearing that owner in Precogly replaces the kept one.
 
 ---
 
@@ -257,7 +257,9 @@ Every warning names the object it is about. The main kinds:
 | `Boundary '...' joins N zones; Precogly keeps the first two ...` | The spec allows a boundary across more than two zones | The full list is written back |
 | `Flow '...' was skipped: its source or destination is not a component of this blueprint` | An end of the flow was not an asset Precogly could create | Add the flow by hand if needed |
 | `... component library '...' is not installed` | The file names a library entry from a pack you do not have | The component keeps its copied fields; install the pack and change the technology to re-link |
-| `... satisfies reference '...' matches no requirement definition` | A compliance link points at nothing in the file | Add the mapping by hand |
+| `... satisfies reference '...' is no standard requirement here; kept for export, not linked` | A control satisfies something that is not a requirement of a standard in the file, such as an engineering requirement | Written back while it resolves; add a compliance mapping by hand if it should be one |
+| `...: owner matches no member of the organization; kept for export, not assigned` | The owner of a control, risk, or response is not a member | Written back until you set an owner |
+| `Risk '...': domain '...' is a custom domain; kept for export, not shown` | A risk domain outside the spec list | Written back unchanged |
 | `Risk '...': the name is taken; stored as '... (2)'` | Risk names are unique in Precogly | The original name is written back on export unless you rename it |
 | `Risk '...': response strategy '...' has no row in Precogly; kept for export` | An `exploit` or `enhance` response | Kept on the risk and written back |
 | `Risk '...' has no inherent rating; rated medium` | The spec does not require a rating; Precogly does | Rate the risk |
@@ -277,10 +279,29 @@ Precogly keeps everything it does not model and writes it back on export:
 - Engineering requirements in `definitions.requirements` (a project's own needs, such as "Lock the account after 5 failed logins"), and the `requirements` links to them from use cases and blueprints. Precogly does not show or edit them. Compliance requirements are different: they come from the frameworks in your library packs and travel in `definitions.standards`.
 - Unknown fields of a known object, and every property that is not a `precogly:` property, on that object's row.
 - Values Precogly could not store (a custom type object, a custom status, a mixed authentication list, an `exploit` response, the zones of a boundary beyond the first two), on the nearest row that was stored. A refused field value is written back as long as the field still holds the default it was imported with.
+- Values Precogly holds only in part, written back while the row still holds what it was imported as:
+    - an owner who is not a member, while no owner is set;
+    - an effectiveness `rating`, while the percentage is unchanged;
+    - a response status stored as planned (such as `proposed`), while the response is planned;
+    - a risk domain's `priority` and `description`, while the risk has that domain; custom domains always;
+    - `satisfies` refs that are not standard requirements, while they resolve.
 
 **The stale-ref rule.** Kept content can point at things you later delete. On export, every such reference is checked: a reference that no longer resolves is removed from a list or dropped from an optional field; if removing it would leave a required field empty, the object that holds it is left out. Each removal is an export warning naming the object. The stored content is never changed, so nothing is lost if the rule changes later. The exported document always passes the reference check.
 
 Use case steps, and abuse case and blueprint use case entries that could not be stored as rows, are kept as JSON and follow the same rule.
+
+### What Precogly does not model
+
+These parts of the schema are not shown, linked, or edited. All of them are kept and written back. Each is a choice, not an oversight; they are listed here so you know what an imported file can and cannot do in Precogly.
+
+- **Engineering requirements.** `definitions.requirements` is kept as received. A control can point at one through `satisfies`, and the ref is written back, but Precogly shows no link. A risk cannot be linked to a requirement in Precogly.
+- **Other risk links.** `affects`, `relatedRequirements`, `relatedStandards`, `relatedVulnerabilities`, `relatedWeaknesses`, and `relatedClaims` are kept on the risk. Precogly has no vulnerabilities, weaknesses, or claims to link to. A `relatedThreats` ref to an abstract threat (rather than a scenario) is kept, not linked.
+- **`exploit` and `enhance` responses.** These are for positive risks (opportunities). They are kept on the risk.
+- **Assessments and risk appetites.** Kept on the model.
+- **Required fields that differ.** Precogly requires an inherent rating, so a risk without one is rated medium with a warning. The schema requires a statement, so a risk without one exports a statement built from its description or name, marked `precogly:statement-generated` and dropped again on import. Risk names are unique in a model; a repeated name gets a suffix, and the original is written back.
+- **Control statuses.** `gap`, `waived`, and `platform` are Precogly's and export as custom statuses, which the schema allows. Decision statuses (`recommended`, `proposed`, `approved`) show as planned and `rejected` as waived; the original is written back while the status is unchanged.
+- **Owners.** An owner in Precogly is a member of the organization. The schema allows any party; other owners are kept, not shown.
+- **Compliance requirements.** A requirement from a library pack has a section code, a name, and a description. An imported file's `definitions.standards` is kept whole and written back, including requirements no control satisfies and fields such as `openCre` and multi-language `descriptions`; Precogly shows only the requirements its controls map to.
 
 ### Files from earlier versions
 

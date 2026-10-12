@@ -487,6 +487,7 @@ An abuse case goes in `threats.abuseCases`:
 {
   "bom-ref": "abusecase-<slug>-<n>",
   "name": "<e.g. Sign in as another patient>",
+  "description": "<optional: one or two sentences on how the use case is misused>",
   "preconditions": ["<optional>"],
   "mainFlow": [
     { "number": 1, "description": "<step that mirrors a use case step>" }
@@ -497,7 +498,7 @@ An abuse case goes in `threats.abuseCases`:
 }
 ```
 
-- An abuse case allows only these fields (plus `abuser` and `mitigations`). It has no `description` and no `properties`
+- An abuse case allows only these fields (plus `abuser` and `mitigations`). It has no `properties`
 - `realizes` names abstract threats. When such a threat has several scenarios, add a `precogly:abuse-cases` property (a JSON array of abuse case refs) to the scenarios this abuse case leads to; otherwise Precogly links the scenarios whose targets overlap the abuse case's `targets`, and links none when nothing overlaps
 - `abuser` is optional. It must be the `bom-ref` of an actor in the blueprint's `actors`; leave it out otherwise
 
@@ -580,7 +581,7 @@ Before delivering the JSON to the user, check:
 8. **Lists, not booleans**: `authentication` and `authorization` on boundaries and flows are lists; `rateLimit` is a string; the other crossing requirements are booleans present only when true
 9. **Zone assignments**: External systems (third-party APIs, SaaS providers, identity providers) must be in external/untrusted zones, not internal zones
 10. **Required fields**: every data set has a `description`; every scenario has a `name`; every risk has a `statement`; every response has a `bom-ref`; every data store has a `type`
-11. **Use cases and abuse cases** (when present): every step has a `number` from 1 and a `description`; every `realizes` entry is an abstract threat ref; every `precogly:abuse-cases` entry is an abuse case ref; an abuse case has no `description` or `properties`
+11. **Use cases and abuse cases** (when present): every step has a `number` from 1 and a `description`; every `realizes` entry is an abstract threat ref; every `precogly:abuse-cases` entry is an abuse case ref; an abuse case has no `properties`
 
 ---
 
