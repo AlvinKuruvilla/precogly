@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 import {
   useAbuseCases,
   useDeleteAbuseCase,
-  useUpdateAbuseCase,
+  useUnlinkAbuseCaseThreat,
   useUseCases,
 } from '@/features/threat-models/api/threat-models'
 import { AbuseCaseDialog } from '@/features/threat-models/components/use-cases/AbuseCaseDialog'
@@ -46,7 +46,6 @@ import {
   abuseCaseHasNoThreat,
   buildAddThreatPreset,
   buildUseCaseTree,
-  threatIdsWithout,
   threatsForUseCaseSelection,
   type UseCaseViewSelection,
 } from './use-case-view-utils'
@@ -55,6 +54,8 @@ export interface UseCaseViewProps {
   threatModelId: string
   /** The scenarios shown (the page may filter them by diagram). */
   threats: AnalysisThreat[]
+  /** All threats of the model, for "Link existing"; not filtered by diagram. */
+  allThreats: AnalysisThreat[]
   selection: UseCaseViewSelection | null
   onSelectionChange: (selection: UseCaseViewSelection | null) => void
   selectedThreatId: string | null
@@ -83,6 +84,7 @@ const GAP_BADGE_CLASS = 'shrink-0 border-amber-300 bg-amber-50 px-1 py-0 text-[1
 export function UseCaseView({
   threatModelId,
   threats,
+  allThreats,
   selection,
   onSelectionChange,
   selectedThreatId,
@@ -101,18 +103,30 @@ export function UseCaseView({
 }: UseCaseViewProps) {
   const { data: useCases = [] } = useUseCases(threatModelId)
   const { data: abuseCases = [] } = useAbuseCases(threatModelId)
-  const updateAbuseCase = useUpdateAbuseCase(threatModelId)
+  const unlinkThreat = useUnlinkAbuseCaseThreat(threatModelId)
   const deleteAbuseCase = useDeleteAbuseCase(threatModelId)
 
   const [collapsedUseCaseIds, setCollapsedUseCaseIds] = useState<Set<number>>(new Set())
-  // The abuse case dialog: create under a use case, edit one, or closed.
+  // The abuse case dialog: create under a use case, or edit one. The target is kept
+  // while the dialog closes, so its title and form do not change during the close animation.
   const [abuseCaseDialog, setAbuseCaseDialog] = useState<
-    { mode: 'create'; useCaseId?: number } | { mode: 'edit'; abuseCase: AbuseCase } | null
-  >(null)
+    { mode: 'create'; useCaseId?: number } | { mode: 'edit'; abuseCase: AbuseCase }
+  >({ mode: 'create' })
+  const [abuseCaseDialogOpen, setAbuseCaseDialogOpen] = useState(false)
+  const openAbuseCaseDialog = (target: { mode: 'create'; useCaseId?: number } | { mode: 'edit'; abuseCase: AbuseCase }) => {
+    setAbuseCaseDialog(target)
+    setAbuseCaseDialogOpen(true)
+  }
   const [deleteAbuseCaseFor, setDeleteAbuseCaseFor] = useState<AbuseCase | null>(null)
   const [useCaseDialogOpen, setUseCaseDialogOpen] = useState(false)
   const [addThreatFor, setAddThreatFor] = useState<AbuseCase | null>(null)
+  // Kept while the link dialog closes, like the abuse case dialog target.
   const [linkThreatFor, setLinkThreatFor] = useState<AbuseCase | null>(null)
+  const [linkThreatOpen, setLinkThreatOpen] = useState(false)
+  const openLinkThreatDialog = (abuseCase: AbuseCase) => {
+    setLinkThreatFor(abuseCase)
+    setLinkThreatOpen(true)
+  }
 
   const tree = useMemo(() => buildUseCaseTree(useCases, abuseCases), [useCases, abuseCases])
 
@@ -155,8 +169,8 @@ export function UseCaseView({
 
   const handleUnlinkThreat = (threat: AnalysisThreat) => {
     if (!selectedAbuseCase) return
-    updateAbuseCase.mutate(
-      { abuseCaseId: selectedAbuseCase.id, data: { threatIds: threatIdsWithout(selectedAbuseCase, threat.backendThreatId) } },
+    unlinkThreat.mutate(
+      { abuseCaseId: selectedAbuseCase.id, threatId: threat.backendThreatId },
       {
         onSuccess: () => toast.success('Threat unlinked from the abuse case'),
         onError: (error) => toast.error(errorMessages(error, 'Could not unlink the threat')[0]),
@@ -216,7 +230,7 @@ export function UseCaseView({
             className={cn(actionClass, 'w-6')}
             onClick={(event) => {
               event.stopPropagation()
-              setAbuseCaseDialog({ mode: 'edit', abuseCase })
+              openAbuseCaseDialog({ mode: 'edit', abuseCase })
             }}
             title="Edit abuse case"
             aria-label={`Edit ${abuseCase.name}`}
@@ -249,7 +263,7 @@ export function UseCaseView({
         <Plus className="h-3 w-3" />
         Add
       </Button>
-      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setLinkThreatFor(abuseCase)}>
+      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => openLinkThreatDialog(abuseCase)}>
         <Link2 className="h-3 w-3" />
         Link existing
       </Button>
@@ -263,7 +277,7 @@ export function UseCaseView({
       data-testid="unlinked-realizes"
     >
       <span>Realizes library threat {entry.name}, not linked to a threat in this model.</span>
-      <button type="button" className="text-blue-600 hover:underline" onClick={() => setLinkThreatFor(abuseCase)}>
+      <button type="button" className="text-blue-600 hover:underline" onClick={() => openLinkThreatDialog(abuseCase)}>
         Link a threat
       </button>
     </div>
@@ -292,7 +306,7 @@ export function UseCaseView({
                     variant="outline"
                     size="sm"
                     className="h-7 gap-1 text-xs"
-                    onClick={() => setAbuseCaseDialog({ mode: 'create' })}
+                    onClick={() => openAbuseCaseDialog({ mode: 'create' })}
                   >
                     <Plus className="h-3 w-3" />
                     Abuse case
@@ -358,7 +372,7 @@ export function UseCaseView({
                             className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
                             onClick={(event) => {
                               event.stopPropagation()
-                              setAbuseCaseDialog({ mode: 'create', useCaseId: useCase.id })
+                              openAbuseCaseDialog({ mode: 'create', useCaseId: useCase.id })
                             }}
                             title="Add abuse case"
                             aria-label={`Add abuse case to ${useCase.name}`}
@@ -418,6 +432,11 @@ export function UseCaseView({
               <div className="text-xs text-muted-foreground" data-testid="selection-label">
                 {selectionLabel}
               </div>
+              {selectedAbuseCase?.description && (
+                <p className="mt-1 text-xs text-muted-foreground" data-testid="abuse-case-description">
+                  {selectedAbuseCase.description}
+                </p>
+              )}
               {selection?.kind === 'useCase' && (
                 <div className="text-xs text-muted-foreground">Select an abuse case to add threats to it.</div>
               )}
@@ -481,10 +500,8 @@ export function UseCaseView({
 
       <AbuseCaseDialog
         threatModelId={threatModelId}
-        open={abuseCaseDialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setAbuseCaseDialog(null)
-        }}
+        open={abuseCaseDialogOpen}
+        onOpenChange={setAbuseCaseDialogOpen}
         abuseCase={abuseCaseDialog?.mode === 'edit' ? abuseCaseDialog.abuseCase : undefined}
         defaultUseCaseId={abuseCaseDialog?.mode === 'create' ? abuseCaseDialog.useCaseId : undefined}
         onSaved={(saved) => {
@@ -511,11 +528,9 @@ export function UseCaseView({
       <LinkThreatDialog
         threatModelId={threatModelId}
         abuseCase={linkThreatFor}
-        threats={threats}
-        open={linkThreatFor !== null}
-        onOpenChange={(open) => {
-          if (!open) setLinkThreatFor(null)
-        }}
+        threats={allThreats}
+        open={linkThreatOpen}
+        onOpenChange={setLinkThreatOpen}
       />
 
       <AlertDialog

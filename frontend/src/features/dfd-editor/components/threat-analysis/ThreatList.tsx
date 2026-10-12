@@ -45,6 +45,7 @@ import { EditTaxonomyMappingsDialog } from './EditTaxonomyMappingsDialog'
 import { EditTargetsDialog } from './EditTargetsDialog'
 import { ThreatDetailPanel } from './ThreatDetailPanel'
 import { NumberBadge } from './NumberBadge'
+import { fixedTaxonomyEntries } from './taxonomy-picker-utils'
 import { TARGET_TYPE_LABELS, isSameSelection, targetSelection, type AnalysisSelection } from './analysis-selection'
 
 export function ThreatStatusBadge({ status }: { status: ThreatStatus }) {
@@ -178,6 +179,272 @@ export function ThreatList({
     setTriageRationale('')
   }
 
+  const renderThreatRow = (threat: AnalysisThreat, dragHandleRef?: React.RefCallback<HTMLElement>) => {
+    const status = deriveThreatStatus(threat.countermeasures)
+    const isSelected = threat.id === selectedThreatId
+    const isShared = threat.targets.length > 1
+    const otherTargets = threat.targets.filter(
+      (target) => !isSameSelection(targetSelection(target.type, target.id), selection)
+    )
+    return (
+      <div
+        className={cn(
+          'group rounded-md p-2 transition-colors',
+          isSelected ? 'border border-slate-300 bg-slate-100' : 'hover:bg-slate-50'
+        )}
+        data-threat-number={threat.displayNumber}
+      >
+        <div className="flex items-center gap-1">
+          {/* No handle where the order is not saved (the use case view). */}
+          {onReorder && (
+            <div
+              ref={dragHandleRef}
+              className="shrink-0 cursor-grab opacity-0 transition-opacity group-hover:opacity-100 touch:opacity-100"
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelectThreat(threat.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') onSelectThreat(threat.id)
+            }}
+            className="min-w-0 flex-1 cursor-pointer overflow-hidden text-left"
+          >
+            <div className="flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
+              />
+              <NumberBadge number={threat.displayNumber} />
+              <span className="truncate text-sm font-medium">{threat.threatName || 'Unnamed threat'}</span>
+              {isShared && (
+                <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal" title="On several targets">
+                  shared
+                </Badge>
+              )}
+              {threat.wholeSystem && (
+                <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal">
+                  whole system
+                </Badge>
+              )}
+            </div>
+            {!isSelected && (
+              <div className="ml-4 mt-1 flex items-center gap-1">
+                <RatingBadge rating={threat.rating} size="sm" />
+                <TaxonomyBadges entries={threat.taxonomyEntries} maxVisible={1} size="sm" />
+              </div>
+            )}
+          </div>
+          <ThreatStatusBadge status={status} />
+          <Select
+            value={threat.triageStatus}
+            onValueChange={(value) => {
+              const nextStatus = value as TriageStatus
+              if (nextStatus === 'accept' || nextStatus === 'delegate' || nextStatus === 'eliminate') {
+                setPendingTriageFor({ threatId: threat.id, status: nextStatus })
+                setTriageRationale('')
+              } else {
+                onUpdateTriageStatus(threat.id, nextStatus)
+              }
+            }}
+          >
+            <SelectTrigger
+              className="h-6 w-[100px] shrink-0 text-xs"
+              onClick={(event) => event.stopPropagation()}
+              aria-label="Triage"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TRIAGE_STATUSES.map((entry) => (
+                <SelectItem key={entry.value} value={entry.value} className="text-xs">
+                  {entry.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {onUnlink && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
+              onClick={(event) => {
+                event.stopPropagation()
+                onUnlink(threat)
+              }}
+              title={unlinkLabel}
+              aria-label={`${unlinkLabel}: ${threat.displayNumber}`}
+            >
+              <Unlink className="h-3 w-3" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
+            onClick={(event) => {
+              event.stopPropagation()
+              setEditingTargetsFor(threat)
+            }}
+            title="Edit targets"
+            aria-label={`Edit targets of ${threat.displayNumber}`}
+          >
+            <Crosshair className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
+            onClick={(event) => {
+              event.stopPropagation()
+              setEditingThreatFor({
+                backendId: threat.backendThreatId,
+                name: threat.threatName || '',
+                description: threat.threatDescription || '',
+              })
+              setEditThreatName(threat.threatName || '')
+              setEditThreatDescription(threat.threatDescription || '')
+            }}
+            title="Edit threat"
+            aria-label={`Edit ${threat.displayNumber}`}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 touch:opacity-100"
+            onClick={(event) => {
+              event.stopPropagation()
+              setDeleteThreatConfirmFor({
+                backendId: threat.backendThreatId,
+                name: threat.threatName || 'this threat',
+              })
+            }}
+            title="Delete threat"
+            aria-label={`Delete ${threat.displayNumber}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {(isShared || threat.libraryMismatch) && (
+          <div className="ml-4 mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+            {isShared && otherTargets.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-1">
+                <span>Also on:</span>
+                {otherTargets.map((target, index) => (
+                  <span key={`${target.type}-${target.id}`}>
+                    {onSelectTarget ? (
+                      <button
+                        type="button"
+                        className="text-blue-600 hover:underline"
+                        onClick={() => onSelectTarget(targetSelection(target.type, target.id))}
+                      >
+                        {target.name || 'Unnamed'} ({TARGET_TYPE_LABELS[target.type]})
+                      </button>
+                    ) : (
+                      <span>
+                        {target.name || 'Unnamed'} ({TARGET_TYPE_LABELS[target.type]})
+                      </span>
+                    )}
+                    {index < otherTargets.length - 1 ? ',' : ''}
+                  </span>
+                ))}
+              </div>
+            )}
+            {threat.libraryMismatch && (
+              <div className="flex items-center gap-1 text-amber-700">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                The library no longer lists this threat here. It was kept because it has been edited.
+              </div>
+            )}
+          </div>
+        )}
+
+        {isSelected && (
+          <div className="ml-4 mt-1 flex items-center gap-1">
+            <TaxonomyBadges entries={threat.taxonomyEntries} size="sm" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={(event) => {
+                event.stopPropagation()
+                setEditingTaxonomyFor({
+                  backendId: threat.backendThreatId,
+                  name: threat.threatName || '',
+                  libraryEntries: fixedTaxonomyEntries(threat.taxonomyEntries),
+                })
+              }}
+              title="Edit categories"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
+        {pendingTriageFor?.threatId === threat.id && (
+          <div
+            className="ml-4 mt-2 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="text-xs font-medium text-amber-800">
+              Rationale for {TRIAGE_STATUSES.find((entry) => entry.value === pendingTriageFor.status)?.label}:
+            </div>
+            <input
+              type="text"
+              value={triageRationale}
+              onChange={(event) => setTriageRationale(event.target.value)}
+              placeholder="Why is this the right decision?"
+              className="h-8 w-full rounded border bg-background px-2 text-sm"
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && triageRationale.trim()) confirmTriage(threat.id, pendingTriageFor.status)
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={!triageRationale.trim()}
+                onClick={() => confirmTriage(threat.id, pendingTriageFor.status)}
+              >
+                Confirm
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setPendingTriageFor(null)
+                  setTriageRationale('')
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isSelected && (
+          <div className="ml-4 mt-1 rounded-md border border-slate-200 bg-slate-50 p-2">
+            <ThreatDetailPanel
+              key={threat.id}
+              threatModelId={threatModelId}
+              threat={threat}
+              personas={personas}
+              onOpenAbuseCase={onOpenAbuseCase}
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <>
             <ScrollArea className="flex-1">
@@ -187,280 +454,17 @@ export function ThreatList({
                     <p className="mb-1 px-2 py-1 text-xs text-muted-foreground">
                       Triage, rate or delete threats. A change here shows under every target of the threat.
                     </p>
-                    <SortableList
-                      items={activeThreats}
-                      getItemId={(threat) => threat.id}
-                      onReorder={(reordered) => {
-                        onReorder?.(reordered)
-                      }}
-                      renderItem={(threat, dragHandleRef) => {
-                        const status = deriveThreatStatus(threat.countermeasures)
-                        const isSelected = threat.id === selectedThreatId
-                        const isShared = threat.targets.length > 1
-                        const otherTargets = threat.targets.filter(
-                          (target) => !isSameSelection(targetSelection(target.type, target.id), selection)
-                        )
-                        return (
-                          <div
-                            className={cn(
-                              'group rounded-md p-2 transition-colors',
-                              isSelected ? 'border border-slate-300 bg-slate-100' : 'hover:bg-slate-50'
-                            )}
-                            data-threat-number={threat.displayNumber}
-                          >
-                            <div className="flex items-center gap-1">
-                              {/* No handle where the order is not saved (the use case view). */}
-                              {onReorder && (
-                                <div
-                                  ref={dragHandleRef}
-                                  className="shrink-0 cursor-grab opacity-0 transition-opacity group-hover:opacity-100 touch:opacity-100"
-                                >
-                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => onSelectThreat(threat.id)}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter' || event.key === ' ') onSelectThreat(threat.id)
-                                }}
-                                className="min-w-0 flex-1 cursor-pointer overflow-hidden text-left"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className="h-2 w-2 shrink-0 rounded-full"
-                                    style={{ backgroundColor: THREAT_STATUS_CONFIG[status].color }}
-                                  />
-                                  <NumberBadge number={threat.displayNumber} />
-                                  <span className="truncate text-sm font-medium">{threat.threatName || 'Unnamed threat'}</span>
-                                  {isShared && (
-                                    <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal" title="On several targets">
-                                      shared
-                                    </Badge>
-                                  )}
-                                  {threat.wholeSystem && (
-                                    <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal">
-                                      whole system
-                                    </Badge>
-                                  )}
-                                </div>
-                                {!isSelected && (
-                                  <div className="ml-4 mt-1 flex items-center gap-1">
-                                    <RatingBadge rating={threat.rating} size="sm" />
-                                    <TaxonomyBadges entries={threat.taxonomyEntries} maxVisible={1} size="sm" />
-                                  </div>
-                                )}
-                              </div>
-                              <ThreatStatusBadge status={status} />
-                              <Select
-                                value={threat.triageStatus}
-                                onValueChange={(value) => {
-                                  const nextStatus = value as TriageStatus
-                                  if (nextStatus === 'accept' || nextStatus === 'delegate' || nextStatus === 'eliminate') {
-                                    setPendingTriageFor({ threatId: threat.id, status: nextStatus })
-                                    setTriageRationale('')
-                                  } else {
-                                    onUpdateTriageStatus(threat.id, nextStatus)
-                                  }
-                                }}
-                              >
-                                <SelectTrigger
-                                  className="h-6 w-[100px] shrink-0 text-xs"
-                                  onClick={(event) => event.stopPropagation()}
-                                  aria-label="Triage"
-                                >
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {TRIAGE_STATUSES.map((entry) => (
-                                    <SelectItem key={entry.value} value={entry.value} className="text-xs">
-                                      {entry.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {onUnlink && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    onUnlink(threat)
-                                  }}
-                                  title={unlinkLabel}
-                                  aria-label={`${unlinkLabel}: ${threat.displayNumber}`}
-                                >
-                                  <Unlink className="h-3 w-3" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  setEditingTargetsFor(threat)
-                                }}
-                                title="Edit targets"
-                                aria-label={`Edit targets of ${threat.displayNumber}`}
-                              >
-                                <Crosshair className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  setEditingThreatFor({
-                                    backendId: threat.backendThreatId,
-                                    name: threat.threatName || '',
-                                    description: threat.threatDescription || '',
-                                  })
-                                  setEditThreatName(threat.threatName || '')
-                                  setEditThreatDescription(threat.threatDescription || '')
-                                }}
-                                title="Edit threat"
-                                aria-label={`Edit ${threat.displayNumber}`}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 touch:opacity-100"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  setDeleteThreatConfirmFor({
-                                    backendId: threat.backendThreatId,
-                                    name: threat.threatName || 'this threat',
-                                  })
-                                }}
-                                title="Delete threat"
-                                aria-label={`Delete ${threat.displayNumber}`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-
-                            {(isShared || threat.libraryMismatch) && (
-                              <div className="ml-4 mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-                                {isShared && otherTargets.length > 0 && (
-                                  <div className="flex flex-wrap items-center gap-x-1">
-                                    <span>Also on:</span>
-                                    {otherTargets.map((target, index) => (
-                                      <span key={`${target.type}-${target.id}`}>
-                                        {onSelectTarget ? (
-                                          <button
-                                            type="button"
-                                            className="text-blue-600 hover:underline"
-                                            onClick={() => onSelectTarget(targetSelection(target.type, target.id))}
-                                          >
-                                            {target.name || 'Unnamed'} ({TARGET_TYPE_LABELS[target.type]})
-                                          </button>
-                                        ) : (
-                                          <span>
-                                            {target.name || 'Unnamed'} ({TARGET_TYPE_LABELS[target.type]})
-                                          </span>
-                                        )}
-                                        {index < otherTargets.length - 1 ? ',' : ''}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                {threat.libraryMismatch && (
-                                  <div className="flex items-center gap-1 text-amber-700">
-                                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    The library no longer lists this threat here. It was kept because it has been edited.
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {isSelected && (
-                              <div className="ml-4 mt-1 flex items-center gap-1">
-                                <TaxonomyBadges entries={threat.taxonomyEntries} size="sm" />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    setEditingTaxonomyFor({
-                                      backendId: threat.backendThreatId,
-                                      name: threat.threatName || '',
-                                      libraryEntries: (threat.taxonomyEntries || []).filter(
-                                        (entry) => entry.source === 'library' || !entry.source
-                                      ),
-                                    })
-                                  }}
-                                  title="Edit categories"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-
-                            {pendingTriageFor?.threatId === threat.id && (
-                              <div
-                                className="ml-4 mt-2 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-2"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <div className="text-xs font-medium text-amber-800">
-                                  Rationale for {TRIAGE_STATUSES.find((entry) => entry.value === pendingTriageFor.status)?.label}:
-                                </div>
-                                <input
-                                  type="text"
-                                  value={triageRationale}
-                                  onChange={(event) => setTriageRationale(event.target.value)}
-                                  placeholder="Why is this the right decision?"
-                                  className="h-8 w-full rounded border bg-background px-2 text-sm"
-                                  autoFocus
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' && triageRationale.trim()) confirmTriage(threat.id, pendingTriageFor.status)
-                                  }}
-                                />
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    disabled={!triageRationale.trim()}
-                                    onClick={() => confirmTriage(threat.id, pendingTriageFor.status)}
-                                  >
-                                    Confirm
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-xs"
-                                    onClick={() => {
-                                      setPendingTriageFor(null)
-                                      setTriageRationale('')
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-
-                            {isSelected && (
-                              <div className="ml-4 mt-1 rounded-md border border-slate-200 bg-slate-50 p-2">
-                                <ThreatDetailPanel
-                                  key={threat.id}
-                                  threatModelId={threatModelId}
-                                  threat={threat}
-                                  personas={personas}
-                                  onOpenAbuseCase={onOpenAbuseCase}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )
-                      }}
-                    />
+                    {onReorder ? (
+                      <SortableList
+                        items={activeThreats}
+                        getItemId={(threat) => threat.id}
+                        onReorder={onReorder}
+                        renderItem={renderThreatRow}
+                      />
+                    ) : (
+                      // Where the order is not saved (the use case view) the rows are a plain list, not draggable.
+                      activeThreats.map((threat) => <div key={threat.id}>{renderThreatRow(threat)}</div>)
+                    )}
                   </div>
                 )}
 

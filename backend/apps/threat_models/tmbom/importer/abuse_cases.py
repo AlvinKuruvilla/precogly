@@ -309,6 +309,7 @@ class AbuseCaseImporter:
         abuse_case = AbuseCase.objects.create(
             threat_model=self.threat_model,
             name=label[:255],
+            description=str(data.get("description") or ""),
             abuser=abuser,
             flow_data=flow_data,
             display_order=position,

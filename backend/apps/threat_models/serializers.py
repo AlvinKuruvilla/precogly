@@ -3,7 +3,7 @@ Serializers for threat_models app.
 """
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Max, Q
 from rest_framework import serializers
 
 from apps.compliance.models import StandardFramework
@@ -347,6 +347,12 @@ def resolve_in_model(threat_model, field_name: str, ids, queryset):
     return [found[row_id] for row_id in wanted]
 
 
+def _next_display_order(queryset) -> int:
+    """One past the highest ``display_order``, so a new row lands last."""
+    highest = queryset.aggregate(highest=Max("display_order"))["highest"]
+    return 0 if highest is None else highest + 1
+
+
 def _component_refs(links) -> list[dict]:
     return [
         {
@@ -475,9 +481,11 @@ class UseCaseSerializer(_FlowDataMixin, serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         links = self._pop_links(validated_data)
-        instance = UseCase.objects.create(
-            threat_model=self.context["threat_model"], **validated_data
+        threat_model = self.context["threat_model"]
+        validated_data.setdefault(
+            "display_order", _next_display_order(threat_model.use_cases.all())
         )
+        instance = UseCase.objects.create(threat_model=threat_model, **validated_data)
         self._save_links(instance, links)
         return instance
 
@@ -546,6 +554,7 @@ class AbuseCaseSerializer(_FlowDataMixin, serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "description",
             "flow_data",
             "display_order",
             "use_case_ids",
@@ -676,15 +685,28 @@ class AbuseCaseSerializer(_FlowDataMixin, serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         links = self._pop_links(validated_data)
-        instance = AbuseCase.objects.create(
-            threat_model=self.context["threat_model"], **validated_data
+        threat_model = self.context["threat_model"]
+        validated_data.setdefault(
+            "display_order", _next_display_order(threat_model.abuse_cases.all())
         )
+        instance = AbuseCase.objects.create(threat_model=threat_model, **validated_data)
         self._save_links(instance, links)
         return instance
 
     @transaction.atomic
     def update(self, instance, validated_data):
         links = self._pop_links(validated_data)
+        if "abuser" in validated_data:
+            # Setting or clearing the abuser here replaces an imported abuser
+            # ref, so a cleared abuser stays cleared on export.
+            cyclonedx = (instance.format_metadata or {}).get("cyclonedx") or {}
+            if "abuser_ref" in cyclonedx:
+                instance.format_metadata = {
+                    **instance.format_metadata,
+                    "cyclonedx": {
+                        k: v for k, v in cyclonedx.items() if k != "abuser_ref"
+                    },
+                }
         instance = super().update(instance, validated_data)
         self._save_links(instance, links)
         return instance

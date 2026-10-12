@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -118,6 +119,17 @@ function AbuseCaseForm({ threatModelId, abuseCase, defaultUseCaseId, onClose, on
           placeholder={ABUSE_CASE_EXAMPLES.name}
           autoFocus
           required
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="abuse-case-description">Description</Label>
+        <Textarea
+          id="abuse-case-description"
+          value={form.description}
+          onChange={(event) => patch({ description: event.target.value })}
+          placeholder={ABUSE_CASE_EXAMPLES.description}
+          rows={3}
         />
       </div>
 

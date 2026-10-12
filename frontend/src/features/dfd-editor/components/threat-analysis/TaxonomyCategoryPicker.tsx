@@ -3,8 +3,8 @@
  * one-click chips (STRIDE's six categories by default), and every installed
  * taxonomy behind a search box, grouped by taxonomy. Several can be picked.
  *
- * Library categories of a library threat are shown fixed: they come with the
- * library threat and are not edited here.
+ * Fixed categories are shown with a lock and are not edited here: the library
+ * threat's own, and snapshot ones kept from a library that is not installed.
  */
 import { useMemo, useState } from 'react'
 import { Check, Lock, Plus, X } from 'lucide-react'
@@ -25,9 +25,11 @@ import { useTaxonomyEntries } from '@/features/libraries/api/libraries'
 import { useThreatModel } from '@/features/threat-models/api/threat-models'
 import {
   chipGroups,
+  fixedEntryHint,
   groupTaxonomyEntries,
   methodologyTaxonomySlugs,
   orderedSearchGroups,
+  taxonomyEntryKey,
   taxonomyEntryLabel,
   taxonomyEntrySearchText,
   toggleEntryId,
@@ -38,7 +40,7 @@ interface TaxonomyCategoryPickerProps {
   /** Selected taxonomy entry ids. */
   value: number[]
   onChange: (entryIds: number[]) => void
-  /** Categories the library threat brings; shown, not editable. */
+  /** Categories the library threat brings, and snapshot ones; shown, not editable. */
   lockedEntries?: TaxonomyEntry[]
   disabled?: boolean
   className?: string
@@ -66,8 +68,16 @@ export function TaxonomyCategoryPicker({
     () => new Set(lockedEntries.map((entry) => entry.id).filter((id): id is number => id !== undefined)),
     [lockedEntries]
   )
+  // Snapshot entries have no id, so fixed entries are also matched by taxonomy and external id.
+  const lockedKeys = useMemo(() => new Set(lockedEntries.map(taxonomyEntryKey)), [lockedEntries])
+  const isLocked = (entry: TaxonomyEntry) =>
+    (entry.id !== undefined && lockedIds.has(entry.id)) || lockedKeys.has(taxonomyEntryKey(entry))
   const chipEntryIds = useMemo(
     () => new Set(chips.flatMap((group) => group.entries.map((entry) => entry.id))),
+    [chips]
+  )
+  const chipKeys = useMemo(
+    () => new Set(chips.flatMap((group) => group.entries.map(taxonomyEntryKey))),
     [chips]
   )
   const entriesById = useMemo(() => new Map(allEntries.map((entry) => [entry.id, entry])), [allEntries])
@@ -76,12 +86,12 @@ export function TaxonomyCategoryPicker({
     .filter((entryId) => !chipEntryIds.has(entryId))
     .map((entryId) => entriesById.get(entryId))
     .filter((entry): entry is TaxonomyEntry => !!entry)
-  // Library categories with no chip: listed as fixed badges.
-  const otherLocked = lockedEntries.filter((entry) => entry.id === undefined || !chipEntryIds.has(entry.id))
+  // Fixed categories with no chip: listed as fixed badges.
+  const otherLocked = lockedEntries.filter((entry) => !chipKeys.has(taxonomyEntryKey(entry)))
 
-  const toggle = (entryId: number | undefined) => {
-    if (entryId === undefined || lockedIds.has(entryId)) return
-    onChange(toggleEntryId(value, entryId))
+  const toggle = (entry: TaxonomyEntry) => {
+    if (disabled || entry.id === undefined || isLocked(entry)) return
+    onChange(toggleEntryId(value, entry.id))
   }
 
   return (
@@ -91,7 +101,7 @@ export function TaxonomyCategoryPicker({
           <p className="text-xs text-muted-foreground">{group.name}</p>
           <div className="flex flex-wrap gap-1">
             {group.entries.map((entry) => {
-              const locked = entry.id !== undefined && lockedIds.has(entry.id)
+              const locked = isLocked(entry)
               const selected = locked || (entry.id !== undefined && value.includes(entry.id))
               return (
                 <Button
@@ -102,8 +112,8 @@ export function TaxonomyCategoryPicker({
                   className="h-7 gap-1 px-2 text-xs"
                   disabled={disabled || locked}
                   aria-pressed={selected}
-                  title={locked ? 'From the library threat' : entry.title}
-                  onClick={() => toggle(entry.id)}
+                  title={locked ? fixedEntryHint(entry) : entry.title}
+                  onClick={() => toggle(entry)}
                 >
                   {locked && <Lock className="h-3 w-3" />}
                   {taxonomyEntryLabel(entry)}
@@ -118,10 +128,10 @@ export function TaxonomyCategoryPicker({
         <div className="flex flex-wrap gap-1">
           {otherLocked.map((entry) => (
             <Badge
-              key={`locked-${entry.id ?? entry.externalId}`}
+              key={`locked-${taxonomyEntryKey(entry)}`}
               variant="secondary"
               className="gap-1 text-xs font-normal"
-              title="From the library threat"
+              title={fixedEntryHint(entry)}
             >
               <Lock className="h-3 w-3" />
               {taxonomyEntryLabel(entry)}
@@ -135,7 +145,7 @@ export function TaxonomyCategoryPicker({
                 className="rounded-sm hover:text-destructive disabled:opacity-50"
                 aria-label={`Remove ${taxonomyEntryLabel(entry)}`}
                 disabled={disabled}
-                onClick={() => toggle(entry.id)}
+                onClick={() => toggle(entry)}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -159,7 +169,7 @@ export function TaxonomyCategoryPicker({
               {searchGroups.map((group) => (
                 <CommandGroup key={group.slug} heading={group.name}>
                   {group.entries.map((entry) => {
-                    const locked = entry.id !== undefined && lockedIds.has(entry.id)
+                    const locked = isLocked(entry)
                     const selected = locked || (entry.id !== undefined && value.includes(entry.id))
                     return (
                       <CommandItem
@@ -167,7 +177,7 @@ export function TaxonomyCategoryPicker({
                         // cmdk matches on the value; the id keeps equal titles apart.
                         value={`${taxonomyEntrySearchText(entry)} #${entry.id}`}
                         disabled={locked}
-                        onSelect={() => toggle(entry.id)}
+                        onSelect={() => toggle(entry)}
                         className="text-xs"
                       >
                         <Check className={cn('mr-2 h-3 w-3', selected ? 'opacity-100' : 'opacity-0')} />

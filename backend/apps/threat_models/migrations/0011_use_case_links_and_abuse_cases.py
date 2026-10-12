@@ -34,6 +34,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('name', models.CharField(max_length=255)),
+                ('description', models.TextField(blank=True, default='')),
                 ('flow_data', models.JSONField(blank=True, default=dict, help_text='preconditions, main_flow, detection_opportunities')),
                 ('display_order', models.PositiveIntegerField(default=0)),
                 ('format_metadata', models.JSONField(blank=True, default=dict)),

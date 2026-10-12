@@ -6,6 +6,7 @@ import type { Diagram, DiagramNode, DiagramEdge } from '../types'
 import type { DFDNotationStyle } from '../types/notation'
 import type { FlowType } from '@/types/domain'
 import { api } from '@/lib/api'
+import { invalidateUseCaseReaders } from '@/features/threat-models/api/threat-models'
 // Undo feature - remove this import to disable undo functionality
 import { useUndoHistory } from './useUndoHistory'
 
@@ -175,6 +176,8 @@ export function useDiagramState({
       queryClient.invalidateQueries({ queryKey: ['flows'] })
       // Invalidate risk queries (technology changes CASCADE-delete RiskThreat links)
       queryClient.invalidateQueries({ queryKey: ['risks'] })
+      // A save can delete components and flows that use cases and abuse cases link to
+      invalidateUseCaseReaders(queryClient, threatModelId)
 
       // Merge backend-generated IDs (componentId, trustZoneId, orgsystemId)
       // back into local node state so features like Data Assets become available

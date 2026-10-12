@@ -31,6 +31,7 @@ function abuseCase(overrides: Partial<AbuseCase> = {}): AbuseCase {
   return {
     id: 5,
     name: 'Card testing',
+    description: '',
     flowData: null,
     displayOrder: 0,
     abuser: null,
@@ -165,6 +166,14 @@ describe('buildAbuseCaseInput', () => {
     expect(input.flowData?.detectionOpportunities).toEqual(['Alert on spikes'])
     expect(input.flowData?.mainFlow?.[0].actor).toBe('attacker')
     expect('threatIds' in input).toBe(false)
+  })
+
+  it('loads the description when editing and sends it trimmed', () => {
+    const state = initialAbuseCaseForm(abuseCase({ description: 'Tests stolen cards' }))
+    expect(state.description).toBe('Tests stolen cards')
+    state.description = '  Tests many cards  '
+    expect(buildAbuseCaseInput(state).description).toBe('Tests many cards')
+    expect(initialAbuseCaseForm(undefined).description).toBe('')
   })
 
   it('sends a null abuser to clear it', () => {

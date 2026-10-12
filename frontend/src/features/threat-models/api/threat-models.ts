@@ -269,6 +269,10 @@ export function useDeleteDFD() {
       // Invalidate components and threats (orphaned component deletion changes these)
       queryClient.invalidateQueries({ queryKey: ['components'] })
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
+      // Deleting orphaned components can remove ones that use cases and abuse cases link to.
+      // The hook has no model id, so invalidate the use case and abuse case lists of every model.
+      queryClient.invalidateQueries({ queryKey: ['threat-model-use-cases'] })
+      queryClient.invalidateQueries({ queryKey: ['threat-model-abuse-cases'] })
     },
   })
 }
@@ -432,6 +436,8 @@ export function useDeleteBlueprint(threatModelId: string) {
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['diagrams'] })
       queryClient.invalidateQueries({ queryKey: ['components'] })
+      // Use cases and abuse cases may link the blueprint's components and flows.
+      invalidateUseCaseReaders(queryClient, threatModelId)
     },
   })
 }
@@ -542,6 +548,8 @@ export function useDeleteBusinessObjective(threatModelId: string) {
       invalidateBusinessObjectives(queryClient, threatModelId)
       queryClient.invalidateQueries({ queryKey: ['threat-model-threats'] })
       queryClient.invalidateQueries({ queryKey: ['risks'] })
+      // Use cases list the objectives they serve.
+      invalidateUseCaseReaders(queryClient, threatModelId)
     },
   })
 }
@@ -635,6 +643,25 @@ export function useDeleteAbuseCase(threatModelId: string) {
   return useMutation({
     mutationFn: (abuseCaseId: number) =>
       api.delete(`/threat-models/${threatModelId}/abuse-cases/${abuseCaseId}/`),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
+  })
+}
+
+/** Link one threat to an abuse case without resending the whole list (no stale-list race). */
+export function useLinkAbuseCaseThreat(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ abuseCaseId, threatId }: { abuseCaseId: number; threatId: number }) =>
+      api.post<AbuseCase>(`/threat-models/${threatModelId}/abuse-cases/${abuseCaseId}/link-threat/`, { threatId }),
+    onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
+  })
+}
+
+export function useUnlinkAbuseCaseThreat(threatModelId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ abuseCaseId, threatId }: { abuseCaseId: number; threatId: number }) =>
+      api.post<AbuseCase>(`/threat-models/${threatModelId}/abuse-cases/${abuseCaseId}/unlink-threat/`, { threatId }),
     onSuccess: () => invalidateUseCaseReaders(queryClient, threatModelId),
   })
 }

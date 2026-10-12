@@ -4,9 +4,12 @@ import {
   MAX_CHIP_ENTRIES,
   chipGroups,
   diffTaxonomyLinks,
+  fixedEntryHint,
+  fixedTaxonomyEntries,
   groupTaxonomyEntries,
   methodologyTaxonomySlugs,
   orderedSearchGroups,
+  taxonomyEntryKey,
   taxonomyEntryLabel,
   taxonomyEntrySearchText,
   toggleEntryId,
@@ -80,5 +83,26 @@ describe('selection', () => {
     ]
     expect(diffTaxonomyLinks(links, [5, 9])).toEqual({ entryIdsToCreate: [9], linkIdsToDelete: [100] })
     expect(diffTaxonomyLinks(links, [])).toEqual({ entryIdsToCreate: [], linkIdsToDelete: [100, 101] })
+  })
+})
+
+describe('fixed categories', () => {
+  const library: TaxonomyEntry = { id: 1, taxonomySlug: 'stride', externalId: 'spoofing', title: 'Spoofing', source: 'library' }
+  const snapshot: TaxonomyEntry = { taxonomySlug: 'mitre-attack', externalId: 'T1005', title: 'Data', source: 'snapshot' }
+  const instance: TaxonomyEntry = { id: 2, taxonomySlug: 'capec', externalId: '66', title: 'SQLi', source: 'instance' }
+  const unmarked: TaxonomyEntry = { id: 3, taxonomySlug: 'capec', externalId: '1', title: 'One' }
+
+  it('keep library, snapshot and unmarked entries, and leave out editable instance ones', () => {
+    expect(fixedTaxonomyEntries([library, snapshot, instance, unmarked])).toEqual([library, snapshot, unmarked])
+    expect(fixedTaxonomyEntries(undefined)).toEqual([])
+  })
+
+  it('match entries by taxonomy and external id, since snapshots have no id', () => {
+    expect(taxonomyEntryKey(snapshot)).toBe('mitre-attack:T1005')
+  })
+
+  it('explain why a snapshot entry is fixed', () => {
+    expect(fixedEntryHint(snapshot)).toContain('not installed')
+    expect(fixedEntryHint(library)).toBe('From the library threat')
   })
 })

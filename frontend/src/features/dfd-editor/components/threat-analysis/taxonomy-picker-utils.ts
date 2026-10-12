@@ -97,7 +97,23 @@ export function diffTaxonomyLinks(
   }
 }
 
-/** The library categories of a threat's merged taxonomy list. */
-export function libraryTaxonomyEntries(entries: TaxonomyEntry[] | undefined): TaxonomyEntry[] {
-  return (entries ?? []).filter((entry) => entry.source === 'library')
+/**
+ * The categories of a threat's merged taxonomy list that are not edited here:
+ * the library threat's own, and snapshot ones (kept from a library or taxonomy
+ * that is not installed). Instance categories are edited, so they are left out.
+ */
+export function fixedTaxonomyEntries(entries: TaxonomyEntry[] | undefined): TaxonomyEntry[] {
+  return (entries ?? []).filter((entry) => entry.source !== 'instance')
+}
+
+/** Identity of an entry across installed and snapshot rows (snapshot rows have no id). */
+export function taxonomyEntryKey(entry: Pick<TaxonomyEntry, 'taxonomySlug' | 'externalId'>): string {
+  return `${entry.taxonomySlug}:${entry.externalId}`
+}
+
+/** Why a category is shown fixed. */
+export function fixedEntryHint(entry: Pick<TaxonomyEntry, 'source'>): string {
+  return entry.source === 'snapshot'
+    ? 'Kept from a library that is not installed'
+    : 'From the library threat'
 }

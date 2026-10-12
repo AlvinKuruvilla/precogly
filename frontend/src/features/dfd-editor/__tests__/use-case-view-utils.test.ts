@@ -4,8 +4,6 @@ import {
   buildAddThreatPreset,
   buildUseCaseTree,
   filterLinkableThreats,
-  threatIdsWithLinked,
-  threatIdsWithout,
   threatsForUseCaseSelection,
 } from '../components/threat-analysis/use-case-view-utils'
 import type { AbuseCase, UseCase } from '@/features/threat-models/types/core'
@@ -32,6 +30,7 @@ function makeAbuseCase(id: number, useCaseIds: number[], options: Partial<AbuseC
   return {
     id,
     name: `Abuse case ${id}`,
+    description: '',
     flowData: null,
     displayOrder: id,
     abuser: null,
@@ -178,12 +177,5 @@ describe('link existing threat', () => {
     expect(filterLinkableThreats(threats, [], 'sql').map((threat) => threat.backendThreatId)).toEqual([1])
     expect(filterLinkableThreats(threats, [], 't12').map((threat) => threat.backendThreatId)).toEqual([12])
     expect(filterLinkableThreats(threats, [1], '').map((threat) => threat.backendThreatId)).toEqual([12, 3])
-  })
-
-  it('builds the full id list to send', () => {
-    const abuseCase = { threats: [threatRef(1), threatRef(2)] }
-    expect(threatIdsWithLinked(abuseCase, 5)).toEqual([1, 2, 5])
-    expect(threatIdsWithLinked(abuseCase, 2)).toEqual([1, 2])
-    expect(threatIdsWithout(abuseCase, 1)).toEqual([2])
   })
 })

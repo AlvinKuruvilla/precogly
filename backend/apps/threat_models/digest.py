@@ -109,7 +109,7 @@ SNAPSHOT_FIELDS = {
         ["id", "created_at", "updated_at", "display_order"],
     ),
     "threat_models.AbuseCase": (
-        ["name", "abuser", "flow_data", "format_metadata"],
+        ["name", "description", "abuser", "flow_data", "format_metadata"],
         ["id", "created_at", "updated_at", "threat_model", "display_order"],
     ),
     "threat_models.AbuseCaseUseCase": (

@@ -29,6 +29,7 @@ export const USE_CASE_EXAMPLES = {
 
 export const ABUSE_CASE_EXAMPLES = {
   name: 'e.g. Card testing at checkout',
+  description: 'e.g. A fraudster tests stolen card numbers by placing small orders until one goes through.',
   preconditions: ['e.g. The actor has card numbers that are not theirs'],
   mainFlow: [
     'e.g. Add a low-value item to the cart',

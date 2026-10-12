@@ -3,6 +3,7 @@
  * Each change is saved at once as instance taxonomy links; the library
  * threat's own categories are shown fixed.
  */
+import { useRef } from 'react'
 import { toast } from 'sonner'
 import type { TaxonomyEntry } from '@/types/domain'
 import {
@@ -26,12 +27,18 @@ export function ThreatTaxonomyEditor({
   libraryEntries,
   disabled = false,
 }: ThreatTaxonomyEditorProps) {
-  const { data: instanceLinks = [], isLoading } = useInstanceTaxonomyEntries(threatId)
+  const { data: instanceLinks = [], isLoading, isFetching } = useInstanceTaxonomyEntries(threatId)
   const createLink = useCreateInstanceTaxonomyEntry()
   const deleteLink = useDeleteInstanceTaxonomyEntry()
-  const saving = createLink.isPending || deleteLink.isPending
+  // Also blocks while the links are refetched, so the next click diffs against fresh links
+  // (a stale list would create a duplicate or delete a link that is already gone).
+  const saving = createLink.isPending || deleteLink.isPending || isFetching
+  // Set synchronously, since a second click can land before the next render disables the controls.
+  const changeInFlight = useRef(false)
 
   const handleChange = async (wantedEntryIds: number[]) => {
+    if (changeInFlight.current) return
+    changeInFlight.current = true
     const { entryIdsToCreate, linkIdsToDelete } = diffTaxonomyLinks(instanceLinks, wantedEntryIds)
     try {
       await Promise.all([
@@ -40,6 +47,8 @@ export function ThreatTaxonomyEditor({
       ])
     } catch {
       toast.error('Could not save the categories. Try again.')
+    } finally {
+      changeInFlight.current = false
     }
   }
 

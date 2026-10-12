@@ -33,7 +33,7 @@ import { type ActorValue } from './actor-utils'
 import { BusinessObjectivesPicker } from './BusinessObjectivesPicker'
 import { ThreatSourcesPicker } from './ThreatSourcesPicker'
 import { ThreatTaxonomyEditor } from './ThreatTaxonomyEditor'
-import { libraryTaxonomyEntries } from './taxonomy-picker-utils'
+import { fixedTaxonomyEntries } from './taxonomy-picker-utils'
 import { threatSourceIdsFromThreat } from './threat-source-selection'
 import { useHasBusinessObjectives } from './useHasBusinessObjectives'
 
@@ -202,7 +202,7 @@ function ThreatDetailForm({
         <ThreatTaxonomyEditor
           threatModelId={threatModelId}
           threatId={threatDetail.id}
-          libraryEntries={libraryTaxonomyEntries(threatDetail.taxonomyEntries)}
+          libraryEntries={fixedTaxonomyEntries(threatDetail.taxonomyEntries)}
         />
       </div>
 

@@ -143,6 +143,7 @@ export function buildUseCaseInput(state: UseCaseFormState, includeBusinessObject
 
 export interface AbuseCaseFormState {
   name: string
+  description: string
   abuserId: number | null
   useCaseIds: number[]
   componentIds: number[]
@@ -157,6 +158,7 @@ export function initialAbuseCaseForm(abuseCase?: AbuseCase | null, defaultUseCas
   const flowData = abuseCase?.flowData ?? {}
   return {
     name: abuseCase?.name ?? '',
+    description: abuseCase?.description ?? '',
     abuserId: abuseCase?.abuser?.id ?? null,
     useCaseIds: abuseCase
       ? abuseCase.useCases.map((useCase) => useCase.id)
@@ -184,6 +186,7 @@ export function buildAbuseCaseFlowData(state: AbuseCaseFormState): AbuseCaseFlow
 export function buildAbuseCaseInput(state: AbuseCaseFormState): AbuseCaseInput {
   return {
     name: state.name.trim(),
+    description: state.description.trim(),
     flowData: buildAbuseCaseFlowData(state),
     abuserId: state.abuserId,
     useCaseIds: state.useCaseIds,

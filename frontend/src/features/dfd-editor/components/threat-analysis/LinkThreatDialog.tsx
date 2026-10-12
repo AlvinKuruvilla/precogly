@@ -1,7 +1,8 @@
 /**
  * "Link existing threat": pick one of the model's threats (search by T number
- * or name) and link it to an abuse case. The API replaces the abuse case's
- * threat list, so the save sends the existing ids plus the picked one.
+ * or name) and link it to an abuse case. The threats searched are all threats
+ * of the model, whatever the diagram filter of the page is. The save links the
+ * one threat on the server, so a stale copy of the abuse case cannot drop links.
  */
 
 import { useState } from 'react'
@@ -12,17 +13,17 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { useUpdateAbuseCase } from '@/features/threat-models/api/threat-models'
+import { useLinkAbuseCaseThreat } from '@/features/threat-models/api/threat-models'
 import { errorMessages } from '@/features/threat-models/components/use-cases/use-case-utils'
 import type { AbuseCase } from '@/features/threat-models/types/core'
 import type { AnalysisThreat } from '../../types/threat-analysis'
 import { NumberBadge } from './NumberBadge'
-import { filterLinkableThreats, threatIdsWithLinked } from './use-case-view-utils'
+import { filterLinkableThreats } from './use-case-view-utils'
 
 interface LinkThreatDialogProps {
   threatModelId: string
   abuseCase: AbuseCase | null
-  /** The model's threats. */
+  /** All threats of the model, not filtered by diagram. */
   threats: AnalysisThreat[]
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -65,7 +66,7 @@ function LinkThreatForm({
 }) {
   const [query, setQuery] = useState('')
   const [pickedBackendId, setPickedBackendId] = useState<number | null>(null)
-  const updateAbuseCase = useUpdateAbuseCase(threatModelId)
+  const linkThreat = useLinkAbuseCaseThreat(threatModelId)
 
   const linkable = filterLinkableThreats(
     threats,
@@ -75,8 +76,8 @@ function LinkThreatForm({
 
   const handleLink = () => {
     if (pickedBackendId === null) return
-    updateAbuseCase.mutate(
-      { abuseCaseId: abuseCase.id, data: { threatIds: threatIdsWithLinked(abuseCase, pickedBackendId) } },
+    linkThreat.mutate(
+      { abuseCaseId: abuseCase.id, threatId: pickedBackendId },
       {
         onSuccess: () => {
           toast.success('Threat linked')
@@ -102,7 +103,7 @@ function LinkThreatForm({
       <ScrollArea className="h-[260px] rounded-md border">
         {linkable.length === 0 ? (
           <p className="p-4 text-center text-sm text-muted-foreground">
-            {query ? 'No threat matches' : 'Every threat of this model is already linked.'}
+            {query ? 'No threat matches' : 'No unlinked threats in this model.'}
           </p>
         ) : (
           <div className="space-y-1 p-2">
@@ -127,8 +128,8 @@ function LinkThreatForm({
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleLink} disabled={pickedBackendId === null || updateAbuseCase.isPending}>
-          {updateAbuseCase.isPending ? (
+        <Button onClick={handleLink} disabled={pickedBackendId === null || linkThreat.isPending}>
+          {linkThreat.isPending ? (
             <>
               <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Linking
             </>

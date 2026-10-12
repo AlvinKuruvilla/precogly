@@ -261,6 +261,7 @@ export interface UnlinkedRealizes {
 export interface AbuseCase {
   id: number
   name: string
+  description: string
   flowData: AbuseCaseFlowData | null
   displayOrder: number
   abuser: { id: number; name: string } | null
@@ -277,6 +278,7 @@ export interface AbuseCase {
 
 export interface AbuseCaseInput {
   name?: string
+  description?: string
   flowData?: AbuseCaseFlowData
   displayOrder?: number
   abuserId?: number | null

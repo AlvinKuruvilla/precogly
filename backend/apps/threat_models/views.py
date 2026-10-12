@@ -50,6 +50,7 @@ from .serializers import (
     ThreatModelReferenceImageUploadSerializer,
     ThreatModelSerializer,
     UseCaseSerializer,
+    resolve_in_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -867,6 +868,43 @@ class AbuseCaseViewSet(_ThreatModelNestedViewSet):
     def perform_create(self, serializer):
         self.check_object_permissions(self.request, self._threat_model())
         serializer.save()
+
+    def _threat_for_link(self, abuse_case):
+        from apps.threats.models import InstanceThreat
+
+        threat_id = self.request.data.get("threat_id")
+        if not isinstance(threat_id, int) or isinstance(threat_id, bool):
+            raise ValidationError({"threat_id": "A threat id is required."})
+        return resolve_in_model(
+            abuse_case.threat_model,
+            "threat_id",
+            [threat_id],
+            InstanceThreat.objects.filter(threat_model=abuse_case.threat_model),
+        )[0]
+
+    def _linked_reply(self, abuse_case):
+        return Response(
+            self.get_serializer(self.get_queryset().get(pk=abuse_case.pk)).data
+        )
+
+    @action(detail=True, methods=["post"], url_path="link-threat")
+    def link_threat(self, request, threat_model_pk=None, pk=None):
+        """Add one threat to the abuse case, keeping the others. Linking a
+        threat that is already linked changes nothing."""
+        from .use_cases import link_threat_to_abuse_cases
+
+        abuse_case = self.get_object()
+        link_threat_to_abuse_cases(self._threat_for_link(abuse_case), [abuse_case])
+        return self._linked_reply(abuse_case)
+
+    @action(detail=True, methods=["post"], url_path="unlink-threat")
+    def unlink_threat(self, request, threat_model_pk=None, pk=None):
+        """Remove one threat from the abuse case, keeping the others."""
+        abuse_case = self.get_object()
+        abuse_case.threat_links.filter(
+            threat=self._threat_for_link(abuse_case)
+        ).delete()
+        return self._linked_reply(abuse_case)
 
 
 class BlueprintViewSet(viewsets.ModelViewSet):

@@ -82,6 +82,7 @@ FIELD_HOMES: dict[str, dict[str, str | tuple[str, str]]] = {
     },
     "threat_models.AbuseCase": {
         "name": "threats.abuseCases[].name",
+        "description": "threats.abuseCases[].description",
         "abuser": "threats.abuseCases[].abuser",
         "flow_data": "threats.abuseCases[] (preconditions, mainFlow, "
         "detectionOpportunities)",

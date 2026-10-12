@@ -745,7 +745,7 @@ class AbuseCase(TimestampedModel):
 
     Lives on the model, like a use case, and links to use cases, threats,
     components and flows; every link is optional. The spec's abuse case has
-    no description and no properties, so neither exists here.
+    no properties, so nothing travels as a ``precogly:`` property on it.
     """
 
     tenancy = Tenancy.TENANT_OWNED
@@ -761,6 +761,7 @@ class AbuseCase(TimestampedModel):
         blank=True,
         related_name="abuse_cases",
     )
+    description = models.TextField(blank=True, default="")
     flow_data = models.JSONField(
         default=dict,
         blank=True,

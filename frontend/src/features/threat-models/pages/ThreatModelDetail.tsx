@@ -267,8 +267,18 @@ export function ThreatModelDetail() {
   // "From abuse cases" links in a threat: show that abuse case in the "By use case" view.
   const handleOpenAbuseCase = useCallback((abuseCaseId: number) => {
     setUseCaseSelection({ kind: 'abuseCase', abuseCaseId })
+    setSelectedThreatId(null)
     setViewMode('usecase')
   }, [])
+
+  // The selected threat belongs to one view's list; clear it when the view changes.
+  const handleViewModeChange = useCallback(
+    (nextViewMode: ViewMode) => {
+      if (nextViewMode !== viewMode) setSelectedThreatId(null)
+      setViewMode(nextViewMode)
+    },
+    [viewMode]
+  )
 
   const handleSelectTarget = useCallback((selection: AnalysisSelection) => {
     setSelectedTarget((current) => {
@@ -663,7 +673,7 @@ export function ThreatModelDetail() {
                   <Button
                     variant={viewMode === 'component' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setViewMode('component')}
+                    onClick={() => handleViewModeChange('component')}
                     className={cn(
                       'rounded-md px-3',
                       viewMode === 'component' ? '' : 'hover:bg-transparent'
@@ -674,7 +684,7 @@ export function ThreatModelDetail() {
                   <Button
                     variant={viewMode === 'usecase' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setViewMode('usecase')}
+                    onClick={() => handleViewModeChange('usecase')}
                     className={cn(
                       'rounded-md px-3',
                       viewMode === 'usecase' ? '' : 'hover:bg-transparent'
@@ -685,7 +695,7 @@ export function ThreatModelDetail() {
                   <Button
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setViewMode('table')}
+                    onClick={() => handleViewModeChange('table')}
                     className={cn(
                       'rounded-md px-3',
                       viewMode === 'table' ? '' : 'hover:bg-transparent'
@@ -702,6 +712,7 @@ export function ThreatModelDetail() {
                   <UseCaseView
                     threatModelId={id!}
                     threats={filteredComponentThreats}
+                    allThreats={analysisThreats}
                     selection={useCaseSelection}
                     onSelectionChange={handleUseCaseSelectionChange}
                     selectedThreatId={selectedThreatId}
@@ -749,8 +760,8 @@ export function ThreatModelDetail() {
                       const selection =
                         threat.wholeSystem || !firstTarget ? SYSTEM_SELECTION : targetSelection(firstTarget.type, firstTarget.id)
                       if (!threatMatchesSelection(threat, selectedTarget)) setSelectedTarget(selection)
-                      setSelectedThreatId(threat.id)
                       setViewMode('component')
+                      setSelectedThreatId(threat.id)
                     }}
                   />
                 )}

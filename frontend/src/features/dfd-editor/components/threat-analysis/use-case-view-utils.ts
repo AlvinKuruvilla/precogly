@@ -157,14 +157,3 @@ export function filterLinkableThreats(
     )
   })
 }
-
-/** The full threat id list to send when linking one more threat (the API replaces the list). */
-export function threatIdsWithLinked(abuseCase: Pick<AbuseCase, 'threats'>, addedBackendId: number): number[] {
-  const ids = abuseCase.threats.map((threat) => threat.id)
-  return ids.includes(addedBackendId) ? ids : [...ids, addedBackendId]
-}
-
-/** The full threat id list to send when unlinking one threat. */
-export function threatIdsWithout(abuseCase: Pick<AbuseCase, 'threats'>, removedBackendId: number): number[] {
-  return abuseCase.threats.map((threat) => threat.id).filter((id) => id !== removedBackendId)
-}

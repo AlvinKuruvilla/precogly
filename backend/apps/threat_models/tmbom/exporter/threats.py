@@ -514,6 +514,8 @@ def _abuse_case(abuse_case, refs, abstract, actors, warnings) -> dict:
     from .use_cases import _steps, _unique
 
     entry = {"bom-ref": refs.ref("abusecase", abuse_case), "name": abuse_case.name}
+    if abuse_case.description:
+        entry["description"] = abuse_case.description
     if abuse_case.abuser_id:
         entry["abuser"] = actors.persona_ref(abuse_case.abuser)
     else:

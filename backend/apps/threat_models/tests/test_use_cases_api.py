@@ -372,6 +372,119 @@ class AbuseCaseApiTests(_Base):
         self.assertFalse(abuse_case.threat_links.exists())
 
 
+class ReviewFollowUpTests(_Base):
+    """Description, cleared abuser, new rows last, one-threat link actions."""
+
+    def test_description_saves_and_round_trips(self):
+        from apps.threat_models.tmbom import TmBomAdapter
+
+        response = self.client.post(
+            self.abuse_cases_url,
+            {"name": "Card testing", "description": "Tests stolen cards."},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["description"], "Tests stolen cards.")
+        document = TmBomAdapter().export_data(self.threat_model)
+        entry = document["threats"]["abuseCases"][0]
+        self.assertEqual(entry["description"], "Tests stolen cards.")
+        imported, _ = TmBomAdapter().import_data(document, self.organization, self.user)
+        self.assertEqual(imported.abuse_cases.get().description, "Tests stolen cards.")
+
+    def test_clearing_an_imported_abuser_drops_the_kept_ref(self):
+        from apps.threat_models.tmbom import TmBomAdapter
+
+        abuse_case = AbuseCase.objects.create(
+            threat_model=self.threat_model,
+            name="Card testing",
+            format_metadata={"cyclonedx": {"abuser_ref": "actor-elsewhere"}},
+        )
+        response = self.client.patch(
+            f"{self.abuse_cases_url}{abuse_case.id}/", {"abuserId": None}, format="json"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        abuse_case.refresh_from_db()
+        self.assertNotIn("abuser_ref", abuse_case.format_metadata["cyclonedx"])
+        document = TmBomAdapter().export_data(self.threat_model)
+        self.assertNotIn("abuser", document["threats"]["abuseCases"][0])
+
+    def test_new_rows_land_last(self):
+        for position in range(3):
+            UseCase.objects.create(
+                threat_model=self.threat_model,
+                name=f"U{position}",
+                display_order=position,
+            )
+            AbuseCase.objects.create(
+                threat_model=self.threat_model,
+                name=f"A{position}",
+                display_order=position,
+            )
+        self.client.post(self.use_cases_url, {"name": "New"}, format="json")
+        self.client.post(self.abuse_cases_url, {"name": "New"}, format="json")
+        self.assertEqual(
+            list(self.threat_model.use_cases.values_list("name", flat=True))[-1], "New"
+        )
+        self.assertEqual(
+            list(self.threat_model.abuse_cases.values_list("name", flat=True))[-1],
+            "New",
+        )
+
+    def test_link_and_unlink_one_threat_keep_the_others(self):
+        first = create_instance_threat(
+            self.threat_model, targets=[self.payment], threat_name="First"
+        )
+        second = create_instance_threat(
+            self.threat_model, targets=[self.payment], threat_name="Second"
+        )
+        abuse_case = AbuseCase.objects.create(
+            threat_model=self.threat_model, name="Card testing"
+        )
+        url = f"{self.abuse_cases_url}{abuse_case.id}/"
+        for threat in (first, second, first):
+            response = self.client.post(
+                f"{url}link-threat/", {"threatId": threat.id}, format="json"
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(
+            [t["id"] for t in response.data["threats"]], [first.id, second.id]
+        )
+        response = self.client.post(
+            f"{url}unlink-threat/", {"threatId": first.id}, format="json"
+        )
+        self.assertEqual([t["id"] for t in response.data["threats"]], [second.id])
+
+    def test_link_refuses_other_models_and_readers(self):
+        abuse_case = AbuseCase.objects.create(
+            threat_model=self.threat_model, name="Card testing"
+        )
+        foreign = create_instance_threat(
+            self.other_model, targets=[self.foreign_component], threat_name="X"
+        )
+        url = f"{self.abuse_cases_url}{abuse_case.id}/link-threat/"
+        self.assertEqual(
+            self.client.post(url, {"threatId": foreign.id}, format="json").status_code,
+            400,
+        )
+        self.assertEqual(self.client.post(url, {}, format="json").status_code, 400)
+        own = create_instance_threat(
+            self.threat_model, targets=[self.payment], threat_name="Own"
+        )
+        self.assertEqual(
+            self._client(self.viewer)
+            .post(url, {"threatId": own.id}, format="json")
+            .status_code,
+            403,
+        )
+        self.assertEqual(
+            self._client(self.outsider)
+            .post(url, {"threatId": own.id}, format="json")
+            .status_code,
+            404,
+        )
+        self.assertFalse(AbuseCaseThreat.objects.exists())
+
+
 class ThreatAbuseCaseLinkTests(_Base):
     def test_create_with_abuse_case_ids_links_and_delete_unlinks(self):
         abuse_case = AbuseCase.objects.create(

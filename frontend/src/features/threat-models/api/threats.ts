@@ -1143,12 +1143,14 @@ export function useCreateInstanceTaxonomyEntry() {
   return useMutation({
     mutationFn: (data: { taxonomyEntry: number; threat: number }) =>
       api.post<InstanceThreatTaxonomyEntry>('/threat-taxonomy-entries/', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all })
-      queryClient.invalidateQueries({ queryKey: analysisKeys.all })
-      // The threat detail merges library and instance categories.
-      queryClient.invalidateQueries({ queryKey: threatKeys.all })
-    },
+    // Returned, so the mutation stays pending until the lists are refetched.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all }),
+        queryClient.invalidateQueries({ queryKey: analysisKeys.all }),
+        // The threat detail merges library and instance categories.
+        queryClient.invalidateQueries({ queryKey: threatKeys.all }),
+      ]),
   })
 }
 
@@ -1157,11 +1159,13 @@ export function useDeleteInstanceTaxonomyEntry() {
 
   return useMutation({
     mutationFn: (id: number) => api.delete(`/threat-taxonomy-entries/${id}/`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all })
-      queryClient.invalidateQueries({ queryKey: analysisKeys.all })
-      // The threat detail merges library and instance categories.
-      queryClient.invalidateQueries({ queryKey: threatKeys.all })
-    },
+    // Returned, so the mutation stays pending until the lists are refetched.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: instanceTaxonomyKeys.all }),
+        queryClient.invalidateQueries({ queryKey: analysisKeys.all }),
+        // The threat detail merges library and instance categories.
+        queryClient.invalidateQueries({ queryKey: threatKeys.all }),
+      ]),
   })
 }
