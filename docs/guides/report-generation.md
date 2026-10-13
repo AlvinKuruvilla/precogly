@@ -10,7 +10,7 @@ Open a threat model from the dashboard, then select the **Report** tab in the wo
 
 ## Choosing a report type
 
-Four report types are available. Click the corresponding card at the top of the report view to switch between them.
+Four report types are available. Pick one from the report type dropdown under the model's name, at the top of the report view; the list gives a one-line description of each.
 
 ![Report type selector cards showing Executive, Technical, Compliance, and Full Report options](../assets/images/report-type-selector.png)
 

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,25 +56,25 @@ const REPORT_TYPES: Array<{
     type: 'executive',
     label: 'Executive',
     description: 'High-level overview for leadership',
-    icon: <BarChart3 className="h-5 w-5" />,
+    icon: <BarChart3 className="h-4 w-4" />,
   },
   {
     type: 'technical',
     label: 'Technical',
     description: 'Detailed analysis for engineers',
-    icon: <Code className="h-5 w-5" />,
+    icon: <Code className="h-4 w-4" />,
   },
   {
     type: 'compliance',
     label: 'Compliance',
     description: 'Framework coverage and gaps',
-    icon: <Shield className="h-5 w-5" />,
+    icon: <Shield className="h-4 w-4" />,
   },
   {
     type: 'full',
-    label: 'Full Report',
+    label: 'Full',
     description: 'Complete threat model report',
-    icon: <FileText className="h-5 w-5" />,
+    icon: <FileText className="h-4 w-4" />,
   },
 ]
 
@@ -165,30 +165,6 @@ export function ReportView({ threatModelId }: ReportViewProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="shrink-0 p-4 border-b">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {REPORT_TYPES.map((rt) => (
-            <Card
-              key={rt.type}
-              className={`cursor-pointer transition-colors ${
-                reportType === rt.type
-                  ? 'ring-2 ring-primary bg-primary/5'
-                  : 'hover:bg-muted/50'
-              }`}
-              onClick={() => setReportType(rt.type)}
-            >
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center gap-2 mb-1">
-                  {rt.icon}
-                  <span className="font-medium text-sm">{rt.label}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">{rt.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
       {reportType === 'compliance' && (
         <ComplianceDriftBanner threatModelId={threatModelId} />
       )}
@@ -211,15 +187,36 @@ export function ReportView({ threatModelId }: ReportViewProps) {
         )}
         {data && (
           <div className="space-y-4 max-w-5xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold" data-testid="report-title">{data.metadata.name}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm text-muted-foreground">
-                    {REPORT_TYPES.find((rt) => rt.type === reportType)?.label} Report
-                  </span>
-                </div>
-              </div>
+            {/* One row: the model's name on the left, the report type and the export menu together on the right. */}
+            <div className="flex items-center gap-6">
+              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold" data-testid="report-title" title={data.metadata.name}>
+                {data.metadata.name}
+              </h2>
+              <div className="flex shrink-0 items-center gap-2">
+                <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
+                  <SelectTrigger className="h-8 w-[220px] text-sm" aria-label="Report type">
+                    {/* The closed select shows the name only; the list adds each description. */}
+                    <SelectValue>
+                      <span className="flex items-center gap-2">
+                        {REPORT_TYPES.find((rt) => rt.type === reportType)?.icon}
+                        {REPORT_TYPES.find((rt) => rt.type === reportType)?.label} Report
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REPORT_TYPES.map((rt) => (
+                      <SelectItem key={rt.type} value={rt.type} textValue={`${rt.label} Report`}>
+                        <span className="flex items-center gap-2">
+                          {rt.icon}
+                          <span>
+                            <span className="block text-sm">{rt.label} Report</span>
+                            <span className="block text-xs text-muted-foreground">{rt.description}</span>
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5">
@@ -264,6 +261,7 @@ export function ReportView({ threatModelId }: ReportViewProps) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
 
             {isExportingWord && (

@@ -12,8 +12,8 @@ test('the compliance report shows a requirement-by-control matrix that links int
   await page.getByRole('tab', { name: /report/i }).click()
   await expect(page.getByTestId('report-title')).toHaveText('Sample AWS Serverless Web App', { timeout: 15_000 })
 
-  // The Compliance report card (the header also has a "Compliance" link that opens the frameworks dialog).
-  await page.getByText('Framework coverage and gaps').click()
+  await page.getByRole('combobox', { name: 'Report type' }).click()
+  await page.getByRole('option', { name: /^Compliance Report/ }).click()
   const header = page.getByRole('button', { name: 'Compliance Matrix' })
   await expect(header).toHaveAttribute('aria-expanded', 'false')
   await header.click()

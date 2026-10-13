@@ -18,7 +18,8 @@ test('the full report cites threats and controls by number', async ({ page }) =>
   await page.getByRole('tab', { name: /report/i }).click()
   await expect(page.getByTestId('report-title')).toHaveText('Sample AWS Serverless Web App', { timeout: 15_000 })
 
-  await page.getByText('Full Report', { exact: true }).click()
+  await page.getByRole('combobox', { name: 'Report type' }).click()
+  await page.getByRole('option', { name: /^Full Report/ }).click()
 
   // Sections start collapsed; open the three this test reads.
   const threatDetailHeader = page.getByRole('button', { name: /^Threat Detail/ })
