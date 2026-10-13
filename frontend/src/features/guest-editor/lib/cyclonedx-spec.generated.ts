@@ -849,6 +849,13 @@ export const CUSTOM_COUNTERMEASURE_STATUSES = [
   "platform",
 ] as const
 
+export const RESPONSE_STATUS_TO_SPEC: Record<string, string> = {
+  "planned": "planned",
+  "in_progress": "in-progress",
+  "implemented": "implemented",
+  "verified": "verified",
+}
+
 export const EXTERNAL_REFERENCE_TYPES = [
   "issue-tracker",
   "evidence",
