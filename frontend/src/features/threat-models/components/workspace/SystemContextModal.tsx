@@ -1,9 +1,15 @@
 /**
- * The system context dialog (plan 11.5, mockup 06): description and
- * criticality of the model, the data assets, the out-of-scope items and the
- * assumptions. The lock is gone. Assumptions, out-of-scope items and data
- * assets belong to a blueprint (J8): with more than one blueprint a select
- * preset to the switcher's blueprint appears; with one, nothing is visible.
+ * The System dialog: one dialog with two tabs, opened from the Overview's
+ * System button (System Details and System context were merged).
+ *
+ * Details: the System Details fields (description shown read-only,
+ * methodologies, primary system, system assets, Advanced with the BOM-Link).
+ *
+ * Context (plan 11.5, mockup 06): description and criticality of the model,
+ * the data assets, the out-of-scope items and the assumptions. Assumptions,
+ * out-of-scope items and data assets belong to a blueprint (J8): with more
+ * than one blueprint a select preset to the switcher's blueprint appears;
+ * with one, nothing is visible.
  */
 
 import { useState } from 'react'
@@ -17,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -33,9 +40,12 @@ import type { Criticality } from '@/types/domain'
 import { AssetsModal } from './AssetsModal'
 import { OutOfScopeModal } from './OutOfScopeModal'
 import { AssumptionsEditor } from './AssumptionsEditor'
+import { ModelDetailsCard } from './ModelDetailsCard'
 import { resolveSelectedBlueprintId, showsBlueprintChoice, sortBlueprints } from './blueprint-utils'
 
 type ActiveView = 'assets' | 'out-of-scope' | 'describe' | 'assumptions'
+
+export type SystemDialogTab = 'details' | 'context'
 
 const CRITICALITY_OPTIONS: { value: Criticality; label: string }[] = [
   { value: 'low', label: 'Low' },
@@ -51,6 +61,8 @@ interface SystemContextModalProps {
   blueprints: Blueprint[]
   /** The switcher's blueprint, preset in the dialog's own select. */
   selectedBlueprintId: number | null
+  /** The tab shown when the dialog opens. */
+  initialTab?: SystemDialogTab
 }
 
 export function SystemContextModal({
@@ -59,23 +71,70 @@ export function SystemContextModal({
   threatModelId,
   blueprints,
   selectedBlueprintId,
+  initialTab = 'details',
 }: SystemContextModalProps) {
   const { data: threatModel } = useThreatModel(threatModelId)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl" data-testid="system-context-modal">
+      <DialogContent className="sm:max-w-3xl" data-testid="system-context-modal">
         {/* The content unmounts when the dialog closes, so the body starts from the model on every open. */}
         {threatModel && (
-          <SystemContextBody
+          <SystemDialogBody
+            key={initialTab}
             threatModel={threatModel}
             blueprints={blueprints}
             selectedBlueprintId={selectedBlueprintId}
+            initialTab={initialTab}
             onClose={() => onOpenChange(false)}
           />
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function SystemDialogBody({
+  threatModel,
+  blueprints,
+  selectedBlueprintId,
+  initialTab,
+  onClose,
+}: SystemContextBodyProps & { initialTab: SystemDialogTab }) {
+  const [activeTab, setActiveTab] = useState<SystemDialogTab>(initialTab)
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>System</DialogTitle>
+        <DialogDescription>
+          What the system is, what it protects, what is left out and what the model takes as true.
+        </DialogDescription>
+      </DialogHeader>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SystemDialogTab)}>
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="context">Context</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details" className="pt-4">
+          {/* The description is edited on the Context tab. */}
+          <ModelDetailsCard
+            threatModel={threatModel}
+            blueprints={blueprints}
+            onEditDescription={() => setActiveTab('context')}
+            embedded
+          />
+        </TabsContent>
+        {/* Kept mounted while hidden, so an unsaved description or criticality survives a tab switch. */}
+        <TabsContent value="context" forceMount className="pt-2 data-[state=inactive]:hidden">
+          <SystemContextBody
+            threatModel={threatModel}
+            blueprints={blueprints}
+            selectedBlueprintId={selectedBlueprintId}
+            onClose={onClose}
+          />
+        </TabsContent>
+      </Tabs>
+    </>
   )
 }
 
@@ -137,36 +196,30 @@ function SystemContextBody({ threatModel, blueprints, selectedBlueprintId, onClo
 
   return (
     <>
-      <DialogHeader>
-        <div className="flex items-center justify-between gap-3 pr-6">
-          <DialogTitle>System context</DialogTitle>
-          {showBlueprintChoice && (
-            <Select
-              value={activeBlueprintId !== null ? String(activeBlueprintId) : ''}
-              onValueChange={(value) => setBlueprintChoice(Number(value))}
+      {showBlueprintChoice && (
+        <div className="flex justify-end">
+          <Select
+            value={activeBlueprintId !== null ? String(activeBlueprintId) : ''}
+            onValueChange={(value) => setBlueprintChoice(Number(value))}
+          >
+            <SelectTrigger
+              className="h-8 w-[220px] text-xs"
+              aria-label="Blueprint"
+              data-testid="context-blueprint-select"
             >
-              <SelectTrigger
-                className="h-8 w-[220px] text-xs"
-                aria-label="Blueprint"
-                data-testid="context-blueprint-select"
-              >
-                <span className="text-muted-foreground mr-1">Blueprint:</span>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortBlueprints(blueprints).map((blueprint) => (
-                  <SelectItem key={blueprint.id} value={String(blueprint.id)}>
-                    {blueprint.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+              <span className="text-muted-foreground mr-1">Blueprint:</span>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sortBlueprints(blueprints).map((blueprint) => (
+                <SelectItem key={blueprint.id} value={String(blueprint.id)}>
+                  {blueprint.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <DialogDescription>
-          What the system is, what it protects, what is left out and what the model takes as true.
-        </DialogDescription>
-      </DialogHeader>
+      )}
 
       <div className="space-y-6 py-4">
         {/* Criticality */}

@@ -54,7 +54,7 @@ export const router = createBrowserRouter([
   },
   // Public magic link route (no auth required)
   {
-    path: '/share/:token',
+    path: '/share/:token/:tab?',
     element: isGuestOnly ? <Navigate to="/" replace /> : <SharedThreatModelView />,
   },
   // Team invitation route (works for both logged-in and logged-out users)
@@ -78,7 +78,9 @@ export const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       { path: 'threat-models', element: <ThreatModels /> },
       { path: 'threat-models/new', element: <Navigate to="/threat-models" replace /> },
-      { path: 'threat-models/:id', element: <ThreatModelDetail /> },
+      // One URL per tab, and per view of Threat Analysis (/threat-analysis/components,
+      // /use-cases, /table). Bare or unknown segments redirect inside the page.
+      { path: 'threat-models/:id/:tab?/:view?', element: <ThreatModelDetail /> },
       { path: 'threat-models/:id/diagrams/:diagramId', element: <DFDEditor /> },
       // New unified Libraries page
       { path: 'libraries', element: <Libraries /> },

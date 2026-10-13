@@ -919,7 +919,11 @@ function DFDEditorContent() {
                 if (hasUnsavedChanges) {
                   await saveNow(notationStyle)
                 }
-                navigate(`/threat-models/${threatModelId}`)
+                // The analysis screen starts on what is selected here (router state, not a URL parameter).
+                const selectedCanvasElementId = currentSelectedNode?.id ?? currentSelectedEdge?.id
+                navigate(`/threat-models/${threatModelId}/threat-analysis/components`, {
+                  state: selectedCanvasElementId ? { analysisCanvasElementId: selectedCanvasElementId } : undefined,
+                })
               }}
             >
               <ShieldAlert className="h-4 w-4 mr-2" />

@@ -28,7 +28,7 @@ The browser downloads a file named after your threat model, such as `payment-pro
 
 The document's `serialNumber` is the model's own serial number, a UUID URN assigned when the model is created and never changed. Its `version` starts at 1 and goes up only when the exported content differs from the previous export (serial number, version, timestamps, and the version part of BOM-Links to other models are left out of that comparison). Exporting twice without a change gives the same version twice.
 
-Together they form a BOM-Link, `urn:cdx:<serial number>/<version>`, which other documents use to point at this model. **Copy BOM-Link** on the threat model's **Overview** tab copies it; both values are shown read-only under Advanced in the model details.
+Together they form a BOM-Link, `urn:cdx:<serial number>/<version>`, which other documents use to point at this model. **Copy BOM-Link** copies it. It is under **Advanced** on the **Details** tab of the **System** dialog on the threat model's **Overview** tab, where both values are also shown read-only.
 
 ### What's included
 
@@ -62,7 +62,7 @@ The export reads the live model. The tables below say where each Precogly concep
 | DFD | `visualizations[]` of type `data-flow` or `context`, the canvas as a base64 `attachment` with media type `application/vnd.precogly.dfd+json`, `precogly:diagram-type`, `precogly:primary` |
 | Assumption | `assumptions[]` with `topic`, `validity`, `impact`, `owner`, `relatedAssets`, `validationMethod`, `validationDate` |
 | Related threat model | A `system` asset with a `threat-model` external reference holding the other model's BOM-Link and `precogly:relationship`; "depends on" and "is a subsystem of" also as `relationships[]` (`dependsOn`, `contains`) |
-| Persona, or a threat's free-text actor | `actors[]` with an inline party (role `attacker`, an `archetype`) and the `precogly:persona-*` properties, or `precogly:actor-text` |
+| Threat actor (a persona in the spec), or a threat's free-text actor | `actors[]` with an inline party (role `attacker`, an `archetype`) and the `precogly:persona-*` properties, or `precogly:actor-text` |
 
 **Threats**
 

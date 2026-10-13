@@ -304,7 +304,7 @@ export function AddThreatDialog({
           </div>
         )}
         <div className="space-y-1">
-          <Label className="text-xs">Actor</Label>
+          <Label className="text-xs">Threat actor</Label>
           <ActorPicker threatModelId={threatModelId} personas={personas} value={actor} onChange={setActor} compact />
         </div>
       </div>

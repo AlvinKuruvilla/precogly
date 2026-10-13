@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { buildAnalysisTree, type AnalysisTreeInput } from '../components/threat-analysis/hierarchy-utils'
+import {
+  buildAnalysisTree,
+  initialAnalysisSelection,
+  type AnalysisTreeInput,
+} from '../components/threat-analysis/hierarchy-utils'
 import type { AnalysisThreat, AnalysisTarget, AnalysisCountermeasure } from '../types/threat-analysis'
 
 function target(type: AnalysisTarget['type'], id: number, name = `${type} ${id}`): AnalysisTarget {
@@ -147,5 +151,37 @@ describe('buildAnalysisTree', () => {
     })
     expect(byKey.has('zone-1')).toBe(true)
     expect(byKey.has('zone-2')).toBe(true)
+  })
+})
+
+describe('initialAnalysisSelection', () => {
+  it('starts on the system when it has whole-system threats', () => {
+    const { root } = buildAnalysisTree({ ...baseInput, threats: [threat(1, []), threat(2, [target('component', 101)])] })
+    expect(initialAnalysisSelection(root)).toEqual({ kind: 'system' })
+  })
+
+  it('else starts on the first component in tree order with a threat on it', () => {
+    const { root } = buildAnalysisTree({
+      ...baseInput,
+      threats: [threat(1, [target('component', 102)]), threat(2, [target('component', 100)]), threat(3, [target('flow', 200)])],
+    })
+    // PLC (100) sits in zone 11 inside zone 10, which comes before the Historian (102).
+    expect(initialAnalysisSelection(root)).toEqual({ kind: 'target', type: 'component', id: 100 })
+  })
+
+  it('falls back to another row with a threat, then to the system', () => {
+    const withFlowThreat = buildAnalysisTree({ ...baseInput, threats: [threat(1, [target('flow', 200)])] })
+    expect(initialAnalysisSelection(withFlowThreat.root)).toEqual({ kind: 'target', type: 'flow', id: 200 })
+
+    const withoutThreats = buildAnalysisTree(baseInput)
+    expect(initialAnalysisSelection(withoutThreats.root)).toEqual({ kind: 'system' })
+  })
+
+  it('ignores triaged threats, which the tree does not count', () => {
+    const { root } = buildAnalysisTree({
+      ...baseInput,
+      threats: [threat(1, [target('component', 100)], { triageStatus: 'accept' }), threat(2, [target('component', 101)])],
+    })
+    expect(initialAnalysisSelection(root)).toEqual({ kind: 'target', type: 'component', id: 101 })
   })
 })

@@ -20,6 +20,13 @@ test('the full report cites threats and controls by number', async ({ page }) =>
 
   await page.getByText('Full Report', { exact: true }).click()
 
+  // Sections start collapsed; open the three this test reads.
+  const threatDetailHeader = page.getByRole('button', { name: /^Threat Detail/ })
+  await expect(threatDetailHeader).toHaveAttribute('aria-expanded', 'false', { timeout: 15_000 })
+  await threatDetailHeader.click()
+  await page.getByRole('button', { name: /^Countermeasure Detail/ }).click()
+  await page.getByRole('button', { name: 'Review and approval' }).click()
+
   const threatRows = page.getByTestId('report-threat-row')
   await expect(threatRows.first()).toBeVisible({ timeout: 15_000 })
   await expect(threatRows.first().locator('td').first()).toHaveText(/^T\d+$/)

@@ -1,5 +1,7 @@
 /**
- * Pure logic for the "By use case" threat analysis view: the left tree, the
+ * Pure logic for the "By Use Case" threat analysis view: four columns that
+ * follow the chain use case, abuse case, threat, countermeasure. Here: the
+ * selection, which use case and abuse cases the first two columns show, the
  * threats of a selection, what "+ Threat" pre-fills, and the search in
  * "Link existing threat".
  */
@@ -12,14 +14,45 @@ import type { ActorValue } from './actor-utils'
 
 // ---- Selection ----
 
+/**
+ * What the view has selected: a use case, the "Not linked to a use case"
+ * group, or an abuse case. An abuse case can sit under several use cases, so
+ * it remembers the one it was picked under (`null` for the group); without
+ * that, as from a threat's "From abuse cases" link, its first use case shows.
+ */
 export type UseCaseViewSelection =
   | { kind: 'useCase'; useCaseId: number }
-  | { kind: 'abuseCase'; abuseCaseId: number }
+  | { kind: 'noUseCase' }
+  | { kind: 'abuseCase'; abuseCaseId: number; useCaseId?: number | null }
 
 export function useCaseSelectionKey(selection: UseCaseViewSelection | null): string | null {
   if (!selection) return null
   if (selection.kind === 'abuseCase') return `abuse-case:${selection.abuseCaseId}`
+  if (selection.kind === 'noUseCase') return 'no-use-case'
   return `${selection.kind}:${selection.useCaseId}`
+}
+
+/** The first column's entry: a use case id, the "Not linked" group, or nothing. */
+export type UseCaseColumnEntry = { kind: 'useCase'; useCaseId: number } | { kind: 'noUseCase' } | null
+
+/** Which entry of the first column is highlighted, and so whose abuse cases the second column lists. */
+export function columnEntryForSelection(selection: UseCaseViewSelection | null, abuseCases: AbuseCase[]): UseCaseColumnEntry {
+  if (!selection) return null
+  if (selection.kind === 'useCase') return { kind: 'useCase', useCaseId: selection.useCaseId }
+  if (selection.kind === 'noUseCase') return { kind: 'noUseCase' }
+  if (selection.useCaseId !== undefined) {
+    return selection.useCaseId === null ? { kind: 'noUseCase' } : { kind: 'useCase', useCaseId: selection.useCaseId }
+  }
+  const abuseCase = abuseCases.find((candidate) => candidate.id === selection.abuseCaseId)
+  const firstUseCase = abuseCase?.useCases[0]
+  return firstUseCase ? { kind: 'useCase', useCaseId: firstUseCase.id } : { kind: 'noUseCase' }
+}
+
+/** The abuse cases the second column lists for the first column's entry. */
+export function abuseCasesForColumnEntry(entry: UseCaseColumnEntry, tree: UseCaseTree): AbuseCase[] {
+  if (!entry) return []
+  if (entry.kind === 'noUseCase') return tree.unlinkedAbuseCases
+  return tree.useCaseNodes.find((node) => node.useCase.id === entry.useCaseId)?.abuseCases ?? []
 }
 
 // ---- Tree ----
@@ -70,7 +103,7 @@ export function threatsForUseCaseSelection(
   abuseCases: AbuseCase[],
   analysisThreats: AnalysisThreat[]
 ): AnalysisThreat[] {
-  if (!selection) return []
+  if (!selection || selection.kind === 'noUseCase') return []
   let backendIds: number[] = []
   if (selection.kind === 'abuseCase') {
     const abuseCase = abuseCases.find((candidate) => candidate.id === selection.abuseCaseId)

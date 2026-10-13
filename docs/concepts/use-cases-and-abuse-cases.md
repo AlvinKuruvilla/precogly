@@ -17,10 +17,10 @@ You can work in this chain with nothing but names. Every link to the diagram is 
 | ---- | ------------ |
 | Use case to components and flows | Suggested targets when you add a threat to one of its abuse cases, if the abuse case has none of its own |
 | Abuse case to components and flows | The targets are filled in when you add a threat from the abuse case |
-| Abuse case to persona (the abuser) | The actor is filled in when you add a threat from the abuse case |
+| Abuse case to threat actor (the spec's `abuser`) | The threat actor is filled in when you add a threat from the abuse case |
 | Use case to business objectives | Context only |
 
-Use cases and abuse cases are edited on the threat model's **Overview** tab and in the **By use case** view of [Threat Analysis](threat-analysis.md). They are part of the exported [TM-BOM](../guides/importing-exporting.md).
+Use cases and abuse cases are edited on the threat model's **Overview** tab and in the **By Use Case** view of [Threat Analysis](threat-analysis.md). They are part of the exported [TM-BOM](../guides/importing-exporting.md).
 
 ## Abuse case or threat?
 
@@ -39,19 +39,19 @@ The use case and abuse case forms show this running example as placeholders in e
 ## Example: an online shop
 
 - The use case "Place Order" is linked to the Web App, the Payment API, the Orders DB, and the flow "Web App to Payment API".
-- Under it sits the abuse case "Card testing at checkout". Its abuser is "Fraudster" and its target is the Payment API.
-- You select the abuse case and click **Add** above the threat list. The dialog opens with the Payment API as target and "Fraudster" as actor. You pick the library threat "Payment fraud" and save.
-- The threat shows under the abuse case in the **By use case** view, and under the Payment API in the component view. Its countermeasures (rate limit checkout, CAPTCHA after three failures) show in the right column in both views.
+- Selecting it in the first column lists the abuse case "Card testing at checkout" in the second. Its threat actor is "Fraudster" and its target is the Payment API.
+- You select the abuse case and click **Add** above the threat list (the third column). The dialog opens with the Payment API as target and "Fraudster" as actor. You pick the library threat "Payment fraud" and save.
+- The threat shows under the abuse case in the **By Use Case** view, and under the Payment API in the component view. Its countermeasures (rate limit checkout, CAPTCHA after three failures) show in the countermeasures column in both views.
 - A second use case, "Refund Order", has no abuse cases and no links yet. It shows two gap badges: **Not analyzed** and **Not linked to the diagram**.
 
 ## Two views, one analysis
 
-The component view and the **By use case** view show the same threats. A threat is one row. When you edit it in one view, the change shows in the other.
+The component view and the **By Use Case** view show the same threats. A threat is one row. When you edit it in one view, the change shows in the other.
 
-In the **By use case** view the left tree lists use cases, each with its abuse cases below it. Abuse cases that belong to no use case are grouped under **Not linked to a use case**. The center column lists the threats of the selected use case or abuse case. The right column lists the countermeasures of the selected threat.
+The **By Use Case** view has four numbered columns, one per step of the chain. **1 Use cases** lists the use cases, with **Not linked to a use case** at the bottom for abuse cases that belong to none. **2 Abuse cases** lists the abuse cases of the selected use case; one linked to several use cases shows under each, marked **shared**. **3 Threats** lists the threats of the selected abuse case. **4 Countermeasures** lists the countermeasures of the selected threat.
 
 - **+ Abuse case** on a use case adds an abuse case.
-- With an abuse case selected, **Add** above the threat list opens the add threat dialog with the abuser as actor and the abuse case's targets filled in. If the abuse case has no targets, the use case's components and flows are offered as suggestions. If neither has any, the picker starts empty. A threat with no targets is a whole-system threat.
+- With an abuse case selected, **Add** above the threat list opens the add threat dialog with the abuse case's threat actor and targets filled in. If the abuse case has no targets, the use case's components and flows are offered as suggestions. If neither has any, the picker starts empty. A threat with no targets is a whole-system threat.
 - **Link existing**, next to it, attaches a threat the model already has. As in the component view, threat actions sit above the threat list; the tree only selects, and adds, edits or deletes use cases and abuse cases. With a use case selected, the list shows the threats of all its abuse cases; select one abuse case to add to it.
 
 ## Gap badges
@@ -70,7 +70,7 @@ The badges point at work that is not done yet. They do **not** change the [compl
 Every field except the name is optional.
 
 - A use case has a description, main flow steps, preconditions, postconditions, success criteria, alternative flows, and exceptions. A step needs a description, and steps are numbered 1 to n. An alternative flow or exception needs a name and a condition.
-- An abuse case has a description, an abuser, preconditions, a main flow, and detection opportunities.
+- An abuse case has a description, a threat actor, preconditions, a main flow, and detection opportunities.
 - An abuse case imported from a file can list the controls the file named as its mitigations. They are shown read-only and written back on export.
 
 ## Changes and approval

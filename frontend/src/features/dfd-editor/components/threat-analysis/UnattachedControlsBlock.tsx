@@ -1,6 +1,7 @@
 /**
  * "Controls not linked to any threat" (plan J6, I3): kept controls with no
- * threat link, each with "Link to threat" and "Delete". The delete
+ * threat link, drawn like the countermeasure rows (status dot with its word,
+ * number, name), each with "Link to threat" and "Delete". The delete
  * confirmation says what goes with the control.
  */
 
@@ -36,7 +37,8 @@ import {
   type InstanceCountermeasure,
 } from '@/features/threat-models/api/threats'
 import { useCountermeasureComments } from '@/features/threat-models/api/risks'
-import { COUNTERMEASURE_STATUS_CONFIG, type AnalysisThreat } from '../../types/threat-analysis'
+import type { AnalysisThreat } from '../../types/threat-analysis'
+import { CountermeasureStatusDot } from './CountermeasureCard'
 import { NumberBadge } from './NumberBadge'
 import { formatTargetList } from './countermeasure-utils'
 
@@ -87,19 +89,13 @@ export function UnattachedControlsBlock({ threatModelId, threats }: UnattachedCo
       </p>
       <ul className="divide-y">
         {unattached.map((countermeasure) => {
-          const statusConfig = COUNTERMEASURE_STATUS_CONFIG[countermeasure.status]
           const name = countermeasure.countermeasureNameDisplay || `Countermeasure ${countermeasure.number}`
           return (
             <li key={countermeasure.id} className="flex items-center justify-between gap-2 py-1.5">
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2" data-countermeasure-number={countermeasure.displayNumber}>
+                <CountermeasureStatusDot status={countermeasure.status} className="w-[84px]" />
                 <NumberBadge number={countermeasure.displayNumber} />
                 <span className="truncate text-sm">{name}</span>
-                <span
-                  className="shrink-0 rounded px-1.5 py-0.5 text-[10px]"
-                  style={{ backgroundColor: `${statusConfig.color}20`, color: statusConfig.color }}
-                >
-                  {statusConfig.label}
-                </span>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button

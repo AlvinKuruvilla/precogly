@@ -1,16 +1,15 @@
 /** Create or edit an abuse case. Threats are linked in the threat analysis view, not here. */
 
 import { useState } from 'react'
-import { Loader2, Users } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ManagePersonasDialog } from '@/features/dfd-editor/components/threat-analysis/ManagePersonasDialog'
+import { ActorPicker } from '@/features/dfd-editor/components/threat-analysis/ActorPicker'
 import {
   useCreateAbuseCase,
   useUpdateAbuseCase,
@@ -24,7 +23,6 @@ import { ABUSE_CASE_EXAMPLES, ABUSE_CASE_HELP } from './use-case-examples'
 import { StringListEditor } from './StringListEditor'
 import { initialAbuseCaseForm, buildAbuseCaseInput, errorMessages, type AbuseCaseFormState } from './use-case-utils'
 
-const NO_ABUSER = 'none'
 
 interface AbuseCaseDialogProps {
   threatModelId: string
@@ -82,7 +80,6 @@ function AbuseCaseForm({ threatModelId, abuseCase, defaultUseCaseId, onClose, on
 
   const [form, setForm] = useState<AbuseCaseFormState>(() => initialAbuseCaseForm(abuseCase, defaultUseCaseId))
   const [errors, setErrors] = useState<string[]>([])
-  const [managePersonasOpen, setManagePersonasOpen] = useState(false)
 
   const patch = (changes: Partial<AbuseCaseFormState>) => setForm((current) => ({ ...current, ...changes }))
 
@@ -134,38 +131,16 @@ function AbuseCaseForm({ threatModelId, abuseCase, defaultUseCaseId, onClose, on
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="abuse-case-abuser">Abuser</Label>
-        <div className="flex items-center gap-1.5">
-          <Select
-            value={form.abuserId === null ? NO_ABUSER : String(form.abuserId)}
-            onValueChange={(value) => patch({ abuserId: value === NO_ABUSER ? null : Number(value) })}
-          >
-            <SelectTrigger id="abuse-case-abuser">
-              <SelectValue placeholder="Select a persona" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_ABUSER}>
-                <span className="text-muted-foreground">None</span>
-              </SelectItem>
-              {personas.map((persona) => (
-                <SelectItem key={persona.id} value={String(persona.id)}>
-                  {persona.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 shrink-0 gap-1 px-2 text-xs"
-            onClick={() => setManagePersonasOpen(true)}
-          >
-            <Users className="h-3 w-3" />
-            Manage personas
-          </Button>
-        </div>
-        <ManagePersonasDialog open={managePersonasOpen} onOpenChange={setManagePersonasOpen} threatModelId={threatModelId} />
+        {/* The spec's `abuser`: the same threat actor list as a threat's, minus free text. */}
+        <Label htmlFor="abuse-case-abuser">Threat actor</Label>
+        <ActorPicker
+          id="abuse-case-abuser"
+          threatModelId={threatModelId}
+          personas={personas}
+          value={{ actorPersona: form.abuserId, threatActorText: '' }}
+          onChange={(actor) => patch({ abuserId: actor.actorPersona })}
+          allowCustomText={false}
+        />
       </div>
 
       <div className="space-y-1.5">

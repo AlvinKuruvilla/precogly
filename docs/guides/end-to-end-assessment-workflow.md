@@ -36,7 +36,8 @@ prevents a model from becoming difficult to find or being reviewed by the wrong 
 
 ## 2. Establish context and scope
 
-Start on the **Overview** tab. Record the business purpose, criticality, assumptions, and
+Start on the **Overview** tab. Use the **System** and **Business objectives**
+buttons to record the business purpose, criticality, assumptions, and
 boundaries before drawing implementation details. A reviewer should be able to answer:
 
 - What system or service is being assessed?
@@ -84,7 +85,7 @@ changes the visual symbols, not the underlying components or flows.
 ## 4. Review threat analysis
 
 After the primary DFD is saved, open **Threat Analysis**. Select components and flows to
-review their threats. Library packs provide reusable threat knowledge, taxonomy mappings,
+review their threats, and click a threat to open it. Library packs provide reusable threat knowledge, taxonomy mappings,
 and countermeasure suggestions; treat them as a starting point for review.
 
 ![Threat analysis workspace](../assets/images/threat-analysis-overview.png)
@@ -94,7 +95,7 @@ For every relevant threat, review:
 - The description and the targets: components, flows, zones, boundaries, or the whole system.
 - The rating and its rationale.
 - STRIDE and other taxonomy mappings where available.
-- The actor (a persona or text) and the business objectives at risk.
+- The threat actor and the business objectives at risk.
 - Existing controls and their current status.
 - Whether the threat should be triaged out and why.
 
@@ -106,7 +107,7 @@ data flow does not automatically protect another flow with a similar label.
 
 Countermeasures are the actionable part of the assessment. Add controls from the library
 when a reusable definition is appropriate, then record instance-specific details such as
-owner, priority, due date, ticket URL, evidence, and status.
+owner, priority, due date, ticket URL, evidence, and status in the countermeasure modal.
 
 ![Assigning a countermeasure during threat analysis](../assets/images/threat-analysis-countermeasure-assignment.png)
 

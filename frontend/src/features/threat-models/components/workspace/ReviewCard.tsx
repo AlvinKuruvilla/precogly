@@ -1,5 +1,6 @@
 /**
- * The Review card on the model page (plan 11.5, 11.11 "Review" row).
+ * The Review row on the model page (plan 11.5, 11.11 "Review" row), one
+ * compact line on the Overview.
  *
  * Core: reviewer and date, approver and date, the state badge, and the
  * Mark reviewed, Approve and Revoke buttons. Approving and revoking need
@@ -13,7 +14,6 @@ import { ChevronDown, ChevronRight, ClipboardCheck, Loader2, ShieldCheck, Undo2 
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -146,217 +146,205 @@ export function ReviewCard({ threatModelId, threatModelName, isSecurityTeam }: R
   }
 
   return (
-    <Card data-testid="review-card">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm font-medium">Review</CardTitle>
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            <Badge
-              variant="outline"
-              className={cn('text-xs', approvalStateBadgeClass(approvalState))}
-              data-testid="approval-state"
-            >
-              {approvalStateLabel(approvalState)}
+    // One row: title, state, dates, actions and the Advanced toggle. Notes and
+    // the Advanced fields open below it.
+    <div data-testid="review-card" className="rounded-lg border px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Review</span>
+          <Badge variant="outline" className={cn('text-xs', approvalStateBadgeClass(approvalState))} data-testid="approval-state">
+            {approvalStateLabel(approvalState)}
+          </Badge>
+          {reviewState?.reviewDue && (
+            <Badge variant="outline" className={cn('text-xs', REVIEW_DUE_BADGE_CLASS)} data-testid="review-due">
+              Review due
             </Badge>
-            {reviewState?.reviewDue && (
-              <Badge
-                variant="outline"
-                className={cn('text-xs', REVIEW_DUE_BADGE_CLASS)}
-                data-testid="review-due"
-              >
-                Review due
-              </Badge>
-            )}
-          </div>
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+
         {isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
             Loading review state
           </div>
         ) : (
-          <>
-            <dl className="space-y-1 text-sm">
-              <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">Reviewed</dt>
-                <dd>
-                  {reviewState?.reviewedAt
-                    ? `${formatReviewDate(reviewState.reviewedAt)} by ${reviewState.reviewerEmail ?? 'unknown'}`
-                    : 'Not yet'}
-                </dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">Approved</dt>
-                <dd>
-                  {hasApproval && reviewState?.approvedAt
-                    ? `${formatReviewDate(reviewState.approvedAt)} by ${reviewState.approverEmail ?? 'unknown'}`
-                    : 'Not yet'}
-                </dd>
-              </div>
-              {approvalState === 'changed' && (
-                <p className="text-xs text-amber-700">
-                  The content differs from what was approved. Approve again or undo the change.
-                </p>
-              )}
-              {reviewState?.reviewDue && reviewState.validUntil && (
-                <p className="text-xs text-red-700">
-                  Review due since {formatReviewDate(reviewState.validUntil)}.
-                </p>
-              )}
-            </dl>
-
-            {sourceApproval && (
-              <p className="text-xs text-muted-foreground border-l-2 pl-2" data-testid="source-document-approval">
-                {sourceApproval.approverName || sourceApproval.approvedAt
-                  ? `Approved in the source document by ${sourceApproval.approverName ?? 'an unnamed party'}${
-                      sourceApproval.approvedAt ? ` on ${formatReviewDate(sourceApproval.approvedAt)}` : ''
-                    }.`
-                  : `Reviewed in the source document by ${sourceApproval.reviewerName ?? 'an unnamed party'}${
-                      sourceApproval.reviewedAt ? ` on ${formatReviewDate(sourceApproval.reviewedAt)}` : ''
-                    }.`}
-                {' '}This is history, not an approval of this model.
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1 text-xs"
-                onClick={handleMarkReviewed}
-                disabled={markReviewedMutation.isPending}
-              >
-                <ClipboardCheck className="h-3 w-3" />
-                Mark reviewed
-              </Button>
-              <Button
-                size="sm"
-                className="h-7 gap-1 text-xs"
-                onClick={() => setSignOffOpen(true)}
-                disabled={!isSecurityTeam || approveMutation.isPending || approvalState === 'approved'}
-                title={securityTeamHint}
-              >
-                <ShieldCheck className="h-3 w-3" />
-                {approvalState === 'changed' ? 'Approve again' : 'Approve'}
-              </Button>
-              {hasApproval && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1 text-xs"
-                  onClick={handleRevoke}
-                  disabled={!isSecurityTeam || revokeMutation.isPending}
-                  title={securityTeamHint}
-                >
-                  <Undo2 className="h-3 w-3" />
-                  Revoke
-                </Button>
-              )}
-              {securityTeamHint && (
-                <span className="text-xs text-muted-foreground">{securityTeamHint}</span>
-              )}
+          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <div className="flex gap-1">
+              <dt className="text-muted-foreground">Reviewed:</dt>
+              <dd>
+                {reviewState?.reviewedAt
+                  ? `${formatReviewDate(reviewState.reviewedAt)} by ${reviewState.reviewerEmail ?? 'unknown'}`
+                  : 'Not yet'}
+              </dd>
             </div>
-
-            <div>
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                onClick={() => setAdvancedOpen((open) => !open)}
-                aria-expanded={advancedOpen}
-              >
-                {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                Advanced
-              </button>
-              {advancedOpen && (
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs" htmlFor="review-lifecycle-phase">
-                      Lifecycle phase
-                    </Label>
-                    <Select
-                      value={reviewState?.lifecyclePhase || LIFECYCLE_NONE}
-                      onValueChange={(value) =>
-                        saveField({ lifecyclePhase: value === LIFECYCLE_NONE ? '' : (value as LifecyclePhase) })
-                      }
-                    >
-                      <SelectTrigger id="review-lifecycle-phase" className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={LIFECYCLE_NONE}>Not set</SelectItem>
-                        {LIFECYCLE_PHASES.map((phase) => (
-                          <SelectItem key={phase.value} value={phase.value}>
-                            {phase.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs" htmlFor="review-frequency">
-                      Review frequency
-                    </Label>
-                    <Select value={frequencyPreset} onValueChange={handleFrequencyPresetChange}>
-                      <SelectTrigger id="review-frequency" className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={REVIEW_FREQUENCY_NONE}>Not set</SelectItem>
-                        {REVIEW_FREQUENCY_PRESETS.map((preset) => (
-                          <SelectItem key={preset.value} value={preset.value}>
-                            {preset.label}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={REVIEW_FREQUENCY_CUSTOM}>Custom (ISO 8601)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {frequencyPreset === REVIEW_FREQUENCY_CUSTOM && (
-                      <div className="flex gap-1">
-                        <Input
-                          className="h-8 text-xs"
-                          value={customFrequency}
-                          onChange={(event) => setCustomDraft(event.target.value)}
-                          placeholder="P2W"
-                          aria-label="Custom review frequency"
-                        />
-                        <Button size="sm" className="h-8 text-xs" onClick={handleCustomFrequencySave}>
-                          Save
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs" htmlFor="review-valid-from">
-                      Valid from
-                    </Label>
-                    <Input
-                      id="review-valid-from"
-                      type="date"
-                      className="h-8 text-xs"
-                      value={dateInputValue(reviewState?.validFrom)}
-                      onChange={(event) => saveField({ validFrom: dateInputToIso(event.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs" htmlFor="review-valid-until">
-                      Valid until
-                    </Label>
-                    <Input
-                      id="review-valid-until"
-                      type="date"
-                      className="h-8 text-xs"
-                      value={dateInputValue(reviewState?.validUntil)}
-                      onChange={(event) => saveField({ validUntil: dateInputToIso(event.target.value) })}
-                    />
-                  </div>
-                </div>
-              )}
+            <div className="flex gap-1">
+              <dt className="text-muted-foreground">Approved:</dt>
+              <dd>
+                {hasApproval && reviewState?.approvedAt
+                  ? `${formatReviewDate(reviewState.approvedAt)} by ${reviewState.approverEmail ?? 'unknown'}`
+                  : 'Not yet'}
+              </dd>
             </div>
-          </>
+          </dl>
         )}
-      </CardContent>
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {securityTeamHint && <span className="text-xs text-muted-foreground">{securityTeamHint}</span>}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            onClick={handleMarkReviewed}
+            disabled={isLoading || markReviewedMutation.isPending}
+          >
+            <ClipboardCheck className="h-3 w-3" />
+            Mark reviewed
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            onClick={() => setSignOffOpen(true)}
+            disabled={isLoading || !isSecurityTeam || approveMutation.isPending || approvalState === 'approved'}
+            title={securityTeamHint}
+          >
+            <ShieldCheck className="h-3 w-3" />
+            {approvalState === 'changed' ? 'Approve again' : 'Approve'}
+          </Button>
+          {hasApproval && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={handleRevoke}
+              disabled={!isSecurityTeam || revokeMutation.isPending}
+              title={securityTeamHint}
+            >
+              <Undo2 className="h-3 w-3" />
+              Revoke
+            </Button>
+          )}
+          <button
+            type="button"
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => setAdvancedOpen((open) => !open)}
+            aria-expanded={advancedOpen}
+          >
+            {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Advanced
+          </button>
+        </div>
+      </div>
+
+      {!isLoading && (approvalState === 'changed' || (reviewState?.reviewDue && reviewState.validUntil) || sourceApproval) && (
+        <div className="mt-2 space-y-1">
+          {approvalState === 'changed' && (
+            <p className="text-xs text-amber-700">
+              The content differs from what was approved. Approve again or undo the change.
+            </p>
+          )}
+          {reviewState?.reviewDue && reviewState.validUntil && (
+            <p className="text-xs text-red-700">Review due since {formatReviewDate(reviewState.validUntil)}.</p>
+          )}
+          {sourceApproval && (
+            <p className="text-xs text-muted-foreground border-l-2 pl-2" data-testid="source-document-approval">
+              {sourceApproval.approverName || sourceApproval.approvedAt
+                ? `Approved in the source document by ${sourceApproval.approverName ?? 'an unnamed party'}${
+                    sourceApproval.approvedAt ? ` on ${formatReviewDate(sourceApproval.approvedAt)}` : ''
+                  }.`
+                : `Reviewed in the source document by ${sourceApproval.reviewerName ?? 'an unnamed party'}${
+                    sourceApproval.reviewedAt ? ` on ${formatReviewDate(sourceApproval.reviewedAt)}` : ''
+                  }.`}{' '}
+              This is history, not an approval of this model.
+            </p>
+          )}
+        </div>
+      )}
+
+      {advancedOpen && !isLoading && (
+        <div className="mt-3 grid grid-cols-2 gap-3 border-t pt-3 lg:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="review-lifecycle-phase">
+              Lifecycle phase
+            </Label>
+            <Select
+              value={reviewState?.lifecyclePhase || LIFECYCLE_NONE}
+              onValueChange={(value) =>
+                saveField({ lifecyclePhase: value === LIFECYCLE_NONE ? '' : (value as LifecyclePhase) })
+              }
+            >
+              <SelectTrigger id="review-lifecycle-phase" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={LIFECYCLE_NONE}>Not set</SelectItem>
+                {LIFECYCLE_PHASES.map((phase) => (
+                  <SelectItem key={phase.value} value={phase.value}>
+                    {phase.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="review-frequency">
+              Review frequency
+            </Label>
+            <Select value={frequencyPreset} onValueChange={handleFrequencyPresetChange}>
+              <SelectTrigger id="review-frequency" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={REVIEW_FREQUENCY_NONE}>Not set</SelectItem>
+                {REVIEW_FREQUENCY_PRESETS.map((preset) => (
+                  <SelectItem key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </SelectItem>
+                ))}
+                <SelectItem value={REVIEW_FREQUENCY_CUSTOM}>Custom (ISO 8601)</SelectItem>
+              </SelectContent>
+            </Select>
+            {frequencyPreset === REVIEW_FREQUENCY_CUSTOM && (
+              <div className="flex gap-1">
+                <Input
+                  className="h-8 text-xs"
+                  value={customFrequency}
+                  onChange={(event) => setCustomDraft(event.target.value)}
+                  placeholder="P2W"
+                  aria-label="Custom review frequency"
+                />
+                <Button size="sm" className="h-8 text-xs" onClick={handleCustomFrequencySave}>
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="review-valid-from">
+              Valid from
+            </Label>
+            <Input
+              id="review-valid-from"
+              type="date"
+              className="h-8 text-xs"
+              value={dateInputValue(reviewState?.validFrom)}
+              onChange={(event) => saveField({ validFrom: dateInputToIso(event.target.value) })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="review-valid-until">
+              Valid until
+            </Label>
+            <Input
+              id="review-valid-until"
+              type="date"
+              className="h-8 text-xs"
+              value={dateInputValue(reviewState?.validUntil)}
+              onChange={(event) => saveField({ validUntil: dateInputToIso(event.target.value) })}
+            />
+          </div>
+        </div>
+      )}
 
       <ApproveSignOffDialog
         open={signOffOpen}
@@ -366,6 +354,6 @@ export function ReviewCard({ threatModelId, threatModelName, isSecurityTeam }: R
         onConfirm={handleApprove}
         isApproving={approveMutation.isPending}
       />
-    </Card>
+    </div>
   )
 }

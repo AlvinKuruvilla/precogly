@@ -9,7 +9,7 @@
  * on no canvas show too.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,13 +34,12 @@ import { showDeleteWarnings } from '@/features/threat-models/api/delete-warnings
 import { useCountermeasures, useDeleteComponent, useThreatModelThreats } from '@/features/threat-models/api/threats'
 import { isActiveThreat, type TriageStatus } from '@/types/triage'
 import type { AnalysisCountermeasure, AnalysisThreat, CountermeasureStatus } from '../../types/threat-analysis'
-import { deriveThreatStatus } from '../../types/threat-analysis'
 import { AnalysisTreeItem } from './ComponentTreeItem'
 import { ThreatList } from './ThreatList'
 import { CountermeasureColumn } from './CountermeasureColumn'
 import { type Assignee } from './CountermeasureCard'
 import { NumberBadge } from './NumberBadge'
-import { buildAnalysisTree, type AnalysisTreeNode } from './hierarchy-utils'
+import { buildAnalysisTree, initialAnalysisSelection, type AnalysisTreeNode } from './hierarchy-utils'
 import {
   TARGET_TYPE_LABELS,
   targetSelection,
@@ -59,6 +58,11 @@ export interface ComponentViewProps {
   selectedThreat: AnalysisThreat | null
   onSelectTarget: (selection: AnalysisSelection) => void
   onSelectThreat: (threatId: string) => void
+  /** The display numbers of the open threat and countermeasure modals (the page keeps them in the URL). */
+  openThreatNumber?: string | null
+  onOpenThreatChange?: (displayNumber: string | null) => void
+  openCountermeasureNumber?: string | null
+  onOpenCountermeasureChange?: (displayNumber: string | null) => void
   /** Open an abuse case in the "By use case" view (from a threat's "From abuse cases" links). */
   onOpenAbuseCase?: (abuseCaseId: number) => void
   onCountermeasureStatusChange: (
@@ -96,6 +100,10 @@ export function ComponentView({
   selectedThreat,
   onSelectTarget,
   onSelectThreat,
+  openThreatNumber,
+  onOpenThreatChange,
+  openCountermeasureNumber,
+  onOpenCountermeasureChange,
   onOpenAbuseCase,
   onCountermeasureStatusChange,
   onAssignOwner,
@@ -115,10 +123,10 @@ export function ComponentView({
 
   // The model's rows, canvas or not.
   const { data: threatModel } = useThreatModel(threatModelId)
-  const { data: components = [] } = useAnalysisComponents(threatModelId)
-  const { data: zones = [] } = useZones({ threatModel: threatModelId })
-  const { data: flows = [] } = useFlows({ threatModel: threatModelId })
-  const { data: boundaries = [] } = useBoundaries({ threatModel: threatModelId })
+  const { data: components = [], isSuccess: componentsLoaded } = useAnalysisComponents(threatModelId)
+  const { data: zones = [], isSuccess: zonesLoaded } = useZones({ threatModel: threatModelId })
+  const { data: flows = [], isSuccess: flowsLoaded } = useFlows({ threatModel: threatModelId })
+  const { data: boundaries = [], isSuccess: boundariesLoaded } = useBoundaries({ threatModel: threatModelId })
   const { data: analysisPayload } = useThreatModelThreats(threatModelId)
   const { data: allCountermeasures = [] } = useCountermeasures({ threatModel: threatModelId })
 
@@ -204,21 +212,6 @@ export function ComponentView({
   }, [allCountermeasures, selection])
 
   const activeThreatCount = threats.filter((threat) => isActiveThreat(threat.triageStatus)).length
-  const modelSummary = useMemo(
-    () =>
-      threats.reduce(
-        (summary, threat) => {
-          if (!isActiveThreat(threat.triageStatus)) return summary
-          const status = deriveThreatStatus(threat.countermeasures)
-          if (status === 'exposed') summary.exposed += 1
-          else if (status === 'addressable') summary.addressable += 1
-          return summary
-        },
-        { exposed: 0, addressable: 0 }
-      ),
-    [threats]
-  )
-
   const selectThreatByBackendId = useCallback(
     (backendThreatId: number) => {
       const threat = threats.find((candidate) => candidate.backendThreatId === backendThreatId)
@@ -232,6 +225,33 @@ export function ComponentView({
     },
     [threats, selection, onSelectTarget, onSelectThreat]
   )
+
+  // Select another threat and open its modal (from a countermeasure's "Mitigates" links).
+  const openThreatByBackendId = useCallback(
+    (backendThreatId: number) => {
+      selectThreatByBackendId(backendThreatId)
+      const threat = threats.find((candidate) => candidate.backendThreatId === backendThreatId)
+      if (threat && onOpenThreatChange) onOpenThreatChange(threat.displayNumber)
+    },
+    [threats, selectThreatByBackendId, onOpenThreatChange]
+  )
+
+  // Never open on two empty panes: with nothing selected, start on the first
+  // row that has a threat (the system, then components in tree order). Waits
+  // until the tree's rows have loaded, so the start does not fall back to the
+  // system just because the components are still on their way.
+  // The page derives `threats` from the payload one render later, so wait for that too.
+  const threatsHaveArrived = analysisPayload !== undefined && (analysisPayload.analysisThreats.length === 0 || threats.length > 0)
+  const treeIsReady =
+    threatModel !== undefined &&
+    threatsHaveArrived &&
+    componentsLoaded &&
+    zonesLoaded &&
+    flowsLoaded &&
+    boundariesLoaded
+  useEffect(() => {
+    if (selection === null && treeIsReady) onSelectTarget(initialAnalysisSelection(tree.root))
+  }, [selection, treeIsReady, tree.root, onSelectTarget])
 
   const handleConfirmDeleteComponent = () => {
     if (!deleteComponentConfirmFor) return
@@ -267,15 +287,6 @@ export function ComponentView({
                 {components.length} components, {zones.length} zones, {flows.length} flows, {boundaries.length} boundaries,{' '}
                 {activeThreatCount} threats
               </div>
-              {modelSummary.exposed > 0 ? (
-                <Badge variant="outline" className="mt-1 bg-red-100 text-xs text-red-700">
-                  {modelSummary.exposed} exposed
-                </Badge>
-              ) : modelSummary.addressable > 0 ? (
-                <Badge variant="outline" className="mt-1 bg-yellow-100 text-xs text-yellow-700">
-                  {modelSummary.addressable} in progress
-                </Badge>
-              ) : null}
             </div>
             <ScrollArea className="flex-1">
               <div className="space-y-0.5 p-2" data-testid="analysis-tree">
@@ -345,6 +356,8 @@ export function ComponentView({
               selection={selection}
               selectedThreatId={selectedThreatId}
               onSelectThreat={onSelectThreat}
+              openThreatNumber={openThreatNumber}
+              onOpenThreatChange={onOpenThreatChange}
               onSelectTarget={onSelectTarget}
               onOpenAbuseCase={onOpenAbuseCase}
               onUpdateTriageStatus={onUpdateTriageStatus}
@@ -365,6 +378,9 @@ export function ComponentView({
           threats={threats}
           selectedThreat={selectedThreat}
           onSelectThreatByBackendId={selectThreatByBackendId}
+          onOpenThreatByBackendId={openThreatByBackendId}
+          openCountermeasureNumber={openCountermeasureNumber}
+          onOpenCountermeasureChange={onOpenCountermeasureChange}
           onCountermeasureStatusChange={onCountermeasureStatusChange}
           onAssignOwner={onAssignOwner}
           onAddCustomCountermeasure={onAddCustomCountermeasure}

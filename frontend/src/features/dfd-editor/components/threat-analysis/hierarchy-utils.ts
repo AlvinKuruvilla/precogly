@@ -402,3 +402,26 @@ export function buildAnalysisTree(input: AnalysisTreeInput): AnalysisTree {
 
   return { root, byKey }
 }
+
+/**
+ * Where the analysis screen starts when nothing is selected, so it never
+ * opens on two empty panes: the system when it has whole-system threats,
+ * else the first component in tree order with a threat on it, else the
+ * first other row (zone, flow, boundary) with one, else the system.
+ */
+export function initialAnalysisSelection(root: AnalysisTreeNode): AnalysisSelection {
+  const systemSelection = root.selection ?? SYSTEM_SELECTION
+  if (root.directThreatIds.size > 0) return systemSelection
+
+  const rowsInTreeOrder: AnalysisTreeNode[] = []
+  const visit = (node: AnalysisTreeNode) => {
+    rowsInTreeOrder.push(node)
+    node.children.forEach(visit)
+  }
+  root.children.forEach(visit)
+
+  const hasOwnThreats = (node: AnalysisTreeNode) => node.selection !== null && node.directThreatIds.size > 0
+  const firstComponent = rowsInTreeOrder.find((node) => node.kind === 'component' && hasOwnThreats(node))
+  const firstOther = rowsInTreeOrder.find(hasOwnThreats)
+  return (firstComponent ?? firstOther)?.selection ?? systemSelection
+}

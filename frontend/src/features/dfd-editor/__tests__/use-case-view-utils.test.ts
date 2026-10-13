@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   abuseCaseHasNoThreat,
+  abuseCasesForColumnEntry,
   buildAddThreatPreset,
   buildUseCaseTree,
   filterLinkableThreats,
   threatsForUseCaseSelection,
+  columnEntryForSelection,
 } from '../components/threat-analysis/use-case-view-utils'
 import type { AbuseCase, UseCase } from '@/features/threat-models/types/core'
 import type { AnalysisThreat } from '../types/threat-analysis'
@@ -177,5 +179,42 @@ describe('link existing threat', () => {
     expect(filterLinkableThreats(threats, [], 'sql').map((threat) => threat.backendThreatId)).toEqual([1])
     expect(filterLinkableThreats(threats, [], 't12').map((threat) => threat.backendThreatId)).toEqual([12])
     expect(filterLinkableThreats(threats, [1], '').map((threat) => threat.backendThreatId)).toEqual([12, 3])
+  })
+})
+
+describe('the first two columns', () => {
+  const abuseCases = [makeAbuseCase(10, [1, 2]), makeAbuseCase(11, [2]), makeAbuseCase(12, [])]
+  const tree = buildUseCaseTree([makeUseCase(1), makeUseCase(2)], abuseCases)
+
+  it('highlights the selected use case and lists its abuse cases', () => {
+    const entry = columnEntryForSelection({ kind: 'useCase', useCaseId: 2 }, abuseCases)
+    expect(entry).toEqual({ kind: 'useCase', useCaseId: 2 })
+    expect(abuseCasesForColumnEntry(entry, tree).map((abuseCase) => abuseCase.id)).toEqual([10, 11])
+  })
+
+  it('keeps the use case an abuse case was picked under', () => {
+    expect(columnEntryForSelection({ kind: 'abuseCase', abuseCaseId: 10, useCaseId: 2 }, abuseCases)).toEqual({
+      kind: 'useCase',
+      useCaseId: 2,
+    })
+  })
+
+  it('falls back to the first use case of an abuse case picked from elsewhere', () => {
+    expect(columnEntryForSelection({ kind: 'abuseCase', abuseCaseId: 10 }, abuseCases)).toEqual({ kind: 'useCase', useCaseId: 1 })
+  })
+
+  it('puts an abuse case with no use case under "Not linked"', () => {
+    const entry = columnEntryForSelection({ kind: 'abuseCase', abuseCaseId: 12 }, abuseCases)
+    expect(entry).toEqual({ kind: 'noUseCase' })
+    expect(abuseCasesForColumnEntry(entry, tree).map((abuseCase) => abuseCase.id)).toEqual([12])
+    expect(columnEntryForSelection({ kind: 'abuseCase', abuseCaseId: 10, useCaseId: null }, abuseCases)).toEqual({
+      kind: 'noUseCase',
+    })
+  })
+
+  it('lists nothing with nothing selected, and no threats for the "Not linked" group itself', () => {
+    expect(columnEntryForSelection(null, abuseCases)).toBeNull()
+    expect(abuseCasesForColumnEntry(null, tree)).toEqual([])
+    expect(threatsForUseCaseSelection({ kind: 'noUseCase' }, abuseCases, [])).toEqual([])
   })
 })

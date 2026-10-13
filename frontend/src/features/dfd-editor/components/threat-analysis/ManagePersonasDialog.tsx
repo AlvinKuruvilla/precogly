@@ -115,10 +115,10 @@ export function ManagePersonasDialog({ open, onOpenChange, threatModelId }: Mana
       objectives: editing.form.objectives,
     }
     const onSuccess = () => {
-      toast.success(editing.personaId === null ? 'Persona created' : 'Persona updated')
+      toast.success(editing.personaId === null ? 'Threat actor added' : 'Threat actor updated')
       setEditing(null)
     }
-    const onError = () => toast.error('Could not save the persona')
+    const onError = () => toast.error('Could not save the threat actor')
     if (editing.personaId === null) {
       createPersona.mutate(data, { onSuccess, onError })
     } else {
@@ -137,9 +137,9 @@ export function ManagePersonasDialog({ open, onOpenChange, threatModelId }: Mana
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Threat personas</DialogTitle>
+            <DialogTitle>Threat actors</DialogTitle>
             <DialogDescription>
-              A persona is a named actor of this model. A threat has one actor: a persona, a built-in actor or text.
+              The attackers this model considers. Threats and abuse cases pick their threat actor from this list; picking a common one (State Actor, Hacktivist and so on) adds it here.
             </DialogDescription>
           </DialogHeader>
 
@@ -229,16 +229,16 @@ export function ManagePersonasDialog({ open, onOpenChange, threatModelId }: Mana
                 </Button>
                 <Button onClick={handleSave} disabled={!editing.form.name.trim() || isSaving}>
                   {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {editing.personaId === null ? 'Create persona' : 'Save persona'}
+                  {editing.personaId === null ? 'Add threat actor' : 'Save threat actor'}
                 </Button>
               </DialogFooter>
             </div>
           ) : (
             <div className="space-y-3">
               {isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading personas</p>
+                <p className="text-sm text-muted-foreground">Loading threat actors</p>
               ) : personas.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No personas yet.</p>
+                <p className="text-sm text-muted-foreground">No threat actors yet.</p>
               ) : (
                 <ul className="divide-y rounded-md border">
                   {personas.map((persona) => (
@@ -279,7 +279,7 @@ export function ManagePersonasDialog({ open, onOpenChange, threatModelId }: Mana
                   Close
                 </Button>
                 <Button onClick={() => setEditing({ personaId: null, form: EMPTY_FORM })}>
-                  <Plus className="mr-1 h-4 w-4" /> New persona
+                  <Plus className="mr-1 h-4 w-4" /> New threat actor
                 </Button>
               </DialogFooter>
             </div>
@@ -290,11 +290,11 @@ export function ManagePersonasDialog({ open, onOpenChange, threatModelId }: Mana
       <AlertDialog open={deleting !== null} onOpenChange={(isOpen) => !isOpen && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete persona "{deleting?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>Delete threat actor "{deleting?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleting?.threatCount
-                ? `${threatCountLabel(deleting.threatCount)} use this persona. They keep no actor.`
-                : 'No threat uses this persona.'}
+                ? `${threatCountLabel(deleting.threatCount)} use this threat actor. They keep no threat actor.`
+                : 'No threat uses this threat actor.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -307,10 +307,10 @@ export function ManagePersonasDialog({ open, onOpenChange, threatModelId }: Mana
                 if (!deleting) return
                 deletePersona.mutate(deleting.id, {
                   onSuccess: () => {
-                    toast.success('Persona deleted')
+                    toast.success('Threat actor deleted')
                     setDeleting(null)
                   },
-                  onError: () => toast.error('Could not delete the persona'),
+                  onError: () => toast.error('Could not delete the threat actor'),
                 })
               }}
             >

@@ -1,14 +1,17 @@
 /**
- * The "By use case" threat analysis view: use cases, their abuse cases, and
- * the threats and countermeasures that follow. Same three columns as the
- * component view; only the left tree differs. The threat list and the
- * countermeasure column are the ones the component view uses, and threats
- * come from the same analysis payload, so a threat is one row in both views.
+ * The "By Use Case" threat analysis view: four numbered columns that follow
+ * the chain use case, abuse case, threat, countermeasure. Picking a use case
+ * lists its abuse cases; picking an abuse case lists its threats; picking a
+ * threat lists its countermeasures. An abuse case linked to several use cases
+ * shows under each with a "shared" mark; abuse cases with no use case sit in
+ * a "Not linked to a use case" group. The threat list and the countermeasure
+ * column are the ones the component view uses, and threats come from the
+ * same analysis payload, so a threat is one row in both views.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, Link2, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Link2, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -42,11 +45,14 @@ import { LinkThreatDialog } from './LinkThreatDialog'
 import { CountermeasureColumn } from './CountermeasureColumn'
 import { ThreatList } from './ThreatList'
 import type { Assignee } from './CountermeasureCard'
+import { StepNumber } from './StepNumber'
 import {
   abuseCaseHasNoThreat,
+  abuseCasesForColumnEntry,
   buildAddThreatPreset,
   buildUseCaseTree,
   threatsForUseCaseSelection,
+  columnEntryForSelection,
   type UseCaseViewSelection,
 } from './use-case-view-utils'
 
@@ -61,6 +67,11 @@ export interface UseCaseViewProps {
   selectedThreatId: string | null
   selectedThreat: AnalysisThreat | null
   onSelectThreat: (threatId: string) => void
+  /** The display numbers of the open threat and countermeasure modals (the page keeps them in the URL). */
+  openThreatNumber?: string | null
+  onOpenThreatChange?: (displayNumber: string | null) => void
+  openCountermeasureNumber?: string | null
+  onOpenCountermeasureChange?: (displayNumber: string | null) => void
   /** Switch to another abuse case (from a threat's "From abuse cases" links). */
   onOpenAbuseCase?: (abuseCaseId: number) => void
   onCountermeasureStatusChange: (
@@ -81,6 +92,67 @@ export interface UseCaseViewProps {
 
 const GAP_BADGE_CLASS = 'shrink-0 border-amber-300 bg-amber-50 px-1 py-0 text-[10px] font-normal text-amber-800'
 
+/** A column header: step number, title, actions on the right, and a muted line under it. */
+function ColumnHeader({
+  step,
+  title,
+  actions,
+  children,
+}: {
+  step: number
+  title: string
+  actions?: ReactNode
+  children?: ReactNode
+}) {
+  return (
+    <div className="border-b px-3 py-2" data-testid={`use-case-view-step-${step}`}>
+      <div className="flex min-h-7 items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 font-medium">
+          <StepNumber step={step} />
+          {title}
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
+      </div>
+      {children && <div className="text-xs text-muted-foreground">{children}</div>}
+    </div>
+  )
+}
+
+/** A selectable row of the first two columns. */
+function ColumnRow({
+  isSelected,
+  onSelect,
+  testKey,
+  children,
+}: {
+  isSelected: boolean
+  onSelect: () => void
+  testKey: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      data-tree-key={testKey}
+      aria-pressed={isSelected}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect()
+        }
+      }}
+      className={cn(
+        'group w-full cursor-pointer rounded-md border p-1.5 text-left transition-colors',
+        isSelected ? 'border-slate-300 bg-slate-100' : 'border-transparent hover:bg-slate-50'
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
 export function UseCaseView({
   threatModelId,
   threats,
@@ -90,6 +162,10 @@ export function UseCaseView({
   selectedThreatId,
   selectedThreat,
   onSelectThreat,
+  openThreatNumber,
+  onOpenThreatChange,
+  openCountermeasureNumber,
+  onOpenCountermeasureChange,
   onOpenAbuseCase,
   onCountermeasureStatusChange,
   onAssignOwner,
@@ -106,7 +182,6 @@ export function UseCaseView({
   const unlinkThreat = useUnlinkAbuseCaseThreat(threatModelId)
   const deleteAbuseCase = useDeleteAbuseCase(threatModelId)
 
-  const [collapsedUseCaseIds, setCollapsedUseCaseIds] = useState<Set<number>>(new Set())
   // The abuse case dialog: create under a use case, or edit one. The target is kept
   // while the dialog closes, so its title and form do not change during the close animation.
   const [abuseCaseDialog, setAbuseCaseDialog] = useState<
@@ -130,34 +205,27 @@ export function UseCaseView({
 
   const tree = useMemo(() => buildUseCaseTree(useCases, abuseCases), [useCases, abuseCases])
 
-  const threatsOfSelection = useMemo(
-    () => threatsForUseCaseSelection(selection, abuseCases, threats),
-    [selection, abuseCases, threats]
-  )
-  const activeCount = threatsOfSelection.filter((threat) => isActiveThreat(threat.triageStatus)).length
-
   const selectedAbuseCase =
     selection?.kind === 'abuseCase' ? abuseCases.find((abuseCase) => abuseCase.id === selection.abuseCaseId) ?? null : null
-  const selectedUseCaseForLabel =
-    selection && selection.kind !== 'abuseCase' ? useCases.find((useCase) => useCase.id === selection.useCaseId) : null
 
-  let selectionLabel = 'Select a use case or an abuse case'
-  if (selectedAbuseCase) selectionLabel = `${selectedAbuseCase.name} (abuse case)`
-  else if (selection?.kind === 'useCase' && selectedUseCaseForLabel) selectionLabel = `${selectedUseCaseForLabel.name} (use case)`
+  // Column 1's highlighted entry, and the abuse cases column 2 lists for it.
+  const columnEntry = useMemo(() => columnEntryForSelection(selection, abuseCases), [selection, abuseCases])
+  const columnUseCase =
+    columnEntry?.kind === 'useCase' ? useCases.find((useCase) => useCase.id === columnEntry.useCaseId) ?? null : null
+  const columnAbuseCases = useMemo(() => abuseCasesForColumnEntry(columnEntry, tree), [columnEntry, tree])
+
+  // Column 3 lists threats only for an abuse case: one step at a time.
+  const threatsOfSelection = useMemo(
+    () => (selectedAbuseCase ? threatsForUseCaseSelection(selection, abuseCases, threats) : []),
+    [selectedAbuseCase, selection, abuseCases, threats]
+  )
+  const activeCount = threatsOfSelection.filter((threat) => isActiveThreat(threat.triageStatus)).length
+  const selectionLabel = selectedAbuseCase ? `${selectedAbuseCase.name} (abuse case)` : 'Select an abuse case'
 
   const addThreatPreset = useMemo(
     () => (addThreatFor ? buildAddThreatPreset(addThreatFor, useCases) : null),
     [addThreatFor, useCases]
   )
-
-  const toggleCollapsed = useCallback((useCaseId: number) => {
-    setCollapsedUseCaseIds((previous) => {
-      const next = new Set(previous)
-      if (next.has(useCaseId)) next.delete(useCaseId)
-      else next.add(useCaseId)
-      return next
-    })
-  }, [])
 
   const selectThreatByBackendId = useCallback(
     (backendThreatId: number) => {
@@ -165,6 +233,17 @@ export function UseCaseView({
       if (threat) onSelectThreat(threat.id)
     },
     [threats, onSelectThreat]
+  )
+
+  // Select another threat and open its modal (from a countermeasure's "Mitigates" links).
+  const openThreatByBackendId = useCallback(
+    (backendThreatId: number) => {
+      const threat = threats.find((candidate) => candidate.backendThreatId === backendThreatId)
+      if (!threat) return
+      onSelectThreat(threat.id)
+      onOpenThreatChange?.(threat.displayNumber)
+    },
+    [threats, onSelectThreat, onOpenThreatChange]
   )
 
   const handleUnlinkThreat = (threat: AnalysisThreat) => {
@@ -185,40 +264,44 @@ export function UseCaseView({
       onSuccess: () => {
         toast.success('Abuse case deleted')
         setDeleteAbuseCaseFor(null)
-        if (selection?.kind === 'abuseCase' && selection.abuseCaseId === deleted.id) onSelectionChange(null)
+        // Stay on the use case (or the "Not linked" group) the deleted abuse case was listed under.
+        if (selection?.kind === 'abuseCase' && selection.abuseCaseId === deleted.id) {
+          onSelectionChange(
+            columnEntry?.kind === 'useCase' ? { kind: 'useCase', useCaseId: columnEntry.useCaseId } : columnEntry ? { kind: 'noUseCase' } : null
+          )
+        }
       },
       onError: () => toast.error('Could not delete the abuse case'),
     })
   }
 
-  const renderAbuseCaseRow = (abuseCase: AbuseCase, indent: number, keyPrefix: string) => {
+  const columnEntryUseCaseId = columnEntry?.kind === 'useCase' ? columnEntry.useCaseId : null
+
+  const renderAbuseCaseRow = (abuseCase: AbuseCase) => {
     const isSelected = selection?.kind === 'abuseCase' && selection.abuseCaseId === abuseCase.id
-    const select = () => onSelectionChange({ kind: 'abuseCase', abuseCaseId: abuseCase.id })
+    const isShared = abuseCase.useCases.length > 1
     const actionClass = cn(
-      'h-6 shrink-0 text-muted-foreground hover:text-foreground',
+      'h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground',
       isSelected ? '' : 'opacity-0 transition-opacity group-hover:opacity-100 touch:opacity-100'
     )
     return (
-      <div
-        key={`${keyPrefix}-${abuseCase.id}`}
-        role="button"
-        tabIndex={0}
-        data-tree-key={`${keyPrefix}-abuse-case-${abuseCase.id}`}
-        onClick={select}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            select()
-          }
-        }}
-        className={cn(
-          'group w-full cursor-pointer rounded-md p-1.5 text-left transition-colors',
-          isSelected ? 'border border-slate-300 bg-slate-100' : 'hover:bg-slate-50'
-        )}
-        style={{ paddingLeft: `${indent}px` }}
+      <ColumnRow
+        key={abuseCase.id}
+        isSelected={isSelected}
+        onSelect={() => onSelectionChange({ kind: 'abuseCase', abuseCaseId: abuseCase.id, useCaseId: columnEntryUseCaseId })}
+        testKey={`abuse-case-${abuseCase.id}`}
       >
         <div className="flex items-center gap-1.5">
           <span className="min-w-0 flex-1 truncate text-sm">{abuseCase.name}</span>
+          {isShared && (
+            <Badge
+              variant="outline"
+              className="shrink-0 px-1 py-0 text-[10px] font-normal"
+              title={`Misuses ${abuseCase.useCases.map((useCase) => useCase.name).join(', ')}`}
+            >
+              shared
+            </Badge>
+          )}
           {abuseCaseHasNoThreat(abuseCase) && (
             <Badge variant="outline" className={GAP_BADGE_CLASS}>
               No threat
@@ -227,7 +310,7 @@ export function UseCaseView({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(actionClass, 'w-6')}
+            className={actionClass}
             onClick={(event) => {
               event.stopPropagation()
               openAbuseCaseDialog({ mode: 'edit', abuseCase })
@@ -240,7 +323,7 @@ export function UseCaseView({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(actionClass, 'w-6 hover:text-destructive')}
+            className={cn(actionClass, 'hover:text-destructive')}
             onClick={(event) => {
               event.stopPropagation()
               setDeleteAbuseCaseFor(abuseCase)
@@ -251,7 +334,7 @@ export function UseCaseView({
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
-      </div>
+      </ColumnRow>
     )
   }
 
@@ -286,44 +369,27 @@ export function UseCaseView({
   return (
     <div className="h-full min-h-0 flex-1 overflow-hidden">
       <ResizablePanelGroup orientation="horizontal">
-        {/* Column 1: use cases and their abuse cases */}
-        <ResizablePanel defaultSize="22%" minSize="12%" maxSize="35%">
+        {/* Column 1: use cases */}
+        <ResizablePanel defaultSize="19%" minSize="12%" maxSize="30%">
           <div className="flex h-full flex-col">
-            <div className="border-b px-3 py-2">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">By use case</div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1 text-xs"
-                    onClick={() => setUseCaseDialogOpen(true)}
-                  >
-                    <Plus className="h-3 w-3" />
-                    Use case
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1 text-xs"
-                    onClick={() => openAbuseCaseDialog({ mode: 'create' })}
-                  >
-                    <Plus className="h-3 w-3" />
-                    Abuse case
-                  </Button>
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {useCases.length} use cases, {abuseCases.length} abuse cases
-              </div>
-            </div>
+            <ColumnHeader
+              step={1}
+              title="Use cases"
+              actions={
+                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setUseCaseDialogOpen(true)}>
+                  <Plus className="h-3 w-3" />
+                  Add
+                </Button>
+              }
+            >
+              What the system is for
+            </ColumnHeader>
             <ScrollArea className="flex-1">
-              <div className="space-y-0.5 p-2" data-testid="use-case-tree">
-                {useCases.length === 0 && abuseCases.length === 0 && (
+              <div className="space-y-0.5 p-2" data-testid="use-case-column">
+                {useCases.length === 0 && (
                   <div className="space-y-3 px-2 py-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                      No use cases yet. Start with what the system is for, such as Place order, then ask how
-                      each one can be abused.
+                      No use cases yet. Start with what the system is for, such as Place order.
                     </p>
                     <Button size="sm" className="gap-1" onClick={() => setUseCaseDialogOpen(true)}>
                       <Plus className="h-3 w-3" />
@@ -331,80 +397,44 @@ export function UseCaseView({
                     </Button>
                   </div>
                 )}
-                {tree.useCaseNodes.map((node) => {
-                  const { useCase } = node
-                  const isCollapsed = collapsedUseCaseIds.has(useCase.id)
-                  const isSelected = selection?.kind === 'useCase' && selection.useCaseId === useCase.id
-                  const select = () => onSelectionChange({ kind: 'useCase', useCaseId: useCase.id })
-                  return (
-                    <div key={useCase.id} data-tree-key={`use-case-${useCase.id}`}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={select}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            select()
-                          }
-                        }}
-                        className={cn(
-                          'group w-full cursor-pointer rounded-md p-1.5 text-left transition-colors',
-                          isSelected ? 'border border-slate-300 bg-slate-100' : 'hover:bg-slate-50'
-                        )}
-                      >
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            className="shrink-0 text-muted-foreground hover:text-foreground"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              toggleCollapsed(useCase.id)
-                            }}
-                            aria-label={isCollapsed ? `Expand ${useCase.name}` : `Collapse ${useCase.name}`}
-                          >
-                            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </button>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{useCase.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 touch:opacity-100"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              openAbuseCaseDialog({ mode: 'create', useCaseId: useCase.id })
-                            }}
-                            title="Add abuse case"
-                            aria-label={`Add abuse case to ${useCase.name}`}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                        {node.gaps.length > 0 && (
-                          <div className="ml-5 mt-0.5 flex flex-wrap gap-1">
-                            {node.gaps.map((gap) => (
-                              <Badge key={gap} variant="outline" className={GAP_BADGE_CLASS}>
-                                {USE_CASE_GAP_LABELS[gap]}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+                {tree.useCaseNodes.map((node) => (
+                  <ColumnRow
+                    key={node.useCase.id}
+                    isSelected={columnEntry?.kind === 'useCase' && columnEntry.useCaseId === node.useCase.id}
+                    onSelect={() => onSelectionChange({ kind: 'useCase', useCaseId: node.useCase.id })}
+                    testKey={`use-case-${node.useCase.id}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{node.useCase.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground" title="Abuse cases">
+                        {node.abuseCases.length}
+                      </span>
+                    </div>
+                    {node.gaps.length > 0 && (
+                      <div className="mt-0.5 flex flex-wrap gap-1">
+                        {node.gaps.map((gap) => (
+                          <Badge key={gap} variant="outline" className={GAP_BADGE_CLASS}>
+                            {USE_CASE_GAP_LABELS[gap]}
+                          </Badge>
+                        ))}
                       </div>
-                      {!isCollapsed && (
-                        <div className="space-y-0.5">
-                          {node.abuseCases.map((abuseCase) => renderAbuseCaseRow(abuseCase, 26, `uc-${useCase.id}`))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-
+                    )}
+                  </ColumnRow>
+                ))}
                 {tree.unlinkedAbuseCases.length > 0 && (
-                  <div className="mt-2" data-tree-key="not-linked-to-use-case">
-                    <div className="px-1.5 py-1 text-sm font-medium text-muted-foreground">Not linked to a use case</div>
-                    <div className="space-y-0.5">
-                      {tree.unlinkedAbuseCases.map((abuseCase) => renderAbuseCaseRow(abuseCase, 14, 'none'))}
-                    </div>
+                  <div className="mt-2 border-t pt-2">
+                    <ColumnRow
+                      isSelected={columnEntry?.kind === 'noUseCase'}
+                      onSelect={() => onSelectionChange({ kind: 'noUseCase' })}
+                      testKey="not-linked-to-use-case"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm italic text-muted-foreground">
+                          Not linked to a use case
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{tree.unlinkedAbuseCases.length}</span>
+                      </div>
+                    </ColumnRow>
                   </div>
                 )}
               </div>
@@ -414,33 +444,86 @@ export function UseCaseView({
 
         <ResizableHandle withHandle />
 
-        {/* Column 2: the threats of the selection */}
-        <ResizablePanel defaultSize="36%" minSize="20%" maxSize="55%">
+        {/* Column 2: abuse cases of the use case */}
+        <ResizablePanel defaultSize="21%" minSize="12%" maxSize="35%">
           <div className="flex h-full flex-col">
-            <div className="border-b px-3 py-2">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">Threats</div>
-                <div className="flex items-center gap-2">
-                  {activeCount > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      {activeCount} active
-                    </Badge>
-                  )}
-                  {selectedAbuseCase && threatActions(selectedAbuseCase)}
-                </div>
+            <ColumnHeader
+              step={2}
+              title="Abuse cases"
+              actions={
+                columnEntry && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => openAbuseCaseDialog({ mode: 'create', useCaseId: columnEntryUseCaseId ?? undefined })}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add
+                  </Button>
+                )
+              }
+            >
+              <span data-testid="abuse-case-column-label">
+                {columnUseCase
+                  ? `How ${columnUseCase.name} can be misused`
+                  : columnEntry?.kind === 'noUseCase'
+                    ? 'Not linked to a use case'
+                    : 'Select a use case'}
+              </span>
+            </ColumnHeader>
+            <ScrollArea className="flex-1">
+              <div className="space-y-0.5 p-2" data-testid="abuse-case-column">
+                {columnAbuseCases.map(renderAbuseCaseRow)}
+                {columnEntry && columnAbuseCases.length === 0 && (
+                  <div className="space-y-3 px-2 py-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No abuse cases yet. Ask how someone could misuse {columnUseCase?.name ?? 'this'}.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1"
+                      onClick={() => openAbuseCaseDialog({ mode: 'create', useCaseId: columnEntryUseCaseId ?? undefined })}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add abuse case
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div className="text-xs text-muted-foreground" data-testid="selection-label">
-                {selectionLabel}
-              </div>
+            </ScrollArea>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Column 3: threats of the abuse case */}
+        <ResizablePanel defaultSize="30%" minSize="18%" maxSize="50%">
+          <div className="flex h-full flex-col">
+            <ColumnHeader
+              step={3}
+              title="Threats"
+              actions={
+                selectedAbuseCase && (
+                  <>
+                    {activeCount > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {activeCount} active
+                      </Badge>
+                    )}
+                    {threatActions(selectedAbuseCase)}
+                  </>
+                )
+              }
+            >
+              <span data-testid="selection-label">{selectionLabel}</span>
               {selectedAbuseCase?.description && (
-                <p className="mt-1 text-xs text-muted-foreground" data-testid="abuse-case-description">
+                <p className="mt-1" data-testid="abuse-case-description">
                   {selectedAbuseCase.description}
                 </p>
               )}
-              {selection?.kind === 'useCase' && (
-                <div className="text-xs text-muted-foreground">Select an abuse case to add threats to it.</div>
-              )}
-            </div>
+            </ColumnHeader>
 
             {selectedAbuseCase && selectedAbuseCase.unlinkedRealizes.length > 0 && (
               <div className="space-y-1 border-b px-3 py-2">
@@ -451,9 +534,11 @@ export function UseCaseView({
             <ThreatList
               threatModelId={threatModelId}
               threats={threatsOfSelection}
-              hasSelection={selection !== null}
+              hasSelection={selectedAbuseCase !== null}
               selectedThreatId={selectedThreatId}
               onSelectThreat={onSelectThreat}
+              openThreatNumber={openThreatNumber}
+              onOpenThreatChange={onOpenThreatChange}
               onUpdateTriageStatus={onUpdateTriageStatus}
               onOpenAbuseCase={onOpenAbuseCase}
               onUnlink={selectedAbuseCase ? handleUnlinkThreat : undefined}
@@ -480,6 +565,9 @@ export function UseCaseView({
           threats={threats}
           selectedThreat={selectedThreat}
           onSelectThreatByBackendId={selectThreatByBackendId}
+          onOpenThreatByBackendId={openThreatByBackendId}
+          openCountermeasureNumber={openCountermeasureNumber}
+          onOpenCountermeasureChange={onOpenCountermeasureChange}
           onCountermeasureStatusChange={onCountermeasureStatusChange}
           onAssignOwner={onAssignOwner}
           onAddCustomCountermeasure={onAddCustomCountermeasure}
@@ -488,6 +576,7 @@ export function UseCaseView({
           onCountermeasureExternalTicketChange={onCountermeasureExternalTicketChange}
           onReorderCountermeasures={onReorderCountermeasures}
           isSecurityTeam={isSecurityTeam}
+          stepNumber={4}
         />
       </ResizablePanelGroup>
 
@@ -505,7 +594,9 @@ export function UseCaseView({
         abuseCase={abuseCaseDialog?.mode === 'edit' ? abuseCaseDialog.abuseCase : undefined}
         defaultUseCaseId={abuseCaseDialog?.mode === 'create' ? abuseCaseDialog.useCaseId : undefined}
         onSaved={(saved) => {
-          if (abuseCaseDialog?.mode === 'create') onSelectionChange({ kind: 'abuseCase', abuseCaseId: saved.id })
+          if (abuseCaseDialog?.mode === 'create') {
+            onSelectionChange({ kind: 'abuseCase', abuseCaseId: saved.id, useCaseId: abuseCaseDialog.useCaseId ?? null })
+          }
         }}
       />
 

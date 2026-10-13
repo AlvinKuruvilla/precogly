@@ -26,7 +26,7 @@ function criticalityLabel(value: string): string {
 export function BusinessObjectivesSection({ objectives, depth }: BusinessObjectivesSectionProps) {
   if (objectives.length === 0) {
     return (
-      <ReportSection title="Business objectives" defaultOpen={false}>
+      <ReportSection title="Business objectives">
         <p className="text-sm text-muted-foreground">No business objectives recorded.</p>
       </ReportSection>
     )

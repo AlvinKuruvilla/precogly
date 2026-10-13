@@ -1,11 +1,16 @@
 /**
  * The right column of the threat analysis screen: the countermeasures of the
- * selected scenario. Shared by the component view and the "By use case" view.
+ * selected scenario, one row each (status dot with its word, number, name).
+ * A row opens the countermeasure modal. Shared by the component view and the
+ * "By use case" view.
+ *
+ * The open modal can be controlled by the caller (the page keeps it in the
+ * URL as `?countermeasure=C5`); without that the column keeps it itself.
  */
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Lock, Plus } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -27,12 +32,12 @@ import type {
   ComplianceStandardMapping,
   CountermeasureStatus,
 } from '../../types/threat-analysis'
-import { deriveThreatStatus } from '../../types/threat-analysis'
 import { EditComplianceMappingsDialog } from './EditComplianceMappingsDialog'
 import { CountermeasureCard, type Assignee } from './CountermeasureCard'
+import { CountermeasureDetailDialog } from './CountermeasureDetailDialog'
 import { UnattachedControlsBlock } from './UnattachedControlsBlock'
 import { NumberBadge } from './NumberBadge'
-import { ThreatStatusBadge } from './ThreatList'
+import { StepNumber } from './StepNumber'
 import { formatTargetList } from './countermeasure-utils'
 
 export interface CountermeasureColumnProps {
@@ -41,6 +46,11 @@ export interface CountermeasureColumnProps {
   threats: AnalysisThreat[]
   selectedThreat: AnalysisThreat | null
   onSelectThreatByBackendId: (backendThreatId: number) => void
+  /** Select another threat and open its modal (the countermeasure modal's "Mitigates" links). */
+  onOpenThreatByBackendId?: (backendThreatId: number) => void
+  /** The display number of the countermeasure whose modal is open; omit to let the column keep it. */
+  openCountermeasureNumber?: string | null
+  onOpenCountermeasureChange?: (displayNumber: string | null) => void
   onCountermeasureStatusChange: (
     threatUiId: string,
     countermeasureId: string,
@@ -54,6 +64,8 @@ export interface CountermeasureColumnProps {
   onCountermeasureExternalTicketChange: (threatUiId: string, countermeasureId: string, externalTicketUrl: string) => void
   onReorderCountermeasures?: (threatUiId: string, reorderedCountermeasures: AnalysisCountermeasure[]) => void
   isSecurityTeam?: boolean
+  /** Shown before the title in the "By Use Case" view, where the columns are numbered steps. */
+  stepNumber?: number
 }
 
 export function CountermeasureColumn({
@@ -61,6 +73,9 @@ export function CountermeasureColumn({
   threats,
   selectedThreat,
   onSelectThreatByBackendId,
+  onOpenThreatByBackendId,
+  openCountermeasureNumber: controlledOpenCountermeasureNumber,
+  onOpenCountermeasureChange,
   onCountermeasureStatusChange,
   onAssignOwner,
   onAddCustomCountermeasure,
@@ -69,6 +84,7 @@ export function CountermeasureColumn({
   onCountermeasureExternalTicketChange,
   onReorderCountermeasures,
   isSecurityTeam,
+  stepNumber,
 }: CountermeasureColumnProps) {
   const [editingComplianceFor, setEditingComplianceFor] = useState<{
     backendId: number
@@ -82,6 +98,14 @@ export function CountermeasureColumn({
     threatId: number
   } | null>(null)
 
+  const [localOpenCountermeasureNumber, setLocalOpenCountermeasureNumber] = useState<string | null>(null)
+  const isControlled = onOpenCountermeasureChange !== undefined
+  const openCountermeasureNumber = isControlled ? controlledOpenCountermeasureNumber ?? null : localOpenCountermeasureNumber
+  const setOpenCountermeasureNumber = (displayNumber: string | null) => {
+    if (isControlled) onOpenCountermeasureChange(displayNumber)
+    else setLocalOpenCountermeasureNumber(displayNumber)
+  }
+
   const deleteCountermeasureMutation = useDeleteCountermeasure()
   const unlinkCountermeasureMutation = useUnlinkCountermeasure()
 
@@ -90,6 +114,9 @@ export function CountermeasureColumn({
       [...(selectedThreat?.countermeasures ?? [])].sort((left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0)),
     [selectedThreat?.countermeasures]
   )
+  const openCountermeasure = openCountermeasureNumber
+    ? sortedCountermeasures.find((countermeasure) => countermeasure.displayNumber === openCountermeasureNumber) ?? null
+    : null
   const totalCountermeasures = selectedThreat?.countermeasures.length ?? 0
   const resolvedCountermeasures = selectedThreat?.countermeasures.filter((countermeasure) => countermeasure.status !== 'gap').length ?? 0
 
@@ -99,6 +126,7 @@ export function CountermeasureColumn({
     const onSuccess = () => {
       toast.success(isShared ? 'Countermeasure unlinked' : 'Countermeasure removed')
       setDeleteCountermeasureConfirmFor(null)
+      setOpenCountermeasureNumber(null)
     }
     const onError = () => toast.error(isShared ? 'Could not unlink the countermeasure' : 'Could not remove the countermeasure')
     unlinkCountermeasureMutation.mutate({ countermeasureId: backendId, threatId }, { onSuccess, onError })
@@ -109,7 +137,15 @@ export function CountermeasureColumn({
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between border-b px-4 py-2">
               <div className="min-w-0">
-                <div className="font-medium">Countermeasures</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  {stepNumber !== undefined && <StepNumber step={stepNumber} />}
+                  Countermeasures
+                  {selectedThreat && (
+                    <span className="text-xs font-normal text-muted-foreground" data-testid="countermeasure-count">
+                      ({totalCountermeasures})
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   {selectedThreat ? (
                     <>
@@ -123,7 +159,6 @@ export function CountermeasureColumn({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {selectedThreat && <ThreatStatusBadge status={deriveThreatStatus(selectedThreat.countermeasures)} />}
                 {selectedThreat && (
                   <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={onAddCustomCountermeasure}>
                     <Plus className="h-3 w-3" />
@@ -133,35 +168,8 @@ export function CountermeasureColumn({
               </div>
             </div>
 
-            {selectedThreat && (
-              <div className="flex items-center gap-4 border-b px-4 py-2 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-muted-foreground">Platform</span>
-                  <Lock className="h-3 w-3 text-muted-foreground" />
-                </div>
-                <span className="text-muted-foreground/40">|</span>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-red-500" />
-                  <span className="text-muted-foreground">Gap</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-yellow-500" />
-                  <span className="text-muted-foreground">Planned</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-muted-foreground">Verified</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-blue-500" />
-                  <span className="text-muted-foreground">Waived</span>
-                </div>
-              </div>
-            )}
-
             <ScrollArea className="flex-1">
-              <div className="space-y-3 p-4">
+              <div className="space-y-3 p-3">
                 {selectedThreat && sortedCountermeasures.length > 0 && (
                   <SortableList
                     items={sortedCountermeasures}
@@ -171,44 +179,14 @@ export function CountermeasureColumn({
                     }}
                     renderItem={(countermeasure, dragHandleRef) => (
                       <CountermeasureCard
-                        threatModelId={threatModelId}
-                        threat={selectedThreat}
                         countermeasure={countermeasure}
                         dragHandleRef={dragHandleRef}
-                        isSecurityTeam={isSecurityTeam}
-                        onStatusChange={(countermeasureId, status, notes) =>
-                          onCountermeasureStatusChange(selectedThreat.id, countermeasureId, status, notes)
+                        isOpen={openCountermeasure?.id === countermeasure.id}
+                        onOpen={() =>
+                          setOpenCountermeasureNumber(
+                            openCountermeasure?.id === countermeasure.id ? null : countermeasure.displayNumber ?? null
+                          )
                         }
-                        onAssignOwner={(countermeasureId, assignee, newStatus) =>
-                          onAssignOwner(selectedThreat.id, countermeasureId, assignee, newStatus)
-                        }
-                        onPriorityChange={(countermeasureId, priority) =>
-                          onCountermeasurePriorityChange(selectedThreat.id, countermeasureId, priority)
-                        }
-                        onDueDateChange={(countermeasureId, dueDate) =>
-                          onCountermeasureDueDateChange(selectedThreat.id, countermeasureId, dueDate)
-                        }
-                        onExternalTicketChange={(countermeasureId, url) =>
-                          onCountermeasureExternalTicketChange(selectedThreat.id, countermeasureId, url)
-                        }
-                        onRequestDelete={(target) => {
-                          if (target.backendCountermeasureId === undefined) return
-                          setDeleteCountermeasureConfirmFor({
-                            name: target.countermeasureName || target.countermeasureId,
-                            backendId: target.backendCountermeasureId,
-                            isShared: target.isShared,
-                            threatId: selectedThreat.backendThreatId,
-                          })
-                        }}
-                        onEditCompliance={(target) => {
-                          if (target.backendCountermeasureId === undefined) return
-                          setEditingComplianceFor({
-                            backendId: target.backendCountermeasureId,
-                            name: target.countermeasureName || target.countermeasureId,
-                            mappings: target.standardMappings || [],
-                          })
-                        }}
-                        onSelectThreat={onSelectThreatByBackendId}
                       />
                     )}
                   />
@@ -226,6 +204,53 @@ export function CountermeasureColumn({
                 <span>{resolvedCountermeasures} resolved</span>
               </div>
             )}
+
+      {selectedThreat && (
+        <CountermeasureDetailDialog
+          threatModelId={threatModelId}
+          threat={selectedThreat}
+          countermeasure={openCountermeasure}
+          onClose={() => setOpenCountermeasureNumber(null)}
+          isSecurityTeam={isSecurityTeam}
+          onStatusChange={(countermeasureId, status, notes) =>
+            onCountermeasureStatusChange(selectedThreat.id, countermeasureId, status, notes)
+          }
+          onAssignOwner={(countermeasureId, assignee, newStatus) =>
+            onAssignOwner(selectedThreat.id, countermeasureId, assignee, newStatus)
+          }
+          onPriorityChange={(countermeasureId, priority) =>
+            onCountermeasurePriorityChange(selectedThreat.id, countermeasureId, priority)
+          }
+          onDueDateChange={(countermeasureId, dueDate) =>
+            onCountermeasureDueDateChange(selectedThreat.id, countermeasureId, dueDate)
+          }
+          onExternalTicketChange={(countermeasureId, url) =>
+            onCountermeasureExternalTicketChange(selectedThreat.id, countermeasureId, url)
+          }
+          onRequestDelete={(target) => {
+            if (target.backendCountermeasureId === undefined) return
+            setDeleteCountermeasureConfirmFor({
+              name: target.countermeasureName || target.countermeasureId,
+              backendId: target.backendCountermeasureId,
+              isShared: target.isShared,
+              threatId: selectedThreat.backendThreatId,
+            })
+          }}
+          onEditCompliance={(target) => {
+            if (target.backendCountermeasureId === undefined) return
+            setEditingComplianceFor({
+              backendId: target.backendCountermeasureId,
+              name: target.countermeasureName || target.countermeasureId,
+              mappings: target.standardMappings || [],
+            })
+          }}
+          onOpenThreat={(backendThreatId) => {
+            setOpenCountermeasureNumber(null)
+            if (onOpenThreatByBackendId) onOpenThreatByBackendId(backendThreatId)
+            else onSelectThreatByBackendId(backendThreatId)
+          }}
+        />
+      )}
 
       {editingComplianceFor && (
         <EditComplianceMappingsDialog

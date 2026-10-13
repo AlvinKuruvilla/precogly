@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Loader2, LayoutDashboard, Shield, Trash2, BarChart3, FileText, Share2, Download, Pencil, Crosshair, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import {
 import {
   ReferenceImageViewer,
   SystemContextModal,
+  type SystemDialogTab,
   ManageThreatModelsModal,
   BlueprintSwitcher,
   ManageBlueprintsModal,
@@ -41,15 +42,16 @@ import { ManagePersonasDialog } from '@/features/dfd-editor/components/threat-an
 import { useThreatModelThreats, type TargetRef } from '@/features/threat-models/api/threats'
 import { useAnalysisComponents } from '@/features/threat-models/api/components'
 import {
-  SYSTEM_SELECTION,
+  canvasElementSelection,
   selectionTargetRef,
-  targetSelection,
+  threatHomeSelection,
   threatMatchesSelection,
   type AnalysisSelection,
 } from '@/features/dfd-editor/components/threat-analysis/analysis-selection'
 import { useModelTargets } from '@/features/dfd-editor/components/threat-analysis/useModelTargets'
 import { toast } from 'sonner'
 import type { ThreatModel, Diagram, ScoringMethodKey } from '@/types'
+import type { AnalysisThreat } from '@/features/dfd-editor/types/threat-analysis'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
 import {
@@ -67,6 +69,17 @@ import {
 import { usePacks } from '@/features/libraries/api/packs'
 import { DeleteThreatModelDialog, DeleteDFDDialog } from '@/features/threat-models/components'
 import { useReferenceImages, useUploadReferenceImage, useDeleteReferenceImage } from '@/features/threat-models/api/reference-images'
+import {
+  DEFAULT_MODEL_TAB,
+  DEFAULT_THREAT_ANALYSIS_VIEW,
+  THREAT_ANALYSIS_VIEWS,
+  THREAT_MODEL_TABS,
+  tabFromSlug,
+  threatAnalysisViewPath,
+  threatModelTabPath,
+  type ThreatAnalysisView,
+  type ThreatModelTab,
+} from '@/features/threat-models/lib/model-tabs'
 
 async function createDiagram(threatModelId: string, title: string, blueprintId: number | null): Promise<Diagram> {
   return api.post<Diagram>('/diagrams/create_for_threat_model/', {
@@ -77,17 +90,52 @@ async function createDiagram(threatModelId: string, title: string, blueprintId: 
   })
 }
 
-type ViewMode = 'component' | 'usecase' | 'table'
-
 export function ThreatModelDetail() {
-  const { id } = useParams<{ id: string }>()
+  const { id, tab: tabSlug, view: viewSlug } = useParams<{ id: string; tab?: string; view?: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { currentTeam, isSecurityTeam } = useWorkspace()
 
-  // View state
-  const [activeTab, setActiveTab] = useState<string>('overview')
-  const [viewMode, setViewMode] = useState<ViewMode>('component')
+  // View state. The tab lives in the URL (one URL per sub-screen); tab clicks
+  // push history so Back and Forward move between tabs, and the query string
+  // (the selected blueprint) carries over.
+  const activeTab = tabFromSlug(tabSlug, THREAT_MODEL_TABS)
+  // Coming back to Threat Analysis returns to the view last used there.
+  const lastThreatAnalysisView = useRef<ThreatAnalysisView>(DEFAULT_THREAT_ANALYSIS_VIEW)
+  const goToTab = useCallback(
+    (nextTab: ThreatModelTab) => {
+      // The modal parameters belong to Threat Analysis; the blueprint carries over.
+      const nextSearch = new URLSearchParams(location.search)
+      nextSearch.delete('threat')
+      nextSearch.delete('countermeasure')
+      const searchString = nextSearch.toString()
+      navigate({
+        pathname:
+          nextTab === 'threat-analysis'
+            ? threatAnalysisViewPath(id!, lastThreatAnalysisView.current)
+            : threatModelTabPath(id!, nextTab),
+        search: searchString ? `?${searchString}` : '',
+      })
+    },
+    [navigate, id, location.search]
+  )
+  // The Threat Analysis view lives in the URL too: /threat-analysis/components,
+  // /use-cases or /table. A view change pushes history and keeps the blueprint;
+  // `mutateSearch` adjusts the rest of the query string in the same navigation.
+  const viewMode = tabFromSlug(viewSlug, THREAT_ANALYSIS_VIEWS)
+  useEffect(() => {
+    if (activeTab === 'threat-analysis' && viewMode) lastThreatAnalysisView.current = viewMode
+  }, [activeTab, viewMode])
+  const goToView = useCallback(
+    (nextView: ThreatAnalysisView, mutateSearch?: (search: URLSearchParams) => void) => {
+      const nextSearch = new URLSearchParams(location.search)
+      mutateSearch?.(nextSearch)
+      const searchString = nextSearch.toString()
+      navigate({ pathname: threatAnalysisViewPath(id!, nextView), search: searchString ? `?${searchString}` : '' })
+    },
+    [navigate, id, location.search]
+  )
   const [managePersonasOpen, setManagePersonasOpen] = useState(false)
   const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(null)
   // The selection is a target reference or the whole system, not a canvas id.
@@ -98,6 +146,7 @@ export function ThreatModelDetail() {
 
   // Modal state
   const [systemContextModalOpen, setSystemContextModalOpen] = useState(false)
+  const [systemDialogTab, setSystemDialogTab] = useState<SystemDialogTab>('details')
   const [manageBlueprintsOpen, setManageBlueprintsOpen] = useState(false)
   const [manageBlueprintsMode, setManageBlueprintsMode] = useState<ManageBlueprintsMode>('list')
   const [manageThreatModelsModalOpen, setManageThreatModelsModalOpen] = useState(false)
@@ -209,7 +258,36 @@ export function ThreatModelDetail() {
     reorderCountermeasures,
   } = useWorkspaceThreatAnalysis(id, diagrams, analysisComponents)
 
-  const { refetch: refetchThreats } = useThreatModelThreats(id)
+  const { data: analysisPayload, refetch: refetchThreats } = useThreatModelThreats(id)
+
+  // The open threat and countermeasure modals live in the URL (`?threat=T17`,
+  // `?countermeasure=C5`), written with replace so Back still leaves the tab.
+  // One modal at a time: opening one drops the other.
+  const openThreatNumber = searchParams.get('threat')
+  const openCountermeasureNumber = searchParams.get('countermeasure')
+  const setOpenDetail = useCallback(
+    (parameter: 'threat' | 'countermeasure', displayNumber: string | null) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          next.delete('threat')
+          next.delete('countermeasure')
+          if (displayNumber) next.set(parameter, displayNumber)
+          return next
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
+  const handleOpenThreatChange = useCallback(
+    (displayNumber: string | null) => setOpenDetail('threat', displayNumber),
+    [setOpenDetail]
+  )
+  const handleOpenCountermeasureChange = useCallback(
+    (displayNumber: string | null) => setOpenDetail('countermeasure', displayNumber),
+    [setOpenDetail]
+  )
 
   // Create diagram mutation
   const createDiagramMutation = useMutation({
@@ -264,21 +342,40 @@ export function ThreatModelDetail() {
     setSelectedThreatId(null)
   }, [])
 
-  // "From abuse cases" links in a threat: show that abuse case in the "By use case" view.
-  const handleOpenAbuseCase = useCallback((abuseCaseId: number) => {
-    setUseCaseSelection({ kind: 'abuseCase', abuseCaseId })
-    setSelectedThreatId(null)
-    setViewMode('usecase')
-  }, [])
+  // The modal parameters belong to one view's list, so a view change drops them.
+  const dropDetailParameters = (search: URLSearchParams) => {
+    search.delete('threat')
+    search.delete('countermeasure')
+  }
+
+  // "From abuse cases" links in a threat: show that abuse case in the "By Use Case" view.
+  const handleOpenAbuseCase = useCallback(
+    (abuseCaseId: number) => {
+      setUseCaseSelection({ kind: 'abuseCase', abuseCaseId })
+      setSelectedThreatId(null)
+      goToView('use-cases', dropDetailParameters)
+    },
+    [goToView]
+  )
 
   // The selected threat belongs to one view's list; clear it when the view changes.
   const handleViewModeChange = useCallback(
-    (nextViewMode: ViewMode) => {
-      if (nextViewMode !== viewMode) setSelectedThreatId(null)
-      setViewMode(nextViewMode)
+    (nextView: ThreatAnalysisView) => {
+      if (nextView === viewMode) return
+      setSelectedThreatId(null)
+      goToView(nextView, dropDetailParameters)
     },
-    [viewMode]
+    [viewMode, goToView]
   )
+
+  const handleAddBlueprint = useCallback(() => {
+    setManageBlueprintsMode('add')
+    setManageBlueprintsOpen(true)
+  }, [])
+  const handleManageBlueprints = useCallback(() => {
+    setManageBlueprintsMode('list')
+    setManageBlueprintsOpen(true)
+  }, [])
 
   const handleSelectTarget = useCallback((selection: AnalysisSelection) => {
     setSelectedTarget((current) => {
@@ -287,6 +384,43 @@ export function ThreatModelDetail() {
       return selection
     })
   }, [])
+
+  // A deep link (`?threat=T17` or `?countermeasure=C5`) selects the threat
+  // and, in the component view, the tree row it sits on, so its modal can
+  // open. Applied once per link while rendering (React's "adjust state when
+  // an input changes"), not in an effect.
+  const deepLinkedThreat = useMemo(() => {
+    if (activeTab !== 'threat-analysis') return null
+    if (openThreatNumber) return analysisThreats.find((threat) => threat.displayNumber === openThreatNumber) ?? null
+    if (!openCountermeasureNumber) return null
+    const holdsCountermeasure = (threat: AnalysisThreat) =>
+      threat.countermeasures.some((countermeasure) => countermeasure.displayNumber === openCountermeasureNumber)
+    if (selectedComponentThreat && holdsCountermeasure(selectedComponentThreat)) return selectedComponentThreat
+    return analysisThreats.find(holdsCountermeasure) ?? null
+  }, [activeTab, openThreatNumber, openCountermeasureNumber, analysisThreats, selectedComponentThreat])
+  const deepLinkKey = deepLinkedThreat ? `${openThreatNumber ?? ''}|${openCountermeasureNumber ?? ''}|${deepLinkedThreat.id}` : null
+  const [appliedDeepLinkKey, setAppliedDeepLinkKey] = useState<string | null>(null)
+  if (deepLinkedThreat && deepLinkKey !== appliedDeepLinkKey) {
+    setAppliedDeepLinkKey(deepLinkKey)
+    if (viewMode === 'components' && !threatMatchesSelection(deepLinkedThreat, selectedTarget)) {
+      setSelectedTarget(threatHomeSelection(deepLinkedThreat))
+    }
+    if (selectedThreatId !== deepLinkedThreat.id) setSelectedThreatId(deepLinkedThreat.id)
+  }
+
+  // "Analyze Threats" in the DFD editor passes what was selected on the canvas
+  // in the router state; start the tree there, once per visit.
+  const canvasElementFromEditor = (location.state as { analysisCanvasElementId?: string } | null)?.analysisCanvasElementId
+  const [appliedCanvasVisitKey, setAppliedCanvasVisitKey] = useState<string | null>(null)
+  if (canvasElementFromEditor && analysisPayload && appliedCanvasVisitKey !== location.key) {
+    setAppliedCanvasVisitKey(location.key)
+    const canvasSelection = canvasElementSelection(canvasElementFromEditor, analysisPayload)
+    // The DFD editor links straight to the components view.
+    if (canvasSelection) {
+      setSelectedTarget(canvasSelection)
+      setSelectedThreatId(null)
+    }
+  }
 
   // Inline name editing handlers
   const handleExportCycloneDx = useCallback(async (threatModelId: string) => {
@@ -377,6 +511,31 @@ export function ThreatModelDetail() {
     }
   }
 
+  // A bare or unknown tab goes to the overview, keeping the query string and
+  // the router state (the DFD editor's canvas selection rides in it).
+  if (!activeTab) {
+    return (
+      <Navigate
+        to={{ pathname: threatModelTabPath(id!, DEFAULT_MODEL_TAB), search: location.search }}
+        state={location.state}
+        replace
+      />
+    )
+  }
+  // Threat Analysis without a known view goes to the components view; any other tab takes no view.
+  if (activeTab === 'threat-analysis' && !viewMode) {
+    return (
+      <Navigate
+        to={{ pathname: threatAnalysisViewPath(id!, DEFAULT_THREAT_ANALYSIS_VIEW), search: location.search }}
+        state={location.state}
+        replace
+      />
+    )
+  }
+  if (activeTab !== 'threat-analysis' && viewSlug) {
+    return <Navigate to={{ pathname: threatModelTabPath(id!, activeTab), search: location.search }} replace />
+  }
+
   // Loading state
   if (isLoadingModel) {
     return (
@@ -396,8 +555,9 @@ export function ThreatModelDetail() {
     )
   }
 
+  // 45px: the navbar is h-11 plus its 1px bottom border; 44px left the page 1px too tall.
   return (
-    <div className="flex flex-col h-[calc(100vh-44px)]">
+    <div className="flex flex-col h-[calc(100vh-45px)]">
       {/* Compact Header */}
       <div className="flex-shrink-0 bg-background border-b">
         <div className="flex items-center justify-between px-4 py-2">
@@ -449,14 +609,8 @@ export function ThreatModelDetail() {
               blueprints={blueprints}
               selectedBlueprintId={selectedBlueprintId}
               onSelect={handleSelectBlueprint}
-              onAddBlueprint={() => {
-                setManageBlueprintsMode('add')
-                setManageBlueprintsOpen(true)
-              }}
-              onManageBlueprints={() => {
-                setManageBlueprintsMode('list')
-                setManageBlueprintsOpen(true)
-              }}
+              onAddBlueprint={handleAddBlueprint}
+              onManageBlueprints={handleManageBlueprints}
             />
           </div>
 
@@ -512,7 +666,7 @@ export function ThreatModelDetail() {
                   onClick={() => setManagePersonasOpen(true)}
                   className="text-xs"
                 >
-                  Manage personas
+                  Manage threat actors
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -533,7 +687,14 @@ export function ThreatModelDetail() {
       </div>
 
       {/* Tab-based Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      {/* Manual activation: with automatic, Radix fires onValueChange on mouse
+          down and again on focus, which would push two history entries. */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => goToTab(value as ThreatModelTab)}
+        activationMode="manual"
+        className="flex-1 flex flex-col min-h-0"
+      >
         <div className="border-b bg-muted/30 px-6">
           <div className="flex items-center justify-between">
             <TabsList className="h-12 bg-transparent p-0 gap-4">
@@ -545,7 +706,7 @@ export function ThreatModelDetail() {
               Overview
             </TabsTrigger>
             <TabsTrigger
-              value="threats"
+              value="threat-analysis"
               className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
             >
               <Shield className="h-4 w-4" />
@@ -593,15 +754,18 @@ export function ThreatModelDetail() {
           <OverviewTab
             threatModel={threatModel}
             blueprints={blueprints}
+            selectedBlueprintId={selectedBlueprintId}
             diagrams={blueprintDiagrams}
             progressChecklist={progressChecklist}
             completionStatus={completionStatus}
-            summaries={summaries}
             selectedDiagramId={selectedDiagramId}
             referenceImages={referenceImages}
             isCreatingDiagram={createDiagramMutation.isPending}
             isUploadingImage={uploadImageMutation.isPending}
             isSecurityTeam={isSecurityTeam}
+            onSelectBlueprint={handleSelectBlueprint}
+            onAddBlueprint={handleAddBlueprint}
+            onManageBlueprints={handleManageBlueprints}
             onSelectDiagram={setSelectedDiagramId}
             onEditDiagram={(diagramId) => navigate(`/threat-models/${id}/diagrams/${diagramId}`)}
             onCreateDiagram={handleCreateDFD}
@@ -622,13 +786,15 @@ export function ThreatModelDetail() {
             onManageThreatModels={() => setManageThreatModelsModalOpen(true)}
             onManagePacks={() => setManagePacksModalOpen(true)}
             onManagePeople={() => setManagePeopleModalOpen(true)}
-            onEditSystemContext={() => setSystemContextModalOpen(true)}
-            onNavigateToThreats={() => setActiveTab('threats')}
+            onOpenSystem={(tab) => {
+              setSystemDialogTab(tab)
+              setSystemContextModalOpen(true)
+            }}
           />
         </TabsContent>
 
         {/* Threat Analysis Tab */}
-        <TabsContent value="threats" className="flex-1 flex flex-col m-0 min-h-0">
+        <TabsContent value="threat-analysis" className="flex-1 flex flex-col m-0 min-h-0">
           {isLoadingThreats ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -671,26 +837,26 @@ export function ThreatModelDetail() {
                 </div>
                 <div className="flex items-center rounded-lg border bg-background p-1">
                   <Button
-                    variant={viewMode === 'component' ? 'default' : 'ghost'}
+                    variant={viewMode === 'components' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => handleViewModeChange('component')}
+                    onClick={() => handleViewModeChange('components')}
                     className={cn(
                       'rounded-md px-3',
-                      viewMode === 'component' ? '' : 'hover:bg-transparent'
+                      viewMode === 'components' ? '' : 'hover:bg-transparent'
                     )}
                   >
                     Component View
                   </Button>
                   <Button
-                    variant={viewMode === 'usecase' ? 'default' : 'ghost'}
+                    variant={viewMode === 'use-cases' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => handleViewModeChange('usecase')}
+                    onClick={() => handleViewModeChange('use-cases')}
                     className={cn(
                       'rounded-md px-3',
-                      viewMode === 'usecase' ? '' : 'hover:bg-transparent'
+                      viewMode === 'use-cases' ? '' : 'hover:bg-transparent'
                     )}
                   >
-                    By use case
+                    By Use Case
                   </Button>
                   <Button
                     variant={viewMode === 'table' ? 'default' : 'ghost'}
@@ -708,7 +874,7 @@ export function ThreatModelDetail() {
 
               {/* Threat Analysis Content - fills remaining space */}
               <div className="flex-1 min-h-0">
-                {viewMode === 'usecase' ? (
+                {viewMode === 'use-cases' ? (
                   <UseCaseView
                     threatModelId={id!}
                     threats={filteredComponentThreats}
@@ -718,6 +884,10 @@ export function ThreatModelDetail() {
                     selectedThreatId={selectedThreatId}
                     selectedThreat={selectedComponentThreat}
                     onSelectThreat={setSelectedThreatId}
+                    openThreatNumber={openThreatNumber}
+                    onOpenThreatChange={handleOpenThreatChange}
+                    openCountermeasureNumber={openCountermeasureNumber}
+                    onOpenCountermeasureChange={handleOpenCountermeasureChange}
                     onOpenAbuseCase={handleOpenAbuseCase}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}
@@ -729,7 +899,7 @@ export function ThreatModelDetail() {
                     onReorderCountermeasures={reorderCountermeasures}
                     isSecurityTeam={isSecurityTeam}
                   />
-                ) : viewMode === 'component' ? (
+                ) : viewMode === 'components' ? (
                   <ComponentView
                     threatModelId={id!}
                     threats={filteredComponentThreats}
@@ -738,6 +908,10 @@ export function ThreatModelDetail() {
                     selectedThreat={selectedComponentThreat}
                     onSelectTarget={handleSelectTarget}
                     onSelectThreat={setSelectedThreatId}
+                    openThreatNumber={openThreatNumber}
+                    onOpenThreatChange={handleOpenThreatChange}
+                    openCountermeasureNumber={openCountermeasureNumber}
+                    onOpenCountermeasureChange={handleOpenCountermeasureChange}
                     onOpenAbuseCase={handleOpenAbuseCase}
                     onCountermeasureStatusChange={updateCountermeasureStatus}
                     onAssignOwner={assignOwner}
@@ -756,12 +930,13 @@ export function ThreatModelDetail() {
                   <TableView
                     threats={filteredComponentThreats}
                     onSelectThreat={(threat) => {
-                      const firstTarget = threat.targets[0]
-                      const selection =
-                        threat.wholeSystem || !firstTarget ? SYSTEM_SELECTION : targetSelection(firstTarget.type, firstTarget.id)
-                      if (!threatMatchesSelection(threat, selectedTarget)) setSelectedTarget(selection)
-                      setViewMode('component')
+                      if (!threatMatchesSelection(threat, selectedTarget)) setSelectedTarget(threatHomeSelection(threat))
                       setSelectedThreatId(threat.id)
+                      // One navigation: the components view with this threat's modal open.
+                      goToView('components', (search) => {
+                        dropDetailParameters(search)
+                        search.set('threat', threat.displayNumber)
+                      })
                     }}
                   />
                 )}
@@ -795,6 +970,7 @@ export function ThreatModelDetail() {
       <SystemContextModal
         open={systemContextModalOpen}
         onOpenChange={setSystemContextModalOpen}
+        initialTab={systemDialogTab}
         threatModelId={id!}
         blueprints={blueprints}
         selectedBlueprintId={selectedBlueprintId}

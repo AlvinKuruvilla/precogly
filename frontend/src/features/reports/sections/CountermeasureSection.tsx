@@ -151,7 +151,7 @@ function WaivedSection({ summary, depth }: { summary: ReportCountermeasureSummar
 function UnattachedSection({ summary }: { summary: ReportCountermeasureSummary }) {
   if (summary.unattached.length === 0) {
     return (
-      <ReportSection title="Controls not linked to any threat" defaultOpen={false}>
+      <ReportSection title="Controls not linked to any threat">
         <p className="text-sm text-muted-foreground">Every control is linked to a threat.</p>
       </ReportSection>
     )

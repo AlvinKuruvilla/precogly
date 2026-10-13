@@ -10,7 +10,6 @@ export {
   ProgressChecklist,
   RelationshipCards,
   DFDCarousel,
-  SummaryCards,
   SystemContextModal,
   ManageThreatModelsModal,
   ManagePeopleModal,

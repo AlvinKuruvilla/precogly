@@ -23,7 +23,7 @@ These are the primary compliance mappings. When a library pack defines a counter
 
 ### How they appear in the UI
 
-In the **Threat Analysis** view, expand a countermeasure to see its compliance coverage. Each mapping shows the framework name, requirement code, and whether coverage is full or partial.
+In the **Threat Analysis** view, open a countermeasure to see its compliance coverage in the **Compliance coverage** part of its modal. Each mapping shows the framework name, requirement code, and whether coverage is full or partial.
 
 In the **Compliance** report, frameworks appear as rows showing two metrics:
 

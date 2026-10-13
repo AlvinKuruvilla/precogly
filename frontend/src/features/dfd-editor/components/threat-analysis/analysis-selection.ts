@@ -57,3 +57,31 @@ export const TARGET_TYPE_LABELS: Record<TargetType, string> = {
   zone: 'zone',
   boundary: 'boundary',
 }
+
+/**
+ * The tree selection for a canvas node or edge, so the DFD editor's
+ * "Analyze Threats" lands on what was selected there: a node maps to its
+ * component, an edge to its flow. Null when the id maps to neither.
+ */
+export function canvasElementSelection(
+  canvasElementId: string,
+  maps: {
+    nodeComponentMap: Record<string, { componentId: number }>
+    edgeFlowMap: Record<string, { flowId: number }>
+  }
+): AnalysisSelection | null {
+  const component = maps.nodeComponentMap[canvasElementId]
+  if (component) return targetSelection('component', component.componentId)
+  const flow = maps.edgeFlowMap[canvasElementId]
+  if (flow) return targetSelection('flow', flow.flowId)
+  return null
+}
+
+/**
+ * Where a threat shows in the tree when the screen jumps to it: its first
+ * target, or the system for a whole-system threat.
+ */
+export function threatHomeSelection(threat: AnalysisThreat): AnalysisSelection {
+  const firstTarget = threat.targets[0]
+  return threat.wholeSystem || !firstTarget ? SYSTEM_SELECTION : targetSelection(firstTarget.type, firstTarget.id)
+}

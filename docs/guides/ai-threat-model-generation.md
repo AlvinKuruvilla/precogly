@@ -449,7 +449,7 @@ Optional fields:
 
 ### Use cases and abuse cases (optional)
 
-Write these when the user describes what the system is for. They give a second way into the analysis: use case, then abuse case, then the threats it leads to, then their controls. Precogly shows them in the **By use case** view of threat analysis.
+Write these when the user describes what the system is for. They give a second way into the analysis: use case, then abuse case, then the threats it leads to, then their controls. Precogly shows them in the **By Use Case** view of threat analysis.
 
 - A **use case** is what a user does with the system, step by step.
 - An **abuse case** is how an attacker misuses one use case, step by step, in the use case's own terms. Its steps mirror the use case's steps; it is not the attacker's wider operation (obtaining credentials, cashing out) and not a weakness. It is not rated; the threats it leads to are.
@@ -591,7 +591,7 @@ Provide the complete JSON to the user. Instruct them to:
 
 1. Save the file with a `.cdx.json` extension (e.g., `my-system-threat-model.cdx.json`)
 2. Either import it into their Precogly account via **Threat Models > Import**, which creates a new model and generates a diagram from the zones, assets, data stores, and flows, or
-3. Open Precogly's **Guest Editor** at [https://precogly.org/guest](https://precogly.org/guest) (no account required), click **Open** and select the `.cdx.json` file. The guest editor draws the same diagram, lets the user refine the layout and the threats, and saves the file back with the layout included. Risks, use cases, abuse cases and anything else the guest editor does not show are kept in the file; the signed-in workspace shows use cases and abuse cases in the **By use case** view.
+3. Open Precogly's **Guest Editor** at [https://precogly.org/guest](https://precogly.org/guest) (no account required), click **Open** and select the `.cdx.json` file. The guest editor draws the same diagram, lets the user refine the layout and the threats, and saves the file back with the layout included. Risks, use cases, abuse cases and anything else the guest editor does not show are kept in the file; the signed-in workspace shows use cases and abuse cases in the **By Use Case** view.
 
 Precogly reports every schema finding and every element it could not store as a warning on import; nothing is rejected. Tell the user to read the import summary.
 

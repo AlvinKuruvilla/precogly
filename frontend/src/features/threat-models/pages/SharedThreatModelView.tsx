@@ -4,8 +4,9 @@
  */
 
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, Navigate, useNavigate } from 'react-router-dom'
 import { useMagicLinkAccess } from '@/features/organization/api/organizations'
+import { DEFAULT_MODEL_TAB, SHARED_VIEW_TABS, tabFromSlug, type SharedViewTab } from '@/features/threat-models/lib/model-tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,12 +50,19 @@ const PROGRESS_ITEMS: Array<{ id: keyof ThreatModelStats['progress']; label: str
 ]
 
 export function SharedThreatModelView() {
-  const { token } = useParams<{ token: string }>()
+  const { token, tab: tabSlug } = useParams<{ token: string; tab?: string }>()
+  const navigate = useNavigate()
   const { data, isLoading, error } = useMagicLinkAccess(token ?? '')
   const [expandedDFDId, setExpandedDFDId] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<string>('overview')
+  // The tab lives in the URL, as on the signed-in page.
+  const activeTab = tabFromSlug(tabSlug, SHARED_VIEW_TABS)
+  const setActiveTab = (nextTab: SharedViewTab) => navigate(`/share/${token}/${nextTab}`)
   const [referenceImageViewerOpen, setReferenceImageViewerOpen] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+
+  if (!activeTab) {
+    return <Navigate to={`/share/${token}/${DEFAULT_MODEL_TAB}`} replace />
+  }
 
   if (isLoading) {
     return (
@@ -184,7 +192,7 @@ export function SharedThreatModelView() {
           </div>
 
           {/* Tabbed Interface */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SharedViewTab)} activationMode="manual" className="space-y-6">
             <div className="border-b bg-muted/30 -mx-4 px-4">
               <TabsList className="h-12 bg-transparent p-0 gap-4">
                 <TabsTrigger
@@ -195,7 +203,7 @@ export function SharedThreatModelView() {
                   Overview
                 </TabsTrigger>
                 <TabsTrigger
-                  value="threats"
+                  value="threat-analysis"
                   className="h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none gap-2"
                 >
                   <Shield className="h-4 w-4" />
@@ -244,7 +252,7 @@ export function SharedThreatModelView() {
               {/* Summary Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* In-Scope Components */}
-                <Card className="cursor-pointer hover:bg-muted/20 transition-colors" onClick={() => setActiveTab('threats')}>
+                <Card className="cursor-pointer hover:bg-muted/20 transition-colors" onClick={() => setActiveTab('threat-analysis')}>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-2 mb-2">
                       <Layers className="h-5 w-5 text-muted-foreground" />
@@ -264,7 +272,7 @@ export function SharedThreatModelView() {
                 </Card>
 
                 {/* Threats */}
-                <Card className="cursor-pointer hover:bg-muted/20 transition-colors" onClick={() => setActiveTab('threats')}>
+                <Card className="cursor-pointer hover:bg-muted/20 transition-colors" onClick={() => setActiveTab('threat-analysis')}>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-2 mb-2">
                       <AlertTriangle className="h-5 w-5 text-muted-foreground" />
@@ -289,7 +297,7 @@ export function SharedThreatModelView() {
                 </Card>
 
                 {/* Countermeasures */}
-                <Card className="cursor-pointer hover:bg-muted/20 transition-colors" onClick={() => setActiveTab('threats')}>
+                <Card className="cursor-pointer hover:bg-muted/20 transition-colors" onClick={() => setActiveTab('threat-analysis')}>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-2 mb-2">
                       <Shield className="h-5 w-5 text-muted-foreground" />
@@ -484,7 +492,7 @@ export function SharedThreatModelView() {
             </TabsContent>
 
             {/* Threat Analysis Tab */}
-            <TabsContent value="threats" className="m-0">
+            <TabsContent value="threat-analysis" className="m-0">
               <ReadOnlyThreatAnalysisView
                 threatAnalysisData={threatAnalysis}
                 diagrams={dfds.map((dfd) => ({

@@ -19,14 +19,14 @@ const TRIAGE_LABELS: Record<string, string> = {
 export function TriagedThreatsSection({ triagedThreats }: TriagedThreatsSectionProps) {
   if (triagedThreats.length === 0) {
     return (
-      <ReportSection title="Triaged Threats" defaultOpen={false}>
+      <ReportSection title="Triaged Threats">
         <p className="text-sm text-muted-foreground">No triaged threats.</p>
       </ReportSection>
     )
   }
 
   return (
-    <ReportSection title={`Triaged Threats (${triagedThreats.length})`} defaultOpen={false}>
+    <ReportSection title={`Triaged Threats (${triagedThreats.length})`}>
       <Table>
         <TableHeader>
           <TableRow>

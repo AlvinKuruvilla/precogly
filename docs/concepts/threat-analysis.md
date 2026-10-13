@@ -17,9 +17,9 @@ When the model has more than one blueprint the tree gains one level, named after
 
 ## Three views
 
-The left panel has three views. **Component** is the tree above. **Table** is the flat list. **By use case** starts from what the system is for: the tree lists use cases, each with its abuse cases below it, and abuse cases with no use case sit under **Not linked to a use case**. Select a use case or an abuse case to see the threats that come from it. The countermeasures column works as in the component view.
+There are three views. **Component View** is the tree above. **Table View** is the flat list. **By Use Case** starts from what the system is for and has four numbered columns that follow the chain: **1 Use cases**, **2 Abuse cases**, **3 Threats**, **4 Countermeasures**. Select a use case to list its abuse cases, an abuse case to list its threats, and a threat to list its countermeasures. An abuse case linked to several use cases shows under each with a **shared** mark; abuse cases with no use case sit under **Not linked to a use case** at the bottom of the first column. Each column has its own **Add**.
 
-A threat is the same row in every view, so an edit in one shows in the others. In **By use case**, select an abuse case and click **Add** above the threat list: the dialog fills in the abuser as actor and the abuse case's targets. Gap badges mark use cases without abuse cases and abuse cases without threats; they do not change the [completion score](completion-status.md). See [Use Cases and Abuse Cases](use-cases-and-abuse-cases.md).
+A threat is the same row in every view, so an edit in one shows in the others. In **By Use Case**, select an abuse case and click **Add** above the threat list: the dialog fills in the abuse case's threat actor and its targets. Gap badges mark use cases without abuse cases and abuse cases without threats; they do not change the [completion score](completion-status.md). See [Use Cases and Abuse Cases](use-cases-and-abuse-cases.md).
 
 ## Numbers
 
@@ -51,11 +51,11 @@ Threats are rated with the matrix or a manual level. Risks use the scoring metho
 
 ## Actor and objectives
 
-A threat has one actor: a persona, one of the built-in actors (State Actor, Hacktivist, Insider Threat, Competitor, Organized Crime, Opportunist), free text, or none. **Manage personas** in the actor picker creates and edits personas (name, description, person or system, malicious intent, skill level, motivation, resources, objectives) and says how many threats use each one.
+A threat has one **threat actor**: one of the model's threat actors, free text, or none. The picker lists the model's threat actors, then the common threat actors (State Actor, Hacktivist, Insider Threat, Competitor, Opportunist, Organized Crime). Picking a common one adds it to the model's threat actors, so it is a record you can reuse and edit, and it exports with its CycloneDX archetype. An abuse case picks its threat actor from the same list, without free text. **Manage threat actors** creates and edits them (name, description, person or system, malicious intent, skill level, motivation, resources, objectives) and says how many threats use each one. In the exported file a threat actor is a CycloneDX persona.
 
 Once the model has at least one business objective, a picker lets you say which objectives a threat puts at risk. **Threat sources** says where a threat comes from, using the four NIST SP 800-30 sources: adversarial, accidental, structural, and environmental. Tick any that apply in the threat's detail panel. Intent and access level are shown read-only when an import set them.
 
-A threat's detail panel shows **From abuse cases** when abuse cases lead to it. Each name is a link that opens the **By use case** view with that abuse case selected.
+A threat's detail panel shows **From abuse cases** when abuse cases lead to it. Each name is a link that opens the **By Use Case** view with that abuse case selected.
 
 ## Countermeasures
 
