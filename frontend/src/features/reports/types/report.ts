@@ -355,6 +355,43 @@ export interface ReportComplianceFramework {
   satisfactionPercentage: number
 }
 
+/** The state of a requirement in the compliance matrix (backend compliance_matrix.row_state). */
+export type ComplianceMatrixState = 'satisfied' | 'covered' | 'partial_only' | 'not_covered'
+
+export interface ComplianceMatrixControl {
+  id: number
+  displayNumber: string
+  name: string
+  status: string
+  sufficiency: 'full' | 'partial'
+  daysOverdue: number | null
+  /** Threat numbers (`T7`) the control mitigates. */
+  threats: string[]
+}
+
+export interface ComplianceMatrixRow {
+  /** Null for a mapping to a framework that is not installed. */
+  requirementId: number | null
+  sectionCode: string
+  name: string
+  description: string
+  state: ComplianceMatrixState
+  controls: ComplianceMatrixControl[]
+  overdue: boolean
+}
+
+export interface ComplianceMatrixFramework {
+  name: string
+  version: string
+  installed: boolean
+  /** The requirements in the installed pack (often part of a standard); null when not installed. */
+  packRequirementCount: number | null
+  mappedRequirementCount: number
+  stateCounts: Array<{ state: ComplianceMatrixState; count: number }>
+  /** Grouped by family; a group with an empty name is a flat list. */
+  groups: Array<{ name: string; rows: ComplianceMatrixRow[] }>
+}
+
 export interface ReportCrossFrameworkMappingEntry {
   fromSectionCode: string
   fromDescription: string
@@ -443,6 +480,8 @@ export interface ReportData {
   countermeasureSummary: ReportCountermeasureSummary
   risks: ReportRisk[]
   compliance: ReportCompliance
+  /** Requirement by control, per framework the model maps to (idea from PR #561). */
+  complianceMatrix?: ComplianceMatrixFramework[]
   summaryMetrics: ReportSummaryMetrics
   progressChecklist: ReportProgressItem[]
   completionStatus?: ReportCompletionStatus

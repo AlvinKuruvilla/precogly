@@ -15,6 +15,7 @@ import { getComponentKind, getZoneType } from '@/features/dfd-editor/lib/canvas-
 import { isStrideSummaryVisible } from '../reportConfig'
 import { buildCountermeasureDetailRows } from './countermeasureRows'
 import { deriveFindings } from './findings'
+import { MATRIX_STATES, MATRIX_STATE_LABELS, frameworkCoverageLine, rowThreatNumbers, stateCount } from './complianceMatrix'
 import {
   approvalStateLabel,
   assumptionTopicLabel,
@@ -745,6 +746,49 @@ function buildComplianceSection(data: ReportData, numbers: SectionNumberer): Blo
   ]
 }
 
+function buildComplianceMatrixSection(data: ReportData, numbers: SectionNumberer): Block[] {
+  const matrix = data.complianceMatrix ?? []
+  const children: Block[] = [h1(numbers.next('Compliance Matrix')), spacer()]
+  if (matrix.length === 0) {
+    children.push(para('No countermeasure maps to a framework requirement yet.'), spacer())
+    return children
+  }
+  for (const framework of matrix) {
+    const counts = MATRIX_STATES.filter((state) => framework.installed || state !== 'not_covered')
+      .map((state) => `${MATRIX_STATE_LABELS[state]} ${stateCount(framework, state)}`)
+      .join(', ')
+    children.push(
+      h2([framework.name, framework.version].filter(Boolean).join(' ')),
+      para(frameworkCoverageLine(framework)),
+      para(counts),
+      spacer(),
+      buildTable(
+        [2200, 1400, 4160, 1600],
+        ['Requirement', 'State', 'Countermeasures', 'Threats'],
+        framework.groups.flatMap((group) =>
+          group.rows.map((row) => [
+            [group.name && group.name !== row.sectionCode ? `${group.name} / ` : '', row.sectionCode, row.name ? ` ${row.name}` : '']
+              .join('')
+              .trim(),
+            MATRIX_STATE_LABELS[row.state] + (row.overdue ? ' (overdue)' : ''),
+            row.controls.length === 0
+              ? 'None'
+              : row.controls
+                  .map(
+                    (control) =>
+                      `${control.displayNumber} ${control.name} (${control.status}${control.sufficiency === 'partial' ? ', partial' : ''})`
+                  )
+                  .join('\n'),
+            rowThreatNumbers(row).join(', ') || 'None',
+          ])
+        )
+      ),
+      spacer()
+    )
+  }
+  return children
+}
+
 function buildCrossFrameworkMappingsSection(data: ReportData, numbers: SectionNumberer): Block[] {
   const groups = data.compliance.crossFrameworkMappings ?? []
   const children: Block[] = [h1(numbers.next('Cross-Framework Mappings')), spacer()]
@@ -862,6 +906,7 @@ export async function exportWordDoc(data: ReportData, modelName: string, dfdImag
     (n) => buildUnattachedSection(data, n),
     (n) => buildRisksSection(data, n),
     (n) => buildComplianceSection(data, n),
+    (n) => buildComplianceMatrixSection(data, n),
     (n) => buildCrossFrameworkMappingsSection(data, n),
     (n) => buildAssumptionsReviewSection(data, n),
     (n) => buildFindingsSection(data, n),

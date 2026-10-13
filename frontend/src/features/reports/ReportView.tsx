@@ -26,6 +26,7 @@ import { CountermeasureSection } from './sections/CountermeasureSection'
 import { RiskSection } from './sections/RiskSection'
 import { ComplianceSection } from './sections/ComplianceSection'
 import { CrossFrameworkMappingsSection } from './sections/CrossFrameworkMappingsSection'
+import { ComplianceMatrixSection } from './sections/ComplianceMatrixSection'
 import { AssumptionsReviewSection } from './sections/AssumptionsReviewSection'
 import { FindingsSection } from './sections/FindingsSection'
 import { ProgressChecklistSection } from './sections/ProgressChecklistSection'
@@ -36,6 +37,7 @@ import {
   exportRisksCSV,
   exportAssumptionsCSV,
   exportComplianceCSV,
+  exportComplianceMatrixCSV,
 } from './utils/csvExport'
 import { exportWordDoc } from './utils/wordExport'
 import { ReadOnlyDFDViewer, type ReadOnlyDFDViewerHandle } from '@/components/shared/ReadOnlyDFDViewer'
@@ -76,7 +78,7 @@ const REPORT_TYPES: Array<{
   },
 ]
 
-function renderSection(sectionId: string, depth: SectionDepth, data: ReportData) {
+function renderSection(sectionId: string, depth: SectionDepth, data: ReportData, threatModelId: string) {
   switch (sectionId) {
     case 'executiveSummary':
       return <ExecutiveSummary data={data} />
@@ -115,6 +117,8 @@ function renderSection(sectionId: string, depth: SectionDepth, data: ReportData)
       return <RiskSection risks={data.risks} depth={depth} />
     case 'compliance':
       return <ComplianceSection compliance={data.compliance} depth={depth} />
+    case 'complianceMatrix':
+      return <ComplianceMatrixSection matrix={data.complianceMatrix} threatModelId={threatModelId} />
     case 'crossFrameworkMappings':
       return <CrossFrameworkMappingsSection compliance={data.compliance} />
     case 'assumptions':
@@ -240,6 +244,9 @@ export function ReportView({ threatModelId }: ReportViewProps) {
                   <DropdownMenuItem onClick={() => exportComplianceCSV(data, data.metadata.name)}>
                     Compliance Coverage
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportComplianceMatrixCSV(data, data.metadata.name)}>
+                    Compliance Matrix
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={async () => {
                       try {
@@ -285,7 +292,7 @@ export function ReportView({ threatModelId }: ReportViewProps) {
 
             {sections.map((section) => (
               <div key={section.id}>
-                {renderSection(section.id, section.depth, data)}
+                {renderSection(section.id, section.depth, data, threatModelId)}
               </div>
             ))}
           </div>

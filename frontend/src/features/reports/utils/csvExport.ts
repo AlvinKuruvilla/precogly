@@ -7,6 +7,7 @@
 
 import type { ReportData, ReportRating, ReportThreat } from '../types/report'
 import { formatTaxonomyEntryLabel } from '@/types/domain'
+import { MATRIX_STATE_LABELS } from './complianceMatrix'
 import {
   assumptionTopicLabel,
   assumptionValidityLabel,
@@ -261,4 +262,67 @@ export function buildComplianceCsvRows(data: ReportData): string[][] {
 
 export function exportComplianceCSV(data: ReportData, modelName: string): void {
   downloadCsv(`${slugify(modelName)}-compliance.csv`, COMPLIANCE_CSV_HEADERS, buildComplianceCsvRows(data))
+}
+
+// ---------------------------------------------------------------------------
+// Compliance matrix: one line per requirement and countermeasure pair, and one
+// line for a requirement nothing maps to.
+// ---------------------------------------------------------------------------
+
+export const COMPLIANCE_MATRIX_CSV_HEADERS = [
+  'Framework',
+  'Framework installed',
+  'Group',
+  'Requirement',
+  'Requirement text',
+  'State',
+  'Countermeasure',
+  'Countermeasure name',
+  'Countermeasure status',
+  'Sufficiency',
+  'Days overdue',
+  'Threats',
+]
+
+export function buildComplianceMatrixCsvRows(data: ReportData): string[][] {
+  const rows: string[][] = []
+  for (const framework of data.complianceMatrix ?? []) {
+    const frameworkName = [framework.name, framework.version].filter(Boolean).join(' ')
+    for (const group of framework.groups) {
+      for (const row of group.rows) {
+        const requirementCells = [
+          frameworkName,
+          framework.installed ? 'yes' : 'no',
+          group.name,
+          row.sectionCode,
+          row.name ? `${row.name}: ${row.description}` : row.description,
+          MATRIX_STATE_LABELS[row.state],
+        ]
+        if (row.controls.length === 0) {
+          rows.push([...requirementCells, '', '', '', '', '', ''])
+          continue
+        }
+        for (const control of row.controls) {
+          rows.push([
+            ...requirementCells,
+            control.displayNumber,
+            control.name,
+            control.status,
+            control.sufficiency,
+            control.daysOverdue ? String(control.daysOverdue) : '',
+            control.threats.join(' '),
+          ])
+        }
+      }
+    }
+  }
+  return rows
+}
+
+export function exportComplianceMatrixCSV(data: ReportData, modelName: string): void {
+  downloadCsv(
+    `${slugify(modelName)}-compliance-matrix.csv`,
+    COMPLIANCE_MATRIX_CSV_HEADERS,
+    buildComplianceMatrixCsvRows(data)
+  )
 }

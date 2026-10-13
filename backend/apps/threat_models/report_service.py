@@ -26,6 +26,7 @@ from apps.threats.models import (
 )
 from apps.threats.services import derive_risk_status
 
+from .compliance_matrix import build_compliance_matrix
 from .models import Assumption
 
 
@@ -941,6 +942,7 @@ def build_report_data(threat_model):
     countermeasure_summary = _build_countermeasure_summary(threat_model)
     risks = _build_risks(threat_model)
     compliance = _build_compliance(threat_model, component_ids, dataflow_ids)
+    compliance_matrix = build_compliance_matrix(threat_model)
     summary_metrics = _build_summary_metrics(
         threat_analysis, countermeasure_summary, risks
     )
@@ -963,6 +965,7 @@ def build_report_data(threat_model):
         "countermeasure_summary": countermeasure_summary,
         "risks": risks,
         "compliance": compliance,
+        "compliance_matrix": compliance_matrix,
         "summary_metrics": summary_metrics,
         "progress_checklist": progress_checklist,
         "completion_status": completion_status,

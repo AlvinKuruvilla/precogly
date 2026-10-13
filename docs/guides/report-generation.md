@@ -53,6 +53,7 @@ The table below shows which sections appear in each report type. **Full** means 
 | Unattached Controls      | --        | Full      | Full       | Full |
 | Risk Register            | Full      | Summary   | Full       | Full |
 | Compliance Mapping       | Summary   | --        | Full       | Full |
+| Compliance Matrix        | --        | --        | Full       | Full |
 | Cross-Framework Mappings | --        | --        | Full       | Full |
 | Assumptions Review       | Flagged   | --        | Full       | Full |
 | Findings                 | Critical  | Full      | Compliance | Full |
@@ -72,6 +73,7 @@ Separate CSV files are available, each covering one domain of the threat model:
 - **Countermeasures**: number, name, control type, status, priority, applies to, implemented by, source, compliance standards, owner, and one row per linked threat with its number and targets
 - **Risks**: risk register entries with status, statement, the inherent, residual, and target ratings, and responses
 - **Compliance Coverage**: framework control mappings and coverage status
+- **Compliance Matrix**: one row per requirement and countermeasure pair, and one row per requirement nothing maps to, with the state, sufficiency, days overdue and threats
 - **Assumptions**: description, validity, topic, owner, and validation details
 
 The STRIDE summary appears only when STRIDE is among the model's methodologies. Controls not linked to any threat are listed on their own and left out of the gap and coverage figures.

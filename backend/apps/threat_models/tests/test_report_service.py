@@ -159,6 +159,7 @@ class ReportServiceTests(TestCase):
                 "countermeasure_summary",
                 "risks",
                 "compliance",
+                "compliance_matrix",
                 "summary_metrics",
                 "progress_checklist",
                 "completion_status",
