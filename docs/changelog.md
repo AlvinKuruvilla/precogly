@@ -26,7 +26,7 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 - Controls that lose their last threat link are kept (unless untouched library output) and listed under **Controls not linked to any threat**, left out of gap and coverage figures.
 - Library threats are generated when a node or flow is first placed, when a technology or flow type changes, or when a flow is reconnected, never on an ordinary save. Deleted library threats stay deleted; add one back from the library with **+ Add** in the Threats column. A pack upgrade changes nothing in any model and no longer breaks library links.
 - Changing a component's technology keeps the component, its flows, and its threats with their numbers.
-- One actor per threat: a persona, a built-in actor, or text. Personas can be created and edited in the app (**Manage personas**).
+- One **threat actor** per threat: one of the model's threat actors, a common threat actor (State Actor, Hacktivist, Insider Threat, Competitor, Opportunist, Organized Crime), or free text. Picking a common one adds it to the model's threat actors, so it is reusable and exports with its CycloneDX persona archetype. Abuse cases pick from the same list, without free text. **Manage threat actors** creates and edits them. "Threat actor" replaces "Actor", "Abuser" and "persona" on screen; the API and the export keep `persona`.
 - Threat and control statuses are enforced in the services, so the Security Team gate on platform status also applies to imports.
 
 ### Diagrams, zones, boundaries, flows
@@ -54,18 +54,30 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 - Each model has a primary system (optional) chosen from the inventory, or created in place; the **Systems** page under Settings shows which models use each system. A system that is some model's primary system cannot be deleted on its own; deleting one that is only linked from diagrams unlinks and deletes nothing inside models.
 - Related models have a type (depends on, is a subsystem of, is related to, is superseded by) with loop checks; the Overview tab lists links in both directions.
 - Every model has a serial number and a version; **Copy BOM-Link** copies `urn:cdx:<serial>/<version>`.
-- Use cases and abuse cases are editable. A use case leads to abuse cases, an abuse case leads to threats, and threats lead to countermeasures; every link to the diagram, a persona, or a business objective is optional. Threat analysis gains a third view, **By use case**, with gap badges that do not change the completion score. A threat's detail panel shows **From abuse cases**. Editing them shows **Changed since approval**, covered by the one-time change already listed above. Import and export read and write the links, with two new properties named `precogly:abuse-cases`. See [Use Cases and Abuse Cases](concepts/use-cases-and-abuse-cases.md) and the [API overview](api/overview.md).
+- Use cases and abuse cases are editable. A use case leads to abuse cases, an abuse case leads to threats, and threats lead to countermeasures; every link to the diagram, a threat actor, or a business objective is optional. Threat analysis gains a third view, **By Use Case**, with four numbered columns (use cases, abuse cases, threats, countermeasures) and gap badges that do not change the completion score. A threat's detail panel shows **From abuse cases**. Editing them shows **Changed since approval**, covered by the one-time change already listed above. Import and export read and write the links, with two new properties named `precogly:abuse-cases`. See [Use Cases and Abuse Cases](concepts/use-cases-and-abuse-cases.md) and the [API overview](api/overview.md).
 
 ### Import and export
 
 - The adapter is rewritten on the pinned CycloneDX 2.0 schema (commit `f6dcf4d3`, 2026-10-07). Every export passes the schema and reference-integrity checks; every seeded model exports clean.
 - Import never rejects a TM-BOM: schema findings and everything that cannot be stored become warnings, and the content is kept and written back on export. Import does not count as approval; the file's approval is shown as history. An imported model gets a fresh serial number; the original is kept, and BOM-Links resolve through it.
 - Documents from other tools: scenarios with several targets become one threat with several targets (#533); a scenario naming several threats is split; actors that are flow ends become external actor components; per-scenario control links through `precogly:mitigates` (#529); several blueprints import in full (#538); a blueprint without a Precogly canvas gets a generated diagram (#288); the importing user's team owns the model (#337); compliance mappings resolve to installed frameworks or travel as snapshots (#342); impact descriptions round-trip (#343).
+- A risk response's `targetDate` becomes the due date of each control it names that has no `precogly:due-date` of its own; with several responses the earliest wins.
+- Import warnings say how to fix the file where they can (a missing required field, a standard's requirement under `definitions.requirements` instead of `definitions.standards[].requirements`, a `satisfies` entry that is not a reference, a date format, an unknown status), and one warning lists the custom properties that are kept for export but not read. `satisfies` written as objects and compliance requirements under `definitions.requirements` are not valid 2.0 and are not imported.
 - The `precogly:` property registry is one list, generated into the guest editor and printed in [Importing and Exporting](guides/importing-exporting.md).
 - Passthrough keeps attack trees, attack paths, abuse cases, other tools' properties, and unknown fields; stale references are repaired on export with a warning.
 - Values Precogly holds only in part are written back while the row still holds what it was imported as: an owner who is not a member (controls, risks, responses), an effectiveness rating, a response status stored as planned (such as `proposed`), a risk domain's priority and description, custom risk domains, and `satisfies` refs to engineering requirements. An imported file's `definitions.standards` is written back whole, with its refs, and mappings made in Precogly are added to it. What Precogly does not model is listed in [Importing and Exporting](guides/importing-exporting.md#what-precogly-does-not-model).
 
+### Workspace
+
+- One URL per tab (`/threat-models/<id>/overview`, `threat-analysis`, `risk-analysis`, `pentests`, `reports`) and per Threat Analysis view (`/threat-analysis/components`, `/use-cases`, `/table`). Reload keeps the tab and view; Back and Forward move between them. `?threat=T17` and `?countermeasure=C5` open the matching dialog.
+- Overview: collapsible sections, with diagrams and **+ New DFD** beside the completion checklist at the top, a one-row Review, then three buttons (**System**, with Details and Context tabs; **Business objectives**; **Use cases**) that open dialogs, **Connections** (related models, library packs, team members, and a Blueprints card, formerly Connected Systems), and **Reference images**. The counts strip is gone.
+- Threat Analysis: a threat row shows number, title and state; a countermeasure row shows the status dot with its word, number and name. Everything else is in a threat or countermeasure dialog. The screen opens on the first node with threats, and **Analyze Threats** in the DFD editor opens on the node or flow selected there. "Exposed" shows once per level: the tab badge, each tree row and each threat row.
+- Overdue countermeasures: past their due date and not yet implemented, verified or platform. The Countermeasures column shows an **N overdue** chip that filters it; an **N overdue** button in the toolbar lists every overdue countermeasure of the model.
+
 ### Reports, CSV, Word, pentests, MCP
+
+- Report sections start collapsed, and the report type is a dropdown beside the model's name.
+- The Compliance and Full reports have a **Compliance Matrix**: for the framework you pick, one row per requirement with its state (Satisfied, Covered, Partial only, Not covered), the countermeasures mapped to it, their threats and an overdue mark. Coverage is stated against the installed pack, which may hold only part of a standard. It is also in the Word report and has its own CSV.
 
 - Reports gain Review and approval, Business objectives, Countermeasure detail, and Unattached controls sections; one threat list with numbers and targets replaces the two lists by component and by flow; the Inherited countermeasures section is gone. Architecture shows zone and boundary types, trust levels, and crossing requirements.
 - CSV and Word exports carry number and target columns and lose the inherited and residual severity columns; a new Assumptions CSV.
@@ -88,6 +100,8 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 ### Credits
 
 - The countermeasure `source` field, the `satisfies` import with snapshots for frameworks that are not installed, the evidence external reference, the overdue filter, and the CycloneDX POA&M groundwork came from PR #559 by [JJediny](https://github.com/JJediny) and were absorbed into this branch. The ported tests keep a note of their origin.
+- The compliance matrix rebuilds the idea of PR #561 by [JJediny](https://github.com/JJediny) as a framework-neutral report section, with his access-isolation test and snapshot approach.
+- The workspace simplification follows an outside UX review of the Overview and Threat Analysis screens.
 
 ---
 

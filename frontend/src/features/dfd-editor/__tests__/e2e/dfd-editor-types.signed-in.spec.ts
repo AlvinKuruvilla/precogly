@@ -110,8 +110,9 @@ test('a signal flow shows its type on the canvas and hides the data-only fields'
   // Data assets stay available on every type.
   await expect(panel.getByTestId('flow-data-assets')).toBeVisible()
 
-  const signalEdge = page.locator('.react-flow__edge[data-id="edge-plc-actuators"]')
-  await expect(signalEdge.getByTestId('flow-type-chip')).toHaveText('Signal')
+  // Edge labels are drawn in React Flow's label layer, outside the edge element; they carry the edge id.
+  const signalEdgeLabel = page.locator('.react-flow__edgelabel-renderer [data-id="edge-plc-actuators"]')
+  await expect(signalEdgeLabel.getByTestId('flow-type-chip')).toHaveText('Signal')
 
   // Switching to a data flow brings protocol, encryption and the port back.
   await panel.getByTestId('flow-type-select').click()
@@ -120,7 +121,12 @@ test('a signal flow shows its type on the canvas and hides the data-only fields'
   await expect(panel.getByLabel('Encryption in Transit')).toBeVisible()
   await panel.getByRole('button', { name: 'Advanced' }).click()
   await expect(panel.getByLabel('Port')).toBeVisible()
-  await expect(signalEdge.getByTestId('flow-type-chip')).toHaveCount(0)
+  await expect(signalEdgeLabel.getByTestId('flow-type-chip')).toHaveCount(0)
+
+  // Put the seeded flow back, so the next run (and autosave) finds it as a signal flow.
+  await panel.getByTestId('flow-type-select').click()
+  await page.getByRole('option', { name: 'Signal flow' }).click()
+  await expect(signalEdgeLabel.getByTestId('flow-type-chip')).toHaveText('Signal')
 })
 
 test('the flow type filter hides signal flows without deleting them', async ({ page }) => {
@@ -138,7 +144,10 @@ test('the flow type filter hides signal flows without deleting them', async ({ p
   // A data flow is still drawn.
   await expect(page.locator('.react-flow__edge[data-id="edge-firewall-scada"] path').first()).toBeAttached()
 
+  // Reopen only once the first menu has finished closing; a click while it closes is swallowed.
+  await expect(page.getByRole('menu')).toHaveCount(0)
   await page.getByTestId('flow-type-filter').click()
+  await expect(page.getByRole('menu')).toBeVisible()
   await page.getByRole('menuitem', { name: 'Show all flows' }).click()
   await expect(signalEdge.locator('path').first()).toBeAttached()
 })
@@ -148,8 +157,8 @@ test('the boundary panel shows the type, the pickers and the advanced crossing f
 
   // "IDMZ conduit" is a network boundary with certificate authentication,
   // an ACL, and validation, logging and monitoring switched on.
-  const boundaryEdge = page.locator('.react-flow__edge[data-id="boundary-ot-idmz"]')
-  await expect(boundaryEdge.getByTestId('boundary-type-label')).toHaveText('Network boundary')
+  const boundaryEdgeLabel = page.locator('.react-flow__edgelabel-renderer [data-id="boundary-ot-idmz"]')
+  await expect(boundaryEdgeLabel.getByTestId('boundary-type-label')).toHaveText('Network boundary')
 
   await selectEdge(page, 'boundary-ot-idmz')
   const panel = page.getByTestId('boundary-panel')

@@ -62,7 +62,6 @@ test('a response can be added to a risk', async ({ page }) => {
   await page.getByTestId('risk-row').first().click()
   const detail = page.getByTestId('risk-detail')
   const responses = detail.getByTestId('risk-responses')
-  const rowsBefore = await responses.getByTestId('risk-response-row').count()
 
   await responses.getByRole('button', { name: 'Add response' }).click()
   const dialog = page.getByRole('dialog', { name: 'Add response' })
@@ -76,8 +75,12 @@ test('a response can be added to a risk', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Add response' }).click()
 
   await expect(dialog).toBeHidden()
-  await expect(responses.getByTestId('risk-response-row')).toHaveCount(rowsBefore + 1)
+  // The list shows the risk's embedded responses first, then the fetched ones, so a count
+  // taken before adding can be stale; the description is unique, so look for its row.
   const newRow = responses.getByTestId('risk-response-row').filter({ hasText: description })
+  await expect(newRow).toHaveCount(1)
+  const rowCount = await responses.getByTestId('risk-response-row').count()
+  await expect(responses.getByText(`Responses (${rowCount})`)).toBeVisible()
   await expect(newRow).toContainText('Transfer')
   await expect(newRow).toContainText('Planned')
   await expect(newRow).toContainText('2027')
