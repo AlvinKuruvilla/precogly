@@ -230,7 +230,8 @@ def _import_boundaries(data: dict, blueprint, context) -> None:
         if len(zones) < 2:
             context.warn(
                 f"Boundary '{label}' does not join two zones of this blueprint "
-                "and was skipped."
+                "and was skipped. Its zones must name the bom-refs of two zones "
+                "in the same blueprint."
             )
             continue
         if len(zone_refs) > 2:
@@ -602,7 +603,8 @@ def _import_flows(data: dict, blueprint, context) -> None:
         if len(ends) < 2 or any(end.blueprint_id != blueprint.id for end in ends):
             context.warn(
                 f"Flow '{label}' was skipped: its source or destination is not a "
-                "component of this blueprint."
+                "component of this blueprint. Point both at the bom-ref of an asset "
+                "or data store in the same blueprint."
             )
             continue
         protocols = [p for p in flow_data.get("protocols") or [] if isinstance(p, str)]

@@ -62,3 +62,35 @@ export function effectivenessFromInput(raw: string): number | null | undefined {
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) return undefined
   return Math.round(parsed)
 }
+
+/** Statuses of a control already in effect; such a control is never overdue. */
+const IN_EFFECT_STATUSES = new Set(['implemented', 'verified', 'platform'])
+
+/** Today as `YYYY-MM-DD` in the viewer's time zone, the form due dates use. */
+export function todayIsoDate(now: Date = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+/**
+ * Whether a control is overdue: its due date has passed and it is not yet in
+ * effect. The same rule as the backend's `days_overdue` and `?overdue=true`
+ * (PR #559), so the column and the API agree.
+ */
+export function isCountermeasureOverdue(
+  countermeasure: { status: string; dueDate?: string | null },
+  today: string = todayIsoDate()
+): boolean {
+  if (!countermeasure.dueDate || IN_EFFECT_STATUSES.has(countermeasure.status)) return false
+  return countermeasure.dueDate < today
+}
+
+/** Overdue countermeasures by the backend's `days_overdue`, most overdue first. */
+export function overdueCountermeasures<Countermeasure extends { daysOverdue: number | null; number: number }>(
+  countermeasures: Countermeasure[]
+): Countermeasure[] {
+  return countermeasures
+    .filter((countermeasure) => (countermeasure.daysOverdue ?? 0) > 0)
+    .sort((left, right) => (right.daysOverdue ?? 0) - (left.daysOverdue ?? 0) || left.number - right.number)
+}

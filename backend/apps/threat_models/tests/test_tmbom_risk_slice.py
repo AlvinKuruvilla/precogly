@@ -1,5 +1,8 @@
 """The step 8 adapter slice: risks with status, statement, ratings and responses."""
 
+import copy
+from datetime import date
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -116,6 +119,67 @@ class RiskSliceTests(TestCase):
             {r["bom-ref"] for r in again["risks"]["risks"]},
             {r["bom-ref"] for r in document["risks"]["risks"]},
         )
+
+    def _document_with_response_dates(self, *target_dates, control_due_date=None):
+        """The export with the response's controls dated only through responses.
+
+        The control's own ``precogly:due-date`` is removed (or set), and the
+        "Customer data exposure" risk gets one response per target date, each
+        naming the same control: a POA&M written the spec-native way.
+        """
+        document = TmBomAdapter().export_data(self.threat_model)
+        control = document["controls"][0]
+        control["properties"] = [
+            item
+            for item in control.get("properties", [])
+            if item["name"] != "precogly:due-date"
+        ]
+        if control_due_date:
+            control["properties"].append(
+                {"name": "precogly:due-date", "value": control_due_date}
+            )
+        exposure = next(
+            risk
+            for risk in document["risks"]["risks"]
+            if risk["name"] == "Customer data exposure"
+        )
+        template = exposure["responses"][0]
+        exposure["responses"] = []
+        for index, target_date in enumerate(target_dates):
+            response = copy.deepcopy(template)
+            response["bom-ref"] = f"{template['bom-ref']}-{index}"
+            response["targetDate"] = target_date
+            exposure["responses"].append(response)
+        assert_valid_tmbom(document, context="response dates")
+        return document
+
+    def _imported_control(self, document):
+        imported, _ = TmBomAdapter().import_data(document, self.organization, self.user)
+        return imported.countermeasures.get(countermeasure_name="WAF")
+
+    def test_a_response_target_date_becomes_the_due_date_of_its_controls(self):
+        control = self._imported_control(
+            self._document_with_response_dates("2020-03-31T00:00:00Z")
+        )
+        self.assertEqual(control.due_date, date(2020, 3, 31))
+        # The WAF is planned and the date has passed, so it shows as overdue.
+        self.assertGreater(control.days_overdue, 0)
+
+    def test_with_several_responses_the_earliest_target_date_wins(self):
+        control = self._imported_control(
+            self._document_with_response_dates(
+                "2020-06-30T00:00:00Z", "2020-03-31T00:00:00Z", "2020-09-30T00:00:00Z"
+            )
+        )
+        self.assertEqual(control.due_date, date(2020, 3, 31))
+
+    def test_a_control_with_its_own_due_date_keeps_it(self):
+        control = self._imported_control(
+            self._document_with_response_dates(
+                "2020-03-31T00:00:00Z", control_due_date="2030-01-15"
+            )
+        )
+        self.assertEqual(control.due_date, date(2030, 1, 15))
 
     def test_other_tools_risks_keep_what_we_cannot_hold(self):
         document = {

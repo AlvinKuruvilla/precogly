@@ -11,6 +11,7 @@ from apps.threat_models.models import (
     BusinessObjective,
 )
 
+from ..import_hints import DATE_TIME_HINT
 from ..passthrough import keep_unknown
 from ..refs import remember_ref
 from ..spec_values import type_name
@@ -66,7 +67,7 @@ def _datetime(raw, context, label: str):
     try:
         return datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
-        context.warn(f"{label}: date '{raw}' ignored.")
+        context.warn(f"{label}: date '{raw}' ignored. {DATE_TIME_HINT}")
         return None
 
 

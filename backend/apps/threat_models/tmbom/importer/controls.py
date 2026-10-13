@@ -40,6 +40,7 @@ from apps.threats.services import (
     recalculate_threat_status,
 )
 
+from ..import_hints import DATE_HINT, OWNER_HINT, STANDARD_REQUIREMENTS
 from ..kept_values import effectiveness_to_keep, owner_to_keep
 from ..passthrough import keep_unknown
 from ..properties import PropertyOwner, read_properties
@@ -134,7 +135,16 @@ class ControlImporter:
             if name:
                 self.context.warn(
                     f"Control '{label}': status '{name}' is not one Precogly has; "
-                    "stored as gap and kept for export."
+                    "stored as gap and kept for export. Statuses Precogly reads: "
+                    + ", ".join(
+                        sorted(
+                            {
+                                *SPEC_STATUS_TO_COUNTERMEASURE,
+                                *CUSTOM_COUNTERMEASURE_STATUSES,
+                            }
+                        )
+                    )
+                    + "."
                 )
             return "gap", raw
         if not name:
@@ -142,7 +152,17 @@ class ControlImporter:
         mapped = SPEC_STATUS_TO_COUNTERMEASURE.get(name)
         if mapped is None:
             self.context.warn(
-                f"Control '{label}': unknown status '{name}'; stored as gap."
+                f"Control '{label}': unknown status '{name}'; stored as gap. "
+                "Statuses Precogly reads: "
+                + ", ".join(
+                    sorted(
+                        {
+                            *SPEC_STATUS_TO_COUNTERMEASURE,
+                            *CUSTOM_COUNTERMEASURE_STATUSES,
+                        }
+                    )
+                )
+                + "."
             )
             return "gap", raw
         original = raw if mapped != name.replace("-", "_") else None
@@ -230,7 +250,7 @@ class ControlImporter:
                 return user, None
         self.context.warn(
             f"Control '{label}': owner matches no member of the organization; kept "
-            "for export, not assigned."
+            f"for export, not assigned. {OWNER_HINT}"
         )
         return None, owner_to_keep(raw, self.parties)
 
@@ -269,12 +289,23 @@ class ControlImporter:
                 sufficiency_by_ref[item["requirement"]] = item.get("sufficiency")
         for ref in control.get("satisfies") or []:
             info = self.requirements.get(ref) if isinstance(ref, str) else None
+            if not isinstance(ref, str):
+                # The 2.0 schema allows only references here; an object cannot be
+                # written back in a valid document, so it is not kept.
+                self.context.warn(
+                    f"Control '{label}': a satisfies entry is not a reference "
+                    f"({ref!r}); dropped, since the 2.0 schema allows only references. "
+                    f"Define the requirement under {STANDARD_REQUIREMENTS} with a "
+                    "bom-ref and list that bom-ref in satisfies."
+                )
+                continue
             if not info or not info.get("section_code"):
-                if isinstance(ref, str) and ref not in kept_refs:
+                if ref not in kept_refs:
                     kept_refs.append(ref)
                 self.context.warn(
                     f"Control '{label}': satisfies reference '{ref}' is no standard "
-                    "requirement here; kept for export, not linked."
+                    "requirement here; kept for export, not linked. "
+                    + self._satisfies_fix(ref)
                 )
                 continue
             sufficiency = sufficiency_by_ref.get(ref) or "partial"
@@ -282,6 +313,26 @@ class ControlImporter:
                 sufficiency = "partial"
             self._store_requirement(countermeasure, info, sufficiency)
         return kept_refs
+
+    def _satisfies_fix(self, ref: str) -> str:
+        """How to make a satisfies ref link: where its requirement should be."""
+        definitions = self.document.get("definitions") or {}
+        engineering_refs = {
+            item.get("bom-ref")
+            for item in definitions.get("requirements") or []
+            if isinstance(item, dict)
+        }
+        if ref in engineering_refs:
+            return (
+                "It points at an engineering requirement (definitions.requirements); "
+                f"a requirement from a standard belongs under {STANDARD_REQUIREMENTS}, "
+                "with an identifier such as AC-2."
+            )
+        if ref in self.requirements:
+            return "Give the requirement an identifier, such as AC-2."
+        return (
+            f"No requirement has that bom-ref; define it under {STANDARD_REQUIREMENTS}."
+        )
 
     def _store_requirement(self, countermeasure, info: dict, sufficiency: str) -> None:
         section_code = info["section_code"][:50]
@@ -340,7 +391,7 @@ class ControlImporter:
             return date.fromisoformat(str(raw))
         except ValueError:
             self.context.warn(
-                f"Control '{label}': due date '{raw}' is not a date; ignored."
+                f"Control '{label}': due date '{raw}' is not a date; ignored. {DATE_HINT}"
             )
             return None
 

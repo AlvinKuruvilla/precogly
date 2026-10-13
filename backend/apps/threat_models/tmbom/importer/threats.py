@@ -217,7 +217,8 @@ class ThreatImporter:
                 return persona, ""
             self.context.warn(
                 f"Scenario '{label}': actor '{actor_ref}' is not an actor of any "
-                "blueprint; the scenario has no actor."
+                "blueprint; the scenario has no actor. List the actor in a "
+                "blueprint's actors[] with that bom-ref."
             )
             return None, ""
         text = self._actor_text(entry["data"])
@@ -379,7 +380,8 @@ class ThreatImporter:
             if threat_ref is not None and not abstract_data:
                 self.context.warn(
                     f"Scenario '{label}': threat '{threat_ref}' is not declared in the "
-                    "document; stored as a custom threat."
+                    "document; stored as a custom threat. Declare it under "
+                    "threats.threats[] with that bom-ref."
                 )
             library = _library_for(threat_ref)
             threat_name = str(

@@ -35,6 +35,7 @@ import { ComponentView } from '@/features/dfd-editor/components/threat-analysis/
 import { UseCaseView } from '@/features/dfd-editor/components/threat-analysis/UseCaseView'
 import type { UseCaseViewSelection } from '@/features/dfd-editor/components/threat-analysis/use-case-view-utils'
 import { TableView } from '@/features/dfd-editor/components/threat-analysis/TableView'
+import { OverdueCountermeasuresButton } from '@/features/dfd-editor/components/threat-analysis/OverdueCountermeasuresButton'
 import { AddThreatDialog } from '@/features/dfd-editor/components/threat-analysis/AddThreatDialog'
 import { AddCountermeasureDialog } from '@/features/dfd-editor/components/threat-analysis/AddCountermeasureDialog'
 import { AddCustomComponentDialog } from '@/features/dfd-editor/components/threat-analysis/AddCustomComponentDialog'
@@ -834,6 +835,16 @@ export function ThreatModelDetail() {
                       </Button>
                     </div>
                   )}
+                  {/* Every overdue countermeasure of the model; shows only when something is overdue. */}
+                  <OverdueCountermeasuresButton
+                    threatModelId={id!}
+                    onOpenCountermeasure={(displayNumber) =>
+                      goToView('components', (search) => {
+                        dropDetailParameters(search)
+                        search.set('countermeasure', displayNumber)
+                      })
+                    }
+                  />
                 </div>
                 <div className="flex items-center rounded-lg border bg-background p-1">
                   <Button

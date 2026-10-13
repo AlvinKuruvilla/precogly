@@ -10,9 +10,10 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Plus } from 'lucide-react'
+import { AlarmClock, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +39,7 @@ import { CountermeasureDetailDialog } from './CountermeasureDetailDialog'
 import { UnattachedControlsBlock } from './UnattachedControlsBlock'
 import { NumberBadge } from './NumberBadge'
 import { StepNumber } from './StepNumber'
-import { formatTargetList } from './countermeasure-utils'
+import { formatTargetList, isCountermeasureOverdue } from './countermeasure-utils'
 
 export interface CountermeasureColumnProps {
   threatModelId: string
@@ -117,6 +118,15 @@ export function CountermeasureColumn({
   const openCountermeasure = openCountermeasureNumber
     ? sortedCountermeasures.find((countermeasure) => countermeasure.displayNumber === openCountermeasureNumber) ?? null
     : null
+  // Overdue: past the due date and not yet in effect (the backend's days_overdue rule).
+  // The chip filters the list to them; the filter belongs to the threat it was set on.
+  const overdueCountermeasures = useMemo(
+    () => sortedCountermeasures.filter((countermeasure) => isCountermeasureOverdue(countermeasure)),
+    [sortedCountermeasures]
+  )
+  const [overdueFilterThreatId, setOverdueFilterThreatId] = useState<string | null>(null)
+  const showOnlyOverdue =
+    selectedThreat !== null && overdueFilterThreatId === selectedThreat.id && overdueCountermeasures.length > 0
   const totalCountermeasures = selectedThreat?.countermeasures.length ?? 0
   const resolvedCountermeasures = selectedThreat?.countermeasures.filter((countermeasure) => countermeasure.status !== 'gap').length ?? 0
 
@@ -159,6 +169,23 @@ export function CountermeasureColumn({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {selectedThreat && overdueCountermeasures.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'h-7 gap-1 border-red-300 text-xs text-red-700 hover:bg-red-50 hover:text-red-800',
+                      showOnlyOverdue && 'bg-red-50'
+                    )}
+                    onClick={() => setOverdueFilterThreatId(showOnlyOverdue ? null : selectedThreat.id)}
+                    aria-pressed={showOnlyOverdue}
+                    title={showOnlyOverdue ? 'Show all countermeasures' : 'Show only overdue countermeasures'}
+                    data-testid="overdue-filter"
+                  >
+                    <AlarmClock className="h-3 w-3" />
+                    {overdueCountermeasures.length} overdue
+                  </Button>
+                )}
                 {selectedThreat && (
                   <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={onAddCustomCountermeasure}>
                     <Plus className="h-3 w-3" />
@@ -170,7 +197,24 @@ export function CountermeasureColumn({
 
             <ScrollArea className="flex-1">
               <div className="space-y-3 p-3">
-                {selectedThreat && sortedCountermeasures.length > 0 && (
+                {showOnlyOverdue && (
+                  // A subset is not reordered, so the filtered rows are a plain list.
+                  <div>
+                    {overdueCountermeasures.map((countermeasure) => (
+                      <CountermeasureCard
+                        key={countermeasure.id}
+                        countermeasure={countermeasure}
+                        isOpen={openCountermeasure?.id === countermeasure.id}
+                        onOpen={() =>
+                          setOpenCountermeasureNumber(
+                            openCountermeasure?.id === countermeasure.id ? null : countermeasure.displayNumber ?? null
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+                {selectedThreat && !showOnlyOverdue && sortedCountermeasures.length > 0 && (
                   <SortableList
                     items={sortedCountermeasures}
                     getItemId={(countermeasure) => countermeasure.id}

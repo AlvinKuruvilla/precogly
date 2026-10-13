@@ -5,6 +5,11 @@
 - ``responses[]`` with the four strategies we hold become rows (controls
   resolved to this model's); ``exploit`` and ``enhance`` are kept on the
   risk and warned.
+- A response's ``targetDate`` becomes the due date of each control it names
+  that has none of its own (``precogly:due-date`` wins); with several
+  responses the earliest date is kept. This is the spec-native place for a
+  planned control's date in 2.0 (a POA&M milestone, say), so overdue
+  controls show from a file that carries no Precogly properties (PR #559).
 - A custom status is kept and the row gets ``identified`` with a warning.
 - A statement marked ``precogly:statement-generated`` is not stored, so the
   model keeps an empty statement rather than a synthesized one.
@@ -29,6 +34,7 @@ from apps.threats.services import (
     set_risk_business_objectives,
 )
 
+from ..import_hints import DATE_TIME_HINT, OWNER_HINT
 from ..kept_values import (
     domain_details_to_keep,
     effectiveness_to_keep,
@@ -77,6 +83,9 @@ class RiskImporter:
         self.document = document
         self.threat_model = threat_model
         self.context = context
+        # Controls whose due date came from a response here: id -> date, so a
+        # later, earlier response can move it, but a date of their own stays.
+        self.due_dates_from_responses: dict[int, object] = {}
         component = (document.get("metadata") or {}).get("component") or {}
         parties = component.get("parties") if isinstance(component, dict) else None
         self.parties = {
@@ -111,7 +120,7 @@ class RiskImporter:
             return user, None
         self.context.warn(
             f"{label}: owner matches no member of the organization; kept for "
-            "export, not assigned."
+            f"export, not assigned. {OWNER_HINT}"
         )
         return None, owner_to_keep(raw, self.parties)
 
@@ -125,6 +134,18 @@ class RiskImporter:
         if name != base:
             self.context.warn(f"Risk '{base}': the name is taken; stored as '{name}'.")
         return name
+
+    def _date_controls(self, controls: list, due_date) -> None:
+        """Give each control without its own due date the response's target date."""
+        for countermeasure in controls:
+            earlier = self.due_dates_from_responses.get(countermeasure.pk)
+            if earlier is None and countermeasure.due_date is not None:
+                continue  # its own date, from precogly:due-date
+            if earlier is not None and earlier <= due_date:
+                continue
+            countermeasure.due_date = due_date
+            countermeasure.save(update_fields=["due_date"])
+            self.due_dates_from_responses[countermeasure.pk] = due_date
 
     def _responses(self, risk, risk_data: dict, label: str) -> list:
         kept = []
@@ -165,8 +186,10 @@ class RiskImporter:
                     )
                 except ValueError:
                     self.context.warn(
-                        f"Risk '{label}': targetDate '{raw_date}' ignored."
+                        f"Risk '{label}': targetDate '{raw_date}' ignored. {DATE_TIME_HINT}"
                     )
+            if target_date is not None:
+                self._date_controls(controls, target_date.date())
             cost = response_data.get("cost")
             priority = response_data.get("priority")
             owner, kept_owner = self._owner(

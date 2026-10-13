@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  isCountermeasureOverdue,
+  overdueCountermeasures,
+  todayIsoDate,
   formatAlsoMitigatesLine,
   formatTargetList,
   effectivenessFromInput,
@@ -86,5 +89,40 @@ describe('effectiveness input', () => {
     expect(effectivenessFromInput('101')).toBeUndefined()
     expect(effectivenessFromInput('-1')).toBeUndefined()
     expect(effectivenessFromInput('abc')).toBeUndefined()
+  })
+})
+
+describe('isCountermeasureOverdue', () => {
+  const today = '2026-10-13'
+
+  it('flags a control whose due date has passed and that is not in effect', () => {
+    expect(isCountermeasureOverdue({ status: 'gap', dueDate: '2026-10-12' }, today)).toBe(true)
+    expect(isCountermeasureOverdue({ status: 'planned', dueDate: '2026-01-01' }, today)).toBe(true)
+  })
+
+  it('never flags a control in effect, due today or later, or without a date', () => {
+    expect(isCountermeasureOverdue({ status: 'verified', dueDate: '2026-01-01' }, today)).toBe(false)
+    expect(isCountermeasureOverdue({ status: 'platform', dueDate: '2026-01-01' }, today)).toBe(false)
+    expect(isCountermeasureOverdue({ status: 'implemented', dueDate: '2026-01-01' }, today)).toBe(false)
+    expect(isCountermeasureOverdue({ status: 'gap', dueDate: today }, today)).toBe(false)
+    expect(isCountermeasureOverdue({ status: 'gap', dueDate: '2026-12-01' }, today)).toBe(false)
+    expect(isCountermeasureOverdue({ status: 'gap', dueDate: null }, today)).toBe(false)
+  })
+
+  it('formats today in local time as YYYY-MM-DD', () => {
+    expect(todayIsoDate(new Date(2026, 0, 5))).toBe('2026-01-05')
+  })
+})
+
+describe('overdueCountermeasures', () => {
+  it('keeps only overdue ones, most overdue first, then by number', () => {
+    const rows = [
+      { number: 1, daysOverdue: null },
+      { number: 2, daysOverdue: 3 },
+      { number: 3, daysOverdue: 40 },
+      { number: 4, daysOverdue: 3 },
+      { number: 5, daysOverdue: 0 },
+    ]
+    expect(overdueCountermeasures(rows).map((row) => row.number)).toEqual([3, 2, 4])
   })
 })

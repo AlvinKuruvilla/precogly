@@ -314,4 +314,55 @@ test.describe('threat analysis screen', () => {
     await expect(page.getByRole('option', { name: 'Custom text' })).toHaveCount(0)
     await page.keyboard.press('Escape')
   })
+
+  test('a past due date makes a countermeasure overdue, and the chip filters the column to it', async ({ page }) => {
+    await openThreatAnalysis(page)
+    await selectComponentWithThreats(page)
+    await openThreatModal(page, await firstThreatNumber(page))
+    await page.keyboard.press('Escape')
+
+    // A control not in effect, so a past date makes it overdue.
+    const openRow = page
+      .locator('[data-countermeasure-number]')
+      .filter({ has: page.locator('[data-countermeasure-status="gap"], [data-countermeasure-status="planned"]') })
+      .first()
+    const countermeasureNumber = (await openRow.getAttribute('data-countermeasure-number')) ?? ''
+    const openCountermeasure = async () => {
+      await page.locator(`[data-countermeasure-number="${countermeasureNumber}"]`).first().getByRole('button', { name: /^Open / }).click()
+      const dialog = page.getByTestId('countermeasure-detail-dialog')
+      await expect(dialog).toBeVisible()
+      return dialog
+    }
+
+    let dialog = await openCountermeasure()
+    await dialog.getByLabel('Due date').fill('2020-01-01')
+    await dialog.getByRole('button', { name: 'Close', exact: true }).last().click()
+
+    const chip = page.getByTestId('overdue-filter')
+    await expect(chip).toBeVisible()
+    const overdueCount = Number((await chip.textContent())?.match(/\d+/)?.[0])
+    await chip.click()
+    await expect(chip).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-countermeasure-number]')).toHaveCount(overdueCount)
+    await expect(page.locator(`[data-countermeasure-number="${countermeasureNumber}"]`)).toBeVisible()
+    await chip.click()
+    await expect(chip).toHaveAttribute('aria-pressed', 'false')
+
+    // The model-wide list in the toolbar has it too, and opens it in place.
+    await page.getByTestId('model-overdue-button').click()
+    const overdueDialog = page.getByTestId('model-overdue-dialog')
+    const overdueRow = overdueDialog.locator(`[data-overdue-number="${countermeasureNumber}"]`)
+    await expect(overdueRow).toBeVisible()
+    await overdueRow.getByRole('button').click()
+    await expect(overdueDialog).toBeHidden()
+    await expect(page).toHaveURL(new RegExp(`/threat-analysis/components\\?countermeasure=${countermeasureNumber}$`))
+    await expect(page.getByTestId('countermeasure-detail-dialog')).toBeVisible()
+    await page.getByTestId('countermeasure-detail-dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
+
+    // Clean up: clear the date again.
+    dialog = await openCountermeasure()
+    await dialog.getByLabel('Due date').fill('')
+    await dialog.getByRole('button', { name: 'Close', exact: true }).last().click()
+    await expect(dialog).toBeHidden()
+  })
 })

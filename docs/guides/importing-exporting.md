@@ -92,7 +92,7 @@ The export reads the live model. The tables below say where each Precogly concep
 |----------|--------|
 | Risk | `risks.risks[]` with `statement` (built from the description or name when the risk has none, marked `precogly:statement-generated`), `status`, `domains` (with an imported domain's `priority` and `description`, and imported custom domains), `relatedThreats` (scenario refs), `relatedBusinessObjectives`, `owner`, `precogly:assigned-to` |
 | Inherent, residual, target rating | `inherentRisk`, `residualRisk`, `targetRisk` |
-| Response | `responses[]` with `strategy`, `description`, `status`, `effectiveness`, `cost`, `priority`, `owner`, `targetDate`, `controls`. An imported status that Precogly stores as planned (`recommended`, `proposed`, `approved`, `rejected`, `decommissioned`, or a custom one) is written back while the response is still planned |
+| Response | `responses[]` with `strategy`, `description`, `status`, `effectiveness`, `cost`, `priority`, `owner`, `targetDate`, `controls`. An imported status that Precogly stores as planned (`recommended`, `proposed`, `approved`, `rejected`, `decommissioned`, or a custom one) is written back while the response is still planned. On import, a response's `targetDate` becomes the due date of each control it names that has no `precogly:due-date` of its own; with several responses the earliest date wins. This is the spec's own place for a planned control's date in 2.0, such as a POA&M milestone, so overdue controls show from a file with no Precogly properties |
 
 **Definitions**
 
@@ -141,7 +141,7 @@ Everything Precogly stores that has no field in the schema is written as a `prec
 | `precogly:control-functions` | control | json | Every control function; the spec's single category holds the first spec value. |
 | `precogly:control-nature` | control | string | technical, administrative or physical. |
 | `precogly:priority` | control | string | The control's priority. |
-| `precogly:due-date` | control | date | Target completion date (a POA&M scheduled completion date). |
+| `precogly:due-date` | control | date | Target completion date (a POA&M scheduled completion date). Wins over a response's `targetDate` on import. |
 | `precogly:required-for-release` | control | boolean | True when the control blocks a release. |
 | `precogly:auto-generated` | control | boolean | True while the control is an untouched product of library generation. |
 | `precogly:source` | control | string | Where the control came from, as text. |
@@ -216,7 +216,7 @@ Owners and assignees are exported as parties with their email. On import they ar
 
 ![Import dialog accepting CycloneDX files](../assets/images/importing-exporting-cyclonedx-import.png)
 
-After the import, a summary shows the counts of what was created (blueprints, zones, boundaries, components, flows, data assets, threats, controls, risks and responses, assumptions, business objectives, personas, use cases, related models, diagrams, and diagrams generated) and every warning.
+After the import, a summary shows the counts of what was created (blueprints, zones, boundaries, components, flows, data assets, threats, controls, risks and responses, assumptions, business objectives, personas, use cases, related models, diagrams, and diagrams generated) and every warning. Where the file can be fixed, a warning says how: a missing required field names what to add, a requirement from a standard placed under `definitions.requirements` points to `definitions.standards[].requirements`, a `satisfies` entry that is not a reference asks for a bom-ref, a bad date shows the expected format, and an unknown status lists the ones Precogly reads. One warning also lists the custom properties Precogly keeps for export but does not read, so a value your tool relies on does not disappear without notice.
 
 !!! warning
     The import always creates a **new** threat model with its own serial number. It never merges into or updates an existing one. Importing the same file twice gives two models.

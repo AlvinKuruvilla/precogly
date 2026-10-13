@@ -307,7 +307,7 @@ The threat's overall status is derived from its countermeasures:
 
 ### Assign owners
 
-Assign each countermeasure to a responsible owner in the **Tracking** part of the countermeasure modal, together with a due date, priority, and ticket link. This drives the progress checklist and provides accountability.
+Assign each countermeasure to a responsible owner in the **Tracking** part of the countermeasure modal, together with a due date, priority, and ticket link. This drives the progress checklist and provides accountability. A countermeasure whose due date has passed and that is not yet implemented, verified or platform is overdue: the Countermeasures column shows an **N overdue** chip, and clicking it lists only those.
 
 ### Track compliance mappings
 

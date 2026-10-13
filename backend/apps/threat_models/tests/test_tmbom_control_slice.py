@@ -367,6 +367,57 @@ class ComplianceImportTests(ControlSliceTestCase):
         self.assertEqual(mapping.framework_name, "NIST 800-53 Rev 5 UNINSTALLED")
         self.assertEqual(mapping.requirement_description, "Monitor the system.")
 
+    def test_satisfies_several_unresolved_requirements_are_all_kept(self):
+        """PR #559's fix: every unresolved mapping of a control survives, not the last."""
+        document = _document(
+            definitions={
+                "standards": [
+                    {
+                        "bom-ref": "std-uninstalled",
+                        "name": "NIST 800-53 Rev 5 UNINSTALLED",
+                        "requirements": [
+                            {
+                                "bom-ref": "req-si4",
+                                "identifier": "SI-4",
+                                "title": "System monitoring",
+                            },
+                            {
+                                "bom-ref": "req-au6",
+                                "identifier": "AU-6",
+                                "title": "Audit review",
+                            },
+                            {
+                                "bom-ref": "req-ir4",
+                                "identifier": "IR-4",
+                                "title": "Incident handling",
+                            },
+                        ],
+                    }
+                ]
+            },
+            controls=[
+                {
+                    "bom-ref": "control-soc",
+                    "name": "Security operations centre",
+                    "status": "implemented",
+                    "satisfies": ["req-si4", "req-au6", "req-ir4"],
+                }
+            ],
+        )
+        threat_model, _ = self._import(document)
+        mappings = InstanceCountermeasureStandard.objects.filter(
+            countermeasure__threat_model=threat_model
+        )
+        self.assertEqual(
+            sorted(mapping.section_code for mapping in mappings),
+            ["AU-6", "IR-4", "SI-4"],
+        )
+        self.assertTrue(all(mapping.requirement is None for mapping in mappings))
+
+        # And all three go back out on export.
+        exported = TmBomAdapter().export_data(threat_model)
+        self.assertEqual(len(exported["controls"][0]["satisfies"]), 3)
+
     def test_satisfies_dangling_reference_warns_and_skips(self):
         document = _document(
             controls=[

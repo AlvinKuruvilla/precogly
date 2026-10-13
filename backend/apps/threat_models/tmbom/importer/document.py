@@ -21,6 +21,7 @@ from apps.organizations.models import TeamMembership
 from apps.packs.models import LibraryPack
 from apps.threat_models.models import ThreatModel, ThreatModelLibraryPack
 
+from ..import_hints import custom_properties_warning, with_hint
 from ..passthrough import keep_document_level
 from ..properties import PropertyOwner, read_properties
 from ..validation import check_ref_integrity, validate_document
@@ -175,7 +176,10 @@ def import_document(document, organization, user):
     context = ImportContext(document=document, organization=organization, user=user)
 
     for error in validate_document(document):
-        context.warn(f"Schema: {error}")
+        context.warn(with_hint(error))
+    custom_properties = custom_properties_warning(document)
+    if custom_properties:
+        context.warn(custom_properties)
     for finding in check_ref_integrity(document):
         context.warn(f"References: {finding}")
 
