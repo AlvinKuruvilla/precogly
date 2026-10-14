@@ -116,6 +116,8 @@ Flows have their own type and their own authentication list, with the same `none
 
 A threat can target a zone or a boundary directly, as well as components and flows. The threat analysis tree lists zones (nested as on the canvas) with their components and their own threats, and a **Boundaries** group per blueprint. A countermeasure can be scoped to a zone or boundary through **Applies to**. See [Threat Analysis](threat-analysis.md).
 
+Target a zone when the threat spreads across it or affects everything in it, such as ransomware moving through a corporate intranet. When a threat starts at or affects one element, such as a flaw in a load balancer in the DMZ, target that component, flow or boundary instead.
+
 ## What the export contains
 
 Each zone is exported with its type and, when set, a `precogly:trust-level` property. Each boundary is exported with its type, `crossingRequirements`, and `sessionManagement`. For every boundary of type `trust`, the export also writes a `trustBoundaries` entry under `threats`, listing the scenarios that target the boundary and the controls scoped to it. Its `trustLevel` is written only when both zones have a level, and is then the lower of the two by the ranges above. With one side unset the entry has no trust level, because guessing from the known side could label an Internet to DMZ boundary as highly trusted.
