@@ -160,12 +160,19 @@ export function ComplianceMatrixSection({ matrix = [], threatModelId }: Complian
                       <ul className="space-y-0.5">
                         {row.controls.map((control) => (
                           <li key={control.id} className="flex flex-wrap items-center gap-x-1.5">
-                            <Link
-                              to={`/threat-models/${threatModelId}/threat-analysis/components?countermeasure=${control.displayNumber}`}
-                              className="font-mono text-xs text-blue-600 hover:underline"
-                            >
-                              {control.displayNumber}
-                            </Link>
+                            {/* The link opens the control beside a threat it mitigates; one linked to no threat has nowhere to open. */}
+                            {control.threats.length > 0 ? (
+                              <Link
+                                to={`/threat-models/${threatModelId}/threat-analysis/components?countermeasure=${control.displayNumber}`}
+                                className="font-mono text-xs text-blue-600 hover:underline"
+                              >
+                                {control.displayNumber}
+                              </Link>
+                            ) : (
+                              <span className="font-mono text-xs" title="Not linked to any threat">
+                                {control.displayNumber}
+                              </span>
+                            )}
                             <span>{control.name}</span>
                             <span className="text-xs text-muted-foreground">
                               {statusLabel(control.status)}

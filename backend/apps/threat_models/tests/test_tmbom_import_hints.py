@@ -167,6 +167,8 @@ class ImportWarningTests(TestCase):
             )
         )
         self.assertIn("tool:target-date (1)", warnings)
+        # Not every custom property survives export, so the warning must not promise it.
+        self.assertIn("Most are written back on export, but not", warnings)
         self.assertIn("YYYY-MM-DD", warnings)
 
     def test_an_unknown_status_lists_the_ones_precogly_reads(self):

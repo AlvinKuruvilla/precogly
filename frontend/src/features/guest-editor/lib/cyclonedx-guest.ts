@@ -108,6 +108,13 @@ import {
   targetTypeForEdge,
   targetTypeForNode,
 } from './guest-model'
+import {
+  LEGACY_FILE_WARNING,
+  LEGACY_VISUALIZATION_TYPE,
+  applyLegacySystemContext,
+  legacyCanvas,
+  upgradeLegacyGuestFile,
+} from './legacy-guest-file'
 
 // ---------------------------------------------------------------------------
 // Shared constants
@@ -1348,6 +1355,11 @@ class Importer {
         this.kept.visualization = kept
         continue
       }
+      // The earlier guest editor's canvas: read it, and let the save write a current visualization.
+      if (canvas === null && visualization.type === LEGACY_VISUALIZATION_TYPE && isObject(visualization.data)) {
+        canvas = legacyCanvas(visualization)
+        continue
+      }
       ;(this.kept.hiddenEntries.visualizations ??= []).push(deepClone(visualization))
     }
     if (canvas === null) {
@@ -2046,7 +2058,9 @@ export function deserializeCycloneDxToGuest(json: string): DeserializedFile {
     throw new Error(`Unsupported CycloneDX version '${specVersion || 'unknown'}'. Only version 2.x files are supported.`)
   }
 
+  const legacySystemContext = upgradeLegacyGuestFile(parsed)
   const importer = new Importer(parsed)
+  if (legacySystemContext) importer.warn(LEGACY_FILE_WARNING)
   importer.readDocumentLevel()
   const blueprint = importer.readBlueprint()
   const systemContext = emptySystemContext()
@@ -2067,6 +2081,7 @@ export function deserializeCycloneDxToGuest(json: string): DeserializedFile {
   const countermeasures = importer.readControls(scenarioRefToId, abstractToThreatIds)
   systemContext.session = importer.readSession()
   systemContext.systemInfo.criticality = importer.readCriticality()
+  if (legacySystemContext) applyLegacySystemContext(systemContext, legacySystemContext)
   const documentState = importer.readIdentity(threats, countermeasures)
   const hiddenBlueprintCount = documentState.kept.extraBlueprints.length
   if (hiddenBlueprintCount > 0) {

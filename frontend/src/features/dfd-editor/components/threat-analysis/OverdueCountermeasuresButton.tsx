@@ -20,6 +20,9 @@ import { CountermeasureStatusDot } from './CountermeasureCard'
 import { NumberBadge } from './NumberBadge'
 import { overdueCountermeasures } from './countermeasure-utils'
 
+/** The server's largest page (`ClientSizedPagination.max_page_size`). */
+const MAX_PAGE_SIZE = 200
+
 interface OverdueCountermeasuresButtonProps {
   threatModelId: string
   /** Open the countermeasure with this display number (`C5`) in the components view. */
@@ -28,7 +31,12 @@ interface OverdueCountermeasuresButtonProps {
 
 export function OverdueCountermeasuresButton({ threatModelId, onOpenCountermeasure }: OverdueCountermeasuresButtonProps) {
   const [open, setOpen] = useState(false)
-  const { data: countermeasures = [] } = useCountermeasures({ threatModel: threatModelId })
+  // Ask the server for the overdue ones only: an unfiltered list stops at the first page of 20.
+  const { data: countermeasures = [] } = useCountermeasures({
+    threatModel: threatModelId,
+    overdue: true,
+    pageSize: MAX_PAGE_SIZE,
+  })
   const overdue = useMemo(() => overdueCountermeasures(countermeasures), [countermeasures])
 
   if (overdue.length === 0) return null

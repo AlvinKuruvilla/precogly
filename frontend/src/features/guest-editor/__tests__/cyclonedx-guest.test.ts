@@ -11,6 +11,9 @@ import type { GuestThreat, GuestCountermeasure, GuestSystemContext, GuestDocumen
 import type { CycloneDxDocument } from '../lib/cyclonedx-types'
 import { BACKEND_AVAILABLE, assertValidTmBom, readReferenceFixture } from './tmbom-schema'
 import { canonical, canonicalLines } from './tmbom-canonical'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { LEGACY_FILE_WARNING } from '../lib/legacy-guest-file'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -764,5 +767,57 @@ describeWithBackend('error handling', () => {
     const left = canonical({ blueprints: [{ 'bom-ref': 'a', zones: [{ 'bom-ref': 'z', parent: 'a' }] }] })
     const right = canonical({ blueprints: [{ 'bom-ref': 'x', zones: [{ 'bom-ref': 'y', parent: 'x' }] }] })
     expect(left).toEqual(right)
+  })
+})
+
+// A file saved by the guest editor on main before #584 (fixtures/legacy-guest-file.cdx.json,
+// written with that version's serializer). Guest users have no database: the file is all they have.
+describeWithBackend('files from the earlier guest editor', () => {
+  const legacyJson = readFileSync(resolve(__dirname, 'fixtures', 'legacy-guest-file.cdx.json'), 'utf8')
+
+  it('opens with the threats, diagram and system details it was saved with', () => {
+    const loaded = deserializeCycloneDxToGuest(legacyJson)
+    expect(loaded.warnings).toContain(LEGACY_FILE_WARNING)
+    // Data stores were assets of type data-store; each must still match its node.
+    expect(loaded.hiddenElementCount).toBe(0)
+
+    expect(loaded.threats.map((threat) => [threat.name, threat.level, threat.status, threat.category ?? null])).toEqual([
+      ['SQL Injection', 'high', 'mitigate', 'tampering'],
+      ['Card data sniffed', 'critical', 'open', null],
+      ['Denial of service', 'medium', 'accept', null],
+    ])
+    expect(loaded.threats[2].decisionRationale).toBe('CDN absorbs it')
+    const sqlInjection = loaded.threats[0]
+    expect(loaded.countermeasures.map((countermeasure) => [countermeasure.name, countermeasure.threatIds])).toEqual([
+      ['Parameterised queries', [sqlInjection.id]],
+    ])
+
+    // The saved layout, not a generated one.
+    const web = loaded.nodes.find((node) => node.id === 'process-web')
+    expect(web?.position).toEqual({ x: 80, y: 100 })
+    expect(web?.parentId).toBe('zone-dmz')
+    expect(loaded.edges.map((edge) => edge.id).sort()).toEqual(['boundary-edge', 'flow-checkout', 'flow-save'])
+    expect(loaded.threats[1].targets.map((target) => target.id)).toEqual(['flow-checkout'])
+
+    const context = loaded.systemContext
+    expect(context.session).toEqual({ facilitator: 'Alice', participants: ['Bob', 'Chen'], meetingDate: '2026-09-01' })
+    expect(context.systemInfo).toEqual({ description: 'Online shop', criticality: 'high' })
+    expect(context.outOfScopeItems).toEqual([{ id: 'oos-1', name: 'Payment provider', reason: 'Third party' }])
+    expect(context.dataAssets).toMatchObject([
+      { name: 'Card data', classification: 'restricted', confidentiality: 'high', integrity: 'high', availability: 'medium', complianceTags: ['PCI DSS'], dataSensitivity: ['financial'] },
+    ])
+    expect(context.assumptions.map((assumption) => assumption.validity)).toEqual(['verified', 'invalid'])
+  })
+
+  it('saves as a valid 2.0 document that opens again without the old-format warning', () => {
+    const loaded = deserializeCycloneDxToGuest(legacyJson)
+    const saved = buildGuestDocument({ ...loaded, title: loaded.title })
+    assertValidTmBom(saved.document, 'legacy re-save')
+    const reopened = deserializeCycloneDxToGuest(saved.json)
+    expect(reopened.warnings).not.toContain(LEGACY_FILE_WARNING)
+    expect(reopened.threats.map((threat) => threat.name)).toEqual(['SQL Injection', 'Card data sniffed', 'Denial of service'])
+    expect(reopened.systemContext.session.facilitator).toBe('Alice')
+    expect(reopened.systemContext.dataAssets[0].confidentiality).toBe('high')
+    expect(reopened.nodes.find((node) => node.id === 'process-web')?.position).toEqual({ x: 80, y: 100 })
   })
 })

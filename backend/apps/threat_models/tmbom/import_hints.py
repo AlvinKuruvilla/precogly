@@ -95,12 +95,14 @@ def _is_precogly_property(name: str) -> bool:
 
 
 def custom_properties_warning(document: dict, limit: int = 8) -> str | None:
-    """One warning naming the custom properties Precogly kept but does not read.
+    """One warning naming the custom properties Precogly does not read.
 
     Precogly reads the spec's own fields and its ``precogly:`` properties.
-    Any other property (a tool's own ``vendor:due``, say) is kept and written
-    back on export, but nothing in the model uses it, so a value the team
-    relies on would otherwise disappear from view without a word.
+    Nothing in the model uses any other property (a tool's own ``vendor:due``,
+    say), so a value the team relies on would otherwise disappear from view
+    without a word. Most are written back on export (``passthrough.keep_unknown``),
+    but not those on objects rebuilt from Precogly's own fields, such as the
+    metadata component, the scope, threat actors and visualizations.
     """
     counts: Counter = Counter()
 
@@ -123,7 +125,9 @@ def custom_properties_warning(document: dict, limit: int = 8) -> str | None:
     listed = ", ".join(f"{name} ({count})" for name, count in counts.most_common(limit))
     more = f", and {len(counts) - limit} more" if len(counts) > limit else ""
     return (
-        f"Custom properties Precogly does not read were kept and are written back on export: {listed}{more}. "
+        f"Custom properties Precogly does not read: {listed}{more}. "
+        "Most are written back on export, but not those on objects Precogly rebuilds from its own fields "
+        "(such as threat actors and visualizations). "
         "To have Precogly use a value, write it in the spec's own field or as a precogly: property "
         "(for a control's due date: a risk response's targetDate, or precogly:due-date); see "
         "Importing and Exporting in the docs."

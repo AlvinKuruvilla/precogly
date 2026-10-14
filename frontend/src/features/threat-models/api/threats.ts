@@ -275,6 +275,8 @@ export interface CountermeasureFilters {
   number?: number
   /** Open controls past their due date. */
   overdue?: boolean
+  /** Results per page; the server's default is 20 and its maximum 200. */
+  pageSize?: number
 }
 
 function countermeasureQueryString(filters: CountermeasureFilters): string {
@@ -289,6 +291,7 @@ function countermeasureQueryString(filters: CountermeasureFilters): string {
   }
   if (filters.number !== undefined) params.set('number', String(filters.number))
   if (filters.overdue) params.set('overdue', 'true')
+  if (filters.pageSize !== undefined) params.set('page_size', String(filters.pageSize))
   return params.toString()
 }
 

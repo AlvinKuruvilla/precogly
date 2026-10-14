@@ -3,7 +3,7 @@
 Precogly exports threat models as CycloneDX 2.0 Threat Modeling BOM (TM-BOM) JSON and imports them back, enabling cross-instance transfer, version-controlled threat models, and interoperability with other tools. For background on the format and version control workflows, see [Threat Model as Code](../concepts/threat-model-as-code.md).
 
 !!! info "One format"
-    The [CycloneDX 2.0 TM-BOM](https://cyclonedx.org/) is Precogly's only interchange format. The earlier TM-Library format has been removed, in both directions. Files saved or exported by earlier versions of Precogly are not supported either; see [Files from earlier versions](#files-from-earlier-versions).
+    The [CycloneDX 2.0 TM-BOM](https://cyclonedx.org/) is Precogly's only interchange format. The earlier TM-Library format has been removed, in both directions. Files exported by earlier versions of Precogly are not supported either, except in the guest editor; see [Files from earlier versions](#files-from-earlier-versions).
 
 ## The schema
 
@@ -216,7 +216,7 @@ Owners and assignees are exported as parties with their email. On import they ar
 
 ![Import dialog accepting CycloneDX files](../assets/images/importing-exporting-cyclonedx-import.png)
 
-After the import, a summary shows the counts of what was created (blueprints, zones, boundaries, components, flows, data assets, threats, controls, risks and responses, assumptions, business objectives, personas, use cases, related models, diagrams, and diagrams generated) and every warning. Where the file can be fixed, a warning says how: a missing required field names what to add, a requirement from a standard placed under `definitions.requirements` points to `definitions.standards[].requirements`, a `satisfies` entry that is not a reference asks for a bom-ref, a bad date shows the expected format, and an unknown status lists the ones Precogly reads. One warning also lists the custom properties Precogly keeps for export but does not read, so a value your tool relies on does not disappear without notice.
+After the import, a summary shows the counts of what was created (blueprints, zones, boundaries, components, flows, data assets, threats, controls, risks and responses, assumptions, business objectives, personas, use cases, related models, diagrams, and diagrams generated) and every warning. Where the file can be fixed, a warning says how: a missing required field names what to add, a requirement from a standard placed under `definitions.requirements` points to `definitions.standards[].requirements`, a `satisfies` entry that is not a reference asks for a bom-ref, a bad date shows the expected format, and an unknown status lists the ones Precogly reads. One warning also lists the custom properties Precogly does not read, so a value your tool relies on does not disappear without notice. Most are written back on export, but not those on objects Precogly rebuilds from its own fields, such as threat actors and visualizations.
 
 !!! warning
     The import always creates a **new** threat model with its own serial number. It never merges into or updates an existing one. Importing the same file twice gives two models.
@@ -305,7 +305,9 @@ These parts of the schema are not shown, linked, or edited. All of them are kept
 
 ### Files from earlier versions
 
-Files exported or saved by earlier versions of Precogly (before the TM-BOM alignment) used an older shape that does not match the schema. They are not supported: there is no converter in the backend or the guest editor. Such a file goes through the normal import, most of its content lands in the warnings, and the result is not the model you had. To open one as it was, run the previous version of Precogly in Docker; there is no upgrade path for such a file. TM-Library files cannot be imported at all.
+Files exported or saved by earlier versions of Precogly (before the TM-BOM alignment) used an older shape that does not match the schema. The workspace does not support them: there is no converter in the backend. Such a file goes through the normal import, most of its content lands in the warnings, and the result is not the model you had. To open one as it was, run the previous version of Precogly in Docker. TM-Library files cannot be imported at all.
+
+The guest editor converts files saved by its own earlier version when it opens them, since a guest's file is their only copy. The diagram, threats, countermeasures and system details come across, and a notice asks you to save the file, which writes the current format. Saved again, such a file also imports into the workspace.
 
 ---
 
