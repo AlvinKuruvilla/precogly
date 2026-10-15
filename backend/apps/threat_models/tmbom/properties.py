@@ -158,8 +158,9 @@ REGISTRY: tuple[PrecoglyProperty, ...] = (
         "precogly:instance-categories",
         PropertyOwner.SCENARIO,
         PropertyValueType.JSON,
-        "Taxonomy entries added on the scenario itself: "
-        "[{taxonomy_slug, external_id, title}].",
+        "Taxonomy entries added on a library threat's scenario itself, which its "
+        "shared threat definition cannot carry: [{taxonomy_slug, external_id, "
+        "title}]. A custom threat's own categories are on its definition.",
     ),
     PrecoglyProperty(
         "precogly:threat-sources",

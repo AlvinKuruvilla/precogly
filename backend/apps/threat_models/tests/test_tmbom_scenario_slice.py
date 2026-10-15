@@ -50,6 +50,9 @@ def build_model(organization, user):
     tampering = TaxonomyEntry.objects.create(
         taxonomy=stride, external_id="tampering", title="Tampering"
     )
+    denial = TaxonomyEntry.objects.create(
+        taxonomy=stride, external_id="denial-of-service", title="Denial of Service"
+    )
     capec = ExternalTaxonomy.objects.create(slug="capec", name="CAPEC")
     capec_66 = TaxonomyEntry.objects.create(
         taxonomy=capec, external_id="66", title="SQL Injection"
@@ -109,9 +112,15 @@ def build_model(organization, user):
             {"taxonomy_slug": "capec", "external_id": "150", "title": "Collect data"},
         ],
     )
-    create_instance_threat(
+    # Typed in by hand in the workspace: no library, no snapshot, only the
+    # categories picked on the threat itself.
+    zone_threat = create_instance_threat(
         threat_model, targets=[dmz], threat_name="Zone hopping", level="low"
     )
+    for entry in (tampering, denial, capec_66):
+        InstanceThreatTaxonomyEntry.objects.create(
+            taxonomy_entry=entry, threat=zone_threat
+        )
     return threat_model
 
 
@@ -146,6 +155,37 @@ class ExportTests(TestCase):
             [{"taxonomy": "STRIDE", "category": "information-disclosure"}],
         )
         self.assertNotIn("origin", custom)
+
+    def test_a_hand_typed_threats_own_categories_are_on_its_definition(self):
+        by_name = {t["name"]: t for t in self.document["threats"]["threats"]}
+        typed = by_name["Zone hopping"]
+        self.assertTrue(typed["bom-ref"].startswith("threat-custom-"))
+        self.assertEqual(
+            typed["categories"],
+            [
+                {"taxonomy": "STRIDE", "category": "tampering"},
+                {"taxonomy": "STRIDE", "category": "denial-of-service"},
+            ],
+        )
+        self.assertEqual(
+            [
+                p["value"]
+                for p in typed["properties"]
+                if p["name"] == "precogly:taxonomy"
+            ],
+            ['{"external_id":"66","taxonomy_slug":"capec","title":"SQL Injection"}'],
+        )
+        # The definition is this threat's alone, so the scenario does not
+        # repeat the categories; a library threat's scenario still does.
+        scenarios = {s["name"]: s for s in self.document["threats"]["scenarios"]}
+        self.assertNotIn(
+            "precogly:instance-categories",
+            {p["name"] for p in scenarios["Zone hopping"]["properties"]},
+        )
+        self.assertIn(
+            "precogly:instance-categories",
+            {p["name"] for p in scenarios["SQL injection"]["properties"]},
+        )
 
     def test_scenarios_carry_targets_actor_and_number(self):
         scenarios = {s["name"]: s for s in self.document["threats"]["scenarios"]}
@@ -259,10 +299,29 @@ class RoundTripTests(TestCase):
 
         zone_threat = threats["Zone hopping"]
         self.assertEqual(zone_threat.targets.get().target_kind, "zone")
+        # Its categories name installed entries, so they come back editable,
+        # as instance entries, not as a locked snapshot.
+        self.assertEqual(
+            sorted(
+                zone_threat.instance_taxonomy_links.values_list(
+                    "taxonomy_entry__external_id", flat=True
+                )
+            ),
+            ["66", "denial-of-service", "tampering"],
+        )
+        self.assertEqual(zone_threat.taxonomy_snapshot, [])
         self.assertEqual(_next_number(imported), 4)
 
         again = adapter.export_data(imported)
         assert_valid_tmbom(again)
+        typed_before = next(
+            t for t in document["threats"]["threats"] if t["name"] == "Zone hopping"
+        )
+        typed_after = next(
+            t for t in again["threats"]["threats"] if t["name"] == "Zone hopping"
+        )
+        self.assertEqual(typed_after["categories"], typed_before["categories"])
+        self.assertEqual(typed_after["properties"], typed_before["properties"])
         self.assertEqual(
             {s["bom-ref"] for s in again["threats"]["scenarios"]},
             {s["bom-ref"] for s in document["threats"]["scenarios"]},

@@ -36,8 +36,10 @@ const STRIDE_BORDER_COLORS: Record<string, string> = {
 export function StrideSummary({ threatAnalysis, methodologies }: StrideSummaryProps) {
   if (methodologies !== undefined && !isStrideSummaryVisible(methodologies)) return null
 
-  const { strideSummary } = threatAnalysis
-  const totalThreats = Object.values(strideSummary).reduce((sum, count) => sum + count, 0)
+  const { strideSummary, threats } = threatAnalysis
+  // A threat with several STRIDE categories counts under each, so the total
+  // is the number of active threats, not the sum of the category counts.
+  const totalThreats = threats.length
 
   if (totalThreats === 0) {
     return (

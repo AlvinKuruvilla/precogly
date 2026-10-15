@@ -16,6 +16,7 @@ from apps.threats.models import (
     CountermeasureThreatLink,
     ExternalTaxonomy,
     InstanceCountermeasure,
+    InstanceThreatTaxonomyEntry,
     TaxonomyEntry,
     ThreatLibrary,
     ThreatLibraryTaxonomyEntry,
@@ -266,3 +267,92 @@ class ReportServiceTests(TestCase):
         # from the rows' blueprint keys, not from the primary canvas (F30).
         self.assertEqual(coverage["countermeasures_assigned"]["numerator"], 2)
         self.assertEqual(coverage["countermeasures_assigned"]["denominator"], 2)
+
+
+class StrideSummaryTests(TestCase):
+    """A threat counts once under each of its STRIDE categories."""
+
+    @classmethod
+    def setUpTestData(cls):
+        organization = Organization.objects.create(name="Org", domain="org.test")
+        user = User.objects.create_user(
+            username="owner", email="owner@org.test", password="x"
+        )
+        cls.threat_model = ThreatModel.objects.create(
+            name="Single component", organization=organization, created_by=user
+        )
+        api = OrgsystemComponent.objects.create(
+            blueprint=cls.threat_model.default_blueprint, name="API"
+        )
+        stride = ExternalTaxonomy.objects.create(slug="stride", name="STRIDE")
+        entries = {
+            external_id: TaxonomyEntry.objects.create(
+                taxonomy=stride, external_id=external_id, title=external_id
+            )
+            for external_id in (
+                "tampering",
+                "information-disclosure",
+                "denial-of-service",
+            )
+        }
+        library_threat = ThreatLibrary.objects.create(slug="sqli", name="SQL injection")
+        ThreatLibraryTaxonomyEntry.objects.create(
+            threat_library=library_threat, taxonomy_entry=entries["tampering"]
+        )
+
+        cls.typed = create_instance_threat(
+            cls.threat_model, targets=[api], threat_name="A threat", level="high"
+        )
+        for external_id in ("information-disclosure", "tampering", "denial-of-service"):
+            InstanceThreatTaxonomyEntry.objects.create(
+                taxonomy_entry=entries[external_id], threat=cls.typed
+            )
+        # Tampering both from the library and added on the scenario: once.
+        cls.from_library = create_instance_threat(
+            cls.threat_model,
+            targets=[api],
+            threat_library=library_threat,
+            level="medium",
+        )
+        InstanceThreatTaxonomyEntry.objects.create(
+            taxonomy_entry=entries["tampering"], threat=cls.from_library
+        )
+        # Imported from another tool: STRIDE only in the snapshot.
+        create_instance_threat(
+            cls.threat_model,
+            targets=[api],
+            threat_name="Imported",
+            level="low",
+            taxonomy_snapshot=[
+                {"taxonomy_slug": "stride", "external_id": "spoofing", "title": "S"}
+            ],
+        )
+        create_instance_threat(
+            cls.threat_model, targets=[api], threat_name="Unclassified", level="low"
+        )
+
+    def test_each_category_counts_the_threat_once(self):
+        analysis = build_report_data(self.threat_model)["threat_analysis"]
+        self.assertEqual(
+            analysis["stride_summary"],
+            {
+                "tampering": 2,
+                "information-disclosure": 1,
+                "denial-of-service": 1,
+                "spoofing": 1,
+                "unknown": 1,
+            },
+        )
+        self.assertEqual(len(analysis["threats"]), 4)
+        by_name = {t["threat_name"]: t for t in analysis["threats"]}
+        self.assertEqual(
+            by_name["A threat"]["stride_categories"],
+            ["information-disclosure", "tampering", "denial-of-service"],
+        )
+        self.assertEqual(
+            by_name["A threat"]["stride_category"], "information-disclosure"
+        )
+        self.assertEqual(by_name["SQL injection"]["stride_categories"], ["tampering"])
+        self.assertEqual(by_name["Imported"]["stride_categories"], ["spoofing"])
+        self.assertEqual(by_name["Unclassified"]["stride_categories"], [])
+        self.assertEqual(by_name["Unclassified"]["stride_category"], "unknown")

@@ -244,7 +244,10 @@ export interface ReportThreat {
   targets: string[]
   threatName: string
   threatDescription: string
+  /** The first STRIDE category, or `unknown`; kept for readers that show one value. */
   strideCategory: string | null
+  /** Every STRIDE category of the threat, each once. */
+  strideCategories?: string[]
   businessObjectives: string[]
   taxonomyEntries?: ReportThreatTaxonomyEntry[]
   rating: ReportRating | null
@@ -265,6 +268,10 @@ export interface ReportTriagedThreat {
 }
 
 export interface ReportThreatAnalysis {
+  /**
+   * Active threats per STRIDE category. A threat with several categories
+   * counts under each, so the values can add up to more than `threats.length`.
+   */
   strideSummary: Record<string, number>
   /** Every active scenario once, with its targets. */
   threats: ReportThreat[]

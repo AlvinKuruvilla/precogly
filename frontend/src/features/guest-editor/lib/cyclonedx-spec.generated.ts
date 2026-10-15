@@ -141,7 +141,7 @@ export const PRECOGLY_PROPERTIES: readonly PrecoglyPropertyEntry[] = [
     "name": "precogly:instance-categories",
     "owner": "scenario",
     "valueType": "json",
-    "description": "Taxonomy entries added on the scenario itself: [{taxonomy_slug, external_id, title}].",
+    "description": "Taxonomy entries added on a library threat's scenario itself, which its shared threat definition cannot carry: [{taxonomy_slug, external_id, title}]. A custom threat's own categories are on its definition.",
   },
   {
     "name": "precogly:threat-sources",

@@ -123,7 +123,7 @@ Everything Precogly stores that has no field in the schema is written as a `prec
 | `precogly:decision-rationale` | scenario | string | Rationale recorded with the triage decision. |
 | `precogly:auto-generated` | scenario | boolean | True while the scenario is an untouched product of library generation. |
 | `precogly:impact-description` | scenario | string | What the attacker achieves, when the scenario has no impact level to carry it as impact.description. |
-| `precogly:instance-categories` | scenario | json | Taxonomy entries added on the scenario itself: [{taxonomy_slug, external_id, title}]. |
+| `precogly:instance-categories` | scenario | json | Taxonomy entries added on a library threat's scenario itself, which its shared threat definition cannot carry: [{taxonomy_slug, external_id, title}]. A custom threat's own categories are on its definition. |
 | `precogly:threat-sources` | scenario | json | Slugs of the NIST SP 800-30 threat sources the scenario cites. |
 | `precogly:split-from` | scenario | string | The ref of the imported scenario this one was split from. |
 | `precogly:taxonomy` | threat | json | A taxonomy entry outside the four spec taxonomies: {taxonomy_slug, external_id, title}. |

@@ -10,7 +10,9 @@ Rules (plan sections 9.3 and 9.4):
   Only the first keeps the document's ref and number (H10).
 - An abstract threat whose ref is ``threat-<qualified slug>`` of an installed
   library row links to it; any other becomes a custom threat that remembers
-  the abstract ref, so export re-emits it.
+  the abstract ref, so export re-emits it. A custom threat's categories that
+  name an installed taxonomy entry become instance entries, editable like
+  ones added in the workspace; the rest are kept in ``taxonomy_snapshot``.
 - The actor is a persona (created from its party, matched by symbolic name)
   or, for an actor carrying ``precogly:actor-text``, free text (K3). Actors
   with the ``attacker`` role or archetype become personas even when no
@@ -88,6 +90,21 @@ def _snapshot_from_abstract(abstract_data: dict) -> list[dict]:
                 }
             )
     return entries
+
+
+def _split_abstract_entries(abstract_data: dict) -> tuple[list, list[dict]]:
+    """``(installed entries, snapshot entries)`` of a custom threat's definition."""
+    installed: list = []
+    snapshot: list[dict] = []
+    for item in _snapshot_from_abstract(abstract_data):
+        entry = TaxonomyEntry.objects.filter(
+            taxonomy__slug=item["taxonomy_slug"], external_id=item["external_id"]
+        ).first()
+        if entry is None:
+            snapshot.append(item)
+        elif entry not in installed:
+            installed.append(entry)
+    return installed, snapshot
 
 
 def _flatten(values) -> list:
@@ -393,6 +410,13 @@ class ThreatImporter:
             if not description and library is None:
                 description = str(abstract_data.get("description") or "")
 
+            installed_entries: list = []
+            snapshot_entries: list[dict] | None = None
+            if library is None:
+                installed_entries, snapshot_entries = _split_abstract_entries(
+                    abstract_data
+                )
+
             rating = rating_from_spec(
                 scenario.get("riskScore"),
                 scenario.get("likelihood"),
@@ -422,9 +446,7 @@ class ThreatImporter:
                 number=self._number(properties, label) if position == 0 else None,
                 threat_name=threat_name[:255],
                 threat_description=description,
-                taxonomy_snapshot=(
-                    _snapshot_from_abstract(abstract_data) if library is None else None
-                ),
+                taxonomy_snapshot=snapshot_entries,
                 status=_choice(
                     "status", properties.get("precogly:threat-status"), "exposed"
                 ),
@@ -479,6 +501,10 @@ class ThreatImporter:
                 threat.format_metadata = metadata
                 threat.save(update_fields=["format_metadata"])
 
+            for entry in installed_entries:
+                InstanceThreatTaxonomyEntry.objects.get_or_create(
+                    taxonomy_entry=entry, threat=threat
+                )
             self._link_instance_categories(threat, properties, label)
             self._link_sources(threat, properties, abstract_data, label)
             self._link_objectives(threat, properties, abstract_data, label)

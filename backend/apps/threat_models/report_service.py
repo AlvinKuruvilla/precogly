@@ -366,20 +366,20 @@ def _build_flows(dataflow_ids):
     return result
 
 
-def _get_stride_category(threat_instance):
-    """Extract STRIDE category from library or instance taxonomy entries."""
-    if threat_instance.threat_library:
-        for join in threat_instance.threat_library.taxonomy_entries.all():
-            entry = join.taxonomy_entry
-            if entry.taxonomy and entry.taxonomy.slug == "stride":
-                return entry.external_id
+def _get_stride_categories(threat_instance):
+    """Every STRIDE category of the threat, in order, each once.
 
-    for link in threat_instance.instance_taxonomy_links.all():
-        entry = link.taxonomy_entry
-        if entry.taxonomy and entry.taxonomy.slug == "stride":
-            return entry.external_id
-
-    return "unknown"
+    Library, instance and snapshot entries all count (a custom threat imported
+    from another tool may carry STRIDE only in its snapshot).
+    """
+    categories = []
+    for entry in _get_taxonomy_entries(threat_instance):
+        if entry.get("taxonomy_slug") != "stride":
+            continue
+        category = str(entry.get("external_id") or "").strip().lower()
+        if category and category not in categories:
+            categories.append(category)
+    return categories
 
 
 def _get_taxonomy_entries(threat_instance):
@@ -565,8 +565,12 @@ def _build_threat_analysis(threat_model):
         )
         targets = _target_names(threat)
         if threat.triage_status in ACTIVE_TRIAGE_STATUSES:
-            category = _get_stride_category(threat)
-            stride_counts[category] += 1
+            # A threat counts once under each of its STRIDE categories, so the
+            # summary's per-category counts can add up to more than the number
+            # of threats; readers take the threat total from ``threats``.
+            stride_categories = _get_stride_categories(threat)
+            for category in stride_categories or ["unknown"]:
+                stride_counts[category] += 1
             active.append(
                 {
                     "id": threat.id,
@@ -581,7 +585,10 @@ def _build_threat_analysis(threat_model):
                         if threat.threat_library
                         else None
                     ),
-                    "stride_category": category,
+                    "stride_category": (
+                        stride_categories[0] if stride_categories else "unknown"
+                    ),
+                    "stride_categories": stride_categories,
                     "business_objectives": [
                         link.business_objective.name
                         for link in threat.business_objective_links.all()

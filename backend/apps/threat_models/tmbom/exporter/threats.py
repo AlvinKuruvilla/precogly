@@ -8,7 +8,10 @@
 - One ``threats.threats[]`` entry per library threat in use, with the ref
   ``threat-<qualified slug>`` so it is the same on every installation (M1), or
   one synthesized entry per custom threat (``threat-custom-<id>``). Categories
-  use the four spec taxonomies; anything else is ``precogly:taxonomy``.
+  use the four spec taxonomies; anything else is ``precogly:taxonomy``. A
+  custom threat's own categories go on its definition as well as on the
+  scenario's ``precogly:instance-categories``; a library definition is shared
+  by every scenario of that threat, so it carries only the library's.
   ``origin`` is written only when every scenario of that threat cites the
   same single source (H17).
 - One ``actors[]`` entry on the first blueprint per persona and per distinct
@@ -185,9 +188,12 @@ class AbstractThreatIndex:
             description = library.description
             taxonomy_entries = _library_entries(library)
         else:
+            # A custom threat owns its definition, so the categories set on
+            # the scenario itself belong there too; ``_categories_and_properties``
+            # drops any that the snapshot already carries.
             name = threat_display_name(threat)
             description = threat.threat_description
-            taxonomy_entries = _snapshot_entries(threat)
+            taxonomy_entries = _snapshot_entries(threat) + _instance_entries(threat)
         entry = {"bom-ref": self.refs.fixed(key), "name": name}
         if description:
             entry["description"] = description
@@ -358,7 +364,9 @@ def _scenario_properties(threat) -> list[dict]:
         )
     if threat.auto_generated:
         properties.append(make_property("precogly:auto-generated", owner, True))
-    instance_entries = _instance_entries(threat)
+    # A custom threat's own categories sit on its definition, which only it
+    # uses; a library definition is shared, so they ride on the scenario.
+    instance_entries = _instance_entries(threat) if threat.threat_library_id else []
     if instance_entries:
         properties.append(
             make_property("precogly:instance-categories", owner, instance_entries)

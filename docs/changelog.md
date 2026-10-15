@@ -64,6 +64,7 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 - A risk response's `targetDate` becomes the due date of each control it names that has no `precogly:due-date` of its own; with several responses the earliest wins.
 - Import warnings say how to fix the file where they can (a missing required field, a standard's requirement under `definitions.requirements` instead of `definitions.standards[].requirements`, a `satisfies` entry that is not a reference, a date format, an unknown status), and one warning lists the custom properties Precogly does not read (most are written back on export, but not those on threat actors, visualizations and a few other objects). `satisfies` written as objects and compliance requirements under `definitions.requirements` are not valid 2.0 and are not imported.
 - The `precogly:` property registry is one list, generated into the guest editor and printed in [Importing and Exporting](guides/importing-exporting.md).
+- A threat typed in by hand exports the categories picked on it in its threat definition's `categories`, where other CycloneDX tools and the guest editor read them; a library threat's own categories stay in `precogly:instance-categories` on the scenario, since its definition is shared. On import, a custom threat's categories that name an installed taxonomy entry become editable entries on the threat instead of a locked snapshot.
 - Passthrough keeps attack trees, attack paths, abuse cases, other tools' properties, and unknown fields; stale references are repaired on export with a warning.
 - Values Precogly holds only in part are written back while the row still holds what it was imported as: an owner who is not a member (controls, risks, responses), an effectiveness rating, a response status stored as planned (such as `proposed`), a risk domain's priority and description, custom risk domains, and `satisfies` refs to engineering requirements. An imported file's `definitions.standards` is written back whole, with its refs, and mappings made in Precogly are added to it. What Precogly does not model is listed in [Importing and Exporting](guides/importing-exporting.md#what-precogly-does-not-model).
 
@@ -83,6 +84,7 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 - CSV and Word exports carry number and target columns and lose the inherited and residual severity columns; a new Assumptions CSV.
 - The pentest scope groups test cases by target (component, flow, zone, boundary, system) with `T` and `C` numbers (#590).
 - Dashboard counts include the `info` level.
+- The STRIDE summary counts a threat under each of its STRIDE categories, so a threat with three categories shows in all three; the total is the number of active threats. Categories a custom threat kept from an import now count too. Each report threat carries `stride_categories` beside `stride_category`.
 - MCP: see the breaking changes above; the roadmap's export tool is single-format.
 
 ### Guest editor
