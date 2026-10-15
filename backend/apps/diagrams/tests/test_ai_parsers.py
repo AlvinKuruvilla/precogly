@@ -8,7 +8,7 @@ including the old key names a model may still produce.
 from django.test import SimpleTestCase, TestCase
 
 from apps.diagrams.ai.analyze import normalize_analysis
-from apps.diagrams.ai.generate import _validate_and_resolve
+from apps.diagrams.ai.generate import _fix_layout, _validate_and_resolve
 from apps.organizations.models import Organization
 from apps.threat_models.models import ThreatModel
 from apps.threats.ai.suggest import _coerce_severity, _parse_selections
@@ -32,6 +32,24 @@ RECORDED_ANALYSIS = {
             "trustZone": "Plant",
             "kind": "toaster",
             "dataSensitivity": "high",
+        },
+        {
+            "name": "Orders DB",
+            "type": "datastore",
+            "description": "Order history",
+            "technology": "PostgreSQL",
+            "zone": "DMZ",
+            "dataStoreType": "sql",
+            "dataSensitivity": "high",
+        },
+        {
+            "name": "Operator",
+            "type": "humanActor",
+            "description": "Plant operator",
+            "technology": "",
+            "zone": "External",
+            "dataStoreType": "sql",
+            "dataSensitivity": "low",
         },
     ],
     "flows": [
@@ -58,6 +76,22 @@ RECORDED_ANALYSIS = {
         {"name": "DMZ", "type": "network", "trustLevel": 140},
         {"name": "Plant", "type": "zoneRestricted", "trustLevel": "high"},
     ],
+    "boundaries": [
+        {
+            "name": "DMZ to plant",
+            "type": "network",
+            "zones": ["DMZ", "Plant", "Extra"],
+            "authentication": ["mtls", "bogus"],
+            "authorization": ["rbac"],
+        },
+        {
+            "name": "Odd",
+            "type": "moat",
+            "zones": "DMZ",
+            "authenticated": True,
+            "authorization": ["none", "acl"],
+        },
+    ],
     "systemScope": {"name": "Plant portal", "description": ""},
     "questions": ["Is the PLC reachable from the internet?"],
 }
@@ -66,11 +100,24 @@ RECORDED_ANALYSIS = {
 class AnalysisParserTests(SimpleTestCase):
     def test_new_keys_are_kept_and_unknown_values_dropped(self):
         result = normalize_analysis(dict(RECORDED_ANALYSIS), "App", "")
-        web, plc = result["components"]
+        web, plc, orders, operator = result["components"]
         self.assertEqual((web["zone"], web["kind"]), ("DMZ", "service"))
         self.assertEqual(plc["zone"], "Plant")
         self.assertNotIn("trustZone", plc)
         self.assertNotIn("kind", plc)
+        self.assertEqual(orders["dataStoreType"], "sql")
+        self.assertNotIn("dataStoreType", operator)
+        self.assertNotIn("zone", operator)
+        dmz_to_plant, odd = result["boundaries"]
+        self.assertEqual(dmz_to_plant["type"], "network")
+        self.assertEqual(dmz_to_plant["zones"], ["DMZ", "Plant"])
+        self.assertEqual(dmz_to_plant["authentication"], ["mtls"])
+        self.assertEqual(dmz_to_plant["authorization"], ["rbac"])
+        self.assertNotIn("type", odd)
+        self.assertEqual(odd["zones"], [])
+        self.assertEqual(odd["authentication"], ["unspecified"])
+        self.assertNotIn("authenticated", odd)
+        self.assertEqual(odd["authorization"], [])
         control, readings = result["flows"]
         self.assertEqual(control["type"], "control")
         self.assertEqual(control["authentication"], ["psk"])
@@ -108,6 +155,7 @@ class AnalysisParserTests(SimpleTestCase):
         self.assertEqual(result["components"], [])
         self.assertEqual(result["flows"], [])
         self.assertEqual(result["zones"], [])
+        self.assertEqual(result["boundaries"], [])
         self.assertEqual(result["questions"], [])
         self.assertEqual(result["systemScope"], {"name": "App", "description": "About"})
 
@@ -141,7 +189,19 @@ class GenerateParserTests(TestCase):
             {
                 "id": "process-2",
                 "type": "process",
-                "data": {"label": "Web", "kind": "blender"},
+                "data": {"label": "Web", "kind": "blender", "dataStoreType": "sql"},
+            },
+            {
+                "id": "datastore-1",
+                "type": "datastore",
+                "parentId": "zone-1",
+                "data": {"label": "Orders", "dataStoreType": "sql"},
+            },
+            {
+                "id": "datastore-2",
+                "type": "datastore",
+                "parentId": "zone-1",
+                "data": {"label": "Odd", "dataStoreType": "abacus"},
             },
             {"id": "bad", "type": "cloud", "data": {"label": "Dropped"}},
         ]
@@ -169,6 +229,34 @@ class GenerateParserTests(TestCase):
                 },
             },
             {"id": "edge-3", "source": "process-1", "target": "bad", "data": {}},
+            {
+                "id": "boundary-1",
+                "type": "trustBoundary",
+                "source": "zone-1",
+                "target": "zone-2",
+                "sourceHandle": "right-source",
+                "targetHandle": "left-target",
+                "data": {
+                    "label": "Plant edge",
+                    "boundaryType": "network",
+                    "authenticationMethods": ["mtls", "bogus"],
+                    "accessControlMethods": ["rbac", "made-up"],
+                },
+            },
+            {
+                "id": "boundary-2",
+                "type": "trustBoundary",
+                "source": "zone-1",
+                "target": "process-1",
+                "data": {"label": "Not between zones"},
+            },
+            {
+                "id": "edge-4",
+                "type": "wormhole",
+                "source": "process-1",
+                "target": "process-2",
+                "data": {},
+            },
         ]
         nodes, edges = _validate_and_resolve(nodes, edges, self.threat_model)
         by_id = {node["id"]: node["data"] for node in nodes}
@@ -180,8 +268,12 @@ class GenerateParserTests(TestCase):
         self.assertEqual(by_id["zone-2"], {"label": "Odd"})
         self.assertEqual(by_id["process-1"]["kind"], "device")
         self.assertNotIn("kind", by_id["process-2"])
+        self.assertNotIn("data_store_type", by_id["process-2"])
+        self.assertNotIn("dataStoreType", by_id["process-2"])
+        self.assertEqual(by_id["datastore-1"]["data_store_type"], "sql")
+        self.assertEqual(by_id["datastore-2"], {"label": "Odd"})
 
-        signal, readings = edges
+        signal, readings, boundary = edges
         self.assertEqual(
             signal["data"],
             {
@@ -198,7 +290,34 @@ class GenerateParserTests(TestCase):
                 "authentication": ["unspecified"],
             },
         )
-        self.assertEqual(len(edges), 2)
+        self.assertEqual(
+            boundary["data"],
+            {
+                "label": "Plant edge",
+                "boundary_type": "network",
+                "authentication_methods": ["mtls"],
+                "access_control_methods": ["rbac"],
+            },
+        )
+        self.assertEqual(len(edges), 3)
+        self.assertNotIn("sourceHandle", boundary)
+        self.assertNotIn("targetHandle", boundary)
+
+        # The layout pass names handles on data flows only; zone nodes have
+        # unnamed handles, so a boundary with a handle name would not draw.
+        nodes, edges = _fix_layout(nodes, edges, {"components": []})
+        signal, readings, boundary = edges
+        self.assertEqual(signal["sourceHandle"], "right-source")
+        self.assertNotIn("sourceHandle", boundary)
+        self.assertNotIn("targetHandle", boundary)
+
+    def test_data_store_types_export_to_spec_values(self):
+        from apps.diagrams.ai.prompts import EDITOR_DATA_STORE_TYPES
+        from apps.threat_models.tmbom.spec_values import DATA_STORE_TYPE_TO_SPEC
+
+        self.assertEqual(
+            set(EDITOR_DATA_STORE_TYPES) - set(DATA_STORE_TYPE_TO_SPEC), set()
+        )
 
 
 class SuggestParserTests(SimpleTestCase):

@@ -11,18 +11,29 @@ from apps.ai.utils import extract_json_object
 from apps.systems.crossing import (
     ASSET_TYPES,
     AUTHENTICATION_TYPES,
+    AUTHORIZATION_TYPES,
+    BOUNDARY_TYPES,
     FLOW_TYPES,
     UNSPECIFIED,
     ZONE_TYPES,
     clean_type_list,
 )
 
-from .prompts import ANALYZE_SYSTEM_PROMPT
+from .prompts import ANALYZE_SYSTEM_PROMPT, EDITOR_DATA_STORE_TYPES
 
 logger = logging.getLogger(__name__)
 
 # Keys we require in the analysis response.
-_REQUIRED_KEYS = ("components", "flows", "zones", "systemScope", "questions")
+_REQUIRED_KEYS = (
+    "components",
+    "flows",
+    "zones",
+    "boundaries",
+    "systemScope",
+    "questions",
+)
+
+_ACTOR_TYPES = ("humanActor", "systemActor")
 
 
 def analyze_architecture_image(
@@ -36,8 +47,8 @@ def analyze_architecture_image(
 ) -> dict:
     """Send an architecture image to a vision model and return structured analysis.
 
-    Returns a dict with keys: components, flows, zones, systemScope,
-    questions (``normalize_analysis``).  Raises ``AIProviderError`` if the model cannot be reached or
+    Returns a dict with keys: components, flows, zones, boundaries,
+    systemScope, questions (``normalize_analysis``).  Raises ``AIProviderError`` if the model cannot be reached or
     returns unparseable output (e.g. the model does not support vision).
     """
     provider = resolve_provider(organization, feature="generate_dfd", user=user)
@@ -89,8 +100,8 @@ def analyze_architecture_image(
 def normalize_analysis(result: dict, app_name: str, app_description: str) -> dict:
     """The analysis in the shape the generate step and the dialog expect.
 
-    Keys are ``components``, ``flows``, ``zones``, ``systemScope`` and
-    ``questions`` (plan section 8). The old names (``dataFlows``,
+    Keys are ``components``, ``flows``, ``zones``, ``boundaries``,
+    ``systemScope`` and ``questions`` (plan section 8). The old names (``dataFlows``,
     ``trustZones``, a component's ``trustZone``, a flow's ``authenticated``)
     are read too, since models repeat what they have seen. Types, kinds and
     authentication methods outside the allowed lists are dropped, never
@@ -120,6 +131,11 @@ def normalize_analysis(result: dict, app_name: str, app_description: str) -> dic
     result["zones"] = [
         _clean_zone(zone) for zone in result["zones"] if isinstance(zone, dict)
     ]
+    result["boundaries"] = [
+        _clean_boundary(boundary)
+        for boundary in result["boundaries"]
+        if isinstance(boundary, dict)
+    ]
     result["questions"] = [str(question) for question in result["questions"]]
     return result
 
@@ -130,6 +146,14 @@ def _clean_component(component: dict) -> dict:
     component.pop("trustZone", None)
     if component.get("kind") not in ASSET_TYPES:
         component.pop("kind", None)
+    if (
+        component.get("type") != "datastore"
+        or component.get("dataStoreType") not in EDITOR_DATA_STORE_TYPES
+    ):
+        component.pop("dataStoreType", None)
+    if component.get("type") in _ACTOR_TYPES:
+        # Actors sit outside the system; the layout never parents them.
+        component.pop("zone", None)
     return component
 
 
@@ -149,6 +173,34 @@ def _clean_zone(zone: dict) -> dict:
     except (TypeError, ValueError):
         zone.pop("trustLevel", None)
     return zone
+
+
+def _clean_boundary(boundary: dict) -> dict:
+    if boundary.get("type") not in BOUNDARY_TYPES:
+        boundary.pop("type", None)
+    zones = boundary.get("zones")
+    boundary["zones"] = (
+        [zone for zone in zones if isinstance(zone, str)][:2]
+        if isinstance(zones, list)
+        else []
+    )
+    boundary["authentication"] = clean_authentication(boundary)
+    boundary.pop("authenticated", None)
+    boundary["authorization"] = clean_authorization(boundary.get("authorization"))
+    return boundary
+
+
+def clean_authorization(raw) -> list[str]:
+    """A boundary's authorization list from model output: spec values only."""
+    if not isinstance(raw, list):
+        return []
+    try:
+        return clean_type_list(
+            [item for item in raw if item in AUTHORIZATION_TYPES],
+            field="authorization",
+        )
+    except ValueError:
+        return []
 
 
 def clean_authentication(data: dict) -> list[str]:

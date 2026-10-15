@@ -24,15 +24,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { OwlMark } from '@/features/ai/components/OwlMark'
-import { AiErrorState } from '@/features/ai/components/AiErrorState'
+import { OwlMark } from './OwlMark'
+import { AiErrorState } from './AiErrorState'
 import {
   useAnalyzeImage,
   useGenerateDfd,
   type AnalysisResult,
   type QuestionAnswer,
 } from '../api/generate-dfd'
-import type { DiagramNode, DiagramEdge } from '../types'
+import type { DiagramNode, DiagramEdge } from '@/features/dfd-editor/types'
 
 type Step = 'form' | 'chat' | 'generating'
 
@@ -443,6 +443,7 @@ export function GenerateDFDDialog({
             <div className="flex gap-4 text-sm text-muted-foreground">
               <span>{analysis.flows?.length ?? 0} flows</span>
               <span>{analysis.zones?.length ?? 0} zones</span>
+              <span>{analysis.boundaries?.length ?? 0} boundaries</span>
               {analysis.systemScope?.name && (
                 <span>Scope: {analysis.systemScope.name}</span>
               )}

@@ -10,11 +10,18 @@ from contextlib import suppress
 from apps.ai.providers.base import AIProviderError
 from apps.ai.resolver import resolve_provider
 from apps.ai.utils import extract_json_object
-from apps.systems.crossing import ASSET_TYPES, FLOW_TYPES, ZONE_TYPES, is_data_like
+from apps.systems.crossing import (
+    ASSET_TYPES,
+    BOUNDARY_TYPES,
+    FLOW_TYPES,
+    ZONE_TYPES,
+    is_data_like,
+)
 
-from .analyze import clean_authentication
+from .analyze import clean_authentication, clean_authorization
 from .prompts import (
     DEFAULT_NODE_SIZES,
+    EDITOR_DATA_STORE_TYPES,
     GENERATE_SYSTEM_PROMPT,
     MAX_COMPONENT_LIBRARY_ENTRIES,
     NODE_TYPE_TO_CATEGORY,
@@ -28,6 +35,9 @@ _CONTAINER_TYPES = frozenset({"trustZone", "systemScope"})
 
 # Node types that are external actors and belong outside the system scope.
 _ACTOR_TYPES = frozenset({"humanActor", "systemActor"})
+
+# Edge types the canvas draws; anything else the model writes is dropped.
+_VALID_EDGE_TYPES = frozenset({"dataFlow", "trustBoundary"})
 
 # Padding inside containers around the bounding box of their children.
 _CONTAINER_PADDING = 40
@@ -126,7 +136,10 @@ def _build_component_library_prompt(threat_model) -> str:
     lines = []
     for entry in entries:
         slug = entry.qualified_slug or entry.slug
-        line = f"slug={slug} | {entry.name} ({entry.category}, {entry.component_type}, {entry.provider})"
+        line = (
+            f"slug={slug} | {entry.name} ({entry.category}, kind {entry.kind}, "
+            f"{entry.component_type}, {entry.provider})"
+        )
         lines.append(line)
 
     return "\n".join(lines)
@@ -160,6 +173,7 @@ def _validate_and_resolve(
 
     valid_nodes = []
     valid_node_ids: set[str] = set()
+    node_types: dict[str, str] = {}
 
     for node in nodes:
         if not isinstance(node, dict):
@@ -206,6 +220,7 @@ def _validate_and_resolve(
         _clean_node_data(node_type, data)
         valid_nodes.append(node)
         valid_node_ids.add(node_id)
+        node_types[node_id] = node_type
 
     # Second pass: validate parentId references.
     for node in valid_nodes:
@@ -232,12 +247,28 @@ def _validate_and_resolve(
         # Ensure edge has type.
         if "type" not in edge:
             edge["type"] = "dataFlow"
+        if edge["type"] not in _VALID_EDGE_TYPES:
+            continue
+
+        # A boundary joins two zones and nothing else.
+        if edge["type"] == "trustBoundary" and (
+            node_types.get(source) != "trustZone"
+            or node_types.get(target) != "trustZone"
+            or source == target
+        ):
+            continue
 
         # Ensure edge has data dict.
         if "data" not in edge or not isinstance(edge.get("data"), dict):
             edge["data"] = {}
         if edge["type"] == "dataFlow":
             _clean_edge_data(edge["data"])
+        else:
+            # Zone nodes have unnamed handles and the editor draws boundaries
+            # without handle names; a named handle would leave the edge undrawn.
+            edge.pop("sourceHandle", None)
+            edge.pop("targetHandle", None)
+            _clean_boundary_edge_data(edge["data"])
 
         valid_edges.append(edge)
 
@@ -255,11 +286,12 @@ def _clean_node_data(node_type: str, data: dict) -> None:
     """Keep the zone type, trust level and kind the canvas understands (section 8).
 
     Written in the canvas's own keys (``zone_type``, ``trust_level``,
-    ``kind``), which DFD sync reads; an unknown value is dropped, so sync
-    applies its default.
+    ``kind``, ``data_store_type``), which DFD sync reads; an unknown value is
+    dropped, so sync applies its default.
     """
     zone_type = _pop_either(data, "zoneType", "zone_type")
     trust_level = _pop_either(data, "trustLevel", "trust_level")
+    data_store_type = _pop_either(data, "dataStoreType", "data_store_type")
     kind = data.pop("kind", None)
     if node_type == "trustZone":
         if zone_type in ZONE_TYPES:
@@ -268,6 +300,8 @@ def _clean_node_data(node_type: str, data: dict) -> None:
             data["trust_level"] = max(0, min(100, int(trust_level)))
     elif node_type in NODE_TYPE_TO_CATEGORY and kind in ASSET_TYPES:
         data["kind"] = kind
+    if node_type == "datastore" and data_store_type in EDITOR_DATA_STORE_TYPES:
+        data["data_store_type"] = data_store_type
 
 
 def _clean_edge_data(data: dict) -> None:
@@ -287,6 +321,33 @@ def _clean_edge_data(data: dict) -> None:
     if not is_data_like(data.get("flow_type") or "data"):
         data.pop("protocol", None)
         data.pop("encrypted", None)
+
+
+def _clean_boundary_edge_data(data: dict) -> None:
+    """A boundary edge in the canvas's keys, the ones DFD sync reads:
+    ``boundary_type``, ``authentication_methods``, ``access_control_methods``.
+    """
+    boundary_type = _pop_either(data, "boundaryType", "boundary_type")
+    if boundary_type in BOUNDARY_TYPES:
+        data["boundary_type"] = boundary_type
+    authentication_raw = _pop_either(
+        data, "authenticationMethods", "authentication_methods"
+    )
+    if authentication_raw is None:
+        authentication_raw = data.pop("authentication", None)
+    data.pop("authentication", None)
+    authentication = clean_authentication({"authentication": authentication_raw})
+    if authentication:
+        data["authentication_methods"] = authentication
+    authorization_raw = _pop_either(
+        data, "accessControlMethods", "access_control_methods"
+    )
+    if authorization_raw is None:
+        authorization_raw = data.pop("authorization", None)
+    data.pop("authorization", None)
+    authorization = clean_authorization(authorization_raw)
+    if authorization:
+        data["access_control_methods"] = authorization
 
 
 # ---------------------------------------------------------------------------
@@ -568,8 +629,14 @@ def _get_node_center(node: dict, by_id: dict[str, dict]) -> tuple[float, float]:
 def _recompute_handles(
     edges: list[dict], nodes: list[dict], by_id: dict[str, dict]
 ) -> None:
-    """Set sourceHandle/targetHandle based on actual relative positions."""
+    """Set sourceHandle/targetHandle based on actual relative positions.
+
+    Data flows only: zone nodes have no named handles, so a boundary edge
+    must stay without them (the editor draws them that way too).
+    """
     for edge in edges:
+        if edge.get("type") == "trustBoundary":
+            continue
         source_node = by_id.get(edge.get("source", ""))
         target_node = by_id.get(edge.get("target", ""))
         if not source_node or not target_node:

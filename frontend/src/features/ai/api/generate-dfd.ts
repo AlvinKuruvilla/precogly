@@ -26,6 +26,8 @@ export interface AnalysisComponent {
   technology: string
   zone?: string
   kind?: string
+  /** Data stores only; absent when the analysis could not tell. */
+  dataStoreType?: string
   dataSensitivity: string
 }
 
@@ -48,10 +50,21 @@ export interface AnalysisZone {
   trustLevel?: number
 }
 
+export interface AnalysisBoundary {
+  name: string
+  /** A boundary type; absent means trust. */
+  type?: string
+  /** The two zone names the boundary separates. */
+  zones: string[]
+  authentication: string[]
+  authorization: string[]
+}
+
 export interface AnalysisResult {
   components: AnalysisComponent[]
   flows: AnalysisFlow[]
   zones: AnalysisZone[]
+  boundaries?: AnalysisBoundary[]
   systemScope: { name: string; description: string }
   questions: string[]
 }

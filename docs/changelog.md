@@ -38,6 +38,7 @@ This release aligns Precogly's data model with the CycloneDX 2.0 Threat Modeling
 - Flows have a type (`data`, `message`, `event`, `control`, `signal`, `energy`, `physical`, `process`, `financial`); protocol and encryption apply to the data-like types; authentication is a list of methods with an "Authenticated, method not specified" quick choice. Library threats apply per flow type.
 - Components have a kind (the CycloneDX asset type), defaulting from their category.
 - **Show flows** filters the canvas by flow type: the physical view.
+- AI DFD generation asks the model for boundaries between zones (drawn as trust boundary edges with type, authentication and authorization), data store types, library kinds, one flow per direction, and trust levels by band. Actors get no zone, so no empty external zone is drawn.
 - A System Scope box is a system or subsystem asset, optionally linked to an inventory system; saving a diagram no longer creates or deletes inventory systems. The per-component System select is gone.
 - Blueprints: a model has one structural view by default and can have more. The switcher appears only with two or more; each blueprint has its own primary DFD. **Manage blueprints** adds, renames, reorders, and deletes with a preview.
 
