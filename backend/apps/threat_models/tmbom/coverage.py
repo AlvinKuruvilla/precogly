@@ -252,6 +252,7 @@ FIELD_HOMES: dict[str, dict[str, str | tuple[str, str]]] = {
         "status": "controls[].status",
         "verified_by": "precogly:verified-by",
         "evidence_url": "controls[].evidence",
+        "waiver_reason": "precogly:waiver-reason",
         "required_for_release": "precogly:required-for-release",
         "assigned_owner": "controls[].owner (party)",
         "countermeasure_name": "controls[].name",

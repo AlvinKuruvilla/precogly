@@ -219,6 +219,8 @@ export interface InstanceCountermeasure {
   verifiedBy: number | null
   verifiedByEmail: string | null
   evidenceUrl: string
+  /** Why a waived control is waived. */
+  waiverReason: string
   requiredForRelease: boolean
   assignedOwner: number | null
   assignedOwnerEmail: string | null
@@ -254,6 +256,7 @@ export interface CreateCountermeasureInput {
   dueDate?: string | null
   externalTicketUrl?: string
   evidenceUrl?: string
+  waiverReason?: string
   requiredForRelease?: boolean
   assignedOwner?: number | null
   effectiveness?: number | null
@@ -818,6 +821,7 @@ export interface AnalysisPayloadCountermeasure {
   dueDate?: string | null
   externalTicketUrl?: string
   evidenceUrl: string
+  waiverReason: string
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
   standardMappings: AnalysisStandardMapping[]
@@ -893,7 +897,7 @@ export function transformAnalysisThreats(payloadThreats: AnalysisPayloadThreat[]
       dueDate: cm.dueDate ?? null,
       externalTicketUrl: cm.externalTicketUrl || undefined,
       owner: cm.assignedOwnerEmail || undefined,
-      notes: cm.evidenceUrl || undefined,
+      notes: cm.waiverReason || undefined,
       createdAt: now,
       updatedAt: now,
       backendCountermeasureId: cm.id,
@@ -920,6 +924,7 @@ export function transformAnalysisThreats(payloadThreats: AnalysisPayloadThreat[]
       sourceDiagramId: firstTarget?.dfdId || undefined,
       sourceDiagramTitle: firstTarget?.dfdName || undefined,
       threatId: payloadThreat.threatLibraryId ? `lib-${payloadThreat.threatLibraryId}` : 'custom',
+      threatLibraryId: payloadThreat.threatLibraryId ?? null,
       triageStatus: payloadThreat.triageStatus || 'open',
       decisionRationale: payloadThreat.decisionRationale || '',
       countermeasures,

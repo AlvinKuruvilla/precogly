@@ -726,6 +726,8 @@ class InstanceCountermeasure(TimestampedModel):
         related_name="verified_countermeasures",
     )
     evidence_url = models.URLField(blank=True)
+    # Why a waived control is waived; a UI rule asks for it, the API does not.
+    waiver_reason = models.TextField(blank=True, default="")
     required_for_release = models.BooleanField(default=False)
     assigned_owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

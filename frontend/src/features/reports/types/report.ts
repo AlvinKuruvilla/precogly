@@ -205,6 +205,8 @@ export interface ReportCountermeasure {
   assignedOwnerEmail: string | null
   verifiedByEmail: string | null
   evidenceUrl: string
+  /** Why a waived control is waived; absent in payloads from before the field. */
+  waiverReason?: string
   number: number
   /** `C3` */
   displayNumber: string

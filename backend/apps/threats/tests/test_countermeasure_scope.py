@@ -306,6 +306,36 @@ class CountermeasureApiTests(ScopeFixture):
         )
         self.assertEqual(allowed.status_code, 200, allowed.content)
 
+    def test_a_waiver_reason_is_free_text_and_reaches_the_analysis_payload(self):
+        control = create_instance_countermeasure(
+            self.threat_model, countermeasure_name="Rate limiting"
+        )
+        link_countermeasure(control, self.threat)
+        reason = "Risk accepted: the WAF already throttles this path"
+        response = self.client_for(self.security).patch(
+            f"/api/countermeasures/{control.id}/",
+            {"status": "waived", "waiverReason": reason},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        control.refresh_from_db()
+        self.assertEqual(control.status, "waived")
+        self.assertEqual(control.waiver_reason, reason)
+        # The reason is not a URL; the evidence link stays what it was.
+        self.assertEqual(control.evidence_url, "")
+
+        payload = self.client_for(self.security).get(
+            f"/api/threat-models/{self.threat_model.id}/threats/"
+        )
+        self.assertEqual(payload.status_code, 200, payload.content)
+        rows = [
+            cm
+            for threat in payload.json()["threats"]
+            for cm in threat["countermeasures"]
+            if cm["id"] == control.id
+        ]
+        self.assertEqual(rows[0]["waiverReason"], reason)
+
 
 class ScopeLossWarningTests(ScopeFixture):
     """R12: every delete that takes a control's last target warns about it."""

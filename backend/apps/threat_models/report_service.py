@@ -477,6 +477,7 @@ def _serialize_countermeasure(cm):
         "assigned_owner_email": cm.assigned_owner.email if cm.assigned_owner else None,
         "verified_by_email": cm.verified_by.email if cm.verified_by else None,
         "evidence_url": cm.evidence_url,
+        "waiver_reason": cm.waiver_reason,
         "number": cm.number,
         "display_number": cm.display_number,
         "scope": _target_names(cm),

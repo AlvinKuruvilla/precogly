@@ -307,6 +307,7 @@ SNAPSHOT_FIELDS = {
             "status",
             "verified_by",
             "evidence_url",
+            "waiver_reason",
             "required_for_release",
             "assigned_owner",
             "countermeasure_name",

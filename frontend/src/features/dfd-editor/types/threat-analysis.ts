@@ -204,6 +204,8 @@ export interface AnalysisThreat {
   sourceDiagramTitle?: string
   // Reference to threat definition (e.g., "lib-123"); "custom" when there is none
   threatId: string
+  /** The library threat it was generated from, or null for a custom threat. */
+  threatLibraryId: number | null
   // Triage status for this threat
   triageStatus: TriageStatus
   // Rationale for triage decision

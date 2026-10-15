@@ -146,6 +146,7 @@ Everything Precogly stores that has no field in the schema is written as a `prec
 | `precogly:auto-generated` | control | boolean | True while the control is an untouched product of library generation. |
 | `precogly:source` | control | string | Where the control came from, as text. |
 | `precogly:verified-by` | control | string | Email of the user who verified the control. |
+| `precogly:waiver-reason` | control | string | Why a waived control is waived. |
 | `precogly:library` | control | string | Qualified slug of the library countermeasure the control was made from. |
 | `precogly:mitigates` | control | json | Refs of the scenarios the control is explicitly linked to. |
 | `precogly:sufficiency` | control | json | [{requirement, sufficiency}] for each requirement in satisfies. |

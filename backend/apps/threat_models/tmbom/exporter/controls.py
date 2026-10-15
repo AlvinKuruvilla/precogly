@@ -321,6 +321,10 @@ def _properties(countermeasure, scenario_refs: list[str], sufficiency: list[dict
                 "precogly:verified-by", owner, countermeasure.verified_by.email
             )
         )
+    if countermeasure.waiver_reason:
+        properties.append(
+            make_property("precogly:waiver-reason", owner, countermeasure.waiver_reason)
+        )
     library = countermeasure.countermeasure_library
     if library is not None and library.qualified_slug:
         properties.append(

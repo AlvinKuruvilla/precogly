@@ -64,6 +64,7 @@ SHARED_COUNTERMEASURE_KEYS = frozenset(
         "status",
         "priority",
         "evidence_url",
+        "waiver_reason",
         "assigned_owner_email",
         "verified_by_email",
         "standard_mappings",
@@ -342,6 +343,7 @@ def serialize_countermeasures_from_links(links, *, index=None, also_mitigates=No
                 "due_date": countermeasure.due_date,
                 "external_ticket_url": countermeasure.external_ticket_url,
                 "evidence_url": countermeasure.evidence_url,
+                "waiver_reason": countermeasure.waiver_reason,
                 "assigned_owner_email": countermeasure.assigned_owner.email
                 if countermeasure.assigned_owner
                 else None,

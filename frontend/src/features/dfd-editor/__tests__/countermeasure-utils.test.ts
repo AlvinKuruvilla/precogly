@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  countermeasureStatusAction,
+  countermeasureStatusOptions,
   isCountermeasureOverdue,
   overdueCountermeasures,
   todayIsoDate,
@@ -124,5 +126,43 @@ describe('overdueCountermeasures', () => {
       { number: 5, daysOverdue: 0 },
     ]
     expect(overdueCountermeasures(rows).map((row) => row.number)).toEqual([3, 2, 4])
+  })
+})
+
+describe('countermeasureStatusOptions', () => {
+  it('offers the four statuses anyone can set', () => {
+    expect(countermeasureStatusOptions({})).toEqual(['gap', 'planned', 'verified', 'waived'])
+  })
+
+  it('adds platform first for the Security Team', () => {
+    expect(countermeasureStatusOptions({ isSecurityTeam: true })).toEqual(['platform', 'gap', 'planned', 'verified', 'waived'])
+  })
+
+  it('keeps a current status that is not pickable, so a select is never blank', () => {
+    expect(countermeasureStatusOptions({ current: 'in_progress' })).toEqual(['in_progress', 'gap', 'planned', 'verified', 'waived'])
+    expect(countermeasureStatusOptions({ current: 'platform' })).toEqual(['platform', 'gap', 'planned', 'verified', 'waived'])
+  })
+
+  it('does not repeat a current status that is already listed', () => {
+    expect(countermeasureStatusOptions({ current: 'waived' })).toEqual(['gap', 'planned', 'verified', 'waived'])
+    expect(countermeasureStatusOptions({ current: 'platform', isSecurityTeam: true })).toEqual(['platform', 'gap', 'planned', 'verified', 'waived'])
+  })
+})
+
+describe('countermeasureStatusAction', () => {
+  it('asks for an owner before Planned when there is none', () => {
+    expect(countermeasureStatusAction('planned', false)).toBe('assign-owner')
+    expect(countermeasureStatusAction('planned', true)).toBe('change')
+  })
+
+  it('always asks for a reason before Waived', () => {
+    expect(countermeasureStatusAction('waived', false)).toBe('waive')
+    expect(countermeasureStatusAction('waived', true)).toBe('waive')
+  })
+
+  it('saves every other status as is', () => {
+    expect(countermeasureStatusAction('gap', false)).toBe('change')
+    expect(countermeasureStatusAction('verified', false)).toBe('change')
+    expect(countermeasureStatusAction('platform', false)).toBe('change')
   })
 })

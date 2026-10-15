@@ -11,35 +11,17 @@
  */
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { toast } from 'sonner'
-import { ChevronDown, ChevronUp, GripVertical, Loader2, Unlink } from 'lucide-react'
+import { ChevronDown, ChevronUp, GripVertical, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { SortableList } from '@/components/shared/SortableList'
-import {
-  useDeleteThreat,
-  useSetThreatTargets,
-  useThreatPersonas,
-  type TargetRef,
-} from '@/features/threat-models/api/threats'
 import { isActiveThreat, TRIAGE_STATUS_COLORS, TRIAGE_STATUSES, type TriageStatus } from '@/types/triage'
 import type { AnalysisThreat } from '../../types/threat-analysis'
 import { deriveThreatStatus } from '../../types/threat-analysis'
-import { EditTargetsDialog } from './EditTargetsDialog'
 import { NumberBadge } from './NumberBadge'
-import { ThreatDetailDialog } from './ThreatDetailDialog'
+import { ThreatEditor } from './ThreatEditor'
 import { ThreatStatusBadge } from './ThreatStatusBadge'
 import { type AnalysisSelection } from './analysis-selection'
 
@@ -94,8 +76,6 @@ export function ThreatList({
 }: ThreatListProps) {
   const [showTriagedThreats, setShowTriagedThreats] = useState(false)
   const [localOpenThreatNumber, setLocalOpenThreatNumber] = useState<string | null>(null)
-  const [deleteThreatConfirmFor, setDeleteThreatConfirmFor] = useState<{ backendId: number; name: string } | null>(null)
-  const [editingTargetsFor, setEditingTargetsFor] = useState<AnalysisThreat | null>(null)
 
   const isControlled = onOpenThreatChange !== undefined
   const openThreatNumber = isControlled ? controlledOpenThreatNumber ?? null : localOpenThreatNumber
@@ -103,10 +83,6 @@ export function ThreatList({
     if (isControlled) onOpenThreatChange(displayNumber)
     else setLocalOpenThreatNumber(displayNumber)
   }
-
-  const { data: personas = [] } = useThreatPersonas(threatModelId)
-  const setThreatTargetsMutation = useSetThreatTargets()
-  const deleteThreatMutation = useDeleteThreat()
 
   const activeThreats = useMemo(
     () =>
@@ -128,34 +104,6 @@ export function ThreatList({
     }
     onSelectThreat(threat.id)
     setOpenThreatNumber(threat.displayNumber)
-  }
-
-  const handleConfirmDeleteThreat = () => {
-    if (!deleteThreatConfirmFor) return
-    deleteThreatMutation.mutate(deleteThreatConfirmFor.backendId, {
-      onSuccess: () => {
-        toast.success('Threat deleted')
-        setDeleteThreatConfirmFor(null)
-        setEditingTargetsFor(null)
-        setOpenThreatNumber(null)
-      },
-      onError: () => toast.error('Could not delete the threat'),
-    })
-  }
-
-  const handleSaveTargets = (targets: TargetRef[], wholeSystem: boolean) => {
-    if (!editingTargetsFor) return
-    setThreatTargetsMutation.mutate(
-      { threatId: editingTargetsFor.backendThreatId, targets, wholeSystem },
-      {
-        onSuccess: () => {
-          toast.success(wholeSystem ? 'Now a whole-system threat' : 'Targets saved')
-          setEditingTargetsFor(null)
-          onTargetsSaved?.(wholeSystem)
-        },
-        onError: () => toast.error('Could not save the targets'),
-      }
-    )
   }
 
   /** Number, title and a pill; the drag handle and the use case view's Unlink sit beside them. */
@@ -295,78 +243,17 @@ export function ThreatList({
         </div>
       </ScrollArea>
 
-      <ThreatDetailDialog
+      <ThreatEditor
         threatModelId={threatModelId}
         threat={openThreat}
         onClose={() => setOpenThreatNumber(null)}
-        personas={personas}
+        onUpdateTriageStatus={onUpdateTriageStatus}
         selection={selection}
         onSelectTarget={onSelectTarget}
         onOpenAbuseCase={onOpenAbuseCase}
-        onUpdateTriageStatus={onUpdateTriageStatus}
-        onEditTargets={setEditingTargetsFor}
-        onRequestDelete={(threat) =>
-          setDeleteThreatConfirmFor({ backendId: threat.backendThreatId, name: threat.threatName || 'this threat' })
-        }
+        onTargetsSaved={onTargetsSaved}
+        onDeleted={() => setOpenThreatNumber(null)}
       />
-
-      {editingTargetsFor && (
-        <EditTargetsDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setEditingTargetsFor(null)
-          }}
-          threatModelId={threatModelId}
-          title={`${editingTargetsFor.displayNumber} Edit targets`}
-          initialTargets={editingTargetsFor.targets.map((target) => ({ type: target.type, id: target.id }))}
-          initialWholeSystem={editingTargetsFor.wholeSystem}
-          mode="threat"
-          isSaving={setThreatTargetsMutation.isPending}
-          onSave={handleSaveTargets}
-          onDelete={() =>
-            setDeleteThreatConfirmFor({
-              backendId: editingTargetsFor.backendThreatId,
-              name: editingTargetsFor.threatName || 'this threat',
-            })
-          }
-        />
-      )}
-
-      <AlertDialog
-        open={!!deleteThreatConfirmFor}
-        onOpenChange={(open) => {
-          if (!open) setDeleteThreatConfirmFor(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete threat?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This deletes "{deleteThreatConfirmFor?.name}" from every target it sits on. Untouched generated controls linked
-              only to it go too. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteThreatMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault()
-                handleConfirmDeleteThreat()
-              }}
-              disabled={deleteThreatMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteThreatMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting
-                </>
-              ) : (
-                'Delete'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

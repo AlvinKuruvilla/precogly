@@ -943,6 +943,7 @@ class InstanceCountermeasureSerializer(serializers.ModelSerializer):
             "verified_by",
             "verified_by_email",
             "evidence_url",
+            "waiver_reason",
             "required_for_release",
             "assigned_owner",
             "assigned_owner_email",

@@ -479,6 +479,7 @@ class ControlImporter:
             ),
             external_ticket_url=ticket,
             evidence_url=evidence,
+            waiver_reason=str(properties.get("precogly:waiver-reason") or ""),
         )
         self.used_numbers.add(countermeasure.number)
         self.highest_number = max(self.highest_number, countermeasure.number)

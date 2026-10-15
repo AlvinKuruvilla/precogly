@@ -276,6 +276,12 @@ export const PRECOGLY_PROPERTIES: readonly PrecoglyPropertyEntry[] = [
     "description": "Email of the user who verified the control.",
   },
   {
+    "name": "precogly:waiver-reason",
+    "owner": "control",
+    "valueType": "string",
+    "description": "Why a waived control is waived.",
+  },
+  {
     "name": "precogly:library",
     "owner": "control",
     "valueType": "string",

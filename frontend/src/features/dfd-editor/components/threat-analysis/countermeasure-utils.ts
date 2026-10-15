@@ -4,8 +4,39 @@
  * the label of a target list.
  */
 
-import type { AlsoMitigatesEntry, AnalysisTarget } from '../../types/threat-analysis'
+import type { AlsoMitigatesEntry, AnalysisTarget, CountermeasureStatus } from '../../types/threat-analysis'
 import type { TargetRef } from '@/features/threat-models/api/threats'
+
+/** The statuses anyone can pick; `platform` is the Security Team's alone. */
+const PICKABLE_STATUSES: CountermeasureStatus[] = ['gap', 'planned', 'verified', 'waived']
+
+/**
+ * The statuses a picker offers: platform first for the Security Team, then
+ * the four everyone can set. A current status outside that list (platform
+ * for other users, or in_progress, implemented and decommissioned from an
+ * import) is included too, so a select never shows blank.
+ */
+export function countermeasureStatusOptions(options: {
+  current?: CountermeasureStatus
+  isSecurityTeam?: boolean
+}): CountermeasureStatus[] {
+  const listed: CountermeasureStatus[] = options.isSecurityTeam ? ['platform', ...PICKABLE_STATUSES] : [...PICKABLE_STATUSES]
+  if (options.current && !listed.includes(options.current)) listed.unshift(options.current)
+  return listed
+}
+
+/**
+ * What picking a status does: Planned needs an owner first, Waived needs a
+ * reason first, anything else is saved as is.
+ */
+export function countermeasureStatusAction(
+  newStatus: CountermeasureStatus,
+  hasOwner: boolean
+): 'change' | 'assign-owner' | 'waive' {
+  if (newStatus === 'planned' && !hasOwner) return 'assign-owner'
+  if (newStatus === 'waived') return 'waive'
+  return 'change'
+}
 
 export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   none: { label: 'None', color: 'bg-gray-100 text-gray-600' },

@@ -326,13 +326,10 @@ export function ThreatModelDetail() {
 
   const selectedThreatBackendInfo = useMemo(() => {
     if (!selectedComponentThreat?.backendThreatId) return null
-    const parsedId = selectedComponentThreat.threatId.startsWith('lib-')
-      ? parseInt(selectedComponentThreat.threatId.slice(4), 10)
-      : null
     return {
       backendId: selectedComponentThreat.backendThreatId,
       name: selectedComponentThreat.threatName || 'Unknown Threat',
-      threatLibraryId: parsedId != null && !Number.isNaN(parsedId) ? parsedId : null,
+      threatLibraryId: selectedComponentThreat.threatLibraryId,
       targets: selectedComponentThreat.targets.map((target): TargetRef => ({ type: target.type, id: target.id })),
     }
   }, [selectedComponentThreat])

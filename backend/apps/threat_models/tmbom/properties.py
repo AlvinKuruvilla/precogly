@@ -297,6 +297,12 @@ REGISTRY: tuple[PrecoglyProperty, ...] = (
         "Email of the user who verified the control.",
     ),
     PrecoglyProperty(
+        "precogly:waiver-reason",
+        PropertyOwner.CONTROL,
+        PropertyValueType.STRING,
+        "Why a waived control is waived.",
+    ),
+    PrecoglyProperty(
         "precogly:library",
         PropertyOwner.CONTROL,
         PropertyValueType.STRING,

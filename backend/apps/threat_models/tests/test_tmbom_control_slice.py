@@ -119,6 +119,7 @@ def build_control_model(organization, user, ac2):
         assigned_owner=user,
         external_ticket_url="https://tickets.example/1",
         evidence_url="https://evidence.example/1.pdf",
+        waiver_reason="Waived for the pilot: the WAF throttles this path",
     )
     link_countermeasure(scoped, threat)
     InstanceCountermeasureStandard.objects.create(
@@ -168,7 +169,15 @@ class ExportTests(ControlSliceTestCase):
         properties = {p["name"]: p["value"] for p in scoped["properties"]}
         self.assertEqual(properties["precogly:number"], "1")
         self.assertEqual(properties["precogly:source"], "Pentest 2026-09")
+        self.assertEqual(
+            properties["precogly:waiver-reason"],
+            "Waived for the pilot: the WAF throttles this path",
+        )
         self.assertEqual(properties["precogly:due-date"], "2026-12-01")
+        whole_properties = {
+            p["name"]: p["value"] for p in by_name["Security training"]["properties"]
+        }
+        self.assertNotIn("precogly:waiver-reason", whole_properties)
         self.assertEqual(properties["precogly:required-for-release"], "true")
         self.assertEqual(properties["precogly:library"], "demo/param-queries")
         self.assertEqual(
@@ -244,6 +253,9 @@ class RoundTripTests(ControlSliceTestCase):
         self.assertEqual(scoped.assigned_owner, self.user)
         self.assertEqual(scoped.external_ticket_url, "https://tickets.example/1")
         self.assertEqual(scoped.evidence_url, "https://evidence.example/1.pdf")
+        self.assertEqual(
+            scoped.waiver_reason, "Waived for the pilot: the WAF throttles this path"
+        )
         self.assertEqual(scoped.control_functions, ["preventive", "detective"])
         self.assertEqual(scoped.threat_links.get().threat.threat_name, "SQLi")
         mappings = {m.section_code: m for m in scoped.instance_standard_mappings.all()}

@@ -30,6 +30,7 @@ function threat(
     id: `threat-${number}`,
     diagramId: '',
     threatId: 'custom',
+    threatLibraryId: null,
     triageStatus: 'open',
     countermeasures: [],
     createdAt: '',
