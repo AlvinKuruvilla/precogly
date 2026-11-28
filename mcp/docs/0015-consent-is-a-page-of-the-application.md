@@ -1,6 +1,10 @@
 # 0015: Consent is a page of the application
 
-Status: accepted
+Status: partly superseded. The stored request, its handle, binding on first read, and
+the per-request password counter, by
+[0016](0016-nothing-is-stored-for-an-authorization-request.md): the consent page now
+carries the request's query string instead of a handle. The consent page as an SPA
+route, the JWT, and the password confirmation stand.
 Date: 2026-11-08
 Relates to: [0003](0003-oauth-authorization-server.md),
 [0007](0007-re-authenticating-at-consent.md), [0012](0012-code-mode-over-the-api-schema.md)

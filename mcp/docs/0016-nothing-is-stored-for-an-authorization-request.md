@@ -1,6 +1,6 @@
 # 0016: Nothing is stored for an authorization request
 
-Status: proposed; not implemented
+Status: accepted
 Date: 2026-11-28
 Relates to: [0007](0007-re-authenticating-at-consent.md), #670
 Supersedes: the stored request and handle of [0015](0015-consent-is-a-page-of-the-application.md)
@@ -120,8 +120,10 @@ The request travels in the URL of every step, as it does at GitHub:
   stolen JWT could open requests without limit. One limit per user, shared with
   `/api/auth/login/`, is a separate PR.
 - **The request rate is still unbounded.** This removes the storage, not the traffic.
-- **Unverified:** that the SPA's login returns to `/oauth/consent` with the full query
-  string intact. Today it only has to keep `?id=`.
+- **The SPA's login has to keep the whole query.** `OAuthConsent.tsx` sends
+  `pathname + search` as the login's `redirect`. Checked on 2026-11-28 from a signed-out
+  browser and with Claude Code: both came back to the consent page and finished with a
+  code and the original `state`.
 
 ## Sources
 
