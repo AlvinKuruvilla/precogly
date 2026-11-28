@@ -6,7 +6,7 @@ class ScopeSerializer(serializers.Serializer):
     description = serializers.CharField()
 
 
-class PendingAuthorizationSerializer(serializers.Serializer):
+class AuthorizationRequestSerializer(serializers.Serializer):
     """What the consent page shows before the user allows or denies a client.
 
     The registering client supplies `client_name` during dynamic client registration,
@@ -23,7 +23,7 @@ class PendingAuthorizationSerializer(serializers.Serializer):
 
 class AuthorizedApplicationSerializer(serializers.Serializer):
     id = serializers.IntegerField()
-    # Chosen by the registering client, like `PendingAuthorizationSerializer.client_name`.
+    # Chosen by the registering client, like `AuthorizationRequestSerializer.client_name`.
     name = serializers.CharField()
     scopes = ScopeSerializer(many=True)
     # Tells apart two clients that registered under the same name.

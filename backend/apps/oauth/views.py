@@ -21,41 +21,37 @@ from oauth2_provider.settings import oauth2_settings
 from oauth2_provider.views.mixins import OAuthLibMixin
 from oauthlib.oauth2.rfc6749.errors import CustomOAuth2Error
 from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.oauth.models import MAX_PASSWORD_ATTEMPTS, PendingAuthorization
 from apps.oauth.permissions import SignedInInBrowser
 from apps.oauth.serializers import (
+    AuthorizationRequestSerializer,
     AuthorizedApplicationSerializer,
     DecisionResultSerializer,
     DecisionSerializer,
-    PendingAuthorizationSerializer,
 )
 
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
-class AuthorizeView(OAuthLibMixin, View):
-    """Stores a validated authorization request and sends the browser to the consent page.
+class AuthorizationRequestMixin(OAuthLibMixin):
+    """Validates the authorization request in a request's query string.
 
-    django-oauth-toolkit's `AuthorizationView` requires a Django session at this point;
-    this view requires none, because the user signs in on the consent page instead.
-    It drops the toolkit's `skip_authorization`, `approval_prompt=auto` and
-    `prompt=login`, which all need a signed-in user here. Dynamic registration never
-    sets `skip_authorization`, and `REQUEST_APPROVAL_PROMPT` is left at `force`.
+    Nothing is stored between requests, so every view that acts on the query string
+    validates it again: the browser may have edited it since `/o/authorize/` checked it.
     """
 
-    def get(self, request, *args, **kwargs):
-        try:
-            scopes, credentials = self.validate_authorization_request(request)
-        except OAuthToolkitError as error:
-            return self.error_response(error, allowed_schemes=None)
+    def validate_query(self, request):
+        """Returns the request's scopes as a list and the credentials
+        `create_authorization_response` takes. Raises `OAuthToolkitError`.
 
-        application = get_application_model().objects.get(
-            client_id=credentials["client_id"]
-        )
+        `request` is the Django request: a DRF view passes `request._request`.
+        """
+        scopes, credentials = self.validate_authorization_request(request)
+
         # Every token must name the MCP endpoint, and nothing else, as its resource.
         # django-oauth-toolkit checks a token's audience only when it has one, and by
         # URL prefix, so a token with no resource, or with the origin among its
@@ -63,7 +59,7 @@ class AuthorizeView(OAuthLibMixin, View):
         # checked. Compared exactly, as the MCP token verifier compares it.
         resource = request.GET.getlist("resource")
         if set(resource) != {settings.MCP_RESOURCE_URL}:
-            error = OAuthToolkitError(
+            raise OAuthToolkitError(
                 error=CustomOAuth2Error(
                     error="invalid_target",
                     description=(
@@ -74,24 +70,47 @@ class AuthorizeView(OAuthLibMixin, View):
                 ),
                 redirect_uri=credentials["redirect_uri"],
             )
-            return self.error_response(
-                error, allowed_schemes=application.get_allowed_schemes()
-            )
 
-        pending = PendingAuthorization.from_validated(scopes, credentials, resource)
-        pending.save()
+        # `request` is oauthlib's request object, which the grant does not need:
+        # django-oauth-toolkit's own `form_valid` builds the credentials without it.
+        del credentials["request"]
+        # oauthlib does not validate `resource`, so it does not return it. Set here,
+        # because the toolkit saves the grant's resource from this key.
+        credentials["resource"] = resource
+        return scopes, credentials
+
+
+class AuthorizeView(AuthorizationRequestMixin, View):
+    """Validates an authorization request and sends the browser to the consent page
+    with the same query string.
+
+    django-oauth-toolkit's `AuthorizationView` requires a Django session at this point;
+    this view requires none, because the user signs in on the consent page instead.
+    It drops the toolkit's `skip_authorization`, `approval_prompt=auto` and
+    `prompt=login`, which all need a signed-in user here. Dynamic registration never
+    sets `skip_authorization`, and `REQUEST_APPROVAL_PROMPT` is left at `force`.
+    """
+
+    def get(self, request, *args, **kwargs):
+        try:
+            self.validate_query(request)
+        except OAuthToolkitError as error:
+            return self.error_response(error)
+
         return HttpResponseRedirect(
-            f"{settings.FRONTEND_URL}/oauth/consent?id={pending.id}"
+            f"{settings.FRONTEND_URL}/oauth/consent?{request.META['QUERY_STRING']}"
         )
 
-    def error_response(self, error, allowed_schemes):
+    def error_response(self, error):
         redirect, response = super().error_response(error)
-        if redirect:
-            return OAuth2ResponseRedirect(
-                response["url"],
-                allowed_schemes or oauth2_settings.ALLOWED_REDIRECT_URI_SCHEMES,
-            )
-        return HttpResponseRedirect(error_page_url(response["error"]))
+        if not redirect:
+            return HttpResponseRedirect(error_page_url(response["error"]))
+        # `Application.get_allowed_schemes()` returns this setting unless a custom
+        # application model overrides it. Precogly uses the toolkit's own application
+        # model, so the setting applies.
+        return OAuth2ResponseRedirect(
+            response["url"], oauth2_settings.ALLOWED_REDIRECT_URI_SCHEMES
+        )
 
 
 def error_page_url(oauthlib_error):
@@ -111,108 +130,95 @@ def error_page_url(oauthlib_error):
     return f"{settings.FRONTEND_URL}/oauth/error?{query}"
 
 
-class PendingAuthorizationView(APIView):
-    """Returns a pending authorization request to the consent page, binding it to the
-    first user who reads it.
-
-    Every refusal is a 404, so the response never says whether a handle exists.
+class AuthorizationRequestView(AuthorizationRequestMixin, APIView):
+    """Returns what the consent page shows for the authorization request in the query
+    string. An invalid request is a 404.
     """
 
     permission_classes = [IsAuthenticated, SignedInInBrowser]
 
-    @extend_schema(responses=PendingAuthorizationSerializer)
-    def get(self, request, handle):
-        live = PendingAuthorization.objects.filter(
-            id=handle, used=False, expires_at__gt=timezone.now()
-        )
-        # One conditional UPDATE, so two users reading the same handle at once cannot
-        # both bind it.
-        live.filter(user__isnull=True).update(user=request.user)
-        pending = live.filter(user=request.user).select_related("application").first()
-        if pending is None:
-            raise NotFound
+    @extend_schema(responses=AuthorizationRequestSerializer)
+    def get(self, request):
+        try:
+            scopes, credentials = self.validate_query(request._request)
+        except OAuthToolkitError:
+            raise NotFound from None
 
+        application = get_application_model().objects.get(
+            client_id=credentials["client_id"]
+        )
         descriptions = get_scopes_backend().get_all_scopes()
+        redirect_uri = credentials["redirect_uri"]
         return Response(
-            PendingAuthorizationSerializer(
+            AuthorizationRequestSerializer(
                 {
-                    "client_name": pending.application.name,
+                    "client_name": application.name,
                     "scopes": [
                         {"name": scope, "description": descriptions[scope]}
-                        for scope in pending.scopes.split()
+                        for scope in scopes
                     ],
-                    "redirect_uri": pending.redirect_uri,
-                    "loopback_redirect": urlsplit(pending.redirect_uri).hostname
+                    "redirect_uri": redirect_uri,
+                    "loopback_redirect": urlsplit(redirect_uri).hostname
                     in LOOPBACK_HOSTS,
                 }
             ).data
         )
 
 
-class DecisionView(OAuthLibMixin, APIView):
-    """Records whether the user allows or denies the client, and returns where the
-    browser goes next.
+class DecisionView(AuthorizationRequestMixin, APIView):
+    """Allows or denies the authorization request in the query string, and returns
+    where the browser goes next.
 
-    Only the user bound by reading the handle can allow or deny the client:
+        query    decision  password  response
+        -------  --------  --------  ------------------
+        invalid  any       any       404
+        valid    deny      ignored   200, access_denied
+        valid    allow     correct   200, code
+        valid    allow     wrong     400
 
-        decision  password  row afterwards                         response
-        --------  --------  -------------------------------------  ----------------
-        deny      ignored   used                                   200, access_denied
-        allow     correct   used                                   200, code
-        allow     wrong     one more failure; used at the fifth    400
-        any       any       (unbound, another user's, expired,     404
-                            or already used)
+    TODO(AlvinKuruvilla): wrong passwords are not limited here. One limit per user,
+        shared with the JWT login (`/api/auth/login/`, which has none either), is the
+        split-out password rate-limiting PR. The design is in SESSION.md, "Per-user
+        password rate limit".
     """
 
     permission_classes = [IsAuthenticated, SignedInInBrowser]
+    # A form-encoded body fills Django's `request.POST`, which oauthlib reads as
+    # request parameters alongside the query string.
+    parser_classes = [JSONParser]
 
     @extend_schema(request=DecisionSerializer, responses=DecisionResultSerializer)
-    def post(self, request, handle):
+    def post(self, request):
         decision = DecisionSerializer(data=request.data)
         decision.is_valid(raise_exception=True)
         allow = decision.validated_data["allow"]
 
-        # The row is locked while the password is checked and the outcome recorded, so
-        # two concurrent decisions cannot both use it. The 400 is raised after the
-        # transaction commits, or raising it would roll back the failure count.
-        with transaction.atomic():
-            pending = (
-                PendingAuthorization.objects.select_for_update()
-                .filter(
-                    id=handle,
-                    user=request.user,
-                    used=False,
-                    expires_at__gt=timezone.now(),
-                )
-                .first()
-            )
-            if pending is None:
-                raise NotFound
-            password_ok = not allow or request.user.check_password(
-                decision.validated_data["password"]
-            )
-            if password_ok:
-                pending.used = True
-            else:
-                pending.failed_password_attempts += 1
-                pending.used = pending.failed_password_attempts >= MAX_PASSWORD_ATTEMPTS
-            pending.save(update_fields=["used", "failed_password_attempts"])
+        try:
+            scopes, credentials = self.validate_query(request._request)
+        except OAuthToolkitError:
+            raise NotFound from None
 
-        if not password_ok:
+        if allow and not request.user.check_password(
+            decision.validated_data["password"]
+        ):
             raise ValidationError({"password": "That password is incorrect."})
 
         # The user approved this client, so revoke its earlier tokens and grants:
         # the code issued below becomes its only access. Must stay above
         # `create_authorization_response`, or it deletes the grant issued there.
         if allow:
-            revoke_access(request.user, pending.application_id)
+            application = get_application_model().objects.get(
+                client_id=credentials["client_id"]
+            )
+            revoke_access(request.user, application.pk)
 
         try:
-            # The view mixin's method, which takes the scopes as the stored string.
+            # The view mixin's method, which takes the scopes as one space-separated
+            # string, as django-oauth-toolkit stores a grant's scopes.
             uri, _, _, _ = self.create_authorization_response(
                 request._request,
-                scopes=pending.scopes,
-                credentials=pending.credentials(),
+                scopes=" ".join(scopes),
+                credentials=credentials,
                 allow=allow,
             )
         except OAuthToolkitError as error:

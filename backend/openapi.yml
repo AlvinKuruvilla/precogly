@@ -4550,6 +4550,23 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/oauth/authorization-request/:
+    get:
+      operationId: oauth_authorization_request_retrieve
+      description: |-
+        Returns what the consent page shows for the authorization request in the query
+        string. An invalid request is a 404.
+      tags:
+      - oauth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequest'
+          description: ''
   /api/oauth/authorized-apps/:
     get:
       operationId: oauth_authorized_apps_list
@@ -4584,64 +4601,29 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/oauth/pending-authorizations/{handle}/:
-    get:
-      operationId: oauth_pending_authorizations_retrieve
-      description: |-
-        Returns a pending authorization request to the consent page, binding it to the
-        first user who reads it.
-
-        Every refusal is a 404, so the response never says whether a handle exists.
-      parameters:
-      - in: path
-        name: handle
-        schema:
-          type: string
-        required: true
-      tags:
-      - oauth
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PendingAuthorization'
-          description: ''
-  /api/oauth/pending-authorizations/{handle}/decision/:
+  /api/oauth/decision/:
     post:
-      operationId: oauth_pending_authorizations_decision_create
+      operationId: oauth_decision_create
       description: |-
-        Records whether the user allows or denies the client, and returns where the
-        browser goes next.
+        Allows or denies the authorization request in the query string, and returns
+        where the browser goes next.
 
-        Only the user bound by reading the handle can allow or deny the client:
+            query    decision  password  response
+            -------  --------  --------  ------------------
+            invalid  any       any       404
+            valid    deny      ignored   200, access_denied
+            valid    allow     correct   200, code
+            valid    allow     wrong     400
 
-            decision  password  row afterwards                         response
-            --------  --------  -------------------------------------  ----------------
-            deny      ignored   used                                   200, access_denied
-            allow     correct   used                                   200, code
-            allow     wrong     one more failure; used at the fifth    400
-            any       any       (unbound, another user's, expired,     404
-                                or already used)
-      parameters:
-      - in: path
-        name: handle
-        schema:
-          type: string
-        required: true
+        TODO(AlvinKuruvilla): wrong passwords are not limited here. One limit per user,
+            shared with the JWT login (`/api/auth/login/`, which has none either), is the
+            split-out password rate-limiting PR. The design is in SESSION.md, "Per-user
+            password rate limit".
       tags:
       - oauth
       requestBody:
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/Decision'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/Decision'
-          multipart/form-data:
             schema:
               $ref: '#/components/schemas/Decision'
         required: true
@@ -11411,6 +11393,29 @@ components:
       - id
       - ownerEmail
       - updatedAt
+    AuthorizationRequest:
+      type: object
+      description: |-
+        What the consent page shows before the user allows or denies a client.
+
+        The registering client supplies `client_name` during dynamic client registration,
+        unvetted, so the page must render it as plain text, never as HTML.
+      properties:
+        clientName:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scope'
+        redirectUri:
+          type: string
+        loopbackRedirect:
+          type: boolean
+      required:
+      - clientName
+      - loopbackRedirect
+      - redirectUri
+      - scopes
     AuthorizedApplication:
       type: object
       properties:
@@ -16626,29 +16631,6 @@ components:
           type: string
           format: date-time
           readOnly: true
-    PendingAuthorization:
-      type: object
-      description: |-
-        What the consent page shows before the user allows or denies a client.
-
-        The registering client supplies `client_name` during dynamic client registration,
-        unvetted, so the page must render it as plain text, never as HTML.
-      properties:
-        clientName:
-          type: string
-        scopes:
-          type: array
-          items:
-            $ref: '#/components/schemas/Scope'
-        redirectUri:
-          type: string
-        loopbackRedirect:
-          type: boolean
-      required:
-      - clientName
-      - loopbackRedirect
-      - redirectUri
-      - scopes
     PentestFinding:
       type: object
       description: Serializer for PentestFinding.

@@ -12,13 +12,14 @@ def consent_for_code(test_client, user, password, params):
         test_client.get(reverse("oauth2_provider:authorize"), params)["Location"]
     )
     assert consent_page.path == "/oauth/consent"
-    handle = parse_qs(consent_page.query)["id"][0]
+    # The consent page passes its own query string, unchanged, to both calls.
+    query = consent_page.query
     jwt = {"HTTP_AUTHORIZATION": f"Bearer {RefreshToken.for_user(user).access_token}"}
 
-    read = test_client.get(reverse("pending-authorization", args=[handle]), **jwt)
+    read = test_client.get(f"{reverse('authorization-request')}?{query}", **jwt)
     assert read.status_code == 200
     decision = test_client.post(
-        reverse("pending-authorization-decision", args=[handle]),
+        f"{reverse('authorization-decision')}?{query}",
         {"allow": True, "password": password},
         content_type="application/json",
         **jwt,

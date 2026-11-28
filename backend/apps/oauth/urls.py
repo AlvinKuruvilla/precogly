@@ -1,10 +1,10 @@
 from django.urls import path
 
 from apps.oauth.views import (
+    AuthorizationRequestView,
     AuthorizedApplicationsView,
     AuthorizedApplicationView,
     DecisionView,
-    PendingAuthorizationView,
 )
 
 urlpatterns = [
@@ -19,13 +19,13 @@ urlpatterns = [
         name="authorized-application",
     ),
     path(
-        "pending-authorizations/<str:handle>/",
-        PendingAuthorizationView.as_view(),
-        name="pending-authorization",
+        "authorization-request/",
+        AuthorizationRequestView.as_view(),
+        name="authorization-request",
     ),
     path(
-        "pending-authorizations/<str:handle>/decision/",
+        "decision/",
         DecisionView.as_view(),
-        name="pending-authorization-decision",
+        name="authorization-decision",
     ),
 ]

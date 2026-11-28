@@ -5,7 +5,6 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase
 from oauth2_provider.models import get_application_model
 
-from apps.oauth.models import PendingAuthorization
 from apps.oauth.views import AuthorizeView
 
 Application = get_application_model()
@@ -43,18 +42,23 @@ class TestAuthorizeView(TestCase):
         request.user = AnonymousUser()
         return AuthorizeView.as_view()(request)
 
-    def test_a_signed_out_user_is_sent_to_the_consent_page_with_a_handle(self):
+    def test_a_signed_out_user_is_sent_to_the_consent_page_with_the_same_query(self):
         response = self.authorize()
 
         assert response.status_code == 302
         location = urlparse(response["Location"])
         assert f"{location.scheme}://{location.netloc}" == settings.FRONTEND_URL
         assert location.path == "/oauth/consent"
-        handle = parse_qs(location.query)["id"][0]
-        stored = PendingAuthorization.objects.get(id=handle)
-        assert stored.application == self.application
-        assert stored.user is None
-        assert stored.resource == [settings.MCP_RESOURCE_URL]
+        assert parse_qs(location.query) == {
+            "response_type": ["code"],
+            "client_id": [self.application.client_id],
+            "redirect_uri": [REDIRECT],
+            "scope": ["read"],
+            "state": ["opaque-state"],
+            "code_challenge": [CHALLENGE],
+            "code_challenge_method": ["S256"],
+            "resource": [settings.MCP_RESOURCE_URL],
+        }
 
     def test_an_unknown_client_is_shown_the_error_by_precogly_not_redirected(self):
         # With no valid client there is no trusted redirect_uri, so redirecting to the
@@ -68,7 +72,6 @@ class TestAuthorizeView(TestCase):
         query = parse_qs(location.query)
         assert query["error"] == ["invalid_request"]
         assert "client_id" in query["error_description"][0]
-        assert not PendingAuthorization.objects.exists()
 
     def test_a_token_not_bound_to_the_mcp_endpoint_alone_is_refused(self):
         # The first three would yield a token the REST API accepts on every endpoint:
@@ -90,4 +93,3 @@ class TestAuthorizeView(TestCase):
                 assert query["error"] == ["invalid_target"]
                 assert query["state"] == ["opaque-state"]
                 assert settings.MCP_RESOURCE_URL in query["error_description"][0]
-        assert not PendingAuthorization.objects.exists()
