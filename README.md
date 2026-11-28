@@ -46,7 +46,7 @@ Precogly bridges this gap and democratizes threat modeling for every org in the 
 - A risk register with ratings, owners and responses, plus tracking of overdue countermeasures
 - Review and approval sign-off, with a clear flag when a model has changed since it was approved
 - Community library packs with links to taxonomies like MITRE ATT&CK, CAPEC, LINDDUN, STRIDE etc. - allows your team to quickly create high quality threat models
-- An MCP server so AI agents like Claude can read your threat models and search your threat, component and countermeasure libraries. Once you grant a client write access, its agent can also create and edit threat models.
+- An MCP server that lets AI agents like Claude use Precogly's API as you. With read access an agent sees what you can see; once you grant a client write access, its agent can also create and change what you can.
 
 ### Who is Precogly for?
 
