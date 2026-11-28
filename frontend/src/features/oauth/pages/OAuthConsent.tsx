@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { AlertCircle, AlertTriangle, Loader2, Shield } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ApiError } from '@/lib/api'
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useDecision, usePendingAuthorization } from '../api/consent'
+import { useAuthorizationRequest, useDecision } from '../api/consent'
 
 /**
  * Asks the signed-in user whether an MCP client may act on their Precogly account.
@@ -16,13 +16,12 @@ import { useDecision, usePendingAuthorization } from '../api/consent'
  * within the last hour, not that the person at the keyboard knows the password.
  */
 export function OAuthConsent() {
-  const [searchParams] = useSearchParams()
   const location = useLocation()
-  // The handle `/o/authorize/` redirects here with.
-  const handle = searchParams.get('id') ?? ''
+  // The authorization request, as `/o/authorize/` redirected here with it.
+  const query = location.search.replace(/^\?/, '')
   const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const pending = usePendingAuthorization(handle, isAuthenticated)
-  const decision = useDecision(handle)
+  const pending = useAuthorizationRequest(query, isAuthenticated)
+  const decision = useDecision(query)
   const [password, setPassword] = useState('')
 
   if (authLoading) {
@@ -41,9 +40,10 @@ export function OAuthConsent() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-            <h2 className="mt-4 text-xl font-semibold">This request can no longer be used</h2>
+            <h2 className="mt-4 text-xl font-semibold">This request can't be used</h2>
             <p className="mt-2 text-muted-foreground">
-              It has expired or was already answered. Start again from your MCP client.
+              The link is incomplete or was changed, or the MCP client is no longer
+              registered. Start again from your MCP client.
             </p>
           </CardContent>
         </Card>
@@ -101,7 +101,7 @@ export function OAuthConsent() {
 
           {requestGone && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-              This request can no longer be used. Start again from your MCP client.
+              This request can't be used. Start again from your MCP client.
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
-export interface PendingAuthorization {
+export interface AuthorizationRequest {
   clientName: string
   scopes: { name: string; description: string }[]
   redirectUri: string
@@ -13,15 +13,17 @@ export interface Decision {
   password?: string
 }
 
-const path = (handle: string) => `/oauth/pending-authorizations/${handle}/`
-
-// Reading binds the request to the signed-in user, so the query runs only once the user
-// is known; retrying a 404 would only repeat it.
-export function usePendingAuthorization(handle: string, enabled: boolean) {
+// `query`, here and in `useDecision`, is the consent page's own query string without
+// the `?`, exactly as `/o/authorize/` redirected with it. The authorization-request
+// and decision endpoints each validate it server-side, so it is passed on unchanged.
+//
+// The endpoint requires a JWT, so the query runs only once the user is known. A 404
+// means the request is invalid, so retrying returns the same 404.
+export function useAuthorizationRequest(query: string, enabled: boolean) {
   return useQuery({
-    queryKey: ['oauth', 'pending-authorization', handle],
-    queryFn: () => api.get<PendingAuthorization>(path(handle)),
-    enabled: enabled && !!handle,
+    queryKey: ['oauth', 'authorization-request', query],
+    queryFn: () => api.get<AuthorizationRequest>(`/oauth/authorization-request/?${query}`),
+    enabled: enabled && !!query,
     retry: false,
   })
 }
@@ -52,9 +54,9 @@ export function useRevokeApplication() {
   })
 }
 
-export function useDecision(handle: string) {
+export function useDecision(query: string) {
   return useMutation({
     mutationFn: (decision: Decision) =>
-      api.post<{ redirectUrl: string }>(`${path(handle)}decision/`, decision),
+      api.post<{ redirectUrl: string }>(`/oauth/decision/?${query}`, decision),
   })
 }
